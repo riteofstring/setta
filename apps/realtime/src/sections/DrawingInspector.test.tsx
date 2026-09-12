@@ -4,7 +4,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHost, WorkspaceProvider } from "@setta/workspace";
 
 import { DrawingInspector } from "./DrawingInspector";
-import { registerDrawingSurface } from "./drawingSurfaceRegistry";
+import {
+  EMPTY_DRAWING_SELECTION_SNAPSHOT,
+  registerDrawingSurface,
+  type DrawingSurfaceController,
+} from "./drawingSurfaceRegistry";
+
+function drawingSurfaceController(
+  canvas: Pick<
+    DrawingSurfaceController,
+    "fitSectionToCanvas" | "getCanvasSize" | "resizeCanvas"
+  >,
+): DrawingSurfaceController {
+  return {
+    alignSelection: () => false,
+    bringSelectionForward: () => false,
+    bringSelectionToFront: () => false,
+    clearSelection: () => false,
+    copySelection: () => false,
+    deleteSelection: () => false,
+    distributeSelection: () => false,
+    duplicateSelection: async () => false,
+    getSelectionSnapshot: () => EMPTY_DRAWING_SELECTION_SNAPSHOT,
+    groupSelection: () => false,
+    nudgeSelection: () => false,
+    pasteSelection: async () => false,
+    selectAll: () => false,
+    sendSelectionBackward: () => false,
+    sendSelectionToBack: () => false,
+    setSelectionAppearance: () => false,
+    setSelectionTypography: () => false,
+    subscribeSelection: () => () => {},
+    toggleSelectionLock: () => false,
+    ungroupSelection: () => false,
+    ...canvas,
+  };
+}
 
 function changeInput(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
@@ -37,11 +72,15 @@ describe("drawing Inspector", () => {
   it("applies linked canvas dimensions and fits the section on demand", async () => {
     const resizeCanvas = vi.fn(() => true);
     const fitSectionToCanvas = vi.fn(() => true);
-    const unregister = registerDrawingSurface(host, "drawing-main", {
-      fitSectionToCanvas,
-      getCanvasSize: () => ({ height: 320, width: 480 }),
-      resizeCanvas,
-    });
+    const unregister = registerDrawingSurface(
+      host,
+      "drawing-main",
+      drawingSurfaceController({
+        fitSectionToCanvas,
+        getCanvasSize: () => ({ height: 320, width: 480 }),
+        resizeCanvas,
+      }),
+    );
     await act(async () => {
       root.render(
         <WorkspaceProvider host={host}>
@@ -99,11 +138,15 @@ describe("drawing Inspector", () => {
 
   it("rejects canvas dimensions outside the persisted contract", async () => {
     const resizeCanvas = vi.fn(() => true);
-    const unregister = registerDrawingSurface(host, "drawing-main", {
-      fitSectionToCanvas: () => true,
-      getCanvasSize: () => ({ height: 320, width: 480 }),
-      resizeCanvas,
-    });
+    const unregister = registerDrawingSurface(
+      host,
+      "drawing-main",
+      drawingSurfaceController({
+        fitSectionToCanvas: () => true,
+        getCanvasSize: () => ({ height: 320, width: 480 }),
+        resizeCanvas,
+      }),
+    );
     await act(async () => {
       root.render(
         <WorkspaceProvider host={host}>

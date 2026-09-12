@@ -1,17 +1,52 @@
 import {
   Canvas,
+  Color,
   Ellipse,
   FabricImage,
+  Group,
+  Line,
   PencilBrush,
+  Polyline,
   Rect,
+  Textbox,
   type FabricObject,
   type TPointerEventInfo,
+  util,
 } from "fabric";
 import type { WorkspaceSectionData } from "@setta/workspace";
 
+import {
+  DRAWING_OBJECT_SERIALIZATION_PROPERTIES,
+  alignDrawingObjects,
+  applyDrawingAppearance,
+  applyDrawingTypography,
+  createDrawingSelectionSnapshot,
+  distributeDrawingObjects,
+  isDrawingObjectLocked,
+  restoreDrawingSelection,
+  selectedDrawingObjects,
+  setDrawingObjectsLocked,
+  synchronizeDrawingSelectionLock,
+  type DrawingAlignment,
+  type DrawingDistribution,
+  type DrawingSelectionAppearancePatch,
+  type DrawingSelectionSnapshot,
+  type DrawingSelectionTypographyPatch,
+} from "./drawingObjectModel";
 import type { DrawingSnapshot } from "./drawingSettlementQueue";
 
-export type DrawingTool = "select" | "draw" | "erase";
+export type {
+  DrawingAlignment,
+  DrawingDistribution,
+  DrawingSelectionAppearancePatch,
+  DrawingSelectionKind,
+  DrawingSelectionSnapshot,
+  DrawingSelectionTypographyPatch,
+  DrawingSelectionValue,
+  DrawingTextAlign,
+} from "./drawingObjectModel";
+
+export type DrawingTool = "select" | "draw" | "highlighter" | "erase";
 
 export type DrawingHistoryState = {
   canRedo: boolean;
@@ -55,6 +90,22 @@ type DrawingRuntimeOptions = {
 };
 
 type DrawingHistoryEntry = DrawingCanvasDocument;
+
+type DrawingSerializedObject = Record<string, WorkspaceSectionData>;
+
+type DrawingAsyncOperation = {
+  controller: AbortController;
+  kind: "duplicate" | "paste";
+  revision: number;
+};
+
+type BrushSettings = {
+  color: string;
+  width: number;
+};
+
+const DRAWING_HIGHLIGHTER_ALPHA = 0.32;
+const DRAWING_OBJECT_OFFSET = 12;
 
 const DRAWING_CANVAS_ANCHOR_FACTORS: Record<
   DrawingCanvasAnchor,
@@ -100,6 +151,12 @@ export class RealtimeDrawingRuntime {
   private readonly background: string;
   private availableHeight: number | null = null;
   private availableWidth: number | null = null;
+  private asyncOperation: DrawingAsyncOperation | null = null;
+  private asyncOperationRevision = 0;
+  private clipboard: ReadonlyArray<DrawingSerializedObject> = [];
+  private clipboardPasteCount = 0;
+  private clipboardRevision = 0;
+  private disposed = false;
   private drawing = false;
   private erasing = false;
   private erasedInGesture = false;
@@ -108,11 +165,19 @@ export class RealtimeDrawingRuntime {
   private logicalHeight: number;
   private logicalWidth: number;
   private loading = false;
+  private readonly pen: BrushSettings = { color: "#111827", width: 4 };
+  private readonly highlighter: BrushSettings = {
+    color: "#facc15",
+    width: 18,
+  };
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
   private readonly onSettled: () => void;
   private readonly renderOnAddRemove: boolean;
   private sceneLoad: AbortController | null = null;
+  private selectionSnapshot: DrawingSelectionSnapshot;
+  private selectionSnapshotKey = "";
+  private readonly selectionSubscribers = new Set<() => void>();
 
   public constructor(
     element: HTMLCanvasElement,
@@ -130,15 +195,26 @@ export class RealtimeDrawingRuntime {
       height: options.height,
       preserveObjectStacking: true,
       selection: true,
+      uniformScaling: false,
       width: options.width,
     });
     const brush = new PencilBrush(this.canvas);
-    brush.color = "#111827";
-    brush.width = 4;
+    brush.color = this.pen.color;
+    brush.limitedToCanvasSize = true;
+    brush.width = this.pen.width;
     this.canvas.freeDrawingBrush = brush;
     this.renderOnAddRemove = this.canvas.renderOnAddRemove;
+    this.selectionSnapshot = createDrawingSelectionSnapshot(this.canvas, {
+      canPaste: false,
+    });
+    this.selectionSnapshotKey = JSON.stringify(this.selectionSnapshot);
     this.canvas.on("path:created", this.handleSettled);
-    this.canvas.on("object:modified", this.handleSettled);
+    this.canvas.on("object:modified", this.handleObjectModified);
+    this.canvas.on("selection:created", this.handleSelectionChanged);
+    this.canvas.on("selection:updated", this.handleSelectionChanged);
+    this.canvas.on("selection:cleared", this.handleSelectionChanged);
+    this.canvas.on("text:changed", this.handleTextChanged);
+    this.canvas.on("text:editing:exited", this.handleTextEditingExited);
     this.canvas.on("mouse:down", this.handlePointerStart);
     this.canvas.on("mouse:move", this.handlePointerMove);
     this.canvas.on("mouse:up", this.handlePointerEnd);
@@ -148,9 +224,19 @@ export class RealtimeDrawingRuntime {
     this.publishHistoryState();
   }
 
+  public getSelectionSnapshot(): DrawingSelectionSnapshot {
+    return this.selectionSnapshot;
+  }
+
+  public subscribeSelection(subscriber: () => void): () => void {
+    this.selectionSubscribers.add(subscriber);
+    return () => this.selectionSubscribers.delete(subscriber);
+  }
+
   public setTool(tool: DrawingTool): void {
     this.tool = tool;
-    this.canvas.isDrawingMode = tool === "draw";
+    this.configureBrush();
+    this.canvas.isDrawingMode = tool === "draw" || tool === "highlighter";
     this.canvas.selection = tool === "select";
     this.canvas.defaultCursor = tool === "erase" ? "crosshair" : "default";
     for (const object of this.canvas.getObjects()) {
@@ -164,41 +250,89 @@ export class RealtimeDrawingRuntime {
   }
 
   public addRectangle(): FabricObject {
-    const offset = this.canvas.getObjects().length * 12;
+    const position = this.nextObjectPosition(112, 72);
     const object = new Rect({
       fill: "rgba(37, 99, 235, 0.12)",
       height: 72,
-      left: 32 + offset,
+      left: position.x,
       stroke: "#2563eb",
       strokeWidth: 2,
-      top: 32 + offset,
+      top: position.y,
       width: 112,
     });
-    this.canvas.add(object);
-    this.setTool("select");
-    this.canvas.setActiveObject(object);
-    this.canvas.requestRenderAll();
-    this.recordSettledChange();
-    return object;
+    return this.addCreatedObject(object);
   }
 
   public addEllipse(): FabricObject {
-    const offset = this.canvas.getObjects().length * 12;
+    const position = this.nextObjectPosition(108, 76);
     const object = new Ellipse({
       fill: "rgba(37, 99, 235, 0.12)",
-      left: 36 + offset,
+      left: position.x,
       rx: 54,
       ry: 38,
       stroke: "#2563eb",
       strokeWidth: 2,
-      top: 36 + offset,
+      top: position.y,
+    });
+    return this.addCreatedObject(object);
+  }
+
+  public addText(): Textbox {
+    const position = this.nextObjectPosition(180, 48);
+    const object = new Textbox("Text", {
+      fill: "#111827",
+      fontFamily: "Arial",
+      fontSize: 28,
+      left: position.x,
+      top: position.y,
+      width: 180,
     });
     this.canvas.add(object);
     this.setTool("select");
     this.canvas.setActiveObject(object);
+    object.enterEditing();
+    object.selectAll();
     this.canvas.requestRenderAll();
-    this.recordSettledChange();
+    this.publishSelectionState();
+    this.previewLocalChange();
     return object;
+  }
+
+  public addLine(): Line {
+    const position = this.nextObjectPosition(120, 2);
+    return this.addCreatedObject(
+      new Line([0, 0, 120, 0], {
+        left: position.x,
+        stroke: "#111827",
+        strokeLineCap: "round",
+        strokeWidth: 3,
+        top: position.y,
+      }),
+    );
+  }
+
+  public addArrow(): Polyline {
+    const position = this.nextObjectPosition(120, 28);
+    return this.addCreatedObject(
+      new Polyline(
+        [
+          { x: 0, y: 14 },
+          { x: 120, y: 14 },
+          { x: 98, y: 0 },
+          { x: 120, y: 14 },
+          { x: 98, y: 28 },
+        ],
+        {
+          fill: null,
+          left: position.x,
+          stroke: "#111827",
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+          strokeWidth: 3,
+          top: position.y,
+        },
+      ),
+    );
   }
 
   public addFilteredImage(
@@ -208,16 +342,11 @@ export class RealtimeDrawingRuntime {
     const image = new FabricImage(source, { left: 24, top: 24 });
     image.filters = [...imageFilters];
     image.applyFilters();
-    this.canvas.add(image);
-    this.setTool("select");
-    this.canvas.setActiveObject(image);
-    this.canvas.requestRenderAll();
-    this.notifySettled();
-    return image;
+    return this.addCreatedObject(image);
   }
 
   public eraseObject(object: FabricObject): boolean {
-    if (!this.canvas.contains(object)) {
+    if (!this.canvas.contains(object) || isDrawingObjectLocked(object)) {
       return false;
     }
     this.canvas.remove(object);
@@ -225,18 +354,10 @@ export class RealtimeDrawingRuntime {
     return true;
   }
 
-  public clear(): void {
-    const objects = this.canvas.getObjects();
-    if (objects.length === 0) {
-      return;
-    }
-    this.canvas.remove(...objects);
-    this.canvas.requestRenderAll();
-    this.recordSettledChange();
-  }
-
-  public deleteSelection(): boolean {
-    const objects = this.canvas.getActiveObjects();
+  public clear(): boolean {
+    const objects = this.canvas
+      .getObjects()
+      .filter((object) => !isDrawingObjectLocked(object));
     if (objects.length === 0) {
       return false;
     }
@@ -247,13 +368,233 @@ export class RealtimeDrawingRuntime {
     return true;
   }
 
+  public deleteSelection(): boolean {
+    const objects = selectedDrawingObjects(this.canvas);
+    if (
+      objects.length === 0 ||
+      objects.some((object) => isDrawingObjectLocked(object))
+    ) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    this.canvas.remove(...objects);
+    this.canvas.requestRenderAll();
+    this.recordSettledChange();
+    return true;
+  }
+
   public setBrush(color: string, width: number): void {
-    const brush = this.canvas.freeDrawingBrush;
-    if (brush === undefined) {
+    if (color.trim().length === 0 || !Number.isFinite(width) || width <= 0) {
       return;
     }
-    brush.color = color;
-    brush.width = width;
+    const settings = this.tool === "highlighter" ? this.highlighter : this.pen;
+    settings.color = color;
+    settings.width = width;
+    this.configureBrush();
+  }
+
+  public setSelectionAppearance(
+    patch: DrawingSelectionAppearancePatch,
+  ): boolean {
+    const changed = applyDrawingAppearance(
+      selectedDrawingObjects(this.canvas),
+      patch,
+    );
+    return this.finishSelectionMutation(changed);
+  }
+
+  public setSelectionTypography(
+    patch: DrawingSelectionTypographyPatch,
+  ): boolean {
+    const changed = applyDrawingTypography(
+      selectedDrawingObjects(this.canvas),
+      patch,
+    );
+    return this.finishSelectionMutation(changed);
+  }
+
+  public toggleSelectionLock(): boolean {
+    const objects = selectedDrawingObjects(this.canvas);
+    if (objects.length === 0) {
+      return false;
+    }
+    const lock = !objects.every(isDrawingObjectLocked);
+    return this.finishSelectionMutation(setDrawingObjectsLocked(objects, lock));
+  }
+
+  public bringSelectionForward(): boolean {
+    return this.arrangeSelection("forward");
+  }
+
+  public sendSelectionBackward(): boolean {
+    return this.arrangeSelection("backward");
+  }
+
+  public bringSelectionToFront(): boolean {
+    return this.arrangeSelection("front");
+  }
+
+  public sendSelectionToBack(): boolean {
+    return this.arrangeSelection("back");
+  }
+
+  public alignSelection(alignment: DrawingAlignment): boolean {
+    const objects = this.unlockedSelection(2);
+    if (objects === null) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    const changed = alignDrawingObjects(objects, alignment);
+    restoreDrawingSelection(this.canvas, objects);
+    return this.finishSelectionMutation(changed);
+  }
+
+  public distributeSelection(distribution: DrawingDistribution): boolean {
+    const objects = this.unlockedSelection(3);
+    if (objects === null) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    const changed = distributeDrawingObjects(objects, distribution);
+    restoreDrawingSelection(this.canvas, objects);
+    return this.finishSelectionMutation(changed);
+  }
+
+  public groupSelection(): boolean {
+    const objects = this.unlockedSelection(2);
+    if (objects === null) {
+      return false;
+    }
+    const canvasObjects = this.canvas.getObjects();
+    const selected = new Set(objects);
+    const ordered = canvasObjects.filter((object) => selected.has(object));
+    const indices = ordered.map((object) => canvasObjects.indexOf(object));
+    const targetIndex = Math.max(...indices) - ordered.length + 1;
+    this.canvas.discardActiveObject();
+    this.canvas.remove(...ordered);
+    const group = new Group(ordered);
+    this.canvas.insertAt(targetIndex, group);
+    this.canvas.setActiveObject(group);
+    return this.finishSelectionMutation(true);
+  }
+
+  public ungroupSelection(): boolean {
+    const objects = this.unlockedSelection(1);
+    const group = objects?.[0];
+    if (!(group instanceof Group)) {
+      return false;
+    }
+    const index = this.canvas.getObjects().indexOf(group);
+    this.canvas.discardActiveObject();
+    const children = group.removeAll();
+    this.canvas.remove(group);
+    this.canvas.insertAt(index, ...children);
+    restoreDrawingSelection(this.canvas, children);
+    return this.finishSelectionMutation(children.length > 0);
+  }
+
+  public async duplicateSelection(): Promise<boolean> {
+    const source = this.unlockedSelection(1);
+    if (source === null) {
+      return false;
+    }
+    const serialized = this.serializeObjects(source);
+    const operation = this.beginAsyncOperation("duplicate");
+    const objects = await this.enlivenObjects(serialized, operation);
+    if (
+      objects === null ||
+      !this.isCurrentOperation(operation) ||
+      !this.selectionMatches(source)
+    ) {
+      if (this.isCurrentOperation(operation)) {
+        this.cancelAsyncOperation();
+      }
+      return false;
+    }
+    this.completeAsyncOperation(operation);
+    return this.installObjects(objects, DRAWING_OBJECT_OFFSET);
+  }
+
+  public copySelection(): boolean {
+    const objects = selectedDrawingObjects(this.canvas);
+    if (objects.length === 0) {
+      return false;
+    }
+    this.cancelAsyncOperation();
+    this.clipboard = Object.freeze(this.serializeObjects(objects));
+    this.clipboardPasteCount = 0;
+    this.clipboardRevision += 1;
+    this.publishSelectionState();
+    return true;
+  }
+
+  public async pasteSelection(): Promise<boolean> {
+    if (this.clipboard.length === 0) {
+      return false;
+    }
+    const clipboard = this.clipboard;
+    const clipboardRevision = this.clipboardRevision;
+    const operation = this.beginAsyncOperation("paste");
+    const objects = await this.enlivenObjects(clipboard, operation);
+    if (
+      objects === null ||
+      !this.isCurrentOperation(operation) ||
+      clipboard !== this.clipboard ||
+      clipboardRevision !== this.clipboardRevision
+    ) {
+      if (this.isCurrentOperation(operation)) {
+        this.cancelAsyncOperation();
+      }
+      return false;
+    }
+    this.completeAsyncOperation(operation);
+    this.clipboardPasteCount += 1;
+    return this.installObjects(
+      objects,
+      DRAWING_OBJECT_OFFSET * this.clipboardPasteCount,
+    );
+  }
+
+  public selectAll(): boolean {
+    const objects = this.canvas.getObjects();
+    if (objects.length === 0 || this.selectionMatches(objects)) {
+      return false;
+    }
+    this.setTool("select");
+    this.canvas.discardActiveObject();
+    restoreDrawingSelection(this.canvas, objects);
+    this.canvas.requestRenderAll();
+    this.publishSelectionState();
+    return true;
+  }
+
+  public clearSelection(): boolean {
+    if (selectedDrawingObjects(this.canvas).length === 0) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    this.canvas.requestRenderAll();
+    this.publishSelectionState();
+    return true;
+  }
+
+  public nudgeSelection(x: number, y: number): boolean {
+    const objects = this.unlockedSelection(1);
+    if (
+      objects === null ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      (x === 0 && y === 0)
+    ) {
+      return false;
+    }
+    this.canvas.discardActiveObject();
+    for (const object of objects) {
+      object.set({ left: object.left + x, top: object.top + y });
+      object.setCoords();
+    }
+    restoreDrawingSelection(this.canvas, objects);
+    return this.finishSelectionMutation(true);
   }
 
   public resizeToFit(availableWidth: number, availableHeight: number): void {
@@ -365,6 +706,7 @@ export class RealtimeDrawingRuntime {
   }
 
   private async applyScene(scene: WorkspaceSectionData): Promise<boolean> {
+    this.cancelAsyncOperation();
     this.sceneLoad?.abort();
     const controller = new AbortController();
     this.sceneLoad = controller;
@@ -398,12 +740,15 @@ export class RealtimeDrawingRuntime {
         this.canvas.skipTargetFind = false;
         this.setTool(this.tool);
         this.canvas.renderAll();
+        this.publishSelectionState();
       }
     }
   }
 
   public toScene(): WorkspaceSectionData {
-    return this.canvas.toJSON() as WorkspaceSectionData;
+    return this.canvas.toObject([
+      ...DRAWING_OBJECT_SERIALIZATION_PROPERTIES,
+    ]) as WorkspaceSectionData;
   }
 
   public toDataURL(): string {
@@ -454,13 +799,16 @@ export class RealtimeDrawingRuntime {
   }
 
   public async dispose(): Promise<void> {
+    this.disposed = true;
+    this.cancelAsyncOperation();
     this.sceneLoad?.abort();
     this.sceneLoad = null;
+    this.selectionSubscribers.clear();
     await this.canvas.dispose();
   }
 
   private readonly notifySettled = (): void => {
-    if (!this.loading) {
+    if (!this.loading && !this.disposed) {
       this.onSettled();
     }
   };
@@ -469,10 +817,39 @@ export class RealtimeDrawingRuntime {
     this.recordSettledChange();
   };
 
-  private recordSettledChange(): void {
-    if (this.loading) {
+  private readonly handleObjectModified = (): void => {
+    this.recordSettledChange();
+    this.publishSelectionState();
+  };
+
+  private readonly handleSelectionChanged = (): void => {
+    if (this.asyncOperation?.kind === "duplicate") {
+      this.cancelAsyncOperation();
+    }
+    this.publishSelectionState();
+  };
+
+  private readonly handleTextChanged = (): void => {
+    this.previewLocalChange();
+  };
+
+  private readonly handleTextEditingExited = (): void => {
+    this.recordSettledChange();
+  };
+
+  private previewLocalChange(): void {
+    if (this.loading || this.disposed) {
       return;
     }
+    this.cancelAsyncOperation();
+    this.onPreview();
+  }
+
+  private recordSettledChange(): void {
+    if (this.loading || this.disposed) {
+      return;
+    }
+    this.cancelAsyncOperation();
     this.canvas.renderAll();
     const entry = this.createHistoryEntry();
     const current = this.history[this.historyIndex];
@@ -480,13 +857,14 @@ export class RealtimeDrawingRuntime {
       current !== undefined &&
       JSON.stringify(current) === JSON.stringify(entry)
     ) {
-      this.notifySettled();
+      this.publishSelectionState();
       return;
     }
     this.history = this.history.slice(0, this.historyIndex + 1);
     this.history.push(entry);
     this.historyIndex = this.history.length - 1;
     this.publishHistoryState();
+    this.publishSelectionState();
     this.notifySettled();
   }
 
@@ -535,6 +913,201 @@ export class RealtimeDrawingRuntime {
     }
   }
 
+  private nextObjectPosition(
+    objectWidth: number,
+    objectHeight: number,
+  ): { x: number; y: number } {
+    const offset =
+      (this.canvas.getObjects().length % 12) * DRAWING_OBJECT_OFFSET;
+    return {
+      x: Math.max(0, Math.min(32 + offset, this.logicalWidth - objectWidth)),
+      y: Math.max(0, Math.min(32 + offset, this.logicalHeight - objectHeight)),
+    };
+  }
+
+  private addCreatedObject<ObjectType extends FabricObject>(
+    object: ObjectType,
+  ): ObjectType {
+    this.canvas.add(object);
+    this.setTool("select");
+    this.canvas.setActiveObject(object);
+    this.finishSelectionMutation(true);
+    return object;
+  }
+
+  private configureBrush(): void {
+    const brush = this.canvas.freeDrawingBrush;
+    if (!(brush instanceof PencilBrush)) {
+      return;
+    }
+    const settings = this.tool === "highlighter" ? this.highlighter : this.pen;
+    brush.color =
+      this.tool === "highlighter"
+        ? new Color(settings.color).setAlpha(DRAWING_HIGHLIGHTER_ALPHA).toRgba()
+        : settings.color;
+    brush.decimate = 0.4;
+    brush.limitedToCanvasSize = true;
+    brush.straightLineKey = "shiftKey";
+    brush.width = settings.width;
+  }
+
+  private finishSelectionMutation(changed: boolean): boolean {
+    if (!changed || this.loading || this.disposed) {
+      this.publishSelectionState();
+      return false;
+    }
+    this.recordSettledChange();
+    return true;
+  }
+
+  private unlockedSelection(minimum: number): FabricObject[] | null {
+    const objects = selectedDrawingObjects(this.canvas);
+    return !this.loading &&
+      !this.disposed &&
+      objects.length >= minimum &&
+      objects.every((object) => !isDrawingObjectLocked(object))
+      ? objects
+      : null;
+  }
+
+  private arrangeSelection(
+    action: "back" | "backward" | "forward" | "front",
+  ): boolean {
+    const objects = this.unlockedSelection(1);
+    if (objects === null) {
+      return false;
+    }
+    const selected = new Set(objects);
+    const ordered = this.canvas
+      .getObjects()
+      .filter((object) => selected.has(object));
+    let changed = false;
+    if (action === "forward") {
+      for (const object of [...ordered].reverse()) {
+        changed = this.canvas.bringObjectForward(object) || changed;
+      }
+    } else if (action === "backward") {
+      for (const object of ordered) {
+        changed = this.canvas.sendObjectBackwards(object) || changed;
+      }
+    } else if (action === "front") {
+      for (const object of ordered) {
+        changed = this.canvas.bringObjectToFront(object) || changed;
+      }
+    } else {
+      for (const object of [...ordered].reverse()) {
+        changed = this.canvas.sendObjectToBack(object) || changed;
+      }
+    }
+    return this.finishSelectionMutation(changed);
+  }
+
+  private serializeObjects(objects: FabricObject[]): DrawingSerializedObject[] {
+    const selected = new Set(objects);
+    const canvasObjects = this.canvas.getObjects();
+    const scene = this.canvas.toObject([
+      ...DRAWING_OBJECT_SERIALIZATION_PROPERTIES,
+    ]) as unknown as {
+      objects: DrawingSerializedObject[];
+    };
+    return canvasObjects.flatMap((object, index) => {
+      const serialized = scene.objects[index];
+      return selected.has(object) && serialized !== undefined
+        ? [JSON.parse(JSON.stringify(serialized)) as DrawingSerializedObject]
+        : [];
+    });
+  }
+
+  private beginAsyncOperation(
+    kind: DrawingAsyncOperation["kind"],
+  ): DrawingAsyncOperation {
+    this.cancelAsyncOperation();
+    const operation = {
+      controller: new AbortController(),
+      kind,
+      revision: ++this.asyncOperationRevision,
+    };
+    this.asyncOperation = operation;
+    return operation;
+  }
+
+  private cancelAsyncOperation(): void {
+    this.asyncOperation?.controller.abort();
+    this.asyncOperation = null;
+    this.asyncOperationRevision += 1;
+  }
+
+  private isCurrentOperation(operation: DrawingAsyncOperation): boolean {
+    return (
+      !this.disposed &&
+      !this.loading &&
+      this.asyncOperation === operation &&
+      this.asyncOperationRevision === operation.revision &&
+      !operation.controller.signal.aborted
+    );
+  }
+
+  private completeAsyncOperation(operation: DrawingAsyncOperation): void {
+    if (this.asyncOperation === operation) {
+      this.asyncOperation = null;
+    }
+  }
+
+  private async enlivenObjects(
+    serialized: ReadonlyArray<DrawingSerializedObject>,
+    operation: DrawingAsyncOperation,
+  ): Promise<FabricObject[] | null> {
+    try {
+      return await util.enlivenObjects<FabricObject>([...serialized], {
+        signal: operation.controller.signal,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  private installObjects(objects: FabricObject[], offset: number): boolean {
+    if (objects.length === 0 || this.loading || this.disposed) {
+      return false;
+    }
+    for (const object of objects) {
+      object.set({ left: object.left + offset, top: object.top + offset });
+      object.setCoords();
+    }
+    this.setTool("select");
+    this.canvas.add(...objects);
+    restoreDrawingSelection(this.canvas, objects);
+    return this.finishSelectionMutation(true);
+  }
+
+  private selectionMatches(objects: FabricObject[]): boolean {
+    const active = selectedDrawingObjects(this.canvas);
+    const expected = new Set(objects);
+    return (
+      active.length === expected.size &&
+      active.every((object) => expected.has(object))
+    );
+  }
+
+  private publishSelectionState(): void {
+    if (this.disposed) {
+      return;
+    }
+    synchronizeDrawingSelectionLock(this.canvas);
+    const snapshot = createDrawingSelectionSnapshot(this.canvas, {
+      canPaste: this.clipboard.length > 0,
+    });
+    const key = JSON.stringify(snapshot);
+    if (key === this.selectionSnapshotKey) {
+      return;
+    }
+    this.selectionSnapshot = snapshot;
+    this.selectionSnapshotKey = key;
+    for (const subscriber of this.selectionSubscribers) {
+      subscriber();
+    }
+  }
+
   private publishHistoryState(): void {
     this.onHistoryChange({
       canRedo:
@@ -549,25 +1122,25 @@ export class RealtimeDrawingRuntime {
   }
 
   private readonly handlePointerStart = (event: TPointerEventInfo): void => {
-    if (this.tool === "draw") {
+    if (this.tool === "draw" || this.tool === "highlighter") {
       this.drawing = true;
     } else if (this.tool === "erase") {
       this.erasing = true;
       this.erasedInGesture = this.eraseTarget(event);
       if (this.erasedInGesture) {
-        this.onPreview();
+        this.previewLocalChange();
       }
     }
   };
 
   private readonly handlePointerMove = (event: TPointerEventInfo): void => {
-    if (this.tool === "draw" && this.drawing) {
-      this.onPreview();
+    if ((this.tool === "draw" || this.tool === "highlighter") && this.drawing) {
+      this.previewLocalChange();
     } else if (this.tool === "erase" && this.erasing) {
       const erased = this.eraseTarget(event);
       this.erasedInGesture = erased || this.erasedInGesture;
       if (erased) {
-        this.onPreview();
+        this.previewLocalChange();
       }
     }
   };

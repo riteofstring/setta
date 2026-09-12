@@ -1,4 +1,13 @@
-import { Point, filters } from "fabric";
+import {
+  ActiveSelection,
+  Group,
+  Line,
+  Point,
+  Polyline,
+  Textbox,
+  filters,
+  type FabricObject,
+} from "fabric";
 import { describe, expect, it, vi } from "vitest";
 
 import { RealtimeDrawingRuntime } from "./drawingRuntime";
@@ -60,6 +69,23 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
     (callback) => callback(new Blob(["setta"], { type: "image/png" })),
   );
+}
+
+function selectObjects(
+  drawing: RealtimeDrawingRuntime,
+  objects: FabricObject[],
+): void {
+  drawing.canvas.discardActiveObject();
+  for (const object of objects) {
+    object.setCoords();
+  }
+  if (objects.length === 1) {
+    drawing.canvas.setActiveObject(objects[0]!);
+  } else {
+    drawing.canvas.setActiveObject(
+      new ActiveSelection(objects, { canvas: drawing.canvas }),
+    );
+  }
 }
 
 describe("retained drawing runtime", () => {
@@ -261,6 +287,424 @@ describe("retained drawing runtime", () => {
       height: 600,
       width: 800,
     });
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("creates built-in primitives and settles an edited text insertion once", async () => {
+    installCanvasMocks();
+    const previewed = vi.fn();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: previewed,
+      onSettled: settled,
+      width: 320,
+    });
+
+    expect(drawing.addLine()).toBeInstanceOf(Line);
+    expect(drawing.addArrow()).toBeInstanceOf(Polyline);
+    drawing.setTool("highlighter");
+    drawing.setBrush("#ef4444", 20);
+    expect(drawing.canvas.freeDrawingBrush).toMatchObject({
+      color: "rgba(239,68,68,0.32)",
+      decimate: 0.4,
+      limitedToCanvasSize: true,
+      straightLineKey: "shiftKey",
+      width: 20,
+    });
+    const highlighterBrush = drawing.canvas.freeDrawingBrush!;
+    const highlighterStart = new Point(80, 80);
+    const highlighterEnd = new Point(140, 104);
+    drawing.canvas.fire("mouse:down", {
+      alreadySelected: false,
+      e: pointerEvent("pointerdown", 80, 80),
+      scenePoint: highlighterStart,
+      viewportPoint: highlighterStart,
+    });
+    highlighterBrush.onMouseDown(highlighterStart, {
+      e: pointerEvent("pointerdown", 80, 80),
+      pointer: highlighterStart,
+    });
+    highlighterBrush.onMouseMove(highlighterEnd, {
+      e: pointerEvent("pointermove", 140, 104),
+      pointer: highlighterEnd,
+    });
+    highlighterBrush.onMouseUp({
+      e: pointerEvent("pointerup", 140, 104),
+      pointer: highlighterEnd,
+    });
+    expect(drawing.canvas.getObjects().at(-1)).toMatchObject({
+      stroke: "rgba(239,68,68,0.32)",
+      strokeWidth: 20,
+    });
+    drawing.setTool("draw");
+    expect(drawing.canvas.freeDrawingBrush).toMatchObject({
+      color: "#111827",
+      width: 4,
+    });
+
+    previewed.mockClear();
+    settled.mockClear();
+    const text = drawing.addText();
+    expect(text).toBeInstanceOf(Textbox);
+    expect(text.isEditing).toBe(true);
+    expect(previewed).toHaveBeenCalledOnce();
+    expect(settled).not.toHaveBeenCalled();
+    const snapshot = drawing.getSelectionSnapshot();
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expect(snapshot).toMatchObject({
+      count: 1,
+      kind: "text",
+      supportsFill: true,
+      supportsTypography: true,
+    });
+
+    const selectionChanged = vi.fn();
+    const unsubscribe = drawing.subscribeSelection(selectionChanged);
+    drawing.canvas.fire("selection:updated", {
+      deselected: [],
+      selected: [text],
+    });
+    expect(drawing.getSelectionSnapshot()).toBe(snapshot);
+    expect(selectionChanged).not.toHaveBeenCalled();
+
+    text.set("text", "Hello canvas");
+    text.initDimensions();
+    drawing.canvas.fire("text:changed", { target: text as never });
+    expect(previewed).toHaveBeenCalledTimes(2);
+    expect(settled).not.toHaveBeenCalled();
+    text.exitEditing();
+    expect(settled).toHaveBeenCalledOnce();
+
+    settled.mockClear();
+    text.enterEditing();
+    text.exitEditing();
+    expect(settled).not.toHaveBeenCalled();
+    expect(
+      drawing.setSelectionTypography({
+        fontFamily: "Georgia",
+        fontSize: 32,
+        fontStyle: "italic",
+        fontWeight: "bold",
+        textAlign: "center",
+      }),
+    ).toBe(true);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(drawing.getSelectionSnapshot()).toMatchObject({
+      fontFamily: "Georgia",
+      fontSize: 32,
+      fontStyle: "italic",
+      fontWeight: "bold",
+      textAlign: "center",
+    });
+
+    settled.mockClear();
+    expect(
+      drawing.setSelectionAppearance({
+        fill: "#2563eb",
+        opacity: 0.75,
+        stroke: "#111827",
+        strokeWidth: 2,
+      }),
+    ).toBe(true);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(drawing.getSelectionSnapshot()).toMatchObject({
+      fillColor: "#2563eb",
+      opacity: 0.75,
+      strokeColor: "#111827",
+      strokeWidth: 2,
+    });
+    expect(selectionChanged).toHaveBeenCalled();
+    expect(
+      (drawing.toScene() as { objects: Array<{ type: string }> }).objects.map(
+        ({ type }) => type,
+      ),
+    ).toEqual(["Line", "Polyline", "Path", "Textbox"]);
+
+    unsubscribe();
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("arranges, aligns, distributes, groups, clones, and nudges selections", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 480,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      width: 640,
+    });
+    const first = drawing.addRectangle();
+    const second = drawing.addEllipse();
+    const third = drawing.addLine();
+
+    selectObjects(drawing, [first]);
+    settled.mockClear();
+    expect(drawing.bringSelectionForward()).toBe(true);
+    expect(drawing.canvas.getObjects()).toEqual([second, first, third]);
+    expect(drawing.bringSelectionToFront()).toBe(true);
+    expect(drawing.canvas.getObjects()).toEqual([second, third, first]);
+    expect(drawing.sendSelectionBackward()).toBe(true);
+    expect(drawing.canvas.getObjects()).toEqual([second, first, third]);
+    expect(drawing.sendSelectionToBack()).toBe(true);
+    expect(drawing.canvas.getObjects()).toEqual([first, second, third]);
+    expect(settled).toHaveBeenCalledTimes(4);
+
+    const alignments = [
+      ["left", (object: FabricObject) => object.getBoundingRect().left],
+      [
+        "horizontal-center",
+        (object: FabricObject) => {
+          const box = object.getBoundingRect();
+          return box.left + box.width / 2;
+        },
+      ],
+      [
+        "right",
+        (object: FabricObject) => {
+          const box = object.getBoundingRect();
+          return box.left + box.width;
+        },
+      ],
+      ["top", (object: FabricObject) => object.getBoundingRect().top],
+      [
+        "vertical-center",
+        (object: FabricObject) => {
+          const box = object.getBoundingRect();
+          return box.top + box.height / 2;
+        },
+      ],
+      [
+        "bottom",
+        (object: FabricObject) => {
+          const box = object.getBoundingRect();
+          return box.top + box.height;
+        },
+      ],
+    ] as const;
+    for (const [alignment, coordinate] of alignments) {
+      drawing.canvas.discardActiveObject();
+      first.set({ left: 24, top: 18 });
+      second.set({ left: 188, top: 126 });
+      third.set({ left: 392, top: 264 });
+      selectObjects(drawing, [first, second, third]);
+      settled.mockClear();
+      expect(drawing.alignSelection(alignment)).toBe(true);
+      const values = [first, second, third].map(coordinate);
+      expect(Math.max(...values) - Math.min(...values)).toBeCloseTo(0, 5);
+      expect(settled).toHaveBeenCalledOnce();
+    }
+
+    const assertEvenGaps = (axis: "horizontal" | "vertical") => {
+      const horizontal = axis === "horizontal";
+      const boxes = [first, second, third]
+        .map((object) => object.getBoundingRect())
+        .sort((one, two) =>
+          horizontal ? one.left - two.left : one.top - two.top,
+        );
+      const gap = (index: number) => {
+        const one = boxes[index]!;
+        const two = boxes[index + 1]!;
+        return horizontal
+          ? two.left - (one.left + one.width)
+          : two.top - (one.top + one.height);
+      };
+      expect(gap(0)).toBeCloseTo(gap(1), 5);
+    };
+    drawing.canvas.discardActiveObject();
+    first.set({ left: 18, top: 20 });
+    second.set({ left: 148, top: 92 });
+    third.set({ left: 472, top: 330 });
+    selectObjects(drawing, [first, second, third]);
+    settled.mockClear();
+    expect(drawing.distributeSelection("horizontal")).toBe(true);
+    assertEvenGaps("horizontal");
+    expect(settled).toHaveBeenCalledOnce();
+
+    drawing.canvas.discardActiveObject();
+    first.set({ left: 18, top: 20 });
+    second.set({ left: 148, top: 92 });
+    third.set({ left: 472, top: 330 });
+    selectObjects(drawing, [first, second, third]);
+    settled.mockClear();
+    expect(drawing.distributeSelection("vertical")).toBe(true);
+    assertEvenGaps("vertical");
+    expect(settled).toHaveBeenCalledOnce();
+
+    selectObjects(drawing, [first, third]);
+    settled.mockClear();
+    expect(drawing.groupSelection()).toBe(true);
+    expect(drawing.canvas.getActiveObject()).toBeInstanceOf(Group);
+    expect(drawing.canvas.getObjects()).toHaveLength(2);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(
+      (drawing.toScene() as { objects: Array<{ type: string }> }).objects.some(
+        ({ type }) => type === "Group",
+      ),
+    ).toBe(true);
+
+    settled.mockClear();
+    expect(drawing.ungroupSelection()).toBe(true);
+    expect(drawing.canvas.getObjects()).toHaveLength(3);
+    expect(settled).toHaveBeenCalledOnce();
+
+    settled.mockClear();
+    expect(await drawing.duplicateSelection()).toBe(true);
+    expect(drawing.canvas.getObjects()).toHaveLength(5);
+    expect(settled).toHaveBeenCalledOnce();
+    settled.mockClear();
+    expect(drawing.copySelection()).toBe(true);
+    expect(await drawing.pasteSelection()).toBe(true);
+    expect(drawing.canvas.getObjects()).toHaveLength(7);
+    expect(settled).toHaveBeenCalledOnce();
+
+    settled.mockClear();
+    expect(drawing.selectAll()).toBe(true);
+    expect(drawing.getSelectionSnapshot().count).toBe(7);
+    const beforeNudge = drawing.canvas.getObjects()[0]!.getXY();
+    expect(drawing.nudgeSelection(3, -2)).toBe(true);
+    expect(drawing.canvas.getObjects()[0]!.getXY()).toEqual(
+      beforeNudge.add(new Point(3, -2)),
+    );
+    expect(settled).toHaveBeenCalledOnce();
+    settled.mockClear();
+    expect(drawing.clearSelection()).toBe(true);
+    expect(drawing.getSelectionSnapshot().count).toBe(0);
+    expect(settled).not.toHaveBeenCalled();
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("keeps partially and recursively locked objects selectable and guarded", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      width: 320,
+    });
+    const locked = drawing.addRectangle();
+    const removable = drawing.addEllipse();
+    locked.set("lockMovementX", true);
+    selectObjects(drawing, [locked]);
+    expect(locked.selectable).toBe(true);
+    expect(drawing.getSelectionSnapshot()).toMatchObject({
+      canDelete: false,
+      canDuplicate: false,
+      canMoveForward: false,
+      count: 1,
+      locked: true,
+    });
+    expect(drawing.nudgeSelection(1, 0)).toBe(false);
+    expect(drawing.bringSelectionToFront()).toBe(false);
+    expect(drawing.deleteSelection()).toBe(false);
+    expect(await drawing.duplicateSelection()).toBe(false);
+    selectObjects(drawing, [locked, removable]);
+    expect(drawing.canvas.getActiveObject()).toMatchObject({
+      lockMovementX: true,
+      lockMovementY: true,
+      lockScalingX: true,
+      lockScalingY: true,
+    });
+    expect(drawing.groupSelection()).toBe(false);
+
+    settled.mockClear();
+    expect(drawing.clear()).toBe(true);
+    expect(drawing.canvas.getObjects()).toEqual([locked]);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(
+      (drawing.toScene() as { objects: Array<{ lockMovementX?: boolean }> })
+        .objects[0]?.lockMovementX,
+    ).toBe(true);
+    selectObjects(drawing, [locked]);
+    settled.mockClear();
+    expect(drawing.toggleSelectionLock()).toBe(true);
+    expect(locked).toMatchObject({
+      lockMovementX: false,
+      lockMovementY: false,
+      lockScalingX: false,
+      lockScalingY: false,
+    });
+    expect(settled).toHaveBeenCalledOnce();
+    expect(drawing.nudgeSelection(1, 0)).toBe(true);
+    expect(settled).toHaveBeenCalledTimes(2);
+
+    const groupedWithLockedChild = drawing.addEllipse();
+    selectObjects(drawing, [locked, groupedWithLockedChild]);
+    expect(drawing.groupSelection()).toBe(true);
+    const group = drawing.canvas.getActiveObject();
+    expect(group).toBeInstanceOf(Group);
+    if (!(group instanceof Group)) {
+      throw new Error("Fabric did not activate the new group.");
+    }
+    const child = group.getObjects()[0]!;
+    child.set("lockScalingY", true);
+    drawing.canvas.fire("selection:updated", {
+      deselected: [],
+      selected: [group],
+    });
+    expect(drawing.getSelectionSnapshot()).toMatchObject({
+      canDelete: false,
+      canUngroup: false,
+      locked: true,
+    });
+    expect(drawing.ungroupSelection()).toBe(false);
+    expect(drawing.deleteSelection()).toBe(false);
+    expect(drawing.toggleSelectionLock()).toBe(true);
+    expect(child).toMatchObject({
+      lockMovementX: false,
+      lockMovementY: false,
+      lockScalingX: false,
+      lockScalingY: false,
+    });
+    expect(drawing.ungroupSelection()).toBe(true);
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("cancels stale asynchronous duplicate and paste work", async () => {
+    installCanvasMocks();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: vi.fn(),
+      width: 320,
+    });
+    const object = drawing.addRectangle();
+
+    const duplicate = drawing.duplicateSelection();
+    expect(drawing.clearSelection()).toBe(true);
+    await expect(duplicate).resolves.toBe(false);
+    expect(drawing.canvas.getObjects()).toEqual([object]);
+
+    selectObjects(drawing, [object]);
+    expect(drawing.copySelection()).toBe(true);
+    const paste = drawing.pasteSelection();
+    expect(drawing.copySelection()).toBe(true);
+    await expect(paste).resolves.toBe(false);
+    expect(drawing.canvas.getObjects()).toEqual([object]);
 
     await drawing.dispose();
     element.remove();

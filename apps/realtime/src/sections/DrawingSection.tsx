@@ -40,6 +40,7 @@ const INITIAL_HISTORY_STATE: DrawingHistoryState = {
 const DRAWING_TOOL_LABELS: Record<DrawingTool, string> = {
   draw: "Draw",
   erase: "Eraser",
+  highlighter: "Highlighter",
   select: "Select",
 };
 const TERMINAL_INVOCATION_STATES = new Set([
@@ -274,6 +275,15 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     settlementRef.current = settlement;
     drawingRef.current = drawing;
     const unregisterDrawingSurface = registerDrawingSurface(host, section.id, {
+      alignSelection: (alignment) => drawing.alignSelection(alignment),
+      bringSelectionForward: () => drawing.bringSelectionForward(),
+      bringSelectionToFront: () => drawing.bringSelectionToFront(),
+      clearSelection: () => drawing.clearSelection(),
+      copySelection: () => drawing.copySelection(),
+      deleteSelection: () => drawing.deleteSelection(),
+      distributeSelection: (distribution) =>
+        drawing.distributeSelection(distribution),
+      duplicateSelection: () => drawing.duplicateSelection(),
       fitSectionToCanvas: () => {
         const frame = stage.closest<HTMLElement>("section");
         if (frame === null) {
@@ -299,7 +309,19 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         return true;
       },
       getCanvasSize: () => drawing.getLogicalSize(),
+      getSelectionSnapshot: () => drawing.getSelectionSnapshot(),
+      groupSelection: () => drawing.groupSelection(),
+      nudgeSelection: (x, y) => drawing.nudgeSelection(x, y),
+      pasteSelection: () => drawing.pasteSelection(),
       resizeCanvas: (request) => drawing.resizeCanvas(request),
+      selectAll: () => drawing.selectAll(),
+      sendSelectionBackward: () => drawing.sendSelectionBackward(),
+      sendSelectionToBack: () => drawing.sendSelectionToBack(),
+      setSelectionAppearance: (patch) => drawing.setSelectionAppearance(patch),
+      setSelectionTypography: (patch) => drawing.setSelectionTypography(patch),
+      subscribeSelection: (listener) => drawing.subscribeSelection(listener),
+      toggleSelectionLock: () => drawing.toggleSelectionLock(),
+      ungroupSelection: () => drawing.ungroupSelection(),
     });
     void drawing
       .loadScene(initialDocument.scene)
@@ -385,19 +407,21 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         role="toolbar"
       >
         <div className="realtime-drawing-tool-group">
-          {(["select", "draw", "erase"] as const).map((candidate) => (
-            <button
-              aria-label={DRAWING_TOOL_LABELS[candidate]}
-              aria-pressed={tool === candidate}
-              className={`realtime-drawing-tool-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-              key={candidate}
-              onClick={() => chooseTool(candidate)}
-              title={DRAWING_TOOL_LABELS[candidate]}
-              type="button"
-            >
-              <DrawingToolbarIcon name={candidate} />
-            </button>
-          ))}
+          {(["select", "draw", "highlighter", "erase"] as const).map(
+            (candidate) => (
+              <button
+                aria-label={DRAWING_TOOL_LABELS[candidate]}
+                aria-pressed={tool === candidate}
+                className={`realtime-drawing-tool-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+                key={candidate}
+                onClick={() => chooseTool(candidate)}
+                title={DRAWING_TOOL_LABELS[candidate]}
+                type="button"
+              >
+                <DrawingToolbarIcon name={candidate} />
+              </button>
+            ),
+          )}
         </div>
         <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
           <label aria-label="Brush color" title="Brush color">
