@@ -4,14 +4,16 @@ import type { ContentReference } from "../backend/generatedContract";
 
 export type DrawingSnapshot = {
   blob: Blob;
+  height: number;
   scene: WorkspaceSectionData;
+  width: number;
 };
 
 type DrawingSettlementQueueOptions = {
   canEmit: () => boolean;
   capture: () => Promise<DrawingSnapshot>;
   capturePreview: () => Promise<DrawingSnapshot>;
-  commit: (scene: WorkspaceSectionData) => Promise<boolean>;
+  commit: (snapshot: DrawingSnapshot) => Promise<boolean>;
   delayMilliseconds: number;
   emit: (reference: ContentReference) => boolean;
   isCompletionPaced: () => boolean;
@@ -144,7 +146,7 @@ export class DrawingSettlementQueue {
     revision: number,
     snapshot: DrawingSnapshot,
   ): Promise<boolean> {
-    const committed = await this.options.commit(snapshot.scene);
+    const committed = await this.options.commit(snapshot);
     return committed && this.isCurrent(revision);
   }
 

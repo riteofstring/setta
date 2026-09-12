@@ -48,19 +48,23 @@ function pointerEvent(
   return event as PointerEvent;
 }
 
+function installCanvasMocks(): void {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+    function (this: HTMLCanvasElement, contextId: string) {
+      return contextId === "2d" ? canvasContext(this) : null;
+    },
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
+    "data:image/png;base64,c2V0dGE=",
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+    (callback) => callback(new Blob(["setta"], { type: "image/png" })),
+  );
+}
+
 describe("retained drawing runtime", () => {
   it("draws, erases, selects, transforms, round-trips, and reaches raster export", async () => {
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-      function (this: HTMLCanvasElement, contextId: string) {
-        return contextId === "2d" ? canvasContext(this) : null;
-      },
-    );
-    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
-      "data:image/png;base64,c2V0dGE=",
-    );
-    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
-      (callback) => callback(new Blob(["setta"], { type: "image/png" })),
-    );
+    installCanvasMocks();
     const historyChanged = vi.fn();
     const previewed = vi.fn();
     const settled = vi.fn();
@@ -199,5 +203,66 @@ describe("retained drawing runtime", () => {
     await drawing.dispose();
     element.remove();
     roundTripElement.remove();
+  });
+
+  it("resizes logical canvas bounds as one undoable drawing change", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      width: 320,
+    });
+    drawing.resizeToFit(800, 300);
+    const rectangle = drawing.addRectangle();
+    settled.mockClear();
+
+    expect(
+      drawing.resizeCanvas({
+        anchor: "center",
+        height: 300,
+        mode: "keep-artwork",
+        width: 400,
+      }),
+    ).toBe(true);
+    expect(drawing.getLogicalSize()).toEqual({ height: 300, width: 400 });
+    expect(rectangle.left).toBe(72);
+    expect(rectangle.top).toBe(62);
+    expect(drawing.canvas.wrapperEl.style.width).toBe("400px");
+    expect(drawing.canvas.wrapperEl.style.height).toBe("300px");
+    expect(settled).toHaveBeenCalledOnce();
+
+    expect(await drawing.undo()).toBe(true);
+    expect(drawing.getLogicalSize()).toEqual({ height: 240, width: 320 });
+    expect(drawing.canvas.getObjects()[0]).toMatchObject({ left: 32, top: 32 });
+    expect(await drawing.redo()).toBe(true);
+    expect(drawing.getLogicalSize()).toEqual({ height: 300, width: 400 });
+
+    expect(
+      drawing.resizeCanvas({
+        anchor: "center",
+        height: 600,
+        mode: "scale-artwork",
+        width: 800,
+      }),
+    ).toBe(true);
+    expect(drawing.canvas.getObjects()[0]).toMatchObject({
+      left: 144,
+      scaleX: 2,
+      scaleY: 2,
+      top: 124,
+    });
+    await expect(drawing.captureSnapshot()).resolves.toMatchObject({
+      height: 600,
+      width: 800,
+    });
+
+    await drawing.dispose();
+    element.remove();
   });
 });

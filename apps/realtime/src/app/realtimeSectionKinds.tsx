@@ -8,6 +8,7 @@ import {
 } from "@setta/workspace";
 
 import { ButtonSection } from "../sections/ButtonSection";
+import { DrawingInspector } from "../sections/DrawingInspector";
 import { DrawingSection } from "../sections/DrawingSection";
 import { EntrypointCodeControl } from "../sections/EntrypointCodeControl";
 import { InputSection } from "../sections/InputSection";
@@ -48,6 +49,15 @@ export function createRealtimeSectionKinds(
       defaultSize: { height: 480, width: 640 },
       nestedSections: "vertical",
       renderContent: (section) => <DrawingSection section={section} />,
+      renderInspector: (context) =>
+        context.type === "section" ? (
+          <DrawingInspector
+            data={context.section.data}
+            isMinimized={context.section.isMinimized}
+            positionAndSizeLocked={context.section.positionAndSizeLocked}
+            sectionId={context.section.id}
+          />
+        ) : null,
     },
     input: {
       defaultSize: { height: 128, width: 320 },

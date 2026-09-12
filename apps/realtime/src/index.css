@@ -414,6 +414,265 @@ input {
   color-scheme: dark;
 }
 
+.realtime-drawing-inspector {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.realtime-drawing-inspector-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.realtime-drawing-inspector-heading h4,
+.realtime-drawing-inspector > p {
+  margin: 0;
+}
+
+.realtime-drawing-inspector-heading h4 {
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.realtime-drawing-inspector-heading > span {
+  color: rgb(100 116 139);
+  font-variant-numeric: tabular-nums;
+}
+
+.realtime-drawing-inspector > p {
+  color: rgb(100 116 139);
+  line-height: 17px;
+}
+
+.realtime-drawing-inspector-dimensions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.realtime-drawing-inspector-dimensions > label,
+.realtime-drawing-inspector-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: rgb(86 105 143);
+  font-weight: 600;
+}
+
+.realtime-drawing-inspector-dimension {
+  position: relative;
+  min-width: 0;
+}
+
+.realtime-drawing-inspector-dimension > input {
+  padding-inline-end: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.realtime-drawing-inspector-dimension > span {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  color: rgb(100 116 139);
+  font-size: 10px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.realtime-drawing-inspector-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgb(86 105 143);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.realtime-drawing-inspector-checkbox input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: rgb(37 99 235);
+}
+
+.realtime-drawing-inspector-anchor {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.realtime-drawing-inspector-anchor legend {
+  margin-block-end: 6px;
+  padding: 0;
+  color: rgb(86 105 143);
+  font-weight: 600;
+}
+
+.realtime-drawing-inspector-anchor > div {
+  display: grid;
+  width: 88px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.realtime-drawing-inspector-anchor button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 1px solid rgb(182 192 211 / 80%);
+  border-radius: 4px;
+  place-items: center;
+  background: rgb(255 255 255 / 70%);
+  cursor: pointer;
+}
+
+.realtime-drawing-inspector-anchor button > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(100 116 139);
+}
+
+.realtime-drawing-inspector-anchor button:hover:not(:disabled) {
+  border-color: rgb(96 165 250);
+  background: rgb(239 246 255);
+}
+
+.realtime-drawing-inspector-anchor button[aria-pressed="true"] {
+  border-color: rgb(37 99 235);
+  background: rgb(219 234 254);
+}
+
+.realtime-drawing-inspector-anchor button[aria-pressed="true"] > span {
+  background: rgb(29 78 216);
+}
+
+.realtime-drawing-inspector-anchor:disabled {
+  opacity: 0.45;
+}
+
+.realtime-drawing-inspector-anchor:disabled button {
+  cursor: not-allowed;
+}
+
+.realtime-drawing-inspector > .realtime-drawing-inspector-help {
+  margin-block-start: -6px;
+  font-size: 11px;
+}
+
+.realtime-drawing-inspector-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.realtime-drawing-inspector-actions button {
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid rgb(182 192 211 / 80%);
+  border-radius: 6px;
+  color: rgb(51 65 85);
+  background: rgb(255 255 255 / 80%);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 15px;
+}
+
+.realtime-drawing-inspector-actions button:first-child {
+  border-color: rgb(37 99 235);
+  color: #fff;
+  background: rgb(37 99 235);
+}
+
+.realtime-drawing-inspector-actions button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.realtime-drawing-inspector-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.realtime-drawing-inspector > .realtime-drawing-inspector-feedback {
+  padding: 7px 9px;
+  border-radius: 5px;
+  color: rgb(29 78 216);
+  background: rgb(239 246 255);
+}
+
+.realtime-drawing-inspector > .realtime-drawing-inspector-feedback-error {
+  color: rgb(185 28 28);
+  background: rgb(254 242 242);
+}
+
+.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-heading h4,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-dimensions
+  > label,
+.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-field,
+.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-checkbox,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-anchor
+  legend {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-anchor
+  button {
+  border-color: rgb(43 54 74);
+  background: rgb(11 14 19);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-anchor
+  button[aria-pressed="true"] {
+  border-color: rgb(59 130 246);
+  background: rgb(30 58 138 / 55%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-actions
+  button {
+  border-color: rgb(43 54 74);
+  color: rgb(203 213 225);
+  background: rgb(11 14 19);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-actions
+  button:first-child {
+  border-color: rgb(37 99 235);
+  color: #fff;
+  background: rgb(37 99 235);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector
+  > .realtime-drawing-inspector-feedback {
+  color: rgb(191 219 254);
+  background: rgb(30 58 138 / 35%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector
+  > .realtime-drawing-inspector-feedback-error {
+  color: rgb(254 202 202);
+  background: rgb(127 29 29 / 35%);
+}
+
 .realtime-drawing-toolbar {
   z-index: 2;
   align-content: center;

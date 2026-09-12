@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  setWorkspaceSectionSize,
   type WorkspaceSection,
   type WorkspaceSectionData,
+  useWorkspaceHost,
 } from "@setta/workspace";
 
 import { useRealtime } from "../app/runtimeContext";
@@ -21,7 +23,11 @@ import {
   type DrawingTool,
 } from "./drawingRuntime";
 import { DrawingSceneAuthority } from "./drawingSceneAuthority";
-import { DrawingSettlementQueue } from "./drawingSettlementQueue";
+import {
+  DrawingSettlementQueue,
+  type DrawingSnapshot,
+} from "./drawingSettlementQueue";
+import { registerDrawingSurface } from "./drawingSurfaceRegistry";
 import { DrawingToolbarIcon } from "./DrawingToolbarIcon";
 import { readDrawingSectionData } from "./sectionData";
 
@@ -103,7 +109,57 @@ function snapshotCapacityKey(
   });
 }
 
+type DrawingAuthorityDocument = WorkspaceSectionData & {
+  background: string;
+  height: number;
+  scene: WorkspaceSectionData;
+  width: number;
+};
+
+function drawingAuthorityValue(
+  background: string,
+  snapshot: Pick<DrawingSnapshot, "height" | "scene" | "width">,
+): DrawingAuthorityDocument {
+  return {
+    background,
+    height: snapshot.height,
+    scene: snapshot.scene,
+    width: snapshot.width,
+  } as DrawingAuthorityDocument;
+}
+
+function measureDrawingToolbarHeight(
+  stage: HTMLDivElement,
+  width: number,
+): number {
+  const drawing = stage.parentElement;
+  const toolbar = stage.previousElementSibling;
+  if (
+    !(drawing instanceof HTMLElement) ||
+    !(toolbar instanceof HTMLElement) ||
+    !toolbar.classList.contains("realtime-drawing-toolbar")
+  ) {
+    return 0;
+  }
+  const measurement = drawing.cloneNode(false) as HTMLElement;
+  const measuredToolbar = toolbar.cloneNode(true) as HTMLElement;
+  measurement.ariaHidden = "true";
+  measurement.style.position = "fixed";
+  measurement.style.top = "0";
+  measurement.style.left = "-10000px";
+  measurement.style.width = `${width}px`;
+  measurement.style.height = "auto";
+  measurement.style.minHeight = "0";
+  measurement.style.visibility = "hidden";
+  measurement.append(measuredToolbar);
+  document.body.append(measurement);
+  const height = measuredToolbar.offsetHeight;
+  measurement.remove();
+  return height;
+}
+
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
+  const host = useWorkspaceHost();
   const { actions, project, runtime } = useRealtime();
   const data = readDrawingSectionData(section.data);
   const { background, height, width } = data;
@@ -121,12 +177,16 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     runtimeValueKey(section.id, "scene"),
     data.scene,
   ) as WorkspaceSectionData;
-  const sceneRef = useRef(scene);
+  const drawingDocument = useMemo(
+    () => drawingAuthorityValue(background, { height, scene, width }),
+    [background, height, scene, width],
+  );
+  const drawingDocumentRef = useRef(drawingDocument);
   const projectRef = useRef(project);
   const runtimeRef = useRef(runtime);
   const snapshotCanEmit = canEmitSnapshot(project, runtime, section.id);
   const capacityKey = snapshotCapacityKey(project, runtime, section.id);
-  sceneRef.current = scene;
+  drawingDocumentRef.current = drawingDocument;
   projectRef.current = project;
   runtimeRef.current = runtime;
 
@@ -135,8 +195,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     if (element === null) {
       return;
     }
-    const initialScene = sceneRef.current;
-    const sceneAuthority = new DrawingSceneAuthority(initialScene);
+    const initialDocument = drawingDocumentRef.current;
+    const sceneAuthority = new DrawingSceneAuthority(initialDocument);
     let settlement: DrawingSettlementQueue | null = null;
     const drawing = new RealtimeDrawingRuntime(element, {
       background,
@@ -174,16 +234,21 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         canEmitSnapshot(projectRef.current, runtimeRef.current, section.id),
       capture: () => drawing.captureSnapshot(),
       capturePreview: () => drawing.capturePreview(),
-      commit: async (nextScene) => {
-        const pending = sceneAuthority.prepareCommit(nextScene);
-        const committed = await actions.commitSectionData(section.id, {
-          background,
-          height,
-          scene: nextScene,
-          width,
-        });
+      commit: async (snapshot) => {
+        const nextDocument = drawingAuthorityValue(background, snapshot);
+        const pending = sceneAuthority.prepareCommit(nextDocument);
+        const committed = await actions.commitSectionData(
+          section.id,
+          nextDocument,
+        );
         if (committed) {
-          sceneAuthority.acknowledge(pending, drawing.toScene());
+          sceneAuthority.acknowledge(
+            pending,
+            drawingAuthorityValue(background, {
+              ...drawing.getLogicalSize(),
+              scene: drawing.toScene(),
+            }),
+          );
         }
         return committed;
       },
@@ -208,11 +273,39 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     sceneAuthorityRef.current = sceneAuthority;
     settlementRef.current = settlement;
     drawingRef.current = drawing;
+    const unregisterDrawingSurface = registerDrawingSurface(host, section.id, {
+      fitSectionToCanvas: () => {
+        const frame = stage.closest<HTMLElement>("section");
+        if (frame === null) {
+          return false;
+        }
+        const size = drawing.getLogicalSize();
+        const toolbar = stage.previousElementSibling;
+        const currentToolbarHeight =
+          toolbar instanceof HTMLElement ? toolbar.offsetHeight : 0;
+        const targetToolbarHeight = measureDrawingToolbarHeight(
+          stage,
+          size.width,
+        );
+        setWorkspaceSectionSize(host, section.id, {
+          height:
+            size.height +
+            frame.offsetHeight -
+            stage.clientHeight -
+            currentToolbarHeight +
+            targetToolbarHeight,
+          width: size.width + frame.offsetWidth - stage.clientWidth,
+        });
+        return true;
+      },
+      getCanvasSize: () => drawing.getLogicalSize(),
+      resizeCanvas: (request) => drawing.resizeCanvas(request),
+    });
     void drawing
-      .loadScene(initialScene)
+      .loadScene(initialDocument.scene)
       .then((loaded) => {
         if (loaded) {
-          sceneAuthority.loaded(initialScene);
+          sceneAuthority.loaded(initialDocument);
         }
       })
       .catch((error: unknown) => {
@@ -225,6 +318,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     return () => {
       stage.removeEventListener("click", preventSectionActivation);
       resizeObserver.disconnect();
+      unregisterDrawingSurface();
       settlement?.dispose();
       if (settlementRef.current === settlement) {
         settlementRef.current = null;
@@ -235,7 +329,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       drawingRef.current = null;
       void drawing.dispose();
     };
-  }, [actions, background, height, section.id, width]);
+  }, [actions, background, host, section.id]);
 
   useEffect(() => {
     if (snapshotCanEmit) {
@@ -249,13 +343,13 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     if (
       drawing !== null &&
       sceneAuthority !== null &&
-      sceneAuthority.shouldLoad(scene)
+      sceneAuthority.shouldLoad(drawingDocument)
     ) {
       void drawing
-        .loadScene(scene)
+        .loadDocument({ height, scene, width })
         .then((loaded) => {
           if (loaded) {
-            sceneAuthority.loaded(scene);
+            sceneAuthority.loaded(drawingDocument);
           }
         })
         .catch((error: unknown) => {
@@ -266,7 +360,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           );
         });
     }
-  }, [actions, scene]);
+  }, [actions, drawingDocument, height, scene, width]);
 
   const chooseTool = (nextTool: DrawingTool) => {
     setTool(nextTool);

@@ -18,6 +18,33 @@ export type DrawingHistoryState = {
   canUndo: boolean;
 };
 
+export const DRAWING_CANVAS_MAX_SIZE = 8192;
+export const DRAWING_CANVAS_MIN_SIZE = 1;
+
+export type DrawingCanvasAnchor =
+  | "top-left"
+  | "top"
+  | "top-right"
+  | "left"
+  | "center"
+  | "right"
+  | "bottom-left"
+  | "bottom"
+  | "bottom-right";
+
+export type DrawingCanvasResizeRequest = {
+  anchor: DrawingCanvasAnchor;
+  height: number;
+  mode: "keep-artwork" | "scale-artwork";
+  width: number;
+};
+
+export type DrawingCanvasDocument = {
+  height: number;
+  scene: WorkspaceSectionData;
+  width: number;
+};
+
 type DrawingRuntimeOptions = {
   background: string;
   height: number;
@@ -26,6 +53,32 @@ type DrawingRuntimeOptions = {
   onSettled: () => void;
   width: number;
 };
+
+type DrawingHistoryEntry = DrawingCanvasDocument;
+
+const DRAWING_CANVAS_ANCHOR_FACTORS: Record<
+  DrawingCanvasAnchor,
+  { x: number; y: number }
+> = {
+  "bottom-left": { x: 0, y: 1 },
+  "bottom-right": { x: 1, y: 1 },
+  bottom: { x: 0.5, y: 1 },
+  center: { x: 0.5, y: 0.5 },
+  left: { x: 0, y: 0.5 },
+  right: { x: 1, y: 0.5 },
+  "top-left": { x: 0, y: 0 },
+  "top-right": { x: 1, y: 0 },
+  top: { x: 0.5, y: 0 },
+};
+
+function canvasAnchorOffset(
+  anchor: DrawingCanvasAnchor,
+  widthDelta: number,
+  heightDelta: number,
+): { x: number; y: number } {
+  const factor = DRAWING_CANVAS_ANCHOR_FACTORS[anchor];
+  return { x: widthDelta * factor.x, y: heightDelta * factor.y };
+}
 
 function isSceneObject(
   scene: WorkspaceSectionData,
@@ -37,13 +90,15 @@ export class RealtimeDrawingRuntime {
   public readonly canvas: Canvas;
   public tool: DrawingTool = "draw";
   private readonly background: string;
+  private availableHeight: number | null = null;
+  private availableWidth: number | null = null;
   private drawing = false;
   private erasing = false;
   private erasedInGesture = false;
-  private history: WorkspaceSectionData[] = [];
+  private history: DrawingHistoryEntry[] = [];
   private historyIndex = -1;
-  private readonly logicalHeight: number;
-  private readonly logicalWidth: number;
+  private logicalHeight: number;
+  private logicalWidth: number;
   private loading = false;
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
@@ -80,7 +135,7 @@ export class RealtimeDrawingRuntime {
     this.canvas.on("mouse:move", this.handlePointerMove);
     this.canvas.on("mouse:up", this.handlePointerEnd);
     this.setTool("draw");
-    this.history = [this.toScene()];
+    this.history = [this.createHistoryEntry()];
     this.historyIndex = 0;
     this.publishHistoryState();
   }
@@ -202,6 +257,55 @@ export class RealtimeDrawingRuntime {
     ) {
       return;
     }
+    this.availableWidth = availableWidth;
+    this.availableHeight = availableHeight;
+    this.applyDisplaySize();
+  }
+
+  public getLogicalSize(): { height: number; width: number } {
+    return { height: this.logicalHeight, width: this.logicalWidth };
+  }
+
+  public resizeCanvas(request: DrawingCanvasResizeRequest): boolean {
+    if (
+      this.loading ||
+      !Number.isInteger(request.width) ||
+      !Number.isInteger(request.height) ||
+      request.width < DRAWING_CANVAS_MIN_SIZE ||
+      request.height < DRAWING_CANVAS_MIN_SIZE ||
+      request.width > DRAWING_CANVAS_MAX_SIZE ||
+      request.height > DRAWING_CANVAS_MAX_SIZE ||
+      (request.width === this.logicalWidth &&
+        request.height === this.logicalHeight)
+    ) {
+      return false;
+    }
+    const previousWidth = this.logicalWidth;
+    const previousHeight = this.logicalHeight;
+    if (request.mode === "scale-artwork") {
+      this.scaleArtwork(
+        request.width / previousWidth,
+        request.height / previousHeight,
+      );
+    } else {
+      const offset = canvasAnchorOffset(
+        request.anchor,
+        request.width - previousWidth,
+        request.height - previousHeight,
+      );
+      this.translateArtwork(offset.x, offset.y);
+    }
+    this.setLogicalSize(request.width, request.height);
+    this.recordSettledChange();
+    return true;
+  }
+
+  private applyDisplaySize(): void {
+    const availableWidth = this.availableWidth;
+    const availableHeight = this.availableHeight;
+    if (availableWidth === null || availableHeight === null) {
+      return;
+    }
     const scale = Math.min(
       availableWidth / this.logicalWidth,
       availableHeight / this.logicalHeight,
@@ -219,7 +323,7 @@ export class RealtimeDrawingRuntime {
       return false;
     }
     this.historyIndex -= 1;
-    await this.applyScene(this.history[this.historyIndex]!);
+    await this.applyHistoryEntry(this.history[this.historyIndex]!);
     this.publishHistoryState();
     this.notifySettled();
     return true;
@@ -230,7 +334,7 @@ export class RealtimeDrawingRuntime {
       return false;
     }
     this.historyIndex += 1;
-    await this.applyScene(this.history[this.historyIndex]!);
+    await this.applyHistoryEntry(this.history[this.historyIndex]!);
     this.publishHistoryState();
     this.notifySettled();
     return true;
@@ -240,7 +344,17 @@ export class RealtimeDrawingRuntime {
     if (!(await this.applyScene(scene))) {
       return false;
     }
-    this.history = [this.toScene()];
+    this.history = [this.createHistoryEntry()];
+    this.historyIndex = 0;
+    this.publishHistoryState();
+    return true;
+  }
+
+  public async loadDocument(document: DrawingCanvasDocument): Promise<boolean> {
+    if (!(await this.applyDocument(document))) {
+      return false;
+    }
+    this.history = [this.createHistoryEntry()];
     this.historyIndex = 0;
     this.publishHistoryState();
     return true;
@@ -303,7 +417,12 @@ export class RealtimeDrawingRuntime {
   public async captureSnapshot(): Promise<DrawingSnapshot> {
     const scene = this.toScene();
     const blob = await this.toBlob();
-    return { blob, scene };
+    return {
+      blob,
+      height: this.logicalHeight,
+      scene,
+      width: this.logicalWidth,
+    };
   }
 
   public async capturePreview(): Promise<DrawingSnapshot> {
@@ -322,7 +441,12 @@ export class RealtimeDrawingRuntime {
     if (blob === null) {
       throw new Error("Realtime could not export the drawing preview.");
     }
-    return { blob, scene: this.toScene() };
+    return {
+      blob,
+      height: this.logicalHeight,
+      scene: this.toScene(),
+      width: this.logicalWidth,
+    };
   }
 
   public async dispose(): Promise<void> {
@@ -346,20 +470,65 @@ export class RealtimeDrawingRuntime {
       return;
     }
     this.canvas.renderAll();
-    const scene = this.toScene();
+    const entry = this.createHistoryEntry();
     const current = this.history[this.historyIndex];
     if (
       current !== undefined &&
-      JSON.stringify(current) === JSON.stringify(scene)
+      JSON.stringify(current) === JSON.stringify(entry)
     ) {
       this.notifySettled();
       return;
     }
     this.history = this.history.slice(0, this.historyIndex + 1);
-    this.history.push(scene);
+    this.history.push(entry);
     this.historyIndex = this.history.length - 1;
     this.publishHistoryState();
     this.notifySettled();
+  }
+
+  private createHistoryEntry(): DrawingHistoryEntry {
+    return {
+      height: this.logicalHeight,
+      scene: this.toScene(),
+      width: this.logicalWidth,
+    };
+  }
+
+  private async applyHistoryEntry(entry: DrawingHistoryEntry): Promise<void> {
+    await this.applyDocument(entry);
+  }
+
+  private async applyDocument(
+    document: DrawingCanvasDocument,
+  ): Promise<boolean> {
+    this.setLogicalSize(document.width, document.height);
+    return this.applyScene(document.scene);
+  }
+
+  private setLogicalSize(width: number, height: number): void {
+    this.logicalWidth = width;
+    this.logicalHeight = height;
+    this.canvas.setDimensions({ height, width });
+    this.applyDisplaySize();
+  }
+
+  private translateArtwork(x: number, y: number): void {
+    for (const object of this.canvas.getObjects()) {
+      object.set({ left: object.left + x, top: object.top + y });
+      object.setCoords();
+    }
+  }
+
+  private scaleArtwork(scaleX: number, scaleY: number): void {
+    for (const object of this.canvas.getObjects()) {
+      object.set({
+        left: object.left * scaleX,
+        scaleX: object.scaleX * scaleX,
+        scaleY: object.scaleY * scaleY,
+        top: object.top * scaleY,
+      });
+      object.setCoords();
+    }
   }
 
   private publishHistoryState(): void {

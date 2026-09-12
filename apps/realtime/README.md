@@ -222,6 +222,15 @@ Fabric.js owns retained drawing objects, free drawing, erasing, selection, trans
 serialization, and raster export. Realtime persists the vector scene only after a coherent
 gesture. While a local gesture is unsettled or awaiting acknowledgement, delayed project snapshots
 cannot replace it, and drawing on the inner canvas does not reorder or persist the outer section.
+The drawing keeps its logical pixel dimensions and object coordinates when its outer section is
+resized; it stays centered and uniformly contained, so the freely sized frame may provide deliberate
+padding. The right-side Inspector has explicit **Drawing canvas** controls. Width and height are
+proportionally linked by default but can be unlinked. **Apply canvas size** can preserve artwork size
+using a nine-point anchor or scale the artwork with the bounds, and the complete scene and dimensions
+undo and redo together. **Fit frame to canvas** is a one-shot action and does not lock the section's
+aspect ratio. Image content shown by an output section likewise uses centered contain fitting without
+changing the source image; there is no separate `image` section kind.
+
 For a completion-paced binding, the browser captures and uploads the first eligible composited
 raster immediately, then retains only one dirty preview or final snapshot while the binding is
 occupied. It performs no additional capture or upload until invocation completion restores

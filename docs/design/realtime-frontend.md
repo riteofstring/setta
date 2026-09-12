@@ -89,6 +89,22 @@ delayed project snapshot cannot resurrect erased objects or replace a newer stro
 keeps the prior lower-canvas frame visible until object enlivening completes, restores Fabric's
 interaction state after superseded loads, and renders the settled frame synchronously.
 
+The drawing's logical width, height, and object coordinates are content state, distinct from the
+outer Workspace section size. Resizing the outer section changes only the available viewport; the
+logical canvas remains centered and uniformly contain-fitted without a scene mutation, snapshot,
+or aspect-ratio lock on the section frame. The drawing section contributes explicit canvas controls
+to the right-side Inspector. Width and height start proportionally linked but may be unlinked. One
+Apply either keeps artwork dimensions and translates objects from a selected nine-point anchor, or
+scales object positions and dimensions with the new bounds. The resulting dimensions and scene are
+one drawing history entry and one durable settlement, so undo and redo restore them together and a
+delayed canonical acknowledgement cannot split their authority.
+
+Fit frame to canvas is a one-shot layout action, not a persistent constraint. It measures the
+section chrome and the drawing toolbar at the target width before changing the outer section once,
+so toolbar wrapping does not leave accidental padding. Image content references rendered by output
+sections use centered contain fitting and never mutate their source pixels when the outer section
+changes. A dedicated image section is not part of the current section catalog.
+
 When every matching binding uses `latest` with zero debounce, the browser treats its invocation
 status as one local completion-paced capacity credit. It captures and uploads the first eligible
 preview immediately and consumes the credit after a successful event send. While occupied,

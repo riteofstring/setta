@@ -1037,6 +1037,125 @@ async function exerciseDrawingSurfaceInteraction(client, origin) {
   );
 }
 
+async function exerciseDrawingInspector(client, origin) {
+  await activateSection(client, "drawing");
+  await clickButton(client, "Inspector");
+  await waitFor(
+    client,
+    "the drawing canvas Inspector",
+    `document.querySelector('input[aria-label="Canvas width"]') instanceof HTMLInputElement &&
+      document.querySelector('input[aria-label="Canvas height"]') instanceof HTMLInputElement`,
+  );
+  const widthChanged = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector('input[aria-label="Canvas width"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, "660");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    widthChanged,
+    true,
+    "The drawing canvas width was not editable.",
+  );
+  await waitFor(
+    client,
+    "the proportionally linked drawing canvas height",
+    `document.querySelector('input[aria-label="Canvas height"]')?.value === "420"`,
+  );
+  await clickButton(client, "Apply canvas size");
+  await waitForProject(
+    origin,
+    "the resized drawing canvas",
+    (project) =>
+      project.sections.drawing?.data.width === 660 &&
+      project.sections.drawing?.data.height === 420,
+  );
+  await waitFor(
+    client,
+    "the resized logical drawing surface",
+    `(() => {
+      const canvas = document.querySelector(".realtime-drawing-stage .lower-canvas");
+      return canvas instanceof HTMLCanvasElement &&
+        canvas.width === 660 && canvas.height === 420;
+    })()`,
+  );
+
+  await clickSectionButton(client, "drawing", "Undo");
+  await waitForProject(
+    origin,
+    "the undone drawing canvas resize",
+    (project) =>
+      project.sections.drawing?.data.width === 440 &&
+      project.sections.drawing?.data.height === 280,
+  );
+  await clickSectionButton(client, "drawing", "Redo");
+  await waitForProject(
+    origin,
+    "the redone drawing canvas resize",
+    (project) =>
+      project.sections.drawing?.data.width === 660 &&
+      project.sections.drawing?.data.height === 420,
+  );
+
+  const beforeFit = await jsonRequest(origin, "/api/v1/project");
+  await clickButton(client, "Fit frame to canvas");
+  const fitted = await waitForProject(
+    origin,
+    "the drawing section fitted to its canvas",
+    (project) =>
+      project.sections.drawing?.width !== beforeFit.sections.drawing.width ||
+      project.sections.drawing?.height !== beforeFit.sections.drawing.height,
+  );
+  assert.ok(fitted.sections.drawing.width >= 660);
+  assert.ok(fitted.sections.drawing.height >= 420);
+  await evaluate(
+    client,
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  );
+  const presentation = await evaluate(
+    client,
+    `(() => {
+      const stage = document.querySelector(".realtime-drawing-stage");
+      const canvas = stage?.querySelector(".lower-canvas");
+      const toolbar = stage?.previousElementSibling;
+      if (!(stage instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
+        return null;
+      }
+      const stageRect = stage.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        canvasHeight: canvas.height,
+        canvasRectHeight: canvasRect.height,
+        canvasRectWidth: canvasRect.width,
+        canvasWidth: canvas.width,
+        stageClientHeight: stage.clientHeight,
+        stageClientWidth: stage.clientWidth,
+        stageRectHeight: stageRect.height,
+        stageRectWidth: stageRect.width,
+        toolbarHeight: toolbar instanceof HTMLElement ? toolbar.offsetHeight : null,
+      };
+    })()`,
+  );
+  assert.ok(
+    presentation !== null &&
+      presentation.canvasWidth === 660 &&
+      presentation.canvasHeight === 420 &&
+      Math.abs(presentation.stageClientWidth - 660) < 2 &&
+      Math.abs(presentation.stageClientHeight - 420) < 2 &&
+      presentation.canvasRectWidth <= presentation.stageRectWidth + 1 &&
+      presentation.canvasRectHeight <= presentation.stageRectHeight + 1,
+    `The fitted drawing presentation was ${JSON.stringify(presentation)}.`,
+  );
+  await clickButton(client, "Runtime");
+}
+
 async function exerciseWorkspaceSection(client, origin) {
   await activateSection(client, "drawing");
   await clickSectionButton(client, "drawing", "Lock position and size");
@@ -1123,6 +1242,7 @@ async function exerciseWorkspaceSection(client, origin) {
     })()`,
   );
   await exerciseDrawingSurfaceInteraction(client, origin);
+  await exerciseDrawingInspector(client, origin);
 }
 
 function outputExpression(name, predicate) {

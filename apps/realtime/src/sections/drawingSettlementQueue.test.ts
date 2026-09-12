@@ -31,7 +31,9 @@ describe("drawing settlement queue", () => {
     vi.useFakeTimers();
     const snapshot: DrawingSnapshot = {
       blob: new Blob(["new"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "new" }] },
+      width: 320,
     };
     const capture = vi.fn(async () => snapshot);
     const commit = vi.fn(async () => true);
@@ -57,7 +59,7 @@ describe("drawing settlement queue", () => {
     await flushMicrotasks();
 
     expect(capture).toHaveBeenCalledOnce();
-    expect(commit).toHaveBeenCalledWith(snapshot.scene);
+    expect(commit).toHaveBeenCalledWith(snapshot);
     expect(upload).toHaveBeenCalledWith(snapshot.blob);
     expect(emit).toHaveBeenCalledWith(reference("new"));
     queue.dispose();
@@ -71,11 +73,15 @@ describe("drawing settlement queue", () => {
     });
     const first: DrawingSnapshot = {
       blob: new Blob(["first"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "first" }] },
+      width: 320,
     };
     const latest: DrawingSnapshot = {
       blob: new Blob(["latest"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "latest" }] },
+      width: 320,
     };
     const capture = vi
       .fn<() => Promise<DrawingSnapshot>>()
@@ -129,11 +135,15 @@ describe("drawing settlement queue", () => {
       canEmit: () => false,
       capture: vi.fn(async () => ({
         blob: new Blob(["scene"], { type: "image/png" }),
+        height: 240,
         scene,
+        width: 320,
       })),
       capturePreview: vi.fn(async () => ({
         blob: new Blob(["preview"], { type: "image/png" }),
+        height: 240,
         scene,
+        width: 320,
       })),
       commit,
       delayMilliseconds: 180,
@@ -148,7 +158,7 @@ describe("drawing settlement queue", () => {
     await vi.advanceTimersByTimeAsync(180);
     await flushMicrotasks();
 
-    expect(commit).toHaveBeenCalledWith(scene);
+    expect(commit).toHaveBeenCalledWith(expect.objectContaining({ scene }));
     expect(upload).not.toHaveBeenCalled();
     queue.dispose();
   });
@@ -158,7 +168,9 @@ describe("drawing settlement queue", () => {
     let canEmit = false;
     const snapshot: DrawingSnapshot = {
       blob: new Blob(["scene"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "waiting" }] },
+      width: 320,
     };
     const capture = vi.fn(async () => snapshot);
     const commit = vi.fn(async () => true);
@@ -195,11 +207,15 @@ describe("drawing settlement queue", () => {
     vi.useFakeTimers();
     const settled: DrawingSnapshot = {
       blob: new Blob(["settled"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "settled" }] },
+      width: 320,
     };
     const preview: DrawingSnapshot = {
       blob: new Blob(["preview"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [] },
+      width: 320,
     };
     const capturePreview = vi.fn(async () => preview);
     const commit = vi.fn(async () => true);
@@ -234,7 +250,7 @@ describe("drawing settlement queue", () => {
     await vi.advanceTimersByTimeAsync(180);
     await flushMicrotasks();
 
-    expect(commit).toHaveBeenCalledWith(settled.scene);
+    expect(commit).toHaveBeenCalledWith(settled);
     expect(emit).toHaveBeenLastCalledWith(reference("settled"));
     queue.dispose();
   });
@@ -243,7 +259,9 @@ describe("drawing settlement queue", () => {
     let canEmit = true;
     const preview: DrawingSnapshot = {
       blob: new Blob(["preview"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [] },
+      width: 320,
     };
     const capturePreview = vi.fn(async () => preview);
     const upload = vi
@@ -291,11 +309,15 @@ describe("drawing settlement queue", () => {
     let canEmit = true;
     const preview: DrawingSnapshot = {
       blob: new Blob(["preview"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [] },
+      width: 320,
     };
     const settled: DrawingSnapshot = {
       blob: new Blob(["settled"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "settled" }] },
+      width: 320,
     };
     const capture = vi.fn(async () => settled);
     const capturePreview = vi.fn(async () => preview);
@@ -328,7 +350,7 @@ describe("drawing settlement queue", () => {
 
     expect(capturePreview).toHaveBeenCalledOnce();
     expect(capture).toHaveBeenCalledOnce();
-    expect(commit).toHaveBeenCalledWith(settled.scene);
+    expect(commit).toHaveBeenCalledWith(settled);
     expect(upload).toHaveBeenCalledOnce();
 
     canEmit = true;
@@ -344,7 +366,9 @@ describe("drawing settlement queue", () => {
   it("retries a final send without recapturing or reuploading", async () => {
     const snapshot: DrawingSnapshot = {
       blob: new Blob(["settled"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "settled" }] },
+      width: 320,
     };
     const capture = vi.fn(async () => snapshot);
     const commit = vi.fn(async () => true);
@@ -379,11 +403,15 @@ describe("drawing settlement queue", () => {
   it("replaces a paused failed send with a newly settled frame", async () => {
     const first: DrawingSnapshot = {
       blob: new Blob(["first"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "first" }] },
+      width: 320,
     };
     const latest: DrawingSnapshot = {
       blob: new Blob(["latest"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "latest" }] },
+      width: 320,
     };
     const capture = vi
       .fn<() => Promise<DrawingSnapshot>>()
@@ -421,7 +449,9 @@ describe("drawing settlement queue", () => {
   it("retains a final snapshot when its upload fails", async () => {
     const snapshot: DrawingSnapshot = {
       blob: new Blob(["settled"], { type: "image/png" }),
+      height: 240,
       scene: { objects: [{ id: "settled" }] },
+      width: 320,
     };
     const failure = new Error("upload failed");
     const capture = vi.fn(async () => snapshot);
