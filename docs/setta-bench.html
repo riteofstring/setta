@@ -227,47 +227,51 @@
             one run ledger—not separate copies of the work.
           </p>
 
-          <div
-            class="scene-tabs"
-            role="tablist"
-            aria-label="Setta Bench product views"
-          >
-            <button
-              class="scene-tab"
-              id="tab-build"
-              type="button"
-              role="tab"
-              aria-selected="true"
-              aria-controls="scene-build"
-            >
+          <input
+            class="scene-toggle"
+            id="scene-toggle-build"
+            name="bench-view"
+            type="radio"
+            aria-label="Show Build view"
+            checked
+          />
+          <input
+            class="scene-toggle"
+            id="scene-toggle-monitor"
+            name="bench-view"
+            type="radio"
+            aria-label="Show Monitor view"
+          />
+          <input
+            class="scene-toggle"
+            id="scene-toggle-compare"
+            name="bench-view"
+            type="radio"
+            aria-label="Show Compare view"
+          />
+          <div class="scene-tabs" aria-label="Setta Bench product views">
+            <label class="scene-tab" id="tab-build" for="scene-toggle-build">
               Build
-            </button>
-            <button
+            </label>
+            <label
               class="scene-tab"
               id="tab-monitor"
-              type="button"
-              role="tab"
-              aria-selected="false"
-              aria-controls="scene-monitor"
+              for="scene-toggle-monitor"
             >
               Monitor
-            </button>
-            <button
+            </label>
+            <label
               class="scene-tab"
               id="tab-compare"
-              type="button"
-              role="tab"
-              aria-selected="false"
-              aria-controls="scene-compare"
+              for="scene-toggle-compare"
             >
               Compare
-            </button>
+            </label>
           </div>
 
           <section
             class="scene-panel"
             id="scene-build"
-            role="tabpanel"
             aria-labelledby="tab-build"
           >
             <div class="scene-intro">
@@ -880,30 +884,30 @@
                     aria-label="Bench saved views"
                   >
                     <div class="setta-workspace-saved-view-tabs-list">
-                      <button
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-build"
+                        role="tab"
                         aria-selected="true"
-                        data-setta-scene="build"
                       >
                         Build
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-monitor"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="monitor"
                       >
                         Monitor
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-compare"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="compare"
                       >
                         Review
-                      </button>
+                      </label>
                     </div>
                   </nav>
                 </div>
@@ -914,9 +918,7 @@
           <section
             class="scene-panel"
             id="scene-monitor"
-            role="tabpanel"
             aria-labelledby="tab-monitor"
-            hidden
           >
             <div class="scene-intro">
               <div>
@@ -1398,30 +1400,30 @@
                     aria-label="Bench saved views"
                   >
                     <div class="setta-workspace-saved-view-tabs-list">
-                      <button
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-build"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="build"
                       >
                         Build
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-monitor"
+                        role="tab"
                         aria-selected="true"
-                        data-setta-scene="monitor"
                       >
                         Monitor
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-compare"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="compare"
                       >
                         Review
-                      </button>
+                      </label>
                     </div>
                   </nav>
                 </div>
@@ -1432,9 +1434,7 @@
           <section
             class="scene-panel"
             id="scene-compare"
-            role="tabpanel"
             aria-labelledby="tab-compare"
-            hidden
           >
             <div class="scene-intro">
               <div>
@@ -1915,30 +1915,30 @@
                     aria-label="Bench saved views"
                   >
                     <div class="setta-workspace-saved-view-tabs-list">
-                      <button
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-build"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="build"
                       >
                         Build
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-monitor"
+                        role="tab"
                         aria-selected="false"
-                        data-setta-scene="monitor"
                       >
                         Monitor
-                      </button>
-                      <button
+                      </label>
+                      <label
                         class="setta-workspace-saved-view-tab"
-                        type="button"
+                        for="scene-toggle-compare"
+                        role="tab"
                         aria-selected="true"
-                        data-setta-scene="compare"
                       >
                         Review
-                      </button>
+                      </label>
                     </div>
                   </nav>
                 </div>
@@ -2087,64 +2087,5 @@
         </span>
       </div>
     </footer>
-
-    <script>
-      (() => {
-        const tabs = Array.from(document.querySelectorAll("[role='tab']"));
-
-        function selectTab(tab, moveFocus) {
-          for (const candidate of tabs) {
-            const selected = candidate === tab;
-            candidate.setAttribute("aria-selected", String(selected));
-            const panelId = candidate.getAttribute("aria-controls");
-            const panel = panelId ? document.getElementById(panelId) : null;
-            if (panel) {
-              panel.hidden = !selected;
-            }
-          }
-
-          if (moveFocus) {
-            tab.focus();
-          }
-        }
-
-        for (const tab of tabs) {
-          tab.addEventListener("click", () => selectTab(tab, false));
-          tab.addEventListener("keydown", (event) => {
-            const index = tabs.indexOf(tab);
-            let nextIndex = null;
-
-            if (event.key === "ArrowRight") {
-              nextIndex = (index + 1) % tabs.length;
-            } else if (event.key === "ArrowLeft") {
-              nextIndex = (index - 1 + tabs.length) % tabs.length;
-            } else if (event.key === "Home") {
-              nextIndex = 0;
-            } else if (event.key === "End") {
-              nextIndex = tabs.length - 1;
-            }
-
-            if (nextIndex !== null) {
-              event.preventDefault();
-              selectTab(tabs[nextIndex], true);
-            }
-          });
-        }
-
-        for (const savedViewTab of document.querySelectorAll(
-          "[data-setta-scene]",
-        )) {
-          savedViewTab.addEventListener("click", () => {
-            const scene = savedViewTab.getAttribute("data-setta-scene");
-            const destination = scene
-              ? document.getElementById(`tab-${scene}`)
-              : null;
-            if (destination) {
-              selectTab(destination, false);
-            }
-          });
-        }
-      })();
-    </script>
   </body>
 </html>
