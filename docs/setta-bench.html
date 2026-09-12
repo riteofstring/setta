@@ -179,16 +179,16 @@
             <div class="workflow-layer-label">Authored · Build</div>
             <strong>Experiment definition</strong>
             <div class="workflow-layer-items">
-              <span>1 case set</span>
-              <span>2 candidates</span>
-              <span>1 check set</span>
+              <span>1 JSON input section</span>
+              <span>2 source candidates</span>
+              <span>1 parameter check section</span>
             </div>
           </article>
           <div class="workflow-launch-step">
             <svg class="setta-icon" aria-hidden="true">
               <use href="#icon-play"></use>
             </svg>
-            <strong>Run 2 candidates</strong>
+            <strong>Run comparison</strong>
             <span>freeze revision 0</span>
           </div>
           <article class="workflow-layer generated-layer">
@@ -208,7 +208,7 @@
             <div class="loop-accent"></div>
             <h3>Describe the comparison</h3>
             <div class="loop-equation">
-              <span>10 cases</span><b>→</b><span>2 candidates</span>
+              <span>10 JSON inputs</span><b>→</b><span>2 candidates</span>
             </div>
             <p>
               A case edge means “run every case with this candidate.” A check
@@ -220,7 +220,7 @@
             <div class="loop-accent"></div>
             <h3>Expand the matrix</h3>
             <div class="execution-math">
-              <span><strong>10</strong> cases</span>
+              <span><strong>10</strong> inputs</span>
               <b>×</b>
               <span><strong>2</strong> candidates</span>
               <b>=</b>
@@ -254,16 +254,16 @@
           </figcaption>
           <div class="case-trace-grid">
             <div class="trace-node trace-source">
-              <span class="trace-node-kind">Case input</span>
+              <span class="trace-node-kind">JSON input</span>
               <strong>sunset-bottle</strong>
-              <code>inputs/product-01.png</code>
+              <code>{ "path": "inputs/product-01.png" }</code>
             </div>
             <div class="trace-branches">
               <div class="trace-run">
                 <div>
                   <span class="trace-node-kind">Run BN-0042-01</span>
                   <strong>Contain</strong>
-                  <code>--mode contain</code>
+                  <code>ImageOps.contain(image, size)</code>
                 </div>
                 <div class="trace-output">
                   <span class="trace-thumbnail contain-thumb"></span>
@@ -274,7 +274,7 @@
                 <div>
                   <span class="trace-node-kind">Run BN-0042-02</span>
                   <strong>Cover</strong>
-                  <code>--mode cover</code>
+                  <code>ImageOps.fit(image, size)</code>
                 </div>
                 <div class="trace-output">
                   <span class="trace-thumbnail cover-thumb"></span>
@@ -284,16 +284,16 @@
             </div>
             <div class="trace-node trace-checks">
               <span class="trace-node-kind">Same checks for both</span>
-              <strong>Thumbnail quality</strong>
+              <strong>Thumbnail checks</strong>
               <span class="trace-finding"><b>✓</b> 512 × 512</span>
               <span class="trace-finding"><b>✓</b> no more than 160 KB</span>
             </div>
           </div>
           <div class="case-trace-note">
-            Contain and Cover invoke the same Go standard-library binary with
-            different modes. They independently receive the same case; Bench
-            records both outputs and aligns them by <code>caseId</code> in
-            Compare.
+            Contain and Cover are visible source-backed candidates with the same
+            <code>size = 512</code> parameter. They independently receive the
+            same JSON object; Bench records both outputs and aligns them by
+            <code>caseId</code> in Compare.
           </div>
         </figure>
       </section>
@@ -354,14 +354,14 @@
               <div>
                 <h3>Build view</h3>
                 <p>
-                  Only authored definitions belong on this canvas: one case set,
-                  two runnable candidates, and their shared checks. Typed edges
-                  describe bindings; the toolbar previews and starts the
-                  resulting execution matrix.
+                  Inputs are editable JSON code. Each candidate shows its
+                  runnable source and native parameter controls. Shared checks
+                  are another parameter section, so the complete experiment is
+                  visible before anything runs.
                 </p>
               </div>
               <div class="scene-caption">
-                Current Workspace components · dark theme
+                Proposed composition · Workspace primitives
               </div>
             </div>
 
@@ -454,20 +454,23 @@
                                 ></span>
                                 <span class="setta-workspace-outline-kind-icon">
                                   <svg class="setta-icon">
-                                    <use href="#icon-table"></use>
+                                    <use href="#icon-document"></use>
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Colorful catalog images
+                                  Catalog inputs
                                 </span>
                               </div>
                             </div>
-                            <div class="setta-workspace-outline-item">
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
                               <div
                                 class="setta-workspace-outline-row"
                                 style="
                                   --outline-depth: 14px;
-                                  --outline-color: #64748b;
+                                  --outline-color: #3b82f6;
                                 "
                               >
                                 <span
@@ -496,7 +499,7 @@
                                 ></span>
                                 <span class="setta-workspace-outline-kind-icon">
                                   <svg class="setta-icon">
-                                    <use href="#icon-layers"></use>
+                                    <use href="#icon-document"></use>
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
@@ -504,15 +507,12 @@
                                 </span>
                               </div>
                             </div>
-                            <div
-                              class="setta-workspace-outline-item"
-                              aria-selected="true"
-                            >
+                            <div class="setta-workspace-outline-item">
                               <div
                                 class="setta-workspace-outline-row"
                                 style="
                                   --outline-depth: 14px;
-                                  --outline-color: #3b82f6;
+                                  --outline-color: #64748b;
                                 "
                               >
                                 <span
@@ -520,11 +520,11 @@
                                 ></span>
                                 <span class="setta-workspace-outline-kind-icon">
                                   <svg class="setta-icon">
-                                    <use href="#icon-check"></use>
+                                    <use href="#icon-sliders"></use>
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Thumbnail quality
+                                  Thumbnail checks
                                 </span>
                               </div>
                             </div>
@@ -538,7 +538,7 @@
                     <div class="bench-launch-toolbar">
                       <div class="bench-launch-summary">
                         <strong>Ready to run</strong>
-                        <span>10 cases × 2 candidates = 20 executions</span>
+                        <span>10 inputs × 2 candidates = 20 executions</span>
                       </div>
                       <span class="bench-launch-setting">Concurrency 2</span>
                       <label
@@ -549,149 +549,216 @@
                         <svg class="setta-icon" aria-hidden="true">
                           <use href="#icon-play"></use>
                         </svg>
-                        Run 2 candidates
+                        Run comparison
                       </label>
                     </div>
                     <div
                       class="setta-workspace-shell-canvas"
-                      aria-label="Experiment definition graph with one case set, two candidates, and one shared check set"
+                      aria-label="Experiment graph with JSON inputs, two source-backed candidates, and one parameterized check section"
                     >
-                      <div class="flow-stage">
+                      <div class="flow-stage build-flow-stage">
                         <svg
                           class="flow-wires"
                           viewBox="0 0 672 472"
                           preserveAspectRatio="none"
                           aria-hidden="true"
                         >
-                          <path d="M188 233 C205 233 208 128 225 128" />
-                          <path d="M188 233 C205 233 208 343 225 343" />
-                          <path d="M393 128 C425 128 445 233 477 233" />
-                          <path d="M393 343 C425 343 445 233 477 233" />
+                          <path d="M336 146 C336 168 165 168 165 190" />
+                          <path d="M336 146 C336 168 507 168 507 190" />
+                          <path d="M165 301 C165 344 336 344 336 387" />
+                          <path d="M507 301 C507 344 336 344 336 387" />
                         </svg>
 
                         <span class="flow-edge-label edge-cases-a">
-                          run all 10 cases
+                          10 JSON inputs
                         </span>
                         <span class="flow-edge-label edge-cases-b">
-                          run all 10 cases
+                          10 JSON inputs
                         </span>
                         <span class="flow-edge-label edge-checks-a">
-                          check every output
+                          10 image results
                         </span>
                         <span class="flow-edge-label edge-checks-b">
-                          check every output
+                          10 image results
                         </span>
 
                         <article
-                          class="setta-section-card node-cases"
+                          class="setta-section-card node-cases setta-code-section"
                           data-section-active="false"
                         >
-                          <span class="setta-port out"></span>
+                          <span class="setta-port bottom"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title"
-                              >Colorful catalog images</span
+                              >Catalog inputs</span
                             >
+                            <span class="setta-section-kind">JSON</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
                               <span class="setta-section-action">×</span>
                             </span>
                           </header>
-                          <div class="setta-section-body">
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">type</span>
-                              <span class="setta-item-value">case set</span>
+                          <div
+                            class="setta-code-editor"
+                            aria-label="Editable JSON array containing the experiment inputs"
+                          >
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">1</span>
+                              <code>[</code>
                             </div>
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">cases</span>
-                              <span class="setta-item-value">10 · JSONL</span>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">2</span>
+                              <code
+                                >{ <b>"id"</b>: <em>"sunset-bottle"</em>,
+                                <b>"input"</b>: { <b>"path"</b>:
+                                <em>"inputs/product-01.png"</em> },</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">3</span>
+                              <code
+                                >&nbsp; <b>"expected"</b>: { <b>"width"</b>:
+                                <strong>512</strong>, <b>"height"</b>:
+                                <strong>512</strong> } },</code
+                              >
+                            </div>
+                            <div class="setta-code-line setta-code-fold">
+                              <span class="setta-code-line-number">⋮</span>
+                              <code>9 more named inputs</code>
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">12</span>
+                              <code>]</code>
                             </div>
                           </div>
                         </article>
 
                         <article
-                          class="setta-section-card node-candidate-a"
-                          data-section-active="false"
+                          class="setta-section-card node-candidate-a setta-candidate-section"
+                          data-section-active="true"
                         >
-                          <span class="setta-port in"></span>
-                          <span class="setta-port out"></span>
+                          <span class="setta-port top"></span>
+                          <span class="setta-port bottom"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title">Contain</span>
+                            <span class="setta-section-kind">Python</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
                               <span class="setta-section-action">×</span>
                             </span>
                           </header>
-                          <div class="setta-section-body">
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">type</span>
-                              <span class="setta-item-value">candidate</span>
-                            </div>
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">source</span>
-                              <span class="setta-item-value"
-                                >Go · --mode contain</span
+                          <div class="setta-code-editor candidate-code-editor">
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">1</span>
+                              <code
+                                ><b>def</b> <i>thumbnail</i>(case, size):</code
                               >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">2</span>
+                              <code
+                                >&nbsp; image =
+                                Image.open(case[<em>"path"</em>])</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">3</span>
+                              <code
+                                >&nbsp; <b>return</b> ImageOps.contain(image,
+                                (size, size))</code
+                              >
+                            </div>
+                          </div>
+                          <div class="setta-candidate-parameters">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">size</span>
+                              <span class="setta-item-control">512</span>
                             </div>
                           </div>
                         </article>
 
                         <article
-                          class="setta-section-card node-candidate-b"
+                          class="setta-section-card node-candidate-b setta-candidate-section"
                           data-section-active="false"
                         >
-                          <span class="setta-port in"></span>
-                          <span class="setta-port out"></span>
+                          <span class="setta-port top"></span>
+                          <span class="setta-port bottom"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title"> Cover </span>
+                            <span class="setta-section-title">Cover</span>
+                            <span class="setta-section-kind">Python</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
                               <span class="setta-section-action">×</span>
                             </span>
                           </header>
-                          <div class="setta-section-body">
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">type</span>
-                              <span class="setta-item-value">candidate</span>
-                            </div>
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">source</span>
-                              <span class="setta-item-value"
-                                >Go · --mode cover</span
+                          <div class="setta-code-editor candidate-code-editor">
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">1</span>
+                              <code
+                                ><b>def</b> <i>thumbnail</i>(case, size):</code
                               >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">2</span>
+                              <code
+                                >&nbsp; image =
+                                Image.open(case[<em>"path"</em>])</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">3</span>
+                              <code
+                                >&nbsp; <b>return</b> ImageOps.fit(image, (size,
+                                size))</code
+                              >
+                            </div>
+                          </div>
+                          <div class="setta-candidate-parameters">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">size</span>
+                              <span class="setta-item-control">512</span>
                             </div>
                           </div>
                         </article>
 
                         <article
-                          class="setta-section-card node-evaluator"
-                          data-section-active="true"
+                          class="setta-section-card node-evaluator setta-parameter-section"
+                          data-section-active="false"
                         >
-                          <span class="setta-port in"></span>
+                          <span class="setta-port top"></span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title">
-                              Thumbnail quality
+                              Thumbnail checks
                             </span>
+                            <span class="setta-section-kind">Parameters</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
                               <span class="setta-section-action">×</span>
                             </span>
                           </header>
-                          <div class="setta-section-body">
+                          <div class="setta-check-parameters">
                             <div class="setta-item-row">
-                              <span class="setta-item-key">type</span>
-                              <span class="setta-item-value">check set</span>
+                              <span class="setta-item-key">artifact</span>
+                              <span class="setta-item-control">thumbnail</span>
                             </div>
                             <div class="setta-item-row">
-                              <span class="setta-item-key">rules</span>
-                              <span class="setta-item-value">2 shared</span>
+                              <span class="setta-item-key">maximum bytes</span>
+                              <span class="setta-item-control">160000</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">width</span>
+                              <span class="setta-item-control">512</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">height</span>
+                              <span class="setta-item-control">512</span>
                             </div>
                           </div>
                         </article>
@@ -757,38 +824,37 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>Thumbnail quality</strong
-                                ><span>check set</span>
+                                <strong>Contain</strong><span>candidate</span>
                               </div>
                               <div class="setta-inspector-group-label">
-                                Meaning
+                                Runnable code
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Applies to
+                                  Language
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  2 candidates
+                                  Python
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Timing
+                                  Entrypoint
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  per output
+                                  thumbnail
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
-                                Rules
+                                Parameters
                               </div>
                               <div
                                 class="setta-workspace-inspector-config-row emphasis"
@@ -796,45 +862,57 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Dimensions
+                                  size
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  512 × 512
+                                  512
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Maximum size
+                                  resample
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  160 KB
+                                  LANCZOS
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
-                                Recorded automatically
+                                Contract
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Measurements
+                                  Receives
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  time · bytes
+                                  input JSON
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Returns
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  thumbnail image
                                 </span>
                               </div>
                               <span
                                 class="setta-workspace-inspector-config-action"
                               >
-                                <span>Graph valid</span><span>✓</span>
+                                <span>Candidate ready</span><span>✓</span>
                               </span>
                             </div>
                           </div>
@@ -929,7 +1007,8 @@
                 <p>
                   One launch created two immutable rows: one candidate run for
                   Contain and one for Cover. Each row groups that candidate's
-                  ten case executions and preserves its frozen command.
+                  ten case executions and preserves its frozen source and
+                  parameter values.
                 </p>
               </div>
               <div class="scene-caption">
@@ -1099,8 +1178,7 @@
                               <div>
                                 <strong>Product thumbnail strategies</strong>
                                 <span>
-                                  project rev 0 · 2 candidates · Colorful
-                                  catalog images
+                                  project rev 0 · 2 candidates · Catalog inputs
                                 </span>
                               </div>
                               <div class="run-window-counts">
@@ -1125,7 +1203,7 @@
                                   <tr aria-selected="true">
                                     <td class="table-id">BN-0042-02</td>
                                     <td>Cover</td>
-                                    <td>command</td>
+                                    <td>inline Python</td>
                                     <td>
                                       <span class="status-label">Complete</span>
                                     </td>
@@ -1136,7 +1214,7 @@
                                   <tr>
                                     <td class="table-id">BN-0042-01</td>
                                     <td>Contain</td>
-                                    <td>command</td>
+                                    <td>inline Python</td>
                                     <td>
                                       <span class="status-label">Complete</span>
                                     </td>
@@ -1270,19 +1348,19 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  thumbnail-candidate --mode cover
+                                  Cover source · frozen
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Case set
+                                  Inputs
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  Colorful catalog images
+                                  Catalog inputs
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1905,31 +1983,31 @@
           Bench owns one small comparison loop.
         </h2>
         <p class="section-copy">
-          Candidates come from code the user already has. Bench freezes a small
-          launch, runs it locally, and retains just enough evidence for a useful
-          pairwise review.
+          Candidates are source-backed sections the user can read in place or
+          import from a sibling app. Bench freezes a small launch, runs it
+          locally, and retains just enough evidence for pairwise review.
         </p>
 
         <div class="architecture-grid">
           <article class="architecture-column">
             <div class="architecture-label">Simple inputs</div>
-            <h3>Bring runnable code and cases.</h3>
+            <h3>Author or import visible inputs and code.</h3>
             <p>
-              V1 accepts one sibling handoff and one language-neutral local
-              command contract.
+              The primary path keeps the experiment legible. External commands
+              remain an advanced option when Bench cannot own their source.
             </p>
             <div class="architecture-list">
               <div class="architecture-item">
-                Contain mode · Go standard-library command
+                Catalog inputs · editable JSON code
               </div>
               <div class="architecture-item">
-                Cover mode · the same Go binary
+                Contain · source plus native parameters
               </div>
               <div class="architecture-item">
-                JSONL manifest · ten colorful PNG cases
+                Cover · source plus native parameters
               </div>
               <div class="architecture-item">
-                Shared evaluator · small checks
+                Thumbnail checks · parameter controls
               </div>
             </div>
           </article>
@@ -1984,7 +2062,7 @@
           <div class="tool-flow-card">
             <strong>Build</strong>
             <span
-              >Run the checked-in Go modes or import one Python Canvas
+              >Write source-backed candidates in Bench or import a Python Canvas
               callable.</span
             >
           </div>
