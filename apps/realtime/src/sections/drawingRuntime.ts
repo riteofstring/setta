@@ -410,7 +410,18 @@ export class RealtimeDrawingRuntime {
     return object;
   }
 
-  public async addImage(source: string): Promise<boolean> {
+  public getScenePoint(event: MouseEvent): { x: number; y: number } {
+    const point = this.placementPoint(this.canvas.getScenePoint(event));
+    return {
+      x: Math.max(0, Math.min(point.x, this.logicalWidth)),
+      y: Math.max(0, Math.min(point.y, this.logicalHeight)),
+    };
+  }
+
+  public async addImage(
+    source: string,
+    center?: { x: number; y: number },
+  ): Promise<boolean> {
     if (source.length === 0 || this.loading || this.disposed) {
       return false;
     }
@@ -435,11 +446,31 @@ export class RealtimeDrawingRuntime {
       (this.logicalWidth * 0.8) / Math.max(image.width, 1),
       (this.logicalHeight * 0.8) / Math.max(image.height, 1),
     );
+    const scaledWidth = image.width * scale;
+    const scaledHeight = image.height * scale;
+    const placement =
+      center !== undefined &&
+      Number.isFinite(center.x) &&
+      Number.isFinite(center.y)
+        ? center
+        : { x: this.logicalWidth / 2, y: this.logicalHeight / 2 };
     image.set({
-      left: (this.logicalWidth - image.width * scale) / 2,
+      left: Math.max(
+        0,
+        Math.min(
+          placement.x - scaledWidth / 2,
+          this.logicalWidth - scaledWidth,
+        ),
+      ),
       scaleX: scale,
       scaleY: scale,
-      top: (this.logicalHeight - image.height * scale) / 2,
+      top: Math.max(
+        0,
+        Math.min(
+          placement.y - scaledHeight / 2,
+          this.logicalHeight - scaledHeight,
+        ),
+      ),
     });
     image.setCoords();
     this.addCreatedObject(image);

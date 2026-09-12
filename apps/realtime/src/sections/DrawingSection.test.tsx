@@ -54,9 +54,12 @@ const drawingMocks = vi.hoisted(() => {
     textAlign: null,
   };
   return {
+    addImage: vi.fn(async () => true),
     captureSnapshot: vi.fn(),
+    getScenePoint: vi.fn(() => ({ x: 180, y: 100 })),
     loadDocument: vi.fn(),
     loadScene: vi.fn(),
+    prepareImage: vi.fn(async () => "data:image/webp;base64,c2V0dGE="),
     scene: { objects: [] } as Record<string, unknown>,
     selection,
     settle: null as (() => void) | null,
@@ -74,11 +77,12 @@ vi.mock("./drawingRuntime", () => ({
       drawingMocks.settle = options.onSettled;
     }
 
-    public addImage = vi.fn(async () => true);
+    public addImage = drawingMocks.addImage;
     public capturePreview = drawingMocks.captureSnapshot;
     public captureSnapshot = drawingMocks.captureSnapshot;
     public dispose = vi.fn(async () => {});
     public getLogicalSize = () => ({ height: 320, width: 480 });
+    public getScenePoint = drawingMocks.getScenePoint;
     public getSelectionSnapshot = () => drawingMocks.selection;
     public loadDocument = drawingMocks.loadDocument;
     public loadScene = drawingMocks.loadScene;
@@ -88,6 +92,10 @@ vi.mock("./drawingRuntime", () => ({
     public subscribeSelection = () => () => {};
     public toScene = () => drawingMocks.scene;
   },
+}));
+
+vi.mock("./drawingImage", () => ({
+  prepareDrawingImage: drawingMocks.prepareImage,
 }));
 
 vi.mock("./drawingSurfaceRegistry", () => ({
@@ -139,7 +147,43 @@ function startupProject(): Project {
   return project;
 }
 
-describe("drawing startup materialization", () => {
+type DrawingDataTransfer = Pick<
+  DataTransfer,
+  "dropEffect" | "files" | "items" | "types"
+>;
+
+function imageDataTransfer(files: ReadonlyArray<File>): DrawingDataTransfer {
+  return {
+    dropEffect: "none",
+    files: files as unknown as FileList,
+    items: files.map(() => ({
+      kind: "file",
+    })) as unknown as DataTransferItemList,
+    types: ["Files"],
+  };
+}
+
+function dispatchImageDrag(
+  target: Element,
+  type: "dragenter" | "dragleave" | "dragover" | "drop",
+  dataTransfer: DrawingDataTransfer,
+  point = { x: 120, y: 80 },
+): Event {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: point.x,
+    clientY: point.y,
+  });
+  Object.defineProperty(event, "dataTransfer", {
+    configurable: true,
+    value: dataTransfer,
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
+describe("DrawingSection", () => {
   let element: HTMLDivElement;
   let host: WorkspaceHost;
   let root: Root;
@@ -147,6 +191,11 @@ describe("drawing startup materialization", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", TestResizeObserver);
     vi.resetAllMocks();
+    drawingMocks.addImage.mockResolvedValue(true);
+    drawingMocks.getScenePoint.mockReturnValue({ x: 180, y: 100 });
+    drawingMocks.prepareImage.mockResolvedValue(
+      "data:image/webp;base64,c2V0dGE=",
+    );
     drawingMocks.scene = { objects: [] };
     drawingMocks.settle = null;
     element = document.createElement("div");
@@ -295,5 +344,81 @@ describe("drawing startup materialization", () => {
     expect(drawingMocks.loadDocument).toHaveBeenCalledOnce();
     expect(drawingMocks.captureSnapshot).toHaveBeenCalledTimes(4);
     expect(uploadContent).toHaveBeenCalledTimes(4);
+  });
+
+  it("imports one dropped image at its canvas position and keeps the picker", async () => {
+    const project = makeProject();
+    const actions = {
+      applyRuntimeSource: vi.fn(async () => true),
+      cancel: vi.fn(() => true),
+      commitSectionData: vi.fn<RealtimeActions["commitSectionData"]>(
+        async () => true,
+      ),
+      emit: vi.fn(() => true),
+      initialize: vi.fn(async () => false),
+      reload: vi.fn(async () => true),
+      reportError: vi.fn(),
+      uploadContent: vi.fn(),
+    } satisfies RealtimeActions;
+    const section = projectWorkspaceDocument(project).sections["drawing-main"]!;
+    drawingMocks.loadScene.mockResolvedValue(true);
+    await act(async () =>
+      root.render(
+        <RealtimeContext.Provider
+          value={{
+            actions,
+            error: null,
+            project,
+            runtime: initialRuntimeViewState,
+            source: {
+              activationRejected: false,
+              document: null,
+              notice: null,
+              status: "unavailable",
+            },
+          }}
+        >
+          <WorkspaceProvider host={host}>
+            <DrawingSection section={section} />
+          </WorkspaceProvider>
+        </RealtimeContext.Provider>,
+      ),
+    );
+    const stage = element.querySelector<HTMLElement>(".realtime-drawing-stage");
+    const picker = element.querySelector<HTMLInputElement>(
+      'input[aria-label="Choose drawing image"]',
+    );
+    if (stage === null || picker === null) {
+      throw new Error("The drawing image controls were not rendered.");
+    }
+    const file = new File(["image"], "sketch.png", { type: "image/png" });
+    const transfer = imageDataTransfer([file]);
+    act(() => {
+      dispatchImageDrag(stage, "dragenter", transfer);
+      dispatchImageDrag(stage, "dragover", transfer);
+    });
+    expect(stage.dataset.imageDragActive).toBe("true");
+    expect(transfer.dropEffect).toBe("copy");
+    expect(stage.textContent).toContain("Drop image to add");
+
+    let dropEvent: Event | undefined;
+    await act(async () => {
+      dropEvent = dispatchImageDrag(stage, "drop", transfer);
+      await Promise.resolve();
+    });
+    await vi.waitFor(() =>
+      expect(drawingMocks.addImage).toHaveBeenCalledOnce(),
+    );
+    expect(dropEvent?.defaultPrevented).toBe(true);
+    expect(drawingMocks.prepareImage).toHaveBeenCalledWith(file);
+    expect(drawingMocks.getScenePoint).toHaveBeenCalledOnce();
+    expect(drawingMocks.addImage).toHaveBeenCalledWith(
+      "data:image/webp;base64,c2V0dGE=",
+      { x: 180, y: 100 },
+    );
+    expect(stage.dataset.imageDragActive).toBe("false");
+    expect(stage.textContent).not.toContain("Drop image to add");
+    expect(picker.type).toBe("file");
+    expect(actions.reportError).not.toHaveBeenCalled();
   });
 });

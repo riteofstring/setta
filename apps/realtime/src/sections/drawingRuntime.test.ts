@@ -633,14 +633,16 @@ describe("retained drawing runtime", () => {
     element.remove();
   });
 
-  it("centers an imported image and records it as one drawing change", async () => {
+  it("centers picked images and maps dropped images through the fitted canvas", async () => {
     installCanvasMocks();
     const settled = vi.fn();
     const toolChanged = vi.fn();
     const source = document.createElement("canvas");
     source.width = 800;
     source.height = 400;
-    vi.spyOn(FabricImage, "fromURL").mockResolvedValue(new FabricImage(source));
+    vi.spyOn(FabricImage, "fromURL").mockImplementation(
+      async () => new FabricImage(source),
+    );
     const element = document.createElement("canvas");
     document.body.append(element);
     const drawing = new RealtimeDrawingRuntime(element, {
@@ -652,6 +654,29 @@ describe("retained drawing runtime", () => {
       onToolChange: toolChanged,
       width: 320,
     });
+    vi.spyOn(drawing.canvas, "getRetinaScaling").mockReturnValue(1);
+    const fittedBounds = {
+      bottom: 140,
+      height: 120,
+      left: 40,
+      right: 200,
+      top: 20,
+      width: 160,
+      x: 40,
+      y: 20,
+      toJSON: () => ({}),
+    };
+    vi.spyOn(
+      drawing.canvas.lowerCanvasEl,
+      "getBoundingClientRect",
+    ).mockReturnValue(fittedBounds);
+    vi.spyOn(
+      drawing.canvas.upperCanvasEl,
+      "getBoundingClientRect",
+    ).mockReturnValue(fittedBounds);
+    const dropEvent = new MouseEvent("drop", { clientX: 90, clientY: 60 });
+    drawing.canvas.upperCanvasEl.dispatchEvent(dropEvent);
+    expect(drawing.getScenePoint(dropEvent)).toEqual({ x: 100, y: 80 });
 
     await expect(
       drawing.addImage("data:image/webp;base64,c2V0dGE="),
@@ -667,6 +692,18 @@ describe("retained drawing runtime", () => {
     expect(drawing.canvas.getActiveObject()).toBe(image);
     expect(settled).toHaveBeenCalledOnce();
     expect(toolChanged).toHaveBeenCalledWith("select");
+
+    await expect(
+      drawing.addImage("data:image/webp;base64,c2V0dGE=", { x: 180, y: 100 }),
+    ).resolves.toBe(true);
+    expect(drawing.canvas.getObjects()[1]).toMatchObject({
+      left: 52,
+      scaleX: 0.32,
+      scaleY: 0.32,
+      top: 36,
+    });
+    expect(settled).toHaveBeenCalledTimes(2);
+    expect(toolChanged).toHaveBeenCalledTimes(2);
 
     await drawing.dispose();
     element.remove();

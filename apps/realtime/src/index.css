@@ -1035,6 +1035,7 @@ input {
 }
 
 .realtime-drawing-stage {
+  position: relative;
   display: grid;
   overflow: hidden;
   min-width: 0;
@@ -1057,6 +1058,35 @@ input {
     0 0 0 1px var(--realtime-drawing-artboard-edge),
     0 2px 12px var(--realtime-drawing-artboard-shadow);
   touch-action: none;
+}
+
+.realtime-drawing-stage[data-image-drag-active="true"] .canvas-container {
+  box-shadow:
+    0 0 0 2px rgb(59 130 246),
+    0 0 0 6px rgb(59 130 246 / 18%),
+    0 2px 12px var(--realtime-drawing-artboard-shadow);
+}
+
+.realtime-drawing-image-drop-message {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  padding: 7px 11px;
+  border: 1px solid rgb(59 130 246 / 45%);
+  border-radius: 999px;
+  color: rgb(37 99 235);
+  background: var(--realtime-drawing-surface);
+  box-shadow: 0 4px 14px rgb(15 23 42 / 18%);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.setta-workspace.setta-workspace-dark .realtime-drawing-image-drop-message {
+  color: rgb(147 197 253);
 }
 
 .realtime-drawing-stage .lower-canvas {

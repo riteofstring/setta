@@ -329,6 +329,14 @@ function usesMacOSShortcuts(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform);
 }
 
+function hasDrawingImageFiles(dataTransfer: DataTransfer): boolean {
+  return (
+    Array.from(dataTransfer.types).includes("Files") ||
+    Array.from(dataTransfer.items).some((item) => item.kind === "file") ||
+    dataTransfer.files.length > 0
+  );
+}
+
 export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const host = useWorkspaceHost();
   const { actions, project, runtime } = useRealtime();
@@ -336,6 +344,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageDragDepthRef = useRef(0);
+  const imageImportingRef = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
   const viewportRef = useRef<DrawingViewportController | null>(null);
@@ -351,6 +361,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     INITIAL_CREATION_COLORS,
   );
   const [importingImage, setImportingImage] = useState(false);
+  const [imageDragActive, setImageDragActive] = useState(false);
   const [selection, setSelection] = useState<DrawingSelectionSnapshot>(
     EMPTY_DRAWING_SELECTION_SNAPSHOT,
   );
@@ -764,22 +775,22 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     runDrawingKeyboardAction(drawing, action, setTool);
   };
 
-  const handleImageFile = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    if (file === undefined) {
+  const importImage = async (file: File, center?: { x: number; y: number }) => {
+    if (imageImportingRef.current) {
       return;
     }
     const drawing = drawingRef.current;
+    if (drawing === null) {
+      actions.reportError("The drawing surface is unavailable.");
+      return;
+    }
+    imageImportingRef.current = true;
     setImportingImage(true);
     try {
       const source = await prepareDrawingImage(file);
       if (
-        drawing === null ||
         drawingRef.current !== drawing ||
-        !(await drawing.addImage(source))
+        !(await drawing.addImage(source, center))
       ) {
         throw new Error("Realtime could not add this image to the drawing.");
       }
@@ -790,9 +801,79 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           : "Realtime could not add this image to the drawing.",
       );
     } finally {
-      input.value = "";
+      imageImportingRef.current = false;
       setImportingImage(false);
     }
+  };
+
+  const handleImageFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (file !== undefined) {
+      void importImage(file);
+    }
+  };
+
+  const resetImageDrag = () => {
+    imageDragDepthRef.current = 0;
+    setImageDragActive(false);
+  };
+
+  const handleImageDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!hasDrawingImageFiles(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (!imageImportingRef.current) {
+      imageDragDepthRef.current += 1;
+      setImageDragActive(true);
+    }
+  };
+
+  const handleImageDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!hasDrawingImageFiles(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (!imageImportingRef.current) {
+      event.dataTransfer.dropEffect = "copy";
+      setImageDragActive(true);
+    }
+  };
+
+  const handleImageDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (imageDragDepthRef.current === 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    imageDragDepthRef.current = Math.max(0, imageDragDepthRef.current - 1);
+    if (imageDragDepthRef.current === 0) {
+      setImageDragActive(false);
+    }
+  };
+
+  const handleImageDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0 && !hasDrawingImageFiles(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    resetImageDrag();
+    if (imageImportingRef.current) {
+      return;
+    }
+    if (files.length !== 1) {
+      actions.reportError("Drop one image at a time.");
+      return;
+    }
+    const drawing = drawingRef.current;
+    const center = drawing?.getScenePoint(event.nativeEvent);
+    void importImage(files[0]!, center);
   };
 
   const brushPresentation =
@@ -983,6 +1064,11 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       <div
         aria-label={`${section.name} drawing editor`}
         className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+        data-image-drag-active={imageDragActive}
+        onDragEnter={handleImageDragEnter}
+        onDragLeave={handleImageDragLeave}
+        onDragOver={handleImageDragOver}
+        onDrop={handleImageDrop}
         onKeyDown={handleDrawingKeyDown}
         onPointerDownCapture={(event) =>
           event.currentTarget.focus({ preventScroll: true })
@@ -992,6 +1078,11 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         tabIndex={0}
       >
         <canvas aria-label={section.name} ref={canvasRef} />
+        {imageDragActive ? (
+          <div className="realtime-drawing-image-drop-message" role="status">
+            Drop image to add
+          </div>
+        ) : null}
       </div>
     </div>
   );
