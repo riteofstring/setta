@@ -129,6 +129,11 @@ describe("retained drawing runtime", () => {
     drawing.canvas.fire("object:modified", { target: restored });
     expect(drawing.canvas.getActiveObject()).toBe(restored);
 
+    drawing.setTool("hand");
+    expect(drawing.canvas.skipTargetFind).toBe(true);
+    expect(drawing.canvas.defaultCursor).toBe("grab");
+    expect(restored.selectable).toBe(false);
+
     drawing.setTool("draw");
     expect(drawing.canvas.isDrawingMode).toBe(true);
     expect(drawing.canvas.freeDrawingBrush).toBeDefined();
@@ -287,6 +292,44 @@ describe("retained drawing runtime", () => {
       height: 600,
       width: 800,
     });
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("snaps object movement without retaining view precision state", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      width: 320,
+    });
+    const rectangle = drawing.addRectangle();
+    const sceneWithoutPrecisionState = drawing.toScene();
+    settled.mockClear();
+
+    expect(drawing.setGridSnap(16)).toBe(true);
+    expect(drawing.setGridSnap(16)).toBe(false);
+    expect(drawing.setGridSnap(1)).toBe(false);
+    expect(drawing.toScene()).toEqual(sceneWithoutPrecisionState);
+
+    rectangle.set({ left: 39, top: 57 });
+    drawing.canvas.fire("object:moving", { target: rectangle } as never);
+    expect(rectangle.getXY()).toEqual(new Point(32, 64));
+    expect(settled).not.toHaveBeenCalled();
+    drawing.canvas.fire("object:modified", { target: rectangle });
+    expect(settled).toHaveBeenCalledOnce();
+
+    expect(drawing.setGridSnap(null)).toBe(true);
+    rectangle.set({ left: 41, top: 59 });
+    drawing.canvas.fire("object:moving", { target: rectangle } as never);
+    expect(rectangle.getXY()).toEqual(new Point(41, 59));
 
     await drawing.dispose();
     element.remove();

@@ -1,4 +1,5 @@
-export type DrawingKeyboardTool = "draw" | "erase" | "highlighter" | "select";
+export type DrawingKeyboardTool =
+  "draw" | "erase" | "hand" | "highlighter" | "select";
 
 export type DrawingKeyboardAction =
   | { type: "clear-selection" }

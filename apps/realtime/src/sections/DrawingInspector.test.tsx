@@ -99,6 +99,16 @@ describe("drawing Inspector", () => {
       );
     });
 
+    expect(
+      [...container.querySelectorAll("h4")].map((heading) =>
+        heading.textContent?.trim(),
+      ),
+    ).toEqual(["Selection", "Drawing canvas"]);
+    expect(
+      container.querySelector<HTMLElement>('[aria-label="Drawing selection"]')
+        ?.dataset.state,
+    ).toBe("empty");
+
     const width = container.querySelector<HTMLInputElement>(
       '[aria-label="Canvas width"]',
     )!;

@@ -16,6 +16,7 @@ type DrawingToolbarIconName =
   | "rectangle"
   | "redo"
   | "select"
+  | "snap"
   | "text"
   | "undo"
   | "zoom-in"
@@ -88,6 +89,12 @@ const DRAWING_TOOLBAR_ICONS: Record<DrawingToolbarIconName, ReactNode> = {
     </>
   ),
   select: <path d="m6 3 11 10-5 .7 3.2 5.4-2.4 1.4-3.1-5.4L6 18V3Z" />,
+  snap: (
+    <>
+      <path d="M6 4v9a6 6 0 0 0 12 0V4" />
+      <path d="M6 8h4m4 0h4" />
+    </>
+  ),
   text: (
     <>
       <path d="M5 5h14M12 5v14" />

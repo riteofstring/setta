@@ -15,6 +15,7 @@ import {
   getDrawingCanvasSize,
   resizeDrawingCanvas,
 } from "./drawingSurfaceRegistry";
+import { DrawingSelectionInspector } from "./DrawingSelectionInspector";
 import { readDrawingSectionData } from "./sectionData";
 
 type DrawingInspectorProps = {
@@ -242,6 +243,7 @@ export function DrawingInspector({
       aria-describedby={descriptionId}
       className="realtime-drawing-inspector"
     >
+      <DrawingSelectionInspector sectionId={sectionId} />
       <div className="realtime-drawing-inspector-heading">
         <h4>Drawing canvas</h4>
         <span>

@@ -6,6 +6,7 @@ import {
   Group,
   Line,
   PencilBrush,
+  Point,
   Polyline,
   Rect,
   Textbox,
@@ -33,6 +34,7 @@ import {
   type DrawingSelectionSnapshot,
   type DrawingSelectionTypographyPatch,
 } from "./drawingObjectModel";
+import { isDrawingGridSpacing, snapDrawingPointToGrid } from "./drawingGrid";
 import type { DrawingSnapshot } from "./drawingSettlementQueue";
 
 export type {
@@ -46,7 +48,7 @@ export type {
   DrawingTextAlign,
 } from "./drawingObjectModel";
 
-export type DrawingTool = "select" | "draw" | "highlighter" | "erase";
+export type DrawingTool = "select" | "draw" | "highlighter" | "erase" | "hand";
 
 export type DrawingHistoryState = {
   canRedo: boolean;
@@ -162,6 +164,7 @@ export class RealtimeDrawingRuntime {
   private erasedInGesture = false;
   private history: DrawingHistoryEntry[] = [];
   private historyIndex = -1;
+  private gridSnapSpacing: number | null = null;
   private logicalHeight: number;
   private logicalWidth: number;
   private loading = false;
@@ -210,6 +213,7 @@ export class RealtimeDrawingRuntime {
     this.selectionSnapshotKey = JSON.stringify(this.selectionSnapshot);
     this.canvas.on("path:created", this.handleSettled);
     this.canvas.on("object:modified", this.handleObjectModified);
+    this.canvas.on("object:moving", this.handleObjectMoving);
     this.canvas.on("selection:created", this.handleSelectionChanged);
     this.canvas.on("selection:updated", this.handleSelectionChanged);
     this.canvas.on("selection:cleared", this.handleSelectionChanged);
@@ -238,7 +242,9 @@ export class RealtimeDrawingRuntime {
     this.configureBrush();
     this.canvas.isDrawingMode = tool === "draw" || tool === "highlighter";
     this.canvas.selection = tool === "select";
-    this.canvas.defaultCursor = tool === "erase" ? "crosshair" : "default";
+    this.canvas.skipTargetFind = tool === "hand";
+    this.canvas.defaultCursor =
+      tool === "hand" ? "grab" : tool === "erase" ? "crosshair" : "default";
     for (const object of this.canvas.getObjects()) {
       object.selectable = tool === "select";
       object.evented = true;
@@ -247,6 +253,17 @@ export class RealtimeDrawingRuntime {
       this.canvas.discardActiveObject();
     }
     this.canvas.requestRenderAll();
+  }
+
+  public setGridSnap(spacing: number | null): boolean {
+    if (spacing !== null && !isDrawingGridSpacing(spacing)) {
+      return false;
+    }
+    if (this.gridSnapSpacing === spacing) {
+      return false;
+    }
+    this.gridSnapSpacing = spacing;
+    return true;
   }
 
   public addRectangle(): FabricObject {
@@ -822,6 +839,32 @@ export class RealtimeDrawingRuntime {
     this.publishSelectionState();
   };
 
+  private readonly handleObjectMoving = ({
+    target,
+  }: {
+    target?: FabricObject;
+  }): void => {
+    const spacing = this.gridSnapSpacing;
+    if (
+      spacing === null ||
+      target === undefined ||
+      isDrawingObjectLocked(target)
+    ) {
+      return;
+    }
+    const position = target.getXY();
+    const snapped = snapDrawingPointToGrid(
+      { x: position.x, y: position.y },
+      spacing,
+    );
+    if (snapped.x === position.x && snapped.y === position.y) {
+      return;
+    }
+    target.setXY(new Point(snapped.x, snapped.y));
+    target.setCoords();
+    this.canvas.requestRenderAll();
+  };
+
   private readonly handleSelectionChanged = (): void => {
     if (this.asyncOperation?.kind === "duplicate") {
       this.cancelAsyncOperation();
@@ -890,7 +933,7 @@ export class RealtimeDrawingRuntime {
   private setLogicalSize(width: number, height: number): void {
     this.logicalWidth = width;
     this.logicalHeight = height;
-    this.canvas.setDimensions({ height, width });
+    this.canvas.setDimensions({ height, width }, { backstoreOnly: true });
     this.applyDisplaySize();
   }
 
