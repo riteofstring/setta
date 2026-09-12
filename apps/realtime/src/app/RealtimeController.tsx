@@ -56,6 +56,7 @@ import { RealtimeView } from "./RealtimeView";
 
 type EnqueueMutation = (
   build: (project: Project) => ProjectOperation[],
+  origin?: "application" | "workspace",
 ) => Promise<boolean>;
 
 type RuntimeTransport = {
@@ -264,6 +265,8 @@ export function RealtimeController() {
     let active = true;
     let projecting = false;
     let mutationChain = Promise.resolve();
+    let pendingWorkspaceMutations = 0;
+    let deferredWorkspaceDocument: WorkspaceDocument | null = null;
     let disconnectProjectEvents: (() => void) | null = null;
     let retryTimer: number | null = null;
     let runtimeGeneration = 0;
@@ -302,6 +305,38 @@ export function RealtimeController() {
       return nextProject.revision >= current.revision;
     };
 
+    const commitWorkspaceProjection = (document: WorkspaceDocument) => {
+      projecting = true;
+      try {
+        commitWorkspaceDocument(workspaceHost, document);
+      } finally {
+        projecting = false;
+      }
+    };
+
+    const publishWorkspaceProjection = (document: WorkspaceDocument) => {
+      if (pendingWorkspaceMutations > 0) {
+        deferredWorkspaceDocument = document;
+        return;
+      }
+      deferredWorkspaceDocument = null;
+      commitWorkspaceProjection(document);
+    };
+
+    const completeWorkspaceMutation = () => {
+      pendingWorkspaceMutations -= 1;
+      if (
+        pendingWorkspaceMutations !== 0 ||
+        deferredWorkspaceDocument === null ||
+        !active
+      ) {
+        return;
+      }
+      const document = deferredWorkspaceDocument;
+      deferredWorkspaceDocument = null;
+      commitWorkspaceProjection(document);
+    };
+
     const acceptProject = (
       nextProject: Project,
       sourceDocument: RuntimeSourceDocument | null,
@@ -320,37 +355,31 @@ export function RealtimeController() {
         setError("Realtime rejected source for another project entrypoint.");
         return false;
       }
-      projecting = true;
-      try {
-        commitWorkspaceDocument(
-          workspaceHost,
-          projectWorkspaceDocument(
-            nextProject,
-            workspaceHost.getSnapshot(),
-            sourceDocument,
-            preserveSourceDraft,
-          ),
-        );
-        projectRef.current = nextProject;
-        setProject(nextProject);
-        if (sourceSectionId === null) {
-          ++sourceGeneration;
-          replaceSource(initialRuntimeSourceViewState);
-        } else if (sourceRef.current.document !== sourceDocument) {
-          replaceSource({
-            activationRejected: false,
-            document: sourceDocument,
-            notice: null,
-            status: "ready",
-          });
-        }
-        if (clearError) {
-          setError(null);
-        }
-        return true;
-      } finally {
-        projecting = false;
+      publishWorkspaceProjection(
+        projectWorkspaceDocument(
+          nextProject,
+          workspaceHost.getSnapshot(),
+          sourceDocument,
+          preserveSourceDraft,
+        ),
+      );
+      projectRef.current = nextProject;
+      setProject(nextProject);
+      if (sourceSectionId === null) {
+        ++sourceGeneration;
+        replaceSource(initialRuntimeSourceViewState);
+      } else if (sourceRef.current.document !== sourceDocument) {
+        replaceSource({
+          activationRejected: false,
+          document: sourceDocument,
+          notice: null,
+          status: "ready",
+        });
       }
+      if (clearError) {
+        setError(null);
+      }
+      return true;
     };
 
     const resolveProjectSource = async (
@@ -457,28 +486,40 @@ export function RealtimeController() {
       }
     };
 
-    const enqueue: EnqueueMutation = (build) => {
+    const enqueue: EnqueueMutation = (build, origin = "application") => {
+      const workspaceMutation = origin === "workspace";
+      if (workspaceMutation) {
+        pendingWorkspaceMutations += 1;
+      }
       let resolveResult: (result: boolean) => void = () => {};
       const result = new Promise<boolean>((resolve) => {
         resolveResult = resolve;
       });
       const run = async () => {
-        if (!active || projectRef.current === null) {
-          resolveResult(false);
-          return;
-        }
-        const current = projectRef.current;
         try {
-          const operations = build(current);
-          if (operations.length === 0) {
-            resolveResult(true);
+          if (!active || projectRef.current === null) {
+            resolveResult(false);
             return;
           }
-          const nextProject = await applyProject(current, operations);
-          resolveResult(active && (await acceptPublishedProject(nextProject)));
-        } catch (caught) {
-          await handleMutationFailure(caught, current);
-          resolveResult(false);
+          const current = projectRef.current;
+          try {
+            const operations = build(current);
+            if (operations.length === 0) {
+              resolveResult(true);
+              return;
+            }
+            const nextProject = await applyProject(current, operations);
+            resolveResult(
+              active && (await acceptPublishedProject(nextProject)),
+            );
+          } catch (caught) {
+            await handleMutationFailure(caught, current);
+            resolveResult(false);
+          }
+        } finally {
+          if (workspaceMutation) {
+            completeWorkspaceMutation();
+          }
         }
       };
       mutationChain = mutationChain.then(run, run);
@@ -636,7 +677,9 @@ export function RealtimeController() {
         const current = projectRef.current;
         if (!projecting && current !== null) {
           const operations = workspaceDocumentOperations(current, document);
-          void enqueue(() => operations);
+          if (operations.length > 0) {
+            void enqueue(() => operations, "workspace");
+          }
         }
       },
     );
@@ -737,6 +780,7 @@ export function RealtimeController() {
       workspaceHost.dispose();
       projectRef.current = null;
       sourceRef.current = initialRuntimeSourceViewState;
+      deferredWorkspaceDocument = null;
     };
   }, []);
 

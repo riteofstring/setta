@@ -104,6 +104,28 @@ describe("project workspace projection", () => {
     ]);
   });
 
+  it("keeps transient measurements out of fixed-size project layout", () => {
+    const project = makeProject();
+    const document = projectWorkspaceDocument(project);
+    document.topLevelSections["input-main"]!.w = 332;
+    document.topLevelSections["input-main"]!.h = 130;
+
+    expect(workspaceDocumentOperations(project, document)).toEqual([]);
+
+    document.sections["input-main"]!.size.width = 330;
+
+    expect(workspaceDocumentOperations(project, document)).toEqual([
+      {
+        layout: { height: 128, width: 332, x: 288, y: 24, zIndex: 1 },
+        op: "upsertSection",
+        section: {
+          ...project.sections["input-main"],
+          width: 330,
+        },
+      },
+    ]);
+  });
+
   it("persists the authored viewport", () => {
     const project = makeProject();
     const document = projectWorkspaceDocument(project);

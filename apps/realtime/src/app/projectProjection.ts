@@ -162,18 +162,44 @@ function canonicalSection(
 function canonicalLayout(
   document: WorkspaceDocument,
   sectionId: string,
+  section: Section,
+  currentSection: Section | undefined,
+  currentLayout: TopLevelSectionLayout | null,
 ): TopLevelSectionLayout | null {
   const layout = document.topLevelSections[sectionId];
   if (layout === undefined) {
     return null;
   }
   return {
-    height: layout.h,
-    width: layout.w,
+    height: canonicalLayoutDimension(
+      section.height,
+      currentSection?.height,
+      currentLayout?.height,
+      layout.h,
+    ),
+    width: canonicalLayoutDimension(
+      section.width,
+      currentSection?.width,
+      currentLayout?.width,
+      layout.w,
+    ),
     x: layout.x,
     y: layout.y,
     zIndex: layout.zIndex,
   };
+}
+
+function canonicalLayoutDimension(
+  sectionSize: Section["width"],
+  currentSectionSize: Section["width"] | undefined,
+  currentLayoutSize: number | null | undefined,
+  measuredSize: number | null,
+): number | null {
+  return sectionSize !== "auto" &&
+    sectionSize === currentSectionSize &&
+    currentLayoutSize !== undefined
+    ? currentLayoutSize
+    : measuredSize;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -231,8 +257,14 @@ export function workspaceDocumentOperations(
   )) {
     const currentSection = project.sections[sectionId];
     const section = canonicalSection(workspaceSection, currentSection);
-    const layout = canonicalLayout(document, sectionId);
     const currentLayout = project.layout.topLevelSections[sectionId] ?? null;
+    const layout = canonicalLayout(
+      document,
+      sectionId,
+      section,
+      currentSection,
+      currentLayout,
+    );
     if (
       currentSection === undefined ||
       !sameValue(currentSection, section) ||
