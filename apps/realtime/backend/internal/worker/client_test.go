@@ -67,20 +67,20 @@ handlers = {
 	if err != nil {
 		t.Fatalf("Invoke(ordinary) error = %v", err)
 	}
-	if got := string(result.Outputs["value"]); got != "42" || result.Error != nil {
+	if got := string(result.Outputs["value"]); got != "42" || result.UpdateCount != 0 || result.Error != nil {
 		t.Fatalf("ordinary result = %#v", result)
 	}
 
 	stream := fixtureInvokeParams("generator-stream", 2, "stream", map[string]json.RawMessage{"limit": json.RawMessage(`3`)})
 	result, updates := invokeAndCollectUpdates(t, runtime.client, stream, 3)
-	if result.Error != nil || len(result.Outputs) != 0 {
+	if result.Error != nil || len(result.Outputs) != 0 || result.UpdateCount != 3 {
 		t.Fatalf("generator result = %#v", result)
 	}
 	assertUpdateValues(t, updates, []string{"0", "1", "2"})
 
 	asyncStream := fixtureInvokeParams("async-generator-stream", 3, "async_stream", map[string]json.RawMessage{"limit": json.RawMessage(`2`)})
 	result, updates = invokeAndCollectUpdates(t, runtime.client, asyncStream, 2)
-	if result.Error != nil || len(result.Outputs) != 0 {
+	if result.Error != nil || len(result.Outputs) != 0 || result.UpdateCount != 2 {
 		t.Fatalf("async generator result = %#v", result)
 	}
 	assertUpdateValues(t, updates, []string{"0", "1"})
@@ -312,7 +312,7 @@ func (state *goFixtureState) handle(t *testing.T, framer *Framer, message wireMe
 	t.Helper()
 	switch message.Method {
 	case InitializeMethod:
-		result := contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "fixture", Handlers: []string{"cancel", "crash", "echo", "fail", "logs", "stream"}}
+		result := contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "fixture", Handlers: []string{"cancel", "crash", "echo", "fail", "logs", "stream"}}
 		writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", ID: message.ID, Result: mustJSON(t, result)})
 	case InvokeMethod:
 		state.invoke(t, framer, message)
@@ -335,20 +335,20 @@ func (state *goFixtureState) invoke(t *testing.T, framer *Framer, message wireMe
 	}
 	switch params.Handler {
 	case "echo":
-		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{"value": params.Arguments["value"]}})
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{"value": params.Arguments["value"]}, UpdateCount: 0})
 	case "stream":
-		state.update(t, framer, params.Identity, "0")
-		state.update(t, framer, params.Identity, "1")
-		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}})
+		state.update(t, framer, params.Identity, "0", 1)
+		state.update(t, framer, params.Identity, "1", 2)
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, UpdateCount: 2})
 	case "fail":
-		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, Error: &contracts.StructuredError{Code: "handler_error", Message: "fixture failure"}})
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, UpdateCount: 0, Error: &contracts.StructuredError{Code: "handler_error", Message: "fixture failure"}})
 	case "cancel":
 		state.pendingID = append(json.RawMessage(nil), message.ID...)
-		state.update(t, framer, params.Identity, "0")
+		state.update(t, framer, params.Identity, "0", 1)
 	case "logs":
 		_, _ = fmt.Fprintln(os.Stdout, "go fixture stdout")
 		_, _ = fmt.Fprintln(os.Stderr, "go fixture stderr")
-		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}})
+		state.respond(t, framer, message.ID, contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, UpdateCount: 0})
 	case "crash":
 		os.Exit(23)
 	default:
@@ -367,14 +367,14 @@ func (state *goFixtureState) cancel(t *testing.T, framer *Framer, message wireMe
 	if string(state.pendingID) != strconv.FormatUint(params.ID, 10) {
 		t.Fatalf("cancel request id = %d, pending = %s", params.ID, state.pendingID)
 	}
-	result := contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, Error: &contracts.StructuredError{Code: "cancelled", Message: "cancelled"}}
+	result := contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, UpdateCount: 1, Error: &contracts.StructuredError{Code: "cancelled", Message: "cancelled"}}
 	state.respond(t, framer, state.pendingID, result)
 	state.pendingID = nil
 }
 
-func (state *goFixtureState) update(t *testing.T, framer *Framer, identity contracts.InvocationIdentity, value string) {
+func (state *goFixtureState) update(t *testing.T, framer *Framer, identity contracts.InvocationIdentity, value string, sequence uint64) {
 	t.Helper()
-	update := contracts.RuntimeUpdate{Identity: identity, Outputs: map[string]json.RawMessage{"value": json.RawMessage(value)}, Artifacts: []contracts.WorkerArtifact{}}
+	update := contracts.RuntimeUpdate{Identity: identity, UpdateSequence: sequence, Outputs: map[string]json.RawMessage{"value": json.RawMessage(value)}, Artifacts: []contracts.WorkerArtifact{}}
 	writeFixtureMessage(t, framer, wireMessage{JSONRPC: "2.0", Method: UpdateMethod, Params: mustJSON(t, update)})
 }
 
@@ -498,7 +498,7 @@ func initializeFixture(t *testing.T, client *Client, projectRoot string, wantHan
 func fixtureInvokeParams(invocationID string, sequence uint64, handler string, arguments map[string]json.RawMessage) contracts.InvokeParams {
 	return contracts.InvokeParams{
 		Identity: contracts.InvocationIdentity{
-			SessionID: "session-fixture", BindingID: "binding-fixture", InvocationID: invocationID, Sequence: sequence,
+			SessionID: "session-fixture", RunID: "run-" + invocationID, BindingID: "binding-fixture", InvocationID: invocationID, Sequence: sequence,
 		},
 		Handler: handler, Arguments: arguments, Content: []contracts.ContentReference{},
 	}
@@ -538,7 +538,10 @@ func readUpdate(t *testing.T, updates <-chan contracts.RuntimeUpdate) contracts.
 func assertUpdateValues(t *testing.T, updates []contracts.RuntimeUpdate, want []string) {
 	t.Helper()
 	got := make([]string, 0, len(updates))
-	for _, update := range updates {
+	for index, update := range updates {
+		if update.UpdateSequence != uint64(index+1) {
+			t.Fatalf("update sequence = %d, want %d", update.UpdateSequence, index+1)
+		}
 		got = append(got, string(update.Outputs["value"]))
 	}
 	if !slices.Equal(got, want) {

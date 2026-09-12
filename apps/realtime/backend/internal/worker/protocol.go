@@ -220,7 +220,7 @@ func validateInitializeResult(result contracts.InitializeResult) error {
 	if result.ProtocolVersion != contracts.WorkerProtocolVersion || !runtimeKindPattern.MatchString(result.RuntimeKind) {
 		return fmt.Errorf("%w: initialize result is invalid", ErrProtocol)
 	}
-	if result.Handlers == nil {
+	if result.Handlers == nil || len(result.Handlers) > maximumValues {
 		return fmt.Errorf("%w: initialize handlers are missing", ErrProtocol)
 	}
 	seen := make(map[string]struct{}, len(result.Handlers))
@@ -292,6 +292,9 @@ func validateRuntimeUpdate(update contracts.RuntimeUpdate) error {
 	if err := validateIdentity(update.Identity); err != nil {
 		return fmt.Errorf("%w: %v", ErrProtocol, err)
 	}
+	if update.UpdateSequence == 0 {
+		return fmt.Errorf("%w: update sequence is invalid", ErrProtocol)
+	}
 	if !validUpdateProgress(update.Progress) {
 		return fmt.Errorf("%w: update progress is invalid", ErrProtocol)
 	}
@@ -337,7 +340,7 @@ func validUpdateArtifacts(artifacts []contracts.WorkerArtifact) bool {
 }
 
 func validateIdentity(identity contracts.InvocationIdentity) error {
-	if !protocolIdentityPattern.MatchString(identity.SessionID) || !protocolIdentityPattern.MatchString(identity.BindingID) || !protocolIdentityPattern.MatchString(identity.InvocationID) || identity.Sequence == 0 {
+	if !protocolIdentityPattern.MatchString(identity.SessionID) || !protocolIdentityPattern.MatchString(identity.RunID) || !protocolIdentityPattern.MatchString(identity.BindingID) || !protocolIdentityPattern.MatchString(identity.InvocationID) || identity.Sequence == 0 {
 		return errors.New("worker: invocation identity is invalid")
 	}
 	return nil

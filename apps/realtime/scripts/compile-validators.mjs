@@ -9,19 +9,19 @@ if (process.argv.length > (check ? 3 : 2)) {
 }
 
 const projectSchemaPath = new URL(
-  "../backend/internal/contracts/testdata/project-v1.schema.json",
+  "../backend/internal/contracts/testdata/project-v2.schema.json",
   import.meta.url,
 );
 const applyRequestSchemaPath = new URL(
-  "../backend/internal/contracts/testdata/apply-request-v1.schema.json",
+  "../backend/internal/contracts/testdata/apply-request-v2.schema.json",
   import.meta.url,
 );
 const runtimeSchemaPath = new URL(
-  "../backend/internal/contracts/testdata/runtime-v1.schema.json",
+  "../backend/internal/contracts/testdata/runtime-v2.schema.json",
   import.meta.url,
 );
 const runtimeCommandSchemaPath = new URL(
-  "../backend/internal/contracts/testdata/runtime-command-v1.schema.json",
+  "../backend/internal/contracts/testdata/runtime-command-v2.schema.json",
   import.meta.url,
 );
 const contentReferenceSchemaPath = new URL(

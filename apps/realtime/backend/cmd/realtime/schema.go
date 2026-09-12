@@ -58,27 +58,27 @@ type cliSchemaDocument struct {
 
 func schemaDocument() cliSchemaDocument {
 	return cliSchemaDocument{
-		SchemaVersion: "setta-realtime-schema/v1",
+		SchemaVersion: "setta-realtime-schema/v2",
 		Commands: map[string]schemaCommand{
 			"apply": {
 				Summary: "Apply one revision-checked mutation envelope.",
-				Usage:   "apply --project-root PATH --file PATH|- [--pretty]", Input: "ApplyRequestV1", Result: "ProjectV1", ExitCodes: []int{0, 1, 2},
+				Usage:   "apply --project-root PATH --file PATH|- [--pretty]", Input: "ApplyRequestV2", Result: "ProjectV2", ExitCodes: []int{0, 1, 2},
 			},
 			"invoke": {
 				Summary: "Reload the current entrypoint and invoke one named handler.",
-				Usage:   "invoke --project-root PATH --handler NAME [--file PATH|-] [--pretty]", Input: "DirectInvokeRequestV1", Result: "InvokeResultV1", ExitCodes: []int{0, 1, 2},
+				Usage:   "invoke --project-root PATH --handler NAME [--file PATH|-] [--pretty]", Input: "DirectInvokeRequestV1", Result: "InvokeResultV2", ExitCodes: []int{0, 1, 2},
 			},
 			"reload": {
 				Summary: "Validate and start the current runtime entrypoint.",
-				Usage:   "reload --project-root PATH [--pretty]", Result: "InitializeResultV1", ExitCodes: []int{0, 1, 2},
+				Usage:   "reload --project-root PATH [--pretty]", Result: "InitializeResultV2", ExitCodes: []int{0, 1, 2},
 			},
 			"schema": {
 				Summary: "Publish this versioned offline command contract.",
-				Usage:   "schema [--pretty]", Result: "RealtimeCommandSchemaV1", ExitCodes: []int{0, 1, 2},
+				Usage:   "schema [--pretty]", Result: "RealtimeCommandSchemaV2", ExitCodes: []int{0, 1, 2},
 			},
 			"snapshot": {
 				Summary: "Read the canonical project and current runtime status.",
-				Usage:   "snapshot --project-root PATH [--pretty]", Result: "RealtimeSnapshotV1", ExitCodes: []int{0, 1, 2},
+				Usage:   "snapshot --project-root PATH [--pretty]", Result: "RealtimeSnapshotV2", ExitCodes: []int{0, 1, 2},
 			},
 		},
 		Operations: []schemaOperation{
@@ -86,21 +86,21 @@ func schemaDocument() cliSchemaDocument {
 			{Name: "setRuntime", Required: []string{"op", "runtime"}, Optional: []string{}, Example: json.RawMessage(`{"op":"setRuntime","runtime":{"kind":"python","entrypoint":"app.py"}}`)},
 			{Name: "upsertSection", Required: []string{"op", "section", "layout"}, Optional: []string{}, Example: json.RawMessage(`{"op":"upsertSection","section":{"id":"counter","kind":"output","name":"Counter","width":"auto","height":"auto","overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"value":0}},"layout":{"x":0,"y":0,"width":null,"height":null,"zIndex":0}}`)},
 			{Name: "deleteSection", Required: []string{"op", "sectionId"}, Optional: []string{}, Example: json.RawMessage(`{"op":"deleteSection","sectionId":"counter"}`)},
-			{Name: "setBinding", Required: []string{"op", "binding"}, Optional: []string{}, Example: json.RawMessage(`{"op":"setBinding","binding":{"id":"increment","trigger":{"sectionId":"button","event":"press"},"handler":"increment","arguments":{},"scheduling":{"mode":"once","debounceMilliseconds":0,"concurrencyGroup":"default","concurrencyLimit":1},"outputs":{"result":{"sectionId":"counter","field":"value"}}}}`)},
+			{Name: "setBinding", Required: []string{"op", "binding"}, Optional: []string{}, Example: json.RawMessage(`{"op":"setBinding","binding":{"id":"increment","trigger":{"kind":"event","sectionId":"button","event":"press"},"handler":"increment","arguments":{},"scheduling":{"mode":"once","debounceMilliseconds":0,"concurrencyGroup":"default","concurrencyLimit":1},"outputs":{"result":{"target":{"sectionId":"counter","field":"value"}}}}}`)},
 			{Name: "deleteBinding", Required: []string{"op", "bindingId"}, Optional: []string{}, Example: json.RawMessage(`{"op":"deleteBinding","bindingId":"increment"}`)},
 			{Name: "setConfiguration", Required: []string{"op", "configuration"}, Optional: []string{}, Example: json.RawMessage(`{"op":"setConfiguration","configuration":{}}`)},
 			{Name: "setViewport", Required: []string{"op", "viewport"}, Optional: []string{}, Example: json.RawMessage(`{"op":"setViewport","viewport":{"x":0,"y":0,"zoom":1}}`)},
 		},
 		Inputs: []schemaResult{
-			{Name: "ApplyRequestV1", Description: "One project identity, expected revision, and nonempty closed operation sequence.", Fields: []string{"projectId", "expectedRevision", "operations"}},
+			{Name: "ApplyRequestV2", Description: "One project identity, expected revision, and nonempty closed operation sequence.", Fields: []string{"projectId", "expectedRevision", "operations"}},
 			{Name: "DirectInvokeRequestV1", Description: "Named JSON arguments and validated content references for one direct invocation.", Fields: []string{"arguments", "content"}},
 		},
 		Results: []schemaResult{
-			{Name: "RealtimeCommandSchemaV1", Description: "The closed offline command, operation, input, result, error, and JSON Schema contract.", Fields: []string{"schemaVersion", "commands", "operations", "inputs", "results", "errors", "schemas"}},
-			{Name: "RealtimeSnapshotV1", Description: "One canonical authored project and ephemeral runtime snapshot.", Fields: []string{"project", "runtime"}},
-			{Name: "ProjectV1", Description: "The canonical authored project after an accepted mutation.", Fields: []string{"version", "id", "revision", "name", "runtime", "sections", "layout", "bindings", "configuration"}},
-			{Name: "InitializeResultV1", Description: "The worker protocol version, runtime kind, handler names, and structured load error.", Fields: []string{"protocolVersion", "runtimeKind", "handlers", "loadError"}},
-			{Name: "InvokeResultV1", Description: "The named outputs and structured handler error from one invocation.", Fields: []string{"outputs", "error"}},
+			{Name: "RealtimeCommandSchemaV2", Description: "The closed offline command, operation, input, result, error, and JSON Schema contract.", Fields: []string{"schemaVersion", "commands", "operations", "inputs", "results", "errors", "schemas"}},
+			{Name: "RealtimeSnapshotV2", Description: "One canonical authored project and ephemeral runtime snapshot.", Fields: []string{"project", "runtime"}},
+			{Name: "ProjectV2", Description: "The canonical authored project after an accepted mutation.", Fields: []string{"version", "id", "revision", "name", "runtime", "sections", "layout", "bindings", "configuration"}},
+			{Name: "InitializeResultV2", Description: "The worker protocol version, runtime kind, handler names, and structured load error.", Fields: []string{"protocolVersion", "runtimeKind", "handlers", "loadError"}},
+			{Name: "InvokeResultV2", Description: "The named outputs, emitted update count, and structured handler error from one invocation.", Fields: []string{"outputs", "updateCount", "error"}},
 		},
 		Errors: []schemaError{
 			{Code: "invalid_input", ExitCode: 2, Description: "Command arguments or input failed strict validation."},

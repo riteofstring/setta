@@ -29,7 +29,7 @@ export type RuntimeDeclaration = {
 
 export type Section = {
   id: string;
-  kind: "input" | "output" | "button" | "status" | "drawing" | "code";
+  kind: "input" | "output" | "button" | "status" | "drawing" | "code" | "handler";
   name: string;
   width: SizeValue;
   height: SizeValue;
@@ -58,7 +58,10 @@ export type Viewport = {
 
 export type Binding = {
   id: string;
-  trigger: { sectionId: string; event: "change" | "submit" | "press" | "snapshot" };
+  trigger:
+    | { kind: "event"; sectionId: string; event: "change" | "submit" | "press" | "snapshot" }
+    | { kind: "join"; mode: "all"; inputs: Record<string, { bindingId: string; output: string }> }
+    | { kind: "disconnected" };
   handler: string;
   arguments: Record<string, JsonValue>;
   scheduling: {
@@ -67,7 +70,7 @@ export type Binding = {
     concurrencyGroup: string;
     concurrencyLimit: number;
   };
-  outputs: Record<string, { sectionId: string; field: string }>;
+  outputs: Record<string, { target?: { sectionId: string; field: "value" | "contentRef" | "message" | "level" | "progress" | "scene" } }>;
   materialization?: {
     retention: "session" | "lastSuccessful";
     startup: "always" | "whenStale" | "ifMissing" | "manual";
@@ -75,7 +78,7 @@ export type Binding = {
 };
 
 export type Project = {
-  version: 1;
+  version: 2;
   id: string;
   revision: number;
   name: string;
@@ -125,6 +128,7 @@ export type ApplyRuntimeSourceResult =
 
 export type InvocationIdentity = {
   sessionId: string;
+  runId: string;
   bindingId: string;
   invocationId: string;
   sequence: number;
@@ -147,6 +151,7 @@ export type InvocationStatus = {
   identity: InvocationIdentity;
   state:
     | "queued"
+    | "waiting"
     | "running"
     | "streaming"
     | "completed"
@@ -154,13 +159,15 @@ export type InvocationStatus = {
     | "timedOut"
     | "failed"
     | "crashed"
-    | "superseded";
+    | "superseded"
+    | "blocked";
   error: StructuredError | null;
 };
 
 export type RuntimeSnapshot = {
   sessionId: string;
   workerState: "stopped" | "starting" | "ready" | "failed" | "replacing";
+  handlers: Array<string>;
   values: Record<string, JsonValue>;
   invocations: Record<string, InvocationStatus>;
   publishedByBinding: Record<string, InvocationIdentity>;
@@ -169,6 +176,7 @@ export type RuntimeSnapshot = {
 
 export type RuntimeUpdate = {
   identity: InvocationIdentity;
+  updateSequence: number;
   progress: number | null;
   message: string;
   outputs: Record<string, JsonValue>;

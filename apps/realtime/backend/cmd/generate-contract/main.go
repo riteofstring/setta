@@ -82,15 +82,15 @@ func generatedOutputs() ([]output, error) {
 		return nil, err
 	}
 	return []output{
-		{path: "internal/contracts/testdata/apply-request-v1.schema.json", data: applyRequest},
+		{path: "internal/contracts/testdata/apply-request-v2.schema.json", data: applyRequest},
 		{path: "internal/contracts/testdata/direct-invoke-request-v1.schema.json", data: directInvokeRequest},
 		{path: "internal/contracts/testdata/runtime-source-v1.schema.json", data: runtimeSource},
 		{path: "internal/contracts/testdata/apply-runtime-source-request-v1.schema.json", data: applyRuntimeSourceRequest},
 		{path: "internal/contracts/testdata/apply-runtime-source-result-v1.schema.json", data: applyRuntimeSourceResult},
-		{path: "internal/contracts/testdata/project-v1.schema.json", data: project},
-		{path: "internal/contracts/testdata/runtime-v1.schema.json", data: runtime},
-		{path: "internal/contracts/testdata/runtime-command-v1.schema.json", data: runtimeCommand},
-		{path: "internal/contracts/testdata/worker-v1.schema.json", data: worker},
+		{path: "internal/contracts/testdata/project-v2.schema.json", data: project},
+		{path: "internal/contracts/testdata/runtime-v2.schema.json", data: runtime},
+		{path: "internal/contracts/testdata/runtime-command-v2.schema.json", data: runtimeCommand},
+		{path: "internal/contracts/testdata/worker-v2.schema.json", data: worker},
 		{path: "internal/contracts/testdata/content-reference-v1.schema.json", data: contentReference},
 		{path: filepath.Join("..", "src", "backend", "generatedContract.ts"), data: []byte(contracts.TypeScriptContract())},
 	}, nil

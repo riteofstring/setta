@@ -147,7 +147,7 @@ func TestSchemaEmitsVersionedCommandsAndContracts(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &document); err != nil {
 		t.Fatalf("decode schema: %v", err)
 	}
-	if document.SchemaVersion != "setta-realtime-schema/v1" || len(document.Commands) != 5 {
+	if document.SchemaVersion != "setta-realtime-schema/v2" || len(document.Commands) != 5 {
 		t.Fatalf("schema identity = %#v", document)
 	}
 	if document.Schemas.ApplyRequest["$id"] == nil || document.Schemas.ApplyRuntimeSourceRequest["$id"] == nil || document.Schemas.ApplyRuntimeSourceResult["$id"] == nil || document.Schemas.DirectInvokeRequest["$id"] == nil || document.Schemas.Project["$id"] == nil || document.Schemas.Runtime["$id"] == nil || document.Schemas.RuntimeCommand["$id"] == nil || document.Schemas.RuntimeSource["$id"] == nil {
@@ -205,7 +205,7 @@ func TestWorkerEnvironmentDoesNotExposeLauncherSelection(t *testing.T) {
 
 func TestInvokeReadsStrictInputReloadsAndInvokes(t *testing.T) {
 	coordinator := &fakeCoordinator{
-		reloadResult: contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stream"}},
+		reloadResult: contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{"stream"}},
 		invokeResult: contracts.InvokeResult{Outputs: map[string]json.RawMessage{"result": json.RawMessage(`7`)}, Error: nil},
 	}
 	application := &fakeApplication{coordinator: coordinator}
@@ -253,7 +253,7 @@ func TestInvokeReadsStrictInputReloadsAndInvokes(t *testing.T) {
 
 func TestInvokeWithoutFileDoesNotReadStdin(t *testing.T) {
 	coordinator := &fakeCoordinator{
-		reloadResult: contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"run"}},
+		reloadResult: contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{"run"}},
 		invokeResult: contracts.InvokeResult{Outputs: map[string]json.RawMessage{}},
 	}
 	application := &fakeApplication{coordinator: coordinator}

@@ -11,6 +11,10 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "runId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "sequence": {
           "minimum": 1,
           "type": "integer"
@@ -22,6 +26,7 @@
       },
       "required": [
         "sessionId",
+        "runId",
         "bindingId",
         "invocationId",
         "sequence"
@@ -57,7 +62,7 @@
       ]
     }
   },
-  "$id": "https://setta.local/schemas/realtime/runtime-command-v1.schema.json",
+  "$id": "https://setta.local/schemas/realtime/runtime-command-v2.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "oneOf": [
     {
@@ -140,5 +145,5 @@
       "type": "object"
     }
   ],
-  "title": "Setta Realtime Runtime Command V1"
+  "title": "Setta Realtime Runtime Command V2"
 }

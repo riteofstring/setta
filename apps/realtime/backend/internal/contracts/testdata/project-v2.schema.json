@@ -30,15 +30,37 @@
           "then": {
             "properties": {
               "trigger": {
-                "properties": {
-                  "event": {
-                    "enum": [
-                      "change",
-                      "snapshot"
-                    ]
+                "anyOf": [
+                  {
+                    "properties": {
+                      "kind": {
+                        "const": "join"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "properties": {
+                      "event": {
+                        "enum": [
+                          "change",
+                          "snapshot"
+                        ]
+                      },
+                      "kind": {
+                        "const": "event"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "event"
+                    ],
+                    "type": "object"
                   }
-                },
-                "type": "object"
+                ]
               }
             },
             "type": "object"
@@ -93,25 +115,32 @@
           "additionalProperties": {
             "additionalProperties": false,
             "properties": {
-              "field": {
-                "enum": [
-                  "value",
-                  "contentRef",
-                  "message",
-                  "level",
-                  "progress",
-                  "scene"
-                ]
-              },
-              "sectionId": {
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                "type": "string"
+              "target": {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "enum": [
+                      "value",
+                      "contentRef",
+                      "message",
+                      "level",
+                      "progress",
+                      "scene"
+                    ]
+                  },
+                  "sectionId": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sectionId",
+                  "field"
+                ],
+                "type": "object"
               }
             },
-            "required": [
-              "sectionId",
-              "field"
-            ],
+            "required": [],
             "type": "object"
           },
           "maxProperties": 128,
@@ -155,26 +184,90 @@
           "type": "object"
         },
         "trigger": {
-          "additionalProperties": false,
-          "properties": {
-            "event": {
-              "enum": [
-                "change",
-                "submit",
-                "press",
-                "snapshot"
-              ]
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "event": {
+                  "enum": [
+                    "change",
+                    "submit",
+                    "press",
+                    "snapshot"
+                  ]
+                },
+                "kind": {
+                  "const": "event"
+                },
+                "sectionId": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "sectionId",
+                "event"
+              ],
+              "type": "object"
             },
-            "sectionId": {
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-              "type": "string"
+            {
+              "additionalProperties": false,
+              "properties": {
+                "inputs": {
+                  "additionalProperties": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bindingId": {
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                        "type": "string"
+                      },
+                      "output": {
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "bindingId",
+                      "output"
+                    ],
+                    "type": "object"
+                  },
+                  "maxProperties": 128,
+                  "minProperties": 1,
+                  "propertyNames": {
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "join"
+                },
+                "mode": {
+                  "const": "all"
+                }
+              },
+              "required": [
+                "kind",
+                "mode",
+                "inputs"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "disconnected"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
             }
-          },
-          "required": [
-            "sectionId",
-            "event"
-          ],
-          "type": "object"
+          ]
         }
       },
       "required": [
@@ -759,6 +852,88 @@
             "data"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "bindingId": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "bindingId"
+              ],
+              "type": "object"
+            },
+            "height": {
+              "$ref": "#/$defs/sizeValue"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "isHorizontalOrientation": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "handler"
+            },
+            "name": {
+              "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+              "type": "string"
+            },
+            "overflowMode": {
+              "type": "boolean"
+            },
+            "positionAndSizeLocked": {
+              "type": "boolean"
+            },
+            "styleColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tagColor": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "$ref": "#/$defs/sizeValue"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "width",
+            "height",
+            "overflowMode",
+            "positionAndSizeLocked",
+            "isHorizontalOrientation",
+            "styleColor",
+            "tagColor",
+            "children",
+            "data"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -839,7 +1014,7 @@
       "type": "object"
     }
   },
-  "$id": "https://setta.local/schemas/realtime/project-v1.schema.json",
+  "$id": "https://setta.local/schemas/realtime/project-v2.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -919,7 +1094,7 @@
       "type": "object"
     },
     "version": {
-      "const": 1
+      "const": 2
     }
   },
   "required": [
@@ -933,6 +1108,6 @@
     "bindings",
     "configuration"
   ],
-  "title": "Setta Realtime Project V1",
+  "title": "Setta Realtime Project V2",
   "type": "object"
 }

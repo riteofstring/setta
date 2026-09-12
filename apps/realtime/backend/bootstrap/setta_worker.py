@@ -18,7 +18,7 @@ MAXIMUM_FRAME_BYTES = 4 << 20
 MAXIMUM_HEADER_BYTES = 8 << 10
 MAXIMUM_ARTIFACT_BYTES = 256 << 20
 MAXIMUM_ARTIFACT_SESSION_BYTES = 512 << 20
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 APPLICATION_EXCEPTIONS = (Exception, GeneratorExit, KeyboardInterrupt, SystemExit)
 
@@ -262,6 +262,7 @@ class Invocation:
         self.params = params
         self.worker = worker
         self.cancelled = threading.Event()
+        self.update_count = 0
         self.thread = threading.Thread(target=self._run, daemon=True)
 
     def start(self):
@@ -280,12 +281,14 @@ class Invocation:
         update["artifacts"] = self.worker.stage_artifacts(
             self.params["identity"], update["artifacts"]
         )
+        self.update_count += 1
         self.worker.send(
             {
                 "jsonrpc": "2.0",
                 "method": "runtime/update",
                 "params": {
                     "identity": self.params["identity"],
+                    "updateSequence": self.update_count,
                     "progress": update["progress"],
                     "message": update["message"],
                     "outputs": update["outputs"],
@@ -356,26 +359,34 @@ class Invocation:
     def _run(self):
         try:
             outputs = self._invoke()
-            result = {"outputs": outputs, "error": None}
+            result = {
+                "outputs": outputs,
+                "updateCount": self.update_count,
+                "error": None,
+            }
         except InvocationCancelled:
             result = {
                 "outputs": {},
+                "updateCount": self.update_count,
                 "error": _structured_error("cancelled", "Invocation was cancelled."),
             }
         except LookupError as error:
             result = {
                 "outputs": {},
+                "updateCount": self.update_count,
                 "error": _structured_error("handler_not_found", error),
             }
         except ProtocolFailure as error:
             result = {
                 "outputs": {},
+                "updateCount": self.update_count,
                 "error": _structured_error("invalid_result", error),
             }
         except APPLICATION_EXCEPTIONS as error:
             traceback.print_exc(file=sys.stderr)
             result = {
                 "outputs": {},
+                "updateCount": self.update_count,
                 "error": _structured_error("handler_error", error),
             }
         try:
@@ -594,6 +605,7 @@ class Worker:
                     "id": request_id,
                     "result": {
                         "outputs": {},
+                        "updateCount": 0,
                         "error": _structured_error(
                             "worker_not_ready", "Worker is not ready."
                         ),
@@ -604,7 +616,7 @@ class Worker:
         _exact_object(params, ("identity", "handler", "arguments", "content"))
         _exact_object(
             params["identity"],
-            ("sessionId", "bindingId", "invocationId", "sequence"),
+            ("sessionId", "runId", "bindingId", "invocationId", "sequence"),
         )
         if not isinstance(params["handler"], str) or not NAME_PATTERN.fullmatch(
             params["handler"]

@@ -151,7 +151,8 @@ func (project Project) Validate() error {
 	if err := validateSections(project.Sections, project.Layout); err != nil {
 		return err
 	}
-	return validateBindings(project.Bindings, project.Sections)
+	_, err := CompilePipeline(project)
+	return err
 }
 
 func (project Project) validateIdentity() error {
@@ -190,20 +191,6 @@ func validateConfiguration(configuration map[string]json.RawMessage) error {
 		}
 		if err := validateJSON(value); err != nil {
 			return fmt.Errorf("contracts: configuration %q: %w", key, err)
-		}
-	}
-	return nil
-}
-
-func validateBindings(bindings []Binding, sections map[string]Section) error {
-	seenBindings := make(map[string]struct{}, len(bindings))
-	for index, binding := range bindings {
-		if _, exists := seenBindings[binding.ID]; exists {
-			return fmt.Errorf("contracts: duplicate binding id %q", binding.ID)
-		}
-		seenBindings[binding.ID] = struct{}{}
-		if err := binding.Validate(sections); err != nil {
-			return fmt.Errorf("contracts: binding %d: %w", index, err)
 		}
 	}
 	return nil
@@ -359,7 +346,7 @@ func (section Section) validateIdentityAndSize() error {
 	if !validID(section.ID) {
 		return errors.New("section id is invalid")
 	}
-	if !slices.Contains([]string{"input", "output", "button", "status", "drawing", "code"}, section.Kind) {
+	if !slices.Contains([]string{"input", "output", "button", "status", "drawing", "code", "handler"}, section.Kind) {
 		return errors.New("section kind is unsupported")
 	}
 	if err := validateText(section.Name, true); err != nil {
@@ -439,9 +426,6 @@ func (binding Binding) Validate(sections map[string]Section) error {
 		if err := binding.Materialization.Validate(); err != nil {
 			return err
 		}
-		if binding.Materialization.Startup != "manual" && !slices.Contains([]string{"change", "snapshot"}, binding.Trigger.Event) {
-			return errors.New("binding materialization startup requires a change or snapshot trigger")
-		}
 	}
 	return validateBindingOutputs(binding.Outputs, sections)
 }
@@ -460,15 +444,53 @@ func (binding Binding) validateIdentity(sections map[string]Section) error {
 	if !validID(binding.ID) {
 		return errors.New("binding id is invalid")
 	}
-	source, exists := sections[binding.Trigger.SectionID]
-	if !exists {
-		return errors.New("binding source section is missing")
-	}
-	if !validEvent(source.Kind, binding.Trigger.Event) {
-		return errors.New("binding source event is unsupported")
-	}
 	if !handlerPattern.MatchString(binding.Handler) {
 		return errors.New("binding handler is invalid")
+	}
+	return binding.validateTrigger(sections)
+}
+
+func (binding Binding) validateTrigger(sections map[string]Section) error {
+	trigger := binding.Trigger
+	switch trigger.Kind {
+	case "event":
+		if trigger.Mode != "" || trigger.Inputs != nil {
+			return errors.New("event binding trigger has join fields")
+		}
+		source, exists := sections[trigger.SectionID]
+		if !exists {
+			return errors.New("binding source section is missing")
+		}
+		if !validEvent(source.Kind, trigger.Event) {
+			return errors.New("binding source event is unsupported")
+		}
+	case "join":
+		if trigger.SectionID != "" || trigger.Event != "" {
+			return errors.New("join binding trigger has event fields")
+		}
+		if trigger.Mode != "all" {
+			return errors.New("binding join mode is unsupported")
+		}
+		if len(trigger.Inputs) == 0 || len(trigger.Inputs) > maximumArguments {
+			return errors.New("binding join inputs are missing or exceed the limit")
+		}
+		for name, input := range trigger.Inputs {
+			if !handlerPattern.MatchString(name) {
+				return fmt.Errorf("binding join input name %q is invalid", name)
+			}
+			if _, exists := binding.Arguments[name]; exists {
+				return fmt.Errorf("binding join input %q collides with an argument", name)
+			}
+			if !validID(input.BindingID) || !handlerPattern.MatchString(input.Output) {
+				return fmt.Errorf("binding join input %q reference is invalid", name)
+			}
+		}
+	case "disconnected":
+		if trigger.SectionID != "" || trigger.Event != "" || trigger.Mode != "" || trigger.Inputs != nil {
+			return errors.New("disconnected binding trigger has connected fields")
+		}
+	default:
+		return errors.New("binding trigger kind is unsupported")
 	}
 	return nil
 }
@@ -499,11 +521,14 @@ func validateBindingOutputs(outputs map[string]BindingOutput, sections map[strin
 		if !handlerPattern.MatchString(name) {
 			return fmt.Errorf("output name %q is invalid", name)
 		}
-		target, exists := sections[output.SectionID]
+		if output.Target == nil {
+			continue
+		}
+		target, exists := sections[output.Target.SectionID]
 		if !exists {
 			return fmt.Errorf("output %q target is missing", name)
 		}
-		if !validOutputField(target.Kind, output.Field) {
+		if !validOutputField(target.Kind, output.Target.Field) {
 			return fmt.Errorf("output %q field is unsupported", name)
 		}
 	}
@@ -540,6 +565,8 @@ func validateSectionData(kind string, data json.RawMessage) error {
 		return validateDrawingSectionData(data)
 	case "code":
 		return validateCodeSectionData(data)
+	case "handler":
+		return validateHandlerSectionData(data)
 	default:
 		return errors.New("section kind is unsupported")
 	}
@@ -607,6 +634,17 @@ func validateCodeSectionData(data json.RawMessage) error {
 	}
 	if value.Source != "entrypoint" {
 		return errors.New("code data source is unsupported")
+	}
+	return nil
+}
+
+func validateHandlerSectionData(data json.RawMessage) error {
+	var value HandlerSectionData
+	if err := DecodeStrict(data, &value); err != nil {
+		return fmt.Errorf("handler data: %w", err)
+	}
+	if !validID(value.BindingID) {
+		return errors.New("handler data binding id is invalid")
 	}
 	return nil
 }
@@ -765,7 +803,7 @@ func (request RuntimeCancelRequest) Validate() error {
 }
 
 func validateInvocationIdentity(identity InvocationIdentity) error {
-	if !validID(identity.SessionID) || !validID(identity.BindingID) || !validID(identity.InvocationID) || identity.Sequence == 0 {
+	if !validID(identity.SessionID) || !validID(identity.RunID) || !validID(identity.BindingID) || !validID(identity.InvocationID) || identity.Sequence == 0 {
 		return errors.New("contracts: invocation identity is invalid")
 	}
 	return nil

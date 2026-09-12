@@ -55,7 +55,7 @@ handlers = {"inspect": inspect}
 `)
 	content := []byte("portable content")
 	digest := sha256.Sum256(content)
-	identity := contracts.InvocationIdentity{SessionID: "session-manager", BindingID: "binding-manager", InvocationID: "invocation-manager", Sequence: 1}
+	identity := contracts.InvocationIdentity{SessionID: "session-manager", RunID: "run-manager", BindingID: "binding-manager", InvocationID: "invocation-manager", Sequence: 1}
 	reference := contracts.ContentReference{ID: "content-manager", MediaType: "text/plain", ByteLength: int64(len(content)), SHA256: hex.EncodeToString(digest[:]), InvocationID: identity.InvocationID}
 	manager := newFixtureManager(t, Options{ContentOpener: memoryContentOpener{reference: reference, content: content}})
 	initializeManager(t, manager, projectRoot, []string{"inspect"})
@@ -243,7 +243,7 @@ func TestManagerRejectsMismatchedStagedContent(t *testing.T) {
 
 handlers = {"inspect": inspect}
 `)
-	identity := contracts.InvocationIdentity{SessionID: "session-content", BindingID: "binding-content", InvocationID: "invocation-content", Sequence: 1}
+	identity := contracts.InvocationIdentity{SessionID: "session-content", RunID: "run-content", BindingID: "binding-content", InvocationID: "invocation-content", Sequence: 1}
 	digest := sha256.Sum256([]byte("expected"))
 	reference := contracts.ContentReference{ID: "content-mismatch", MediaType: "text/plain", ByteLength: 8, SHA256: hex.EncodeToString(digest[:]), InvocationID: identity.InvocationID}
 	manager := newFixtureManager(t, Options{ContentOpener: memoryContentOpener{reference: reference, content: []byte("different")}})

@@ -1,10 +1,13 @@
 package contracts
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 const (
-	ProjectVersion        = 1
-	WorkerProtocolVersion = 1
+	ProjectVersion        = 2
+	WorkerProtocolVersion = 2
 )
 
 type Project struct {
@@ -98,8 +101,16 @@ type Binding struct {
 }
 
 type BindingTrigger struct {
-	SectionID string `json:"sectionId"`
-	Event     string `json:"event"`
+	Kind      string                  `json:"kind"`
+	SectionID string                  `json:"sectionId,omitempty"`
+	Event     string                  `json:"event,omitempty"`
+	Mode      string                  `json:"mode,omitempty"`
+	Inputs    map[string]BindingInput `json:"inputs,omitempty"`
+}
+
+type BindingInput struct {
+	BindingID string `json:"bindingId"`
+	Output    string `json:"output"`
 }
 
 type SchedulingPolicy struct {
@@ -115,6 +126,10 @@ type MaterializationPolicy struct {
 }
 
 type BindingOutput struct {
+	Target *BindingOutputTarget `json:"target,omitempty"`
+}
+
+type BindingOutputTarget struct {
 	SectionID string `json:"sectionId"`
 	Field     string `json:"field"`
 }
@@ -147,6 +162,10 @@ type DrawingSectionData struct {
 
 type CodeSectionData struct {
 	Source string `json:"source"`
+}
+
+type HandlerSectionData struct {
+	BindingID string `json:"bindingId"`
 }
 
 type ApplyRequest struct {
@@ -206,6 +225,7 @@ type ContentReference struct {
 
 type InvocationIdentity struct {
 	SessionID    string `json:"sessionId"`
+	RunID        string `json:"runId"`
 	BindingID    string `json:"bindingId"`
 	InvocationID string `json:"invocationId"`
 	Sequence     uint64 `json:"sequence"`
@@ -232,23 +252,43 @@ type InvokeParams struct {
 }
 
 type InvokeResult struct {
-	Outputs map[string]json.RawMessage `json:"outputs"`
-	Error   *StructuredError           `json:"error"`
+	Outputs     map[string]json.RawMessage `json:"outputs"`
+	UpdateCount uint64                     `json:"updateCount"`
+	Error       *StructuredError           `json:"error"`
+}
+
+func (result *InvokeResult) UnmarshalJSON(data []byte) error {
+	type invokeResultDocument struct {
+		Outputs     map[string]json.RawMessage `json:"outputs"`
+		UpdateCount *uint64                    `json:"updateCount"`
+		Error       *StructuredError           `json:"error"`
+	}
+	var document invokeResultDocument
+	if err := DecodeStrict(data, &document); err != nil {
+		return err
+	}
+	if document.UpdateCount == nil {
+		return errors.New("contracts: invoke result update count is missing")
+	}
+	*result = InvokeResult{Outputs: document.Outputs, UpdateCount: *document.UpdateCount, Error: document.Error}
+	return nil
 }
 
 type RuntimeUpdate struct {
-	Identity  InvocationIdentity         `json:"identity"`
-	Progress  *float64                   `json:"progress"`
-	Message   string                     `json:"message"`
-	Outputs   map[string]json.RawMessage `json:"outputs"`
-	Artifacts []WorkerArtifact           `json:"artifacts"`
+	Identity       InvocationIdentity         `json:"identity"`
+	UpdateSequence uint64                     `json:"updateSequence"`
+	Progress       *float64                   `json:"progress"`
+	Message        string                     `json:"message"`
+	Outputs        map[string]json.RawMessage `json:"outputs"`
+	Artifacts      []WorkerArtifact           `json:"artifacts"`
 }
 
 type BrowserRuntimeUpdate struct {
-	Identity InvocationIdentity         `json:"identity"`
-	Progress *float64                   `json:"progress"`
-	Message  string                     `json:"message"`
-	Outputs  map[string]json.RawMessage `json:"outputs"`
+	Identity       InvocationIdentity         `json:"identity"`
+	UpdateSequence uint64                     `json:"updateSequence"`
+	Progress       *float64                   `json:"progress"`
+	Message        string                     `json:"message"`
+	Outputs        map[string]json.RawMessage `json:"outputs"`
 }
 
 type WorkerArtifact struct {
@@ -317,6 +357,7 @@ type RuntimeEnvelope struct {
 type RuntimeSnapshot struct {
 	SessionID          string                        `json:"sessionId"`
 	WorkerState        string                        `json:"workerState"`
+	Handlers           []string                      `json:"handlers"`
 	Values             map[string]json.RawMessage    `json:"values"`
 	Invocations        map[string]InvocationStatus   `json:"invocations"`
 	PublishedByBinding map[string]InvocationIdentity `json:"publishedByBinding"`
