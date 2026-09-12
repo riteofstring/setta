@@ -199,15 +199,19 @@ function SectionContribution({
   );
 }
 
-function InspectorSettingsGroup({
-  children,
-  defaultOpen,
-  title,
-}: {
+export type WorkspaceInspectorSettingsGroupProps = {
   children: ReactNode;
-  defaultOpen: boolean;
+  defaultOpen?: boolean;
+  status?: string;
   title: string;
-}) {
+};
+
+export function WorkspaceInspectorSettingsGroup({
+  children,
+  defaultOpen = false,
+  status,
+  title,
+}: WorkspaceInspectorSettingsGroupProps) {
   return (
     <details
       className="setta-workspace-inspector-settings-group"
@@ -215,6 +219,11 @@ function InspectorSettingsGroup({
     >
       <summary className="setta-workspace-inspector-settings-summary">
         <span>{title}</span>
+        {status === undefined ? null : (
+          <span className="setta-workspace-inspector-settings-status">
+            {status}
+          </span>
+        )}
         <HiChevronDown aria-hidden="true" size={16} />
       </summary>
       <div className="setta-workspace-inspector-settings-content">
@@ -482,7 +491,7 @@ function SectionSettings({
     />
   );
   return (
-    <InspectorSettingsGroup
+    <WorkspaceInspectorSettingsGroup
       defaultOpen
       key={`${section.id}:section-settings`}
       title="Section Settings"
@@ -504,7 +513,7 @@ function SectionSettings({
           {layoutSettings}
         </>
       )}
-    </InspectorSettingsGroup>
+    </WorkspaceInspectorSettingsGroup>
   );
 }
 
@@ -551,7 +560,7 @@ function SectionAppearanceSettings({
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
 }) {
   return (
-    <InspectorSettingsGroup
+    <WorkspaceInspectorSettingsGroup
       defaultOpen={false}
       key={`${section.id}:appearance`}
       title="Appearance"
@@ -575,7 +584,7 @@ function SectionAppearanceSettings({
         palette={sectionTagColorPalette}
         section={section}
       />
-    </InspectorSettingsGroup>
+    </WorkspaceInspectorSettingsGroup>
   );
 }
 

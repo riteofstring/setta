@@ -155,6 +155,12 @@ export type {
   WorkspaceCreationCommand,
   WorkspaceCreationContext,
 } from "./context-menu/workspaceMenuTypes";
+export { WorkspaceDropdownMenu } from "./context-menu/WorkspaceDropdownMenu";
+export type {
+  WorkspaceDropdownMenuGroup,
+  WorkspaceDropdownMenuItem,
+  WorkspaceDropdownMenuProps,
+} from "./context-menu/WorkspaceDropdownMenu";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
 export type {
   ColorValueChoice,
@@ -418,8 +424,14 @@ export {
 } from "./shell/WorkspaceShellIcons";
 export { WorkspaceSavedViewsPane } from "./shell/WorkspaceSavedViewsPane";
 export type { WorkspaceSavedViewsPaneProps } from "./shell/WorkspaceSavedViewsPane";
-export { WorkspaceSectionEditor } from "./shell/WorkspaceInspector";
-export type { WorkspaceSectionEditorProps } from "./shell/WorkspaceInspector";
+export {
+  WorkspaceInspectorSettingsGroup,
+  WorkspaceSectionEditor,
+} from "./shell/WorkspaceInspector";
+export type {
+  WorkspaceInspectorSettingsGroupProps,
+  WorkspaceSectionEditorProps,
+} from "./shell/WorkspaceInspector";
 export {
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,

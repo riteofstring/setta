@@ -87,14 +87,16 @@ similarly retains pointer selection while Workspace receives a wheel axis on whi
 no native overflow.
 
 The compact drawing toolbar chooses Select, Pen, Highlighter, Eraser, and Text modes, groups line,
-arrow, rectangle, and ellipse placement in one shape menu, and retains only image insertion,
-history, and clearing as direct actions. Text placement consumes one click; shape placement uses
-the user's drag geometry. Both return to Select after creation instead of adding objects at a
-default location. Pen and highlighter color and width appear only while their tool is active. The
-highlighter is a retained translucent path with a uniform width. Variable-width pressure would
-require a separately designed outlined-path representation; changing a `PencilBrush` width during
-a gesture would still serialize only one uniform width and is therefore not presented as pressure
-support.
+arrow, rectangle, and ellipse placement in one Setta-styled **Line & shape** menu, and retains only
+image insertion, history, and clearing as direct actions. Text placement consumes one click; shape
+placement uses the user's drag geometry with the initial press and current pointer as opposite
+corners. Both return to Select after creation instead of adding objects at a default location.
+Contextual toolbar controls expose Pen and Highlighter color and width, text and line color, and
+shape fill and stroke only while the corresponding tool is active. The highlighter icon includes
+its active translucent color so it remains distinct from Pen before activation. The highlighter
+is a retained translucent path with a uniform width. Variable-width pressure would require a
+separately designed outlined-path representation; changing a `PencilBrush` width during a gesture
+would still serialize only one uniform width and is therefore not presented as pressure support.
 
 Selection properties and structural commands belong in the right-side Inspector rather than the
 toolbar. A host-and-section-keyed external store bridges the mounted Fabric controller to React
@@ -103,7 +105,13 @@ let the Inspector mount before the drawing, represent unavailable and empty stat
 values, survive minimization, and expose only properties shared by the current selection. The same
 controller boundary handles appearance, typography, stacking, alignment, distribution,
 duplication, grouping, locking, and deletion. Locked objects stay selectable so they can be
-unlocked, while geometry-changing and destructive commands reject any partially locked selection.
+unlocked. A mixed lock selection offers one direct **Unlock all** action; geometry-changing and
+destructive commands reject any partially locked selection.
+The Inspector reuses Workspace disclosure cards and compact configuration rows instead of defining
+a parallel control surface. **Selection** opens by default with compatible appearance, typography,
+and object actions. **Arrange & align** appears only when useful and stays collapsed, as does
+**Canvas**. This progressive disclosure keeps the current object properties visible while making
+secondary and document-level controls discoverable without presenting them all at once.
 
 Every coherent toolbar, Inspector, keyboard, or pointer mutation records at most one complete scene
 history entry and one durable settlement. Clipboard and clone work revalidates the runtime and its

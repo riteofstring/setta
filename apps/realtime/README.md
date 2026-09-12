@@ -41,9 +41,9 @@ Use `setta realtime open` for an installed release.
 Draw a mark and both processed results update while the stroke is active. The two bindings have
 independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
 waiting on each other. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and
-Text tools; a Line, Arrow, Rectangle, and Ellipse menu; image insertion; brush styling; undo and
-redo; and clearing. Grid controls, canvas sizing, object appearance, typography, arrangement,
-grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
+Text tools; a **Line & shape** menu; image insertion; contextual creation colors; undo and redo;
+and clearing. Grid controls, canvas sizing, object appearance, typography, arrangement, grouping,
+locking, and deletion live in the right-side Inspector. The example is an ordinary
 Realtime project: inside the ignored working copy its authored document is
 `.local/realtime/project.json` and its editable handler is `app.py`.
 Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
@@ -229,14 +229,17 @@ and settles one durable position on release. Settled snapshots exclude selection
 handles, and text cursors.
 
 The compact drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Text tools,
-a shape menu, image insertion, undo and redo, and clearing. Text is placed by clicking its intended
-origin; lines, arrows, rectangles, and ellipses are drawn from the user's pointer gesture instead
-of appearing at a default location. A new text box enters editing immediately, and completed
-placement returns to Select. Pen and highlighter color and width stay beside those tools. The
-Inspector's contextual **Selection** panel edits compatible fill, stroke, opacity, rectangle
-radius, and text properties, represents mixed values explicitly, and provides stacking,
-alignment, distribution, duplication, grouping, locking, and deletion. Locked objects remain
-selectable for unlocking but cannot be changed by geometry or destructive commands.
+a Setta-styled **Line & shape** menu, image insertion, undo and redo, and clearing. Text is placed by
+clicking its intended origin; lines and arrows use the pointer endpoints, while rectangles and
+ellipses use the press and current pointer as opposite corners instead of expanding around the
+initial press. A new text box enters editing immediately, and completed placement returns to
+Select. Contextual controls expose Pen and Highlighter color and width, text and line color, and
+shape fill and stroke beside the active tool. The Inspector opens only its contextual **Selection**
+card; compatible fill, stroke, opacity, rectangle radius, text properties, and object actions live
+there. Secondary **Arrange & align** and document-level **Canvas** cards stay collapsed until
+needed. Mixed values remain explicit, and locked objects remain selectable for unlocking but
+cannot be changed by geometry or destructive commands. A mixed lock selection offers **Unlock
+all** directly.
 
 After the drawing stage has focus, Mod-Z, Shift-Mod-Z, Ctrl-Y, Mod-C, Mod-V, Mod-D, Mod-A, Mod-G,
 Shift-Mod-G, Delete, Backspace, Escape, and arrow-key nudging operate on the drawing when their
@@ -254,7 +257,7 @@ intersections.
 The drawing keeps its logical pixel dimensions and object coordinates when its outer section is
 resized; it stays centered and uniformly contained, so the freely sized frame may provide deliberate
 padding. The section's normal surface continues through that non-drawable frame space, while a subtle
-artboard edge separates it from the canvas. The right-side Inspector has explicit **Drawing canvas**
+artboard edge separates it from the canvas. The right-side Inspector has explicit **Canvas**
 controls. Width and height are proportionally linked by default but can be unlinked. **Apply canvas
 size** can preserve artwork size using a nine-point anchor or scale the artwork with the bounds, and
 the complete scene and dimensions undo and redo together. **Fit frame to canvas** is a one-shot action

@@ -417,6 +417,14 @@ the pane shows an explicit unsupported state. The
 Inspector owns inline validation, Escape restoration for its configuration fields, and a persistent
 polite mutation/selection status.
 
+Section-owned Inspector contributions can compose `WorkspaceInspectorSettingsGroup` to reuse the
+same disclosure card, summary status, focus treatment, and light/dark presentation as native
+Inspector settings. Compact anchored choices outside or inside the Inspector can use
+`WorkspaceDropdownMenu`; callers provide grouped items and mutations while Workspace supplies the
+scoped Setta menu surface, keyboard navigation, text direction, and focus restoration. Supplying
+`selectedItemId` gives the choices radio-item semantics and a checked indicator without turning the
+menu trigger into a toggle.
+
 Hosts that need separate contextual panes can disable the generic Inspector with
 `includeBuiltInInspector={false}` and compose `WorkspaceSectionEditor` and
 `WorkspaceParameterConfigurationView` into their own trailing tabs. The matching

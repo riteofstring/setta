@@ -8,6 +8,7 @@ type DrawingToolbarIconName =
   | "image"
   | "redo"
   | "select"
+  | "shapes"
   | "text"
   | "undo";
 
@@ -50,6 +51,12 @@ const DRAWING_TOOLBAR_ICONS: Record<DrawingToolbarIconName, ReactNode> = {
     </>
   ),
   select: <path d="m6 3 11 10-5 .7 3.2 5.4-2.4 1.4-3.1-5.4L6 18V3Z" />,
+  shapes: (
+    <>
+      <rect height="10" rx="1.5" width="10" x="3" y="8" />
+      <circle cx="16.5" cy="8" r="4.5" />
+    </>
+  ),
   text: (
     <>
       <path d="M5 5h14M12 5v14" />
@@ -64,7 +71,13 @@ const DRAWING_TOOLBAR_ICONS: Record<DrawingToolbarIconName, ReactNode> = {
   ),
 };
 
-export function DrawingToolbarIcon({ name }: { name: DrawingToolbarIconName }) {
+export function DrawingToolbarIcon({
+  accentColor,
+  name,
+}: {
+  accentColor?: string;
+  name: DrawingToolbarIconName;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -73,6 +86,13 @@ export function DrawingToolbarIcon({ name }: { name: DrawingToolbarIconName }) {
       viewBox="0 0 24 24"
     >
       {DRAWING_TOOLBAR_ICONS[name]}
+      {name === "highlighter" ? (
+        <path
+          className="realtime-drawing-highlighter-swatch"
+          d="M4 21h16"
+          style={{ stroke: accentColor }}
+        />
+      ) : null}
     </svg>
   );
 }

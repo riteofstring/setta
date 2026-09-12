@@ -121,6 +121,20 @@
   transition: transform 150ms ease;
 }
 
+.setta-workspace-inspector-settings-summary
+  > .setta-workspace-inspector-settings-status {
+  min-width: 0;
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .setta-workspace-inspector-settings-group[open]
   > .setta-workspace-inspector-settings-summary
   svg {

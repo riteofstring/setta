@@ -104,6 +104,29 @@ function buttonWithText(
   return button;
 }
 
+function hasButtonWithText(container: HTMLElement, text: string): boolean {
+  return [...container.querySelectorAll("button")].some(
+    (candidate) => candidate.textContent?.trim() === text,
+  );
+}
+
+function settingsGroup(
+  container: HTMLElement,
+  title: string,
+): HTMLDetailsElement {
+  const groups = [...container.querySelectorAll<HTMLDetailsElement>("details")];
+  const group = groups.find(
+    (candidate) =>
+      candidate
+        .querySelector(":scope > summary > span:first-child")
+        ?.textContent?.trim() === title,
+  );
+  if (group === undefined) {
+    throw new Error(`Expected a ${title} settings group.`);
+  }
+  return group;
+}
+
 function changeSelect(select: HTMLSelectElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
     HTMLSelectElement.prototype,
@@ -114,6 +137,18 @@ function changeSelect(select: HTMLSelectElement, value: string): void {
   }
   setter.call(select, value);
   select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function changeInput(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  if (setter === undefined) {
+    throw new Error("Expected the native input value setter.");
+  }
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 describe("drawing selection Inspector", () => {
@@ -155,6 +190,8 @@ describe("drawing selection Inspector", () => {
     const panel = container.querySelector<HTMLElement>(
       '[aria-label="Drawing selection"]',
     )!;
+    expect(settingsGroup(container, "Selection").open).toBe(true);
+    expect(container.querySelectorAll("details")).toHaveLength(1);
     expect(panel.dataset.state).toBe("unavailable");
     expect(panel.textContent).toContain(
       "Expand the section to edit drawing objects.",
@@ -168,6 +205,8 @@ describe("drawing selection Inspector", () => {
     });
 
     expect(panel.dataset.state).toBe("empty");
+    expect(settingsGroup(container, "Selection").open).toBe(true);
+    expect(container.querySelectorAll("details")).toHaveLength(1);
     expect(panel.textContent).toContain(
       "Select an object on the canvas to edit it.",
     );
@@ -183,6 +222,7 @@ describe("drawing selection Inspector", () => {
       fillColor: "mixed",
       fillEnabled: "mixed",
       kind: "mixed",
+      locked: "mixed",
       opacity: "mixed",
       strokeColor: "mixed",
       strokeEnabled: "mixed",
@@ -197,7 +237,16 @@ describe("drawing selection Inspector", () => {
     const panel = container.querySelector<HTMLElement>(
       '[aria-label="Drawing selection"]',
     )!;
-    expect(panel.textContent).toContain("2 selected · Mixed");
+    expect(settingsGroup(container, "Selection").open).toBe(true);
+    expect(settingsGroup(container, "Arrange & align").open).toBe(false);
+    expect(panel.textContent).toContain("2 objects");
+    expect(container.querySelector('[aria-label="Align left"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Distribute horizontally"]'),
+    ).toBeNull();
+    expect(hasButtonWithText(container, "Group")).toBe(true);
+    expect(hasButtonWithText(container, "Ungroup")).toBe(false);
+    expect(hasButtonWithText(container, "Unlock all")).toBe(true);
     expect(panel.textContent).toContain("Fill color (Mixed)");
     expect(
       container.querySelector<HTMLInputElement>('[aria-label="Fill enabled"]')
@@ -212,6 +261,10 @@ describe("drawing selection Inspector", () => {
         ?.placeholder,
     ).toBe("Mixed");
     expect(panel.textContent).toContain("Opacity (Mixed)");
+    expect(
+      container.querySelector<HTMLInputElement>('[aria-label="Opacity"]')
+        ?.placeholder,
+    ).toBe("Mixed");
     expect(panel.textContent).toContain("Corner radius (Mixed)");
     expect(container.querySelector('[aria-label="Font family"]')).toBeNull();
 
@@ -233,6 +286,7 @@ describe("drawing selection Inspector", () => {
     });
 
     expect(container.querySelector('[aria-label="Corner radius"]')).toBeNull();
+    expect(panel.textContent).toContain("2 text objects");
     expect(
       container.querySelector<HTMLSelectElement>('[aria-label="Font family"]')
         ?.value,
@@ -248,23 +302,21 @@ describe("drawing selection Inspector", () => {
     ).toContain("Mixed");
   });
 
-  it("delegates compatible controls and disables unavailable capabilities", async () => {
+  it("delegates compatible controls and presents contextual locked actions", async () => {
     const host = createWorkspaceHost();
     const harness = createControllerHarness(
       selectedSnapshot({
-        canAlign: false,
-        canDelete: false,
+        canAlign: true,
         canDistribute: true,
-        canGroup: false,
+        canGroup: true,
         canMoveBackward: false,
         canMoveForward: true,
-        canUngroup: true,
+        count: 3,
         fontFamily: "Arial",
         fontSize: 18,
         fontStyle: "normal",
         fontWeight: "normal",
         kind: "text",
-        locked: true,
         supportsCornerRadius: false,
         supportsTypography: true,
         textAlign: "left",
@@ -285,19 +337,19 @@ describe("drawing selection Inspector", () => {
       '[aria-label="Distribute horizontally"]',
     )!;
     const group = buttonWithText(container, "Group");
-    const ungroup = buttonWithText(container, "Ungroup");
-    const unlock = buttonWithText(container, "Unlock");
+    const lock = buttonWithText(container, "Lock");
     const deleteButton = buttonWithText(container, "Delete");
 
+    expect(settingsGroup(container, "Arrange & align").open).toBe(false);
     expect(bringForward.disabled).toBe(false);
     expect(bringToFront.disabled).toBe(false);
     expect(sendBackward.disabled).toBe(true);
-    expect(alignLeft.disabled).toBe(true);
+    expect(alignLeft.disabled).toBe(false);
     expect(distributeHorizontally.disabled).toBe(false);
-    expect(group.disabled).toBe(true);
-    expect(ungroup.disabled).toBe(false);
-    expect(unlock.disabled).toBe(false);
-    expect(deleteButton.disabled).toBe(true);
+    expect(group.disabled).toBe(false);
+    expect(hasButtonWithText(container, "Ungroup")).toBe(false);
+    expect(lock.disabled).toBe(false);
+    expect(deleteButton.disabled).toBe(false);
 
     await act(async () => {
       container
@@ -309,6 +361,16 @@ describe("drawing selection Inspector", () => {
         )!,
         "Georgia",
       );
+      changeSelect(
+        container.querySelector<HTMLSelectElement>(
+          '[aria-label="Text alignment"]',
+        )!,
+        "center",
+      );
+      changeInput(
+        container.querySelector<HTMLInputElement>('[aria-label="Opacity"]')!,
+        "70",
+      );
       buttonWithText(container, "Bold").click();
       bringForward.click();
       sendBackward.click();
@@ -316,8 +378,7 @@ describe("drawing selection Inspector", () => {
       distributeHorizontally.click();
       buttonWithText(container, "Duplicate").click();
       group.click();
-      ungroup.click();
-      unlock.click();
+      lock.click();
       deleteButton.click();
     });
 
@@ -328,18 +389,60 @@ describe("drawing selection Inspector", () => {
       fontFamily: "Georgia",
     });
     expect(harness.controller.setSelectionTypography).toHaveBeenCalledWith({
+      textAlign: "center",
+    });
+    expect(harness.controller.setSelectionAppearance).toHaveBeenCalledWith({
+      opacity: 0.7,
+    });
+    expect(harness.controller.setSelectionTypography).toHaveBeenCalledWith({
       fontWeight: "bold",
     });
     expect(harness.controller.bringSelectionForward).toHaveBeenCalledOnce();
     expect(harness.controller.sendSelectionBackward).not.toHaveBeenCalled();
-    expect(harness.controller.alignSelection).not.toHaveBeenCalled();
+    expect(harness.controller.alignSelection).toHaveBeenCalledWith("left");
     expect(harness.controller.distributeSelection).toHaveBeenCalledWith(
       "horizontal",
     );
     expect(harness.controller.duplicateSelection).toHaveBeenCalledOnce();
-    expect(harness.controller.groupSelection).not.toHaveBeenCalled();
-    expect(harness.controller.ungroupSelection).toHaveBeenCalledOnce();
+    expect(harness.controller.groupSelection).toHaveBeenCalledOnce();
+    expect(harness.controller.ungroupSelection).not.toHaveBeenCalled();
     expect(harness.controller.toggleSelectionLock).toHaveBeenCalledOnce();
-    expect(harness.controller.deleteSelection).not.toHaveBeenCalled();
+    expect(harness.controller.deleteSelection).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      harness.publish(
+        selectedSnapshot({
+          canDelete: false,
+          canDuplicate: false,
+          canUngroup: false,
+          count: 1,
+          kind: "group",
+          locked: true,
+          supportsCornerRadius: false,
+        }),
+      );
+    });
+
+    expect(hasButtonWithText(container, "Group")).toBe(false);
+    const ungroup = buttonWithText(container, "Ungroup");
+    const unlock = buttonWithText(container, "Unlock");
+    expect(ungroup.disabled).toBe(true);
+    expect(buttonWithText(container, "Duplicate").disabled).toBe(true);
+    expect(buttonWithText(container, "Delete").disabled).toBe(true);
+    expect(container.textContent).toContain(
+      "Unlock every selected object to arrange or delete the selection.",
+    );
+    expect(
+      [...container.querySelectorAll("details")].some((candidate) =>
+        candidate.textContent?.includes("Arrange & align"),
+      ),
+    ).toBe(false);
+
+    await act(async () => {
+      ungroup.click();
+      unlock.click();
+    });
+    expect(harness.controller.ungroupSelection).not.toHaveBeenCalled();
+    expect(harness.controller.toggleSelectionLock).toHaveBeenCalledTimes(2);
   });
 });

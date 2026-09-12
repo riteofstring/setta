@@ -638,28 +638,44 @@ async function clickSectionButton(client, sectionId, label) {
   );
 }
 
-async function chooseSectionSelect(client, sectionId, label, value) {
+async function chooseSectionMenuItem(client, sectionId, label, itemLabel) {
+  await clickSectionButton(client, sectionId, label);
+  await waitFor(
+    client,
+    `${label} menu item ${itemLabel}`,
+    `(() => {
+      const menu = document.querySelector(
+        ${JSON.stringify(`[role="menu"][aria-label="${label}"]`)},
+      );
+      return Array.from(
+        menu?.querySelectorAll('[role="menuitem"], [role="menuitemradio"]') ?? [],
+      ).some(
+        (candidate) => candidate.textContent?.trim() === ${JSON.stringify(itemLabel)},
+      );
+    })()`,
+  );
   const selected = await evaluate(
     client,
     `(() => {
-      const section = document.querySelector(
-        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
+      const menu = document.querySelector(
+        ${JSON.stringify(`[role="menu"][aria-label="${label}"]`)},
       );
-      const select = Array.from(section?.querySelectorAll("select") ?? []).find(
-        (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)},
+      const item = Array.from(
+        menu?.querySelectorAll('[role="menuitem"], [role="menuitemradio"]') ?? [],
+      ).find(
+        (candidate) => candidate.textContent?.trim() === ${JSON.stringify(itemLabel)},
       );
-      if (!(select instanceof HTMLSelectElement) || select.disabled) {
+      if (!(item instanceof HTMLElement)) {
         return false;
       }
-      select.value = ${JSON.stringify(value)};
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      return select.value === ${JSON.stringify(value)};
+      item.click();
+      return true;
     })()`,
   );
   assert.equal(
     selected,
     true,
-    `${label} was not selectable for Realtime section ${sectionId}.`,
+    `${itemLabel} was not selectable from ${label} for Realtime section ${sectionId}.`,
   );
 }
 
@@ -1147,6 +1163,22 @@ async function exerciseDrawingSurfaceInteraction(client, origin) {
 async function exerciseDrawingInspector(client, origin) {
   await activateSection(client, "drawing");
   await clickButton(client, "Inspector");
+  const canvasOpened = await evaluate(
+    client,
+    `(() => {
+      const details = Array.from(document.querySelectorAll("details")).find(
+        (candidate) => candidate.querySelector(":scope > summary > span")?.textContent?.trim() === "Canvas",
+      );
+      if (!(details instanceof HTMLDetailsElement)) {
+        return false;
+      }
+      if (!details.open) {
+        details.querySelector(":scope > summary")?.click();
+      }
+      return details.open;
+    })()`,
+  );
+  assert.equal(canvasOpened, true, "The drawing Canvas settings did not open.");
   await waitFor(
     client,
     "the drawing canvas Inspector",
@@ -2066,7 +2098,12 @@ async function exerciseBrowser(client, origin) {
   );
   assert.equal(movedStroke.revision, afterStroke.revision + 1);
 
-  await chooseSectionSelect(client, "drawing", "Shape tool", "rectangle");
+  await chooseSectionMenuItem(
+    client,
+    "drawing",
+    "Draw a line or shape",
+    "Rectangle",
+  );
   const rectangleStart = await drawingPoint(client, 250, 90);
   const rectangleEnd = await drawingPoint(client, 390, 190);
   await dragDrawingObject(client, rectangleStart, {

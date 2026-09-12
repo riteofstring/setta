@@ -526,14 +526,19 @@ describe("retained drawing runtime", () => {
       onToolChange: toolChanged,
       width: 320,
     });
+    expect(drawing.setCreationColor("fill", "invalid")).toBe(false);
+    expect(drawing.setCreationColor("fill", "#fef3c7")).toBe(true);
+    expect(drawing.setCreationColor("shape-stroke", "#b45309")).toBe(true);
+    expect(drawing.setCreationColor("line", "#047857")).toBe(true);
+    expect(drawing.setCreationColor("text", "#7c3aed")).toBe(true);
 
     const shapeCases = [
-      ["rectangle", Rect],
-      ["ellipse", Ellipse],
-      ["line", Line],
-      ["arrow", Polyline],
+      ["rectangle", Rect, { fill: "#fef3c7", stroke: "#b45309" }],
+      ["ellipse", Ellipse, { fill: "#fef3c7", stroke: "#b45309" }],
+      ["line", Line, { stroke: "#047857" }],
+      ["arrow", Polyline, { stroke: "#047857" }],
     ] as const;
-    for (const [tool, Shape] of shapeCases) {
+    for (const [tool, Shape, style] of shapeCases) {
       drawing.setTool(tool);
       const start = new Point(24, 36);
       const end = new Point(144, 108);
@@ -549,6 +554,7 @@ describe("retained drawing runtime", () => {
         width: expect.any(Number),
       });
       expect(object?.getBoundingRect().width).toBeGreaterThan(100);
+      expect(object).toMatchObject(style);
       expect(drawing.canvas.getActiveObject()).toBe(object);
       expect(drawing.tool).toBe("select");
     }
@@ -560,7 +566,12 @@ describe("retained drawing runtime", () => {
     fireCanvasPointer(drawing, "mouse:down", new Point(72, 84));
     const text = drawing.canvas.getObjects().at(-1);
     expect(text).toBeInstanceOf(Textbox);
-    expect(text).toMatchObject({ isEditing: true, left: 72, top: 84 });
+    expect(text).toMatchObject({
+      fill: "#7c3aed",
+      isEditing: true,
+      left: 72,
+      top: 84,
+    });
     expect(previewed).toHaveBeenCalledOnce();
     expect(drawing.tool).toBe("select");
 
@@ -906,6 +917,38 @@ describe("retained drawing runtime", () => {
       lockScalingY: false,
     });
     expect(drawing.ungroupSelection()).toBe(true);
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("unlocks every object when a selection has mixed lock state", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      onToolChange: vi.fn(),
+      width: 320,
+    });
+    const locked = drawing.addRectangle();
+    const unlocked = drawing.addEllipse();
+    selectObjects(drawing, [locked]);
+    expect(drawing.toggleSelectionLock()).toBe(true);
+    selectObjects(drawing, [locked, unlocked]);
+    expect(drawing.getSelectionSnapshot().locked).toBe("mixed");
+
+    settled.mockClear();
+    expect(drawing.toggleSelectionLock()).toBe(true);
+    expect(drawing.getSelectionSnapshot().locked).toBe(false);
+    expect(locked.lockMovementX).toBe(false);
+    expect(unlocked.lockMovementX).toBe(false);
+    expect(settled).toHaveBeenCalledOnce();
 
     await drawing.dispose();
     element.remove();

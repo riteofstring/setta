@@ -58,6 +58,18 @@ function changeInput(input: HTMLInputElement, value: string): void {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function changeSelect(select: HTMLSelectElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLSelectElement.prototype,
+    "value",
+  )?.set;
+  if (setter === undefined) {
+    throw new Error("Expected the native select value setter.");
+  }
+  setter.call(select, value);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 describe("drawing Inspector", () => {
   const host = createWorkspaceHost();
   let container: HTMLDivElement;
@@ -110,14 +122,29 @@ describe("drawing Inspector", () => {
     });
 
     expect(
-      [...container.querySelectorAll("h4")].map((heading) =>
-        heading.textContent?.trim(),
-      ),
-    ).toEqual(["Selection", "Canvas view", "Drawing canvas"]);
-    expect(
       container.querySelector<HTMLElement>('[aria-label="Drawing selection"]')
         ?.dataset.state,
     ).toBe("empty");
+    const canvasGroup = [...container.querySelectorAll("details")].find(
+      (details) =>
+        details.querySelector("summary > span")?.textContent === "Canvas",
+    );
+    expect(canvasGroup?.open).toBe(false);
+    expect(canvasGroup?.querySelector("summary")?.textContent).toContain(
+      "480 × 320 px",
+    );
+    await act(async () => canvasGroup?.querySelector("summary")?.click());
+    expect(canvasGroup?.open).toBe(true);
+
+    const artworkBehavior = container.querySelector<HTMLSelectElement>(
+      '[aria-label="Artwork behavior"]',
+    )!;
+    expect(
+      container.querySelector('[aria-label="Center anchor"]'),
+    ).not.toBeNull();
+    await act(async () => changeSelect(artworkBehavior, "scale-artwork"));
+    expect(container.querySelector('[aria-label="Center anchor"]')).toBeNull();
+    await act(async () => changeSelect(artworkBehavior, "keep-artwork"));
 
     await act(async () => {
       container
@@ -146,6 +173,11 @@ describe("drawing Inspector", () => {
         .querySelector<HTMLButtonElement>('[aria-label="Bottom right anchor"]')!
         .click();
     });
+    expect(
+      container
+        .querySelector<HTMLButtonElement>("[data-apply-canvas-size]")!
+        .classList.contains("setta-workspace-inspector-primary-action"),
+    ).toBe(true);
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>("[data-apply-canvas-size]")!

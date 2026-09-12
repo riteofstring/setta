@@ -12,6 +12,11 @@ export type DrawingPlacementTool =
 
 type DrawingShapeTool = Exclude<DrawingPlacementTool, "text">;
 
+type DrawingShapePlacementStyle = Readonly<{
+  fill: string;
+  stroke: string;
+}>;
+
 export type DrawingShapePlacement = {
   end: Point;
   object: FabricObject;
@@ -55,39 +60,47 @@ function arrowPoints(
 export function createDrawingShapePlacement(
   tool: DrawingShapeTool,
   start: Point,
+  style: DrawingShapePlacementStyle = {
+    fill: "rgba(37, 99, 235, 0.12)",
+    stroke: tool === "line" || tool === "arrow" ? "#111827" : "#2563eb",
+  },
 ): DrawingShapePlacement {
   const end = start.add(new Point(1, 1));
   let object: FabricObject;
   if (tool === "rectangle") {
     object = new Rect({
-      fill: "rgba(37, 99, 235, 0.12)",
+      fill: style.fill,
       height: 1,
       left: start.x,
-      stroke: "#2563eb",
+      originX: "left",
+      originY: "top",
+      stroke: style.stroke,
       strokeWidth: 2,
       top: start.y,
       width: 1,
     });
   } else if (tool === "ellipse") {
     object = new Ellipse({
-      fill: "rgba(37, 99, 235, 0.12)",
+      fill: style.fill,
       left: start.x,
+      originX: "left",
+      originY: "top",
       rx: 0.5,
       ry: 0.5,
-      stroke: "#2563eb",
+      stroke: style.stroke,
       strokeWidth: 2,
       top: start.y,
     });
   } else if (tool === "line") {
     object = new Line([start.x, start.y, end.x, end.y], {
-      stroke: "#111827",
+      stroke: style.stroke,
       strokeLineCap: "round",
       strokeWidth: 3,
     });
   } else {
     object = new Polyline(arrowPoints(start, end), {
       fill: null,
-      stroke: "#111827",
+      stroke: style.stroke,
       strokeLineCap: "round",
       strokeLineJoin: "round",
       strokeWidth: 3,

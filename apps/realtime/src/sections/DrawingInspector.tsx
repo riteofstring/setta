@@ -9,6 +9,7 @@ import {
   type WorkspaceSectionData,
   useWorkspaceCapabilities,
   useWorkspaceHost,
+  WorkspaceInspectorSettingsGroup,
 } from "@setta/workspace";
 
 import {
@@ -114,7 +115,7 @@ function DrawingInspectorFeedback({
   }
   return (
     <p
-      className={`realtime-drawing-inspector-feedback realtime-drawing-inspector-feedback-${feedback.kind}`}
+      className={`realtime-drawing-inspector-feedback realtime-drawing-inspector-feedback-${feedback.kind} ${feedback.kind === "error" ? "setta-workspace-inspector-error" : "setta-workspace-inspector-help"}`}
       id={id}
       role={feedback.kind === "error" ? "alert" : "status"}
     >
@@ -263,164 +264,176 @@ export function DrawingInspector({
   ].includes(true);
 
   return (
-    <section
-      aria-describedby={descriptionId}
-      className="realtime-drawing-inspector"
-    >
+    <section className="realtime-drawing-inspector">
       <DrawingSelectionInspector sectionId={sectionId} />
-      <div className="realtime-drawing-inspector-heading">
-        <h4>Canvas view</h4>
-      </div>
-      <p>These guides affect editing only and are not part of the image.</p>
-      <label className="realtime-drawing-inspector-checkbox">
-        <input
-          aria-label="Show grid"
-          checked={surface.available && surface.grid.visible}
-          disabled={!surface.available}
-          onChange={(event) =>
-            setDrawingGridVisible(host, sectionId, event.currentTarget.checked)
-          }
-          type="checkbox"
-        />
-        <span>Show grid</span>
-      </label>
-      <label className="realtime-drawing-inspector-checkbox">
-        <input
-          aria-label="Snap objects to grid"
-          checked={surface.available && surface.grid.snapEnabled}
-          disabled={!surface.available}
-          onChange={(event) =>
-            setDrawingGridSnapEnabled(
-              host,
-              sectionId,
-              event.currentTarget.checked,
-            )
-          }
-          type="checkbox"
-        />
-        <span>Snap objects to grid</span>
-      </label>
-      <div className="realtime-drawing-inspector-heading">
-        <h4>Drawing canvas</h4>
-        <span>
-          {baseline.width} × {baseline.height} px
-        </span>
-      </div>
-      <p id={descriptionId}>
-        Resize the drawing surface independently from its section frame.
-      </p>
-      <div className="realtime-drawing-inspector-dimensions">
-        <label>
-          <span>Width</span>
-          <div className="realtime-drawing-inspector-dimension">
-            <input
-              aria-label="Canvas width"
-              className="setta-workspace-inspector-input"
-              inputMode="numeric"
-              max={DRAWING_CANVAS_MAX_SIZE}
-              min={DRAWING_CANVAS_MIN_SIZE}
-              onChange={(event) => changeWidth(event.currentTarget.value)}
-              step={1}
-              type="number"
-              value={widthDraft}
-              {...dimensionInputAccessibility}
-            />
-            <span>px</span>
-          </div>
-        </label>
-        <label>
-          <span>Height</span>
-          <div className="realtime-drawing-inspector-dimension">
-            <input
-              aria-label="Canvas height"
-              className="setta-workspace-inspector-input"
-              inputMode="numeric"
-              max={DRAWING_CANVAS_MAX_SIZE}
-              min={DRAWING_CANVAS_MIN_SIZE}
-              onChange={(event) => changeHeight(event.currentTarget.value)}
-              step={1}
-              type="number"
-              value={heightDraft}
-              {...dimensionInputAccessibility}
-            />
-            <span>px</span>
-          </div>
-        </label>
-      </div>
-      <label className="realtime-drawing-inspector-checkbox">
-        <input
-          checked={constrainProportions}
-          onChange={(event) =>
-            setConstrainProportions(event.currentTarget.checked)
-          }
-          type="checkbox"
-        />
-        <span>Constrain proportions</span>
-      </label>
-      <label className="realtime-drawing-inspector-field">
-        <span>Artwork behavior</span>
-        <select
-          aria-label="Artwork behavior"
-          className="setta-workspace-inspector-input"
-          onChange={(event) => {
-            setMode(
-              event.currentTarget.value === "scale-artwork"
-                ? "scale-artwork"
-                : "keep-artwork",
-            );
-            setFeedback(null);
-          }}
-          value={mode}
-        >
-          <option value="keep-artwork">Keep artwork size</option>
-          <option value="scale-artwork">Scale artwork to fit</option>
-        </select>
-      </label>
-      <fieldset
-        className="realtime-drawing-inspector-anchor"
-        disabled={mode === "scale-artwork"}
+      <WorkspaceInspectorSettingsGroup
+        status={`${baseline.width} × ${baseline.height} px`}
+        title="Canvas"
       >
-        <legend>Anchor</legend>
-        <div>
-          {CANVAS_ANCHORS.map((candidate) => (
-            <button
-              aria-label={candidate.label}
-              aria-pressed={anchor === candidate.value}
-              key={candidate.value}
-              onClick={() => {
-                setAnchor(candidate.value);
+        <div className="realtime-drawing-inspector-subgroup">
+          <h5>View</h5>
+          <p>Grid guides affect editing only and are not exported.</p>
+          <div className="realtime-drawing-inspector-guide-options">
+            <label className="setta-workspace-inspector-checkbox">
+              <input
+                aria-label="Show grid"
+                checked={surface.available && surface.grid.visible}
+                disabled={!surface.available}
+                onChange={(event) =>
+                  setDrawingGridVisible(
+                    host,
+                    sectionId,
+                    event.currentTarget.checked,
+                  )
+                }
+                type="checkbox"
+              />
+              <span>Show grid</span>
+            </label>
+            <label className="setta-workspace-inspector-checkbox">
+              <input
+                aria-label="Snap objects to grid"
+                checked={surface.available && surface.grid.snapEnabled}
+                disabled={!surface.available}
+                onChange={(event) =>
+                  setDrawingGridSnapEnabled(
+                    host,
+                    sectionId,
+                    event.currentTarget.checked,
+                  )
+                }
+                type="checkbox"
+              />
+              <span>Snap to grid</span>
+            </label>
+          </div>
+        </div>
+        <div className="realtime-drawing-inspector-subgroup">
+          <h5>Size</h5>
+          <p id={descriptionId}>
+            Resize the canvas independently from its section frame.
+          </p>
+          <div className="setta-workspace-inspector-size-fields realtime-drawing-inspector-dimensions">
+            <label>
+              <span>Width</span>
+              <div className="realtime-drawing-inspector-dimension">
+                <input
+                  aria-describedby={descriptionId}
+                  aria-label="Canvas width"
+                  className="setta-workspace-inspector-input"
+                  inputMode="numeric"
+                  max={DRAWING_CANVAS_MAX_SIZE}
+                  min={DRAWING_CANVAS_MIN_SIZE}
+                  onChange={(event) => changeWidth(event.currentTarget.value)}
+                  step={1}
+                  type="number"
+                  value={widthDraft}
+                  {...dimensionInputAccessibility}
+                />
+                <span>px</span>
+              </div>
+            </label>
+            <label>
+              <span>Height</span>
+              <div className="realtime-drawing-inspector-dimension">
+                <input
+                  aria-describedby={descriptionId}
+                  aria-label="Canvas height"
+                  className="setta-workspace-inspector-input"
+                  inputMode="numeric"
+                  max={DRAWING_CANVAS_MAX_SIZE}
+                  min={DRAWING_CANVAS_MIN_SIZE}
+                  onChange={(event) => changeHeight(event.currentTarget.value)}
+                  step={1}
+                  type="number"
+                  value={heightDraft}
+                  {...dimensionInputAccessibility}
+                />
+                <span>px</span>
+              </div>
+            </label>
+          </div>
+          <label className="setta-workspace-inspector-checkbox">
+            <input
+              checked={constrainProportions}
+              onChange={(event) =>
+                setConstrainProportions(event.currentTarget.checked)
+              }
+              type="checkbox"
+            />
+            <span>Link canvas dimensions</span>
+          </label>
+        </div>
+        <div className="realtime-drawing-inspector-subgroup">
+          <h5>Resize artwork</h5>
+          <label className="setta-workspace-inspector-config-row realtime-drawing-inspector-artwork-behavior">
+            <span className="setta-workspace-inspector-config-label">
+              Artwork behavior
+            </span>
+            <select
+              aria-label="Artwork behavior"
+              className="setta-workspace-inspector-config-input"
+              onChange={(event) => {
+                setMode(
+                  event.currentTarget.value === "scale-artwork"
+                    ? "scale-artwork"
+                    : "keep-artwork",
+                );
                 setFeedback(null);
               }}
-              title={candidate.label}
-              type="button"
+              value={mode}
             >
-              <span aria-hidden="true" />
-            </button>
-          ))}
+              <option value="keep-artwork">Keep object sizes</option>
+              <option value="scale-artwork">Scale objects with canvas</option>
+            </select>
+          </label>
+          {mode === "keep-artwork" ? (
+            <fieldset className="realtime-drawing-inspector-anchor">
+              <legend>Keep artwork anchored to</legend>
+              <div>
+                {CANVAS_ANCHORS.map((candidate) => (
+                  <button
+                    aria-label={candidate.label}
+                    aria-pressed={anchor === candidate.value}
+                    key={candidate.value}
+                    onClick={() => {
+                      setAnchor(candidate.value);
+                      setFeedback(null);
+                    }}
+                    title={candidate.label}
+                    type="button"
+                  >
+                    <span aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          <p className="setta-workspace-inspector-help realtime-drawing-inspector-help">
+            {ARTWORK_BEHAVIOR_HELP[mode]}
+          </p>
         </div>
-      </fieldset>
-      <p className="realtime-drawing-inspector-help">
-        {ARTWORK_BEHAVIOR_HELP[mode]}
-      </p>
-      <div className="realtime-drawing-inspector-actions">
-        <button
-          data-apply-canvas-size
-          disabled={isMinimized}
-          onClick={applyCanvasSize}
-          type="button"
-        >
-          Apply canvas size
-        </button>
-        <button
-          data-fit-frame-to-canvas
-          disabled={fitDisabled}
-          onClick={fitFrameToCanvas}
-          type="button"
-        >
-          Fit frame to canvas
-        </button>
-      </div>
-      <DrawingInspectorFeedback feedback={feedback} id={feedbackId} />
+        <div className="setta-workspace-inspector-actions realtime-drawing-inspector-actions">
+          <button
+            className="setta-workspace-inspector-primary-action"
+            data-apply-canvas-size
+            disabled={isMinimized}
+            onClick={applyCanvasSize}
+            type="button"
+          >
+            Apply canvas size
+          </button>
+          <button
+            data-fit-frame-to-canvas
+            disabled={fitDisabled}
+            onClick={fitFrameToCanvas}
+            type="button"
+          >
+            Fit frame to canvas
+          </button>
+        </div>
+        <DrawingInspectorFeedback feedback={feedback} id={feedbackId} />
+      </WorkspaceInspectorSettingsGroup>
     </section>
   );
 }

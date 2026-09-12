@@ -115,6 +115,12 @@ validated against the catalogs they reference before any replacement becomes vis
 menus, headers, the Inspector, the toolbar, and keyboard dispatch on one command definition and
 prevents a registration from stranding a contribution or binding.
 
+Workspace exposes its disclosure-card and anchored-dropdown primitives for host-owned section
+controls. They retain the package's scoped light and dark surfaces, focus behavior, text direction,
+and keyboard semantics without requiring applications to import private styles or Radix directly.
+Applications still own the option model and mutations; Workspace owns only the shared presentation
+and interaction contract.
+
 Package mutations validate the complete request, construct one next canonical value, and publish
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other

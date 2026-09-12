@@ -66,6 +66,9 @@ export type DrawingHistoryState = {
   canUndo: boolean;
 };
 
+export type DrawingCreationColorTarget =
+  "fill" | "line" | "shape-stroke" | "text";
+
 export const DRAWING_CANVAS_MAX_SIZE = 8192;
 export const DRAWING_CANVAS_MIN_SIZE = 1;
 
@@ -117,6 +120,8 @@ type BrushSettings = {
   color: string;
   width: number;
 };
+
+const DRAWING_CREATION_COLOR = /^#[0-9a-f]{6}$/i;
 
 type DrawingArrangementAction = "back" | "backward" | "forward" | "front";
 
@@ -236,6 +241,13 @@ export class RealtimeDrawingRuntime {
     color: "#facc15",
     width: 18,
   };
+  private readonly creationColors: Record<DrawingCreationColorTarget, string> =
+    {
+      fill: "#e5ecfd",
+      line: "#111827",
+      "shape-stroke": "#2563eb",
+      text: "#111827",
+    };
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
   private readonly onSettled: () => void;
@@ -347,10 +359,10 @@ export class RealtimeDrawingRuntime {
   public addRectangle(): FabricObject {
     const position = this.nextObjectPosition(112, 72);
     const object = new Rect({
-      fill: "rgba(37, 99, 235, 0.12)",
+      fill: this.creationColors.fill,
       height: 72,
       left: position.x,
-      stroke: "#2563eb",
+      stroke: this.creationColors["shape-stroke"],
       strokeWidth: 2,
       top: position.y,
       width: 112,
@@ -361,11 +373,11 @@ export class RealtimeDrawingRuntime {
   public addEllipse(): FabricObject {
     const position = this.nextObjectPosition(108, 76);
     const object = new Ellipse({
-      fill: "rgba(37, 99, 235, 0.12)",
+      fill: this.creationColors.fill,
       left: position.x,
       rx: 54,
       ry: 38,
-      stroke: "#2563eb",
+      stroke: this.creationColors["shape-stroke"],
       strokeWidth: 2,
       top: position.y,
     });
@@ -379,7 +391,7 @@ export class RealtimeDrawingRuntime {
 
   public addTextAt(position: { x: number; y: number }): Textbox {
     const object = new Textbox("Text", {
-      fill: "#111827",
+      fill: this.creationColors.text,
       fontFamily: "Arial",
       fontSize: 28,
       left: position.x,
@@ -440,7 +452,7 @@ export class RealtimeDrawingRuntime {
     return this.addCreatedObject(
       new Line([0, 0, 120, 0], {
         left: position.x,
-        stroke: "#111827",
+        stroke: this.creationColors.line,
         strokeLineCap: "round",
         strokeWidth: 3,
         top: position.y,
@@ -462,7 +474,7 @@ export class RealtimeDrawingRuntime {
         {
           fill: null,
           left: position.x,
-          stroke: "#111827",
+          stroke: this.creationColors.line,
           strokeLineCap: "round",
           strokeLineJoin: "round",
           strokeWidth: 3,
@@ -530,6 +542,20 @@ export class RealtimeDrawingRuntime {
     this.configureBrush();
   }
 
+  public setCreationColor(
+    target: DrawingCreationColorTarget,
+    color: string,
+  ): boolean {
+    if (!DRAWING_CREATION_COLOR.test(color)) {
+      return false;
+    }
+    if (this.creationColors[target] === color) {
+      return false;
+    }
+    this.creationColors[target] = color;
+    return true;
+  }
+
   public setSelectionAppearance(
     patch: DrawingSelectionAppearancePatch,
   ): boolean {
@@ -555,7 +581,7 @@ export class RealtimeDrawingRuntime {
     if (objects.length === 0) {
       return false;
     }
-    const lock = !objects.every(isDrawingObjectLocked);
+    const lock = !objects.some(isDrawingObjectLocked);
     return this.finishSelectionMutation(setDrawingObjectsLocked(objects, lock));
   }
 
@@ -1359,7 +1385,13 @@ export class RealtimeDrawingRuntime {
       this.onToolChange("select");
     } else if (isDrawingShapeTool(this.tool)) {
       const point = this.placementPoint(event.scenePoint);
-      this.placement = createDrawingShapePlacement(this.tool, point);
+      this.placement = createDrawingShapePlacement(this.tool, point, {
+        fill: this.creationColors.fill,
+        stroke:
+          this.tool === "line" || this.tool === "arrow"
+            ? this.creationColors.line
+            : this.creationColors["shape-stroke"],
+      });
       this.canvas.add(this.placement.object);
     }
   };

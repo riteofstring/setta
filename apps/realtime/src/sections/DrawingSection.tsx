@@ -4,6 +4,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   setWorkspaceSectionSize,
+  WorkspaceDropdownMenu,
   type WorkspaceSection,
   type WorkspaceSectionData,
   useWorkspaceHost,
@@ -19,6 +20,7 @@ import {
 import type { Binding, Project } from "../backend/generatedContract";
 import {
   RealtimeDrawingRuntime,
+  type DrawingCreationColorTarget,
   type DrawingHistoryState,
   type DrawingPlacementTool,
   type DrawingSelectionSnapshot,
@@ -51,7 +53,7 @@ const INITIAL_HISTORY_STATE: DrawingHistoryState = {
 };
 const DRAWING_TOOL_LABELS: Record<DrawingTool, string> = {
   arrow: "Arrow",
-  draw: "Draw",
+  draw: "Pen",
   ellipse: "Ellipse",
   erase: "Eraser",
   highlighter: "Highlighter",
@@ -66,9 +68,22 @@ const DRAWING_SHAPE_TOOLS = [
   "rectangle",
   "ellipse",
 ] as const satisfies ReadonlyArray<Exclude<DrawingPlacementTool, "text">>;
+const DRAWING_SHAPE_TOOL_GROUPS = [
+  { label: "Lines", tools: ["line", "arrow"] },
+  { label: "Shapes", tools: ["rectangle", "ellipse"] },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  tools: ReadonlyArray<Exclude<DrawingPlacementTool, "text">>;
+}>;
 type DrawingBrushSettings = {
   color: string;
   width: number;
+};
+type DrawingCreationColors = Record<DrawingCreationColorTarget, string>;
+type DrawingCreationPaint = {
+  color: string;
+  label: string;
+  target: DrawingCreationColorTarget;
 };
 type DrawingBrushPresentation = {
   label: "Highlighter" | "Pen";
@@ -87,6 +102,12 @@ const INITIAL_PEN: DrawingBrushSettings = {
 const INITIAL_HIGHLIGHTER: DrawingBrushSettings = {
   color: "#facc15",
   width: 18,
+};
+const INITIAL_CREATION_COLORS: DrawingCreationColors = {
+  fill: "#e5ecfd",
+  line: "#111827",
+  "shape-stroke": "#2563eb",
+  text: "#111827",
 };
 const TERMINAL_INVOCATION_STATES = new Set([
   "cancelled",
@@ -129,6 +150,36 @@ function drawingBrushPresentation(
     maxWidth: 32,
     settings: pen,
   };
+}
+
+function drawingCreationPaints(
+  tool: DrawingTool,
+  colors: DrawingCreationColors,
+): DrawingCreationPaint[] {
+  if (tool === "text") {
+    return [{ color: colors.text, label: "Color", target: "text" }];
+  }
+  if (tool === "line" || tool === "arrow") {
+    return [{ color: colors.line, label: "Color", target: "line" }];
+  }
+  if (tool === "rectangle" || tool === "ellipse") {
+    return [
+      { color: colors.fill, label: "Fill", target: "fill" },
+      {
+        color: colors["shape-stroke"],
+        label: "Stroke",
+        target: "shape-stroke",
+      },
+    ];
+  }
+  return [];
+}
+
+function drawingCreationPaintLabel(tool: DrawingTool, label: string): string {
+  const toolLabel = DRAWING_TOOL_LABELS[tool];
+  return label === "Color"
+    ? `${toolLabel} color`
+    : `${toolLabel} ${label.toLowerCase()} color`;
 }
 
 function isDrawingShapeTool(value: string): value is DrawingTool {
@@ -284,11 +335,15 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const [highlighter, setHighlighter] =
     useState<DrawingBrushSettings>(INITIAL_HIGHLIGHTER);
   const [pen, setPen] = useState<DrawingBrushSettings>(INITIAL_PEN);
+  const [creationColors, setCreationColors] = useState<DrawingCreationColors>(
+    INITIAL_CREATION_COLORS,
+  );
   const [importingImage, setImportingImage] = useState(false);
   const [selection, setSelection] = useState<DrawingSelectionSnapshot>(
     EMPTY_DRAWING_SELECTION_SNAPSHOT,
   );
   const [tool, setTool] = useState<DrawingTool>("draw");
+  const creationColorsRef = useRef(creationColors);
   const gridSnapEnabledRef = useRef(false);
   const gridVisibleRef = useRef(false);
   const scene = resolveRuntimeValue(
@@ -308,6 +363,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   drawingDocumentRef.current = drawingDocument;
   projectRef.current = project;
   runtimeRef.current = runtime;
+  creationColorsRef.current = creationColors;
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -332,6 +388,11 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       onToolChange: setTool,
       width: initialDocument.width,
     });
+    for (const [target, color] of Object.entries(
+      creationColorsRef.current,
+    ) as Array<[DrawingCreationColorTarget, string]>) {
+      drawing.setCreationColor(target, color);
+    }
     const updateSelection = () => {
       setSelection(drawing.getSelectionSnapshot());
     };
@@ -585,6 +646,14 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     drawingRef.current?.setBrush(next.color, next.width);
   };
 
+  const changeCreationColor = (
+    target: DrawingCreationColorTarget,
+    color: string,
+  ) => {
+    setCreationColors((current) => ({ ...current, [target]: color }));
+    drawingRef.current?.setCreationColor(target, color);
+  };
+
   const handleDrawingKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const drawing = drawingRef.current;
     if (drawing === null) {
@@ -654,6 +723,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     tool === "draw" || tool === "highlighter"
       ? drawingBrushPresentation(tool, pen, highlighter)
       : null;
+  const creationPaints = drawingCreationPaints(tool, creationColors);
 
   return (
     <div className="realtime-drawing">
@@ -674,18 +744,67 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
                 title={DRAWING_TOOL_LABELS[candidate]}
                 type="button"
               >
-                <DrawingToolbarIcon name={candidate} />
+                <DrawingToolbarIcon
+                  accentColor={
+                    candidate === "highlighter" ? highlighter.color : undefined
+                  }
+                  name={candidate}
+                />
               </button>
             ),
           )}
+        </div>
+        <div className="realtime-drawing-tool-group">
+          <WorkspaceDropdownMenu
+            ariaLabel="Draw a line or shape"
+            className={`realtime-drawing-shape-trigger ${isDrawingShapeTool(tool) ? "realtime-drawing-shape-trigger-active" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            groups={DRAWING_SHAPE_TOOL_GROUPS.map((group) => ({
+              items: group.tools.map((shape) => ({
+                id: shape,
+                label: DRAWING_TOOL_LABELS[shape],
+                onSelect: () => chooseTool(shape),
+              })),
+              label: group.label,
+            }))}
+            selectedItemId={isDrawingShapeTool(tool) ? tool : ""}
+            title="Draw a line or shape"
+          >
+            <DrawingToolbarIcon name="shapes" />
+            <span>
+              {isDrawingShapeTool(tool)
+                ? DRAWING_TOOL_LABELS[tool]
+                : "Line & shape"}
+            </span>
+          </WorkspaceDropdownMenu>
+          <button
+            aria-label="Add image"
+            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            disabled={importingImage}
+            onClick={() => imageInputRef.current?.click()}
+            title="Add image"
+            type="button"
+          >
+            <DrawingToolbarIcon name="image" />
+          </button>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Choose drawing image"
+            hidden
+            onChange={(event) => void handleImageFile(event)}
+            ref={imageInputRef}
+            type="file"
+          />
         </div>
         {brushPresentation === null ? null : (
           <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
             <label
               aria-label={`${brushPresentation.label} color`}
+              className="realtime-drawing-toolbar-color"
               title={`${brushPresentation.label} color`}
             >
+              <span>Color</span>
               <input
+                aria-label={`${brushPresentation.label} color`}
                 className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
                 onChange={(event) =>
                   changeBrushColor(event.currentTarget.value)
@@ -714,44 +833,28 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             </label>
           </div>
         )}
-        <div className="realtime-drawing-tool-group">
-          <select
-            aria-label="Shape tool"
-            className={`realtime-drawing-shape-select ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onChange={(event) => {
-              if (isDrawingShapeTool(event.currentTarget.value)) {
-                chooseTool(event.currentTarget.value);
-              }
-            }}
-            title="Shape tool"
-            value={isDrawingShapeTool(tool) ? tool : ""}
-          >
-            <option value="">Shape</option>
-            {DRAWING_SHAPE_TOOLS.map((shape) => (
-              <option key={shape} value={shape}>
-                {DRAWING_TOOL_LABELS[shape]}
-              </option>
+        {creationPaints.length === 0 ? null : (
+          <div className="realtime-drawing-tool-group realtime-drawing-creation-colors">
+            {creationPaints.map((paint) => (
+              <label
+                className="realtime-drawing-toolbar-color"
+                key={paint.target}
+                title={drawingCreationPaintLabel(tool, paint.label)}
+              >
+                <span>{paint.label}</span>
+                <input
+                  aria-label={drawingCreationPaintLabel(tool, paint.label)}
+                  className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+                  onChange={(event) =>
+                    changeCreationColor(paint.target, event.currentTarget.value)
+                  }
+                  type="color"
+                  value={paint.color}
+                />
+              </label>
             ))}
-          </select>
-          <button
-            aria-label="Add image"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={importingImage}
-            onClick={() => imageInputRef.current?.click()}
-            title="Add image"
-            type="button"
-          >
-            <DrawingToolbarIcon name="image" />
-          </button>
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            aria-label="Choose drawing image"
-            hidden
-            onChange={(event) => void handleImageFile(event)}
-            ref={imageInputRef}
-            type="file"
-          />
-        </div>
+          </div>
+        )}
         <div className="realtime-drawing-tool-group">
           <button
             aria-label="Undo"

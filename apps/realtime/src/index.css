@@ -424,81 +424,133 @@ input {
   display: grid;
   min-width: 0;
   gap: 12px;
+  container-type: inline-size;
 }
 
-.realtime-drawing-selection-inspector {
+.realtime-drawing-selection-inspector,
+.realtime-drawing-selection-primary-group,
+.realtime-drawing-selection-arrange-group {
   display: grid;
   min-width: 0;
-  padding-block-end: 14px;
-  border-bottom: 1px solid rgb(182 192 211 / 45%);
   gap: 12px;
-}
-
-.realtime-drawing-selection-inspector > p,
-.realtime-drawing-selection-property-group > h5,
-.realtime-drawing-selection-command-group > h5 {
-  margin: 0;
-}
-
-.realtime-drawing-selection-inspector > p {
-  color: rgb(100 116 139);
-  font-size: 11px;
-  line-height: 16px;
 }
 
 .realtime-drawing-selection-properties,
 .realtime-drawing-selection-property-group,
 .realtime-drawing-selection-command-group,
-.realtime-drawing-selection-paint {
+.realtime-drawing-inspector-subgroup {
   display: grid;
   min-width: 0;
   gap: 8px;
 }
 
 .realtime-drawing-selection-property-group > h5,
-.realtime-drawing-selection-command-group > h5 {
+.realtime-drawing-selection-command-group > h5,
+.realtime-drawing-inspector-subgroup > h5 {
+  margin: 0;
+  padding-inline: 12px;
   color: rgb(86 105 143);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 15px;
+  letter-spacing: 0.04em;
+  line-height: 14px;
+  text-transform: uppercase;
 }
 
 .realtime-drawing-selection-property-group
-  + .realtime-drawing-selection-property-group {
+  + .realtime-drawing-selection-property-group,
+.realtime-drawing-selection-properties
+  + .realtime-drawing-selection-command-group,
+.realtime-drawing-selection-command-group
+  + .realtime-drawing-selection-command-group,
+.realtime-drawing-inspector-subgroup + .realtime-drawing-inspector-subgroup {
   padding-block-start: 10px;
   border-top: 1px solid rgb(182 192 211 / 32%);
+}
+
+.realtime-drawing-selection-paint {
+  padding-block: 3px;
+}
+
+.realtime-drawing-selection-toggle {
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.realtime-drawing-selection-toggle > input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  accent-color: rgb(37 99 235);
+}
+
+.realtime-drawing-selection-color {
+  min-width: 0;
+  cursor: pointer;
 }
 
 .realtime-drawing-selection-color-value {
   display: grid;
   min-width: 0;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .realtime-drawing-selection-color-value
   > input.setta-workspace-inspector-style-picker {
-  width: 38px;
-  min-width: 38px;
-  height: 30px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 9999px;
 }
 
-.realtime-drawing-selection-color-value > output,
-.realtime-drawing-selection-opacity output,
-.realtime-drawing-selection-mixed-value {
+.realtime-drawing-selection-color-value > output {
   min-width: 0;
   overflow: hidden;
   color: rgb(100 116 139);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
+  text-align: end;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.realtime-drawing-selection-emphasis,
-.realtime-drawing-selection-text-alignment {
+.realtime-drawing-selection-opacity-value {
+  position: relative;
+  min-width: 0;
+}
+
+.realtime-drawing-selection-opacity-value > input {
+  padding-inline-end: 18px;
+  text-align: end;
+}
+
+.realtime-drawing-selection-opacity-value > span {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 2px;
+  color: rgb(100 116 139);
+  font-size: 10px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.realtime-drawing-selection-emphasis {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.realtime-drawing-selection-emphasis .setta-workspace-inspector-toggle {
+  min-height: 26px;
+  padding: 4px;
+  font-size: 11px;
 }
 
 .realtime-drawing-selection-align-actions {
@@ -514,13 +566,18 @@ input {
   grid-column: 1 / -1;
 }
 
-.setta-workspace.setta-workspace-dark .realtime-drawing-selection-inspector {
-  border-color: rgb(43 54 74 / 70%);
-}
-
 .setta-workspace.setta-workspace-dark
   .realtime-drawing-selection-property-group
-  + .realtime-drawing-selection-property-group {
+  + .realtime-drawing-selection-property-group,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-selection-properties
+  + .realtime-drawing-selection-command-group,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-selection-command-group
+  + .realtime-drawing-selection-command-group,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-subgroup
+  + .realtime-drawing-inspector-subgroup {
   border-color: rgb(43 54 74 / 55%);
 }
 
@@ -529,56 +586,30 @@ input {
   > h5,
 .setta-workspace.setta-workspace-dark
   .realtime-drawing-selection-command-group
+  > h5,
+.setta-workspace.setta-workspace-dark
+  .realtime-drawing-inspector-subgroup
   > h5 {
   color: rgb(182 192 211);
 }
 
-.realtime-drawing-inspector-heading {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.realtime-drawing-inspector-heading h4,
-.realtime-drawing-inspector > p {
+.realtime-drawing-inspector-subgroup > p {
   margin: 0;
-}
-
-.realtime-drawing-inspector-heading h4 {
-  color: rgb(65 80 108);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.025em;
-  line-height: 16px;
-  text-transform: uppercase;
-}
-
-.realtime-drawing-inspector-heading > span {
+  padding-inline: 12px;
   color: rgb(100 116 139);
-  font-variant-numeric: tabular-nums;
-}
-
-.realtime-drawing-inspector > p {
-  color: rgb(100 116 139);
+  font-size: 11px;
   line-height: 17px;
 }
 
-.realtime-drawing-inspector-dimensions {
+.realtime-drawing-inspector-guide-options {
   display: grid;
   min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.realtime-drawing-inspector-dimensions > label,
-.realtime-drawing-inspector-field {
-  display: grid;
-  min-width: 0;
-  gap: 6px;
-  color: rgb(86 105 143);
-  font-weight: 600;
+.realtime-drawing-inspector-guide-options .setta-workspace-inspector-checkbox {
+  min-height: 28px;
 }
 
 .realtime-drawing-inspector-dimension {
@@ -594,33 +625,17 @@ input {
 .realtime-drawing-inspector-dimension > span {
   position: absolute;
   top: 50%;
-  right: 9px;
+  inset-inline-end: 9px;
   color: rgb(100 116 139);
   font-size: 10px;
   pointer-events: none;
   transform: translateY(-50%);
 }
 
-.realtime-drawing-inspector-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: rgb(86 105 143);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.realtime-drawing-inspector-checkbox input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: rgb(37 99 235);
-}
-
 .realtime-drawing-inspector-anchor {
   min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 0 12px;
   border: 0;
 }
 
@@ -646,7 +661,7 @@ input {
   border: 1px solid rgb(182 192 211 / 80%);
   border-radius: 4px;
   place-items: center;
-  background: rgb(255 255 255 / 70%);
+  background: transparent;
   cursor: pointer;
 }
 
@@ -679,63 +694,23 @@ input {
   cursor: not-allowed;
 }
 
-.realtime-drawing-inspector > .realtime-drawing-inspector-help {
-  margin-block-start: -6px;
-  font-size: 11px;
-}
-
 .realtime-drawing-inspector-actions {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
 }
 
-.realtime-drawing-inspector-actions button {
-  min-height: 32px;
-  padding: 6px 9px;
-  border: 1px solid rgb(182 192 211 / 80%);
-  border-radius: 6px;
-  color: rgb(51 65 85);
-  background: rgb(255 255 255 / 80%);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 15px;
-}
-
-.realtime-drawing-inspector-actions button:first-child {
-  border-color: rgb(37 99 235);
-  color: #fff;
-  background: rgb(37 99 235);
-}
-
-.realtime-drawing-inspector-actions button:hover:not(:disabled) {
-  filter: brightness(0.96);
-}
-
-.realtime-drawing-inspector-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.realtime-drawing-inspector > .realtime-drawing-inspector-feedback {
+.realtime-drawing-inspector-feedback {
+  margin: 0;
   padding: 7px 9px;
   border-radius: 5px;
   color: rgb(29 78 216);
   background: rgb(239 246 255);
 }
 
-.realtime-drawing-inspector > .realtime-drawing-inspector-feedback-error {
+.realtime-drawing-inspector-feedback-error {
   color: rgb(185 28 28);
   background: rgb(254 242 242);
 }
 
-.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-heading h4,
-.setta-workspace.setta-workspace-dark
-  .realtime-drawing-inspector-dimensions
-  > label,
-.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-field,
-.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-checkbox,
 .setta-workspace.setta-workspace-dark
   .realtime-drawing-inspector-anchor
   legend {
@@ -756,34 +731,32 @@ input {
   background: rgb(30 58 138 / 55%);
 }
 
-.setta-workspace.setta-workspace-dark
-  .realtime-drawing-inspector-actions
-  button {
-  border-color: rgb(43 54 74);
-  color: rgb(203 213 225);
-  background: rgb(11 14 19);
-}
-
-.setta-workspace.setta-workspace-dark
-  .realtime-drawing-inspector-actions
-  button:first-child {
-  border-color: rgb(37 99 235);
-  color: #fff;
-  background: rgb(37 99 235);
-}
-
-.setta-workspace.setta-workspace-dark
-  .realtime-drawing-inspector
-  > .realtime-drawing-inspector-feedback {
+.setta-workspace.setta-workspace-dark .realtime-drawing-inspector-feedback {
   color: rgb(191 219 254);
   background: rgb(30 58 138 / 35%);
 }
 
 .setta-workspace.setta-workspace-dark
-  .realtime-drawing-inspector
-  > .realtime-drawing-inspector-feedback-error {
+  .realtime-drawing-inspector-feedback-error {
   color: rgb(254 202 202);
   background: rgb(127 29 29 / 35%);
+}
+
+@container (max-width: 260px) {
+  .realtime-drawing-inspector .setta-workspace-inspector-config-row,
+  .realtime-drawing-inspector-guide-options,
+  .realtime-drawing-inspector-dimensions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .realtime-drawing-selection-color-value {
+    grid-template-columns: 24px minmax(0, 1fr);
+    justify-content: start;
+  }
+
+  .realtime-drawing-selection-color-value > output {
+    text-align: start;
+  }
 }
 
 .realtime-drawing-toolbar {
@@ -821,7 +794,8 @@ input {
   cursor: pointer;
 }
 
-.realtime-drawing-toolbar button[aria-pressed="true"] {
+.realtime-drawing-toolbar button[aria-pressed="true"],
+.realtime-drawing-toolbar button.realtime-drawing-shape-trigger-active {
   color: #3b82f6;
   box-shadow: inset 0 0 0 1px currentColor;
 }
@@ -832,8 +806,7 @@ input {
 }
 
 .realtime-drawing-toolbar button:focus-visible,
-.realtime-drawing-toolbar input:focus-visible,
-.realtime-drawing-toolbar select:focus-visible {
+.realtime-drawing-toolbar input:focus-visible {
   outline: 2px solid #6172f3;
   outline-offset: 1px;
 }
@@ -853,9 +826,11 @@ input {
   flex: 0 0 auto;
 }
 
-.realtime-drawing-shape-select {
+.realtime-drawing-toolbar button.realtime-drawing-shape-trigger {
+  width: auto;
   height: 32px;
-  padding: 0 28px 0 10px;
+  gap: 5px;
+  padding: 0 7px 0 8px;
   border: 0;
   border-radius: 8px;
   color: var(--realtime-drawing-control-color);
@@ -864,9 +839,14 @@ input {
   font: inherit;
   font-size: 11px;
   font-weight: 650;
+  white-space: nowrap;
 }
 
-.realtime-drawing-shape-select:hover {
+.realtime-drawing-shape-trigger .setta-workspace-dropdown-menu-trigger-content {
+  gap: 5px;
+}
+
+.realtime-drawing-toolbar button.realtime-drawing-shape-trigger:hover {
   color: #3b82f6;
   background-color: var(--realtime-drawing-control-hover);
 }
@@ -881,28 +861,52 @@ input {
   stroke-width: 1.8;
 }
 
+.realtime-drawing-highlighter-swatch {
+  opacity: 0.75;
+  stroke-linecap: butt;
+  stroke-width: 3.5;
+}
+
 .realtime-drawing-brush-controls {
   gap: 5px;
 }
 
-.realtime-drawing-brush-controls input[type="color"] {
-  display: block;
-  width: 32px;
+.realtime-drawing-toolbar-color {
+  display: flex;
   height: 32px;
-  padding: 4px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px 0 8px;
+  border-radius: 8px;
+  color: var(--realtime-drawing-control-color);
+  background: var(--realtime-drawing-control-background);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.realtime-drawing-toolbar-color input[type="color"] {
+  display: block;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--realtime-drawing-control-background);
+  background: transparent;
   box-shadow: inset 0 0 0 1px var(--realtime-drawing-control-track);
   cursor: pointer;
 }
 
-.realtime-drawing-brush-controls
+.realtime-drawing-toolbar-color
   input[type="color"]::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 
-.realtime-drawing-brush-controls input[type="color"]::-webkit-color-swatch {
+.realtime-drawing-toolbar-color input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 999px;
+}
+
+.realtime-drawing-toolbar-color input[type="color"]::-moz-color-swatch {
   border: 0;
   border-radius: 999px;
 }

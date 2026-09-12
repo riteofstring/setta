@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
-import { type WorkspaceHost, useWorkspaceHost } from "@setta/workspace";
+import {
+  type WorkspaceHost,
+  WorkspaceInspectorSettingsGroup,
+  useWorkspaceHost,
+} from "@setta/workspace";
 
 import type {
   DrawingAlignment,
@@ -71,6 +75,23 @@ const DRAWING_SELECTION_KIND_LABELS: Record<DrawingSelectionKind, string> = {
   text: "Text",
 };
 
+const DRAWING_SELECTION_KIND_PLURAL_LABELS: Record<
+  DrawingSelectionKind,
+  string
+> = {
+  arrow: "arrows",
+  ellipse: "ellipses",
+  group: "groups",
+  image: "images",
+  line: "lines",
+  mixed: "objects",
+  none: "objects",
+  object: "objects",
+  rectangle: "rectangles",
+  stroke: "strokes",
+  text: "text objects",
+};
+
 const SYSTEM_FONT_OPTIONS = [
   { label: "System UI", value: "system-ui" },
   { label: "Arial", value: "Arial" },
@@ -119,13 +140,12 @@ const DISTRIBUTION_ACTIONS: ReadonlyArray<{
 
 const TEXT_ALIGNMENT_ACTIONS: ReadonlyArray<{
   label: string;
-  shortLabel: string;
   value: DrawingTextAlign;
 }> = [
-  { label: "Align text left", shortLabel: "Left", value: "left" },
-  { label: "Center text", shortLabel: "Center", value: "center" },
-  { label: "Align text right", shortLabel: "Right", value: "right" },
-  { label: "Justify text", shortLabel: "Justify", value: "justify" },
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+  { label: "Justify", value: "justify" },
 ];
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -164,7 +184,7 @@ function MixedCheckbox({
     }
   }, [value]);
   return (
-    <label className="realtime-drawing-inspector-checkbox realtime-drawing-selection-toggle">
+    <label className="realtime-drawing-selection-toggle">
       <input
         aria-checked={value === "mixed" ? "mixed" : value === true}
         aria-label={accessibleLabel}
@@ -173,7 +193,9 @@ function MixedCheckbox({
         ref={inputRef}
         type="checkbox"
       />
-      <span>{fieldLabel(label, value)}</span>
+      <span className="setta-workspace-inspector-config-label">
+        {fieldLabel(label, value)}
+      </span>
     </label>
   );
 }
@@ -189,16 +211,16 @@ function PaintControl({
   const concreteColor = concreteValue(color);
   return (
     <div
-      className={`realtime-drawing-selection-paint realtime-drawing-selection-${label.toLowerCase()}`}
+      className={`setta-workspace-inspector-config-row realtime-drawing-selection-paint realtime-drawing-selection-${label.toLowerCase()}`}
     >
       <MixedCheckbox
         accessibleLabel={`${label} enabled`}
-        label={`${label} enabled`}
+        label={label}
         onChange={onEnabledChange}
         value={enabled}
       />
-      <label className="realtime-drawing-inspector-field realtime-drawing-selection-color">
-        <span>{fieldLabel(`${label} color`, color)}</span>
+      <label className="realtime-drawing-selection-color">
+        <span className="sr-only">{fieldLabel(`${label} color`, color)}</span>
         <div className="realtime-drawing-selection-color-value">
           <input
             aria-label={`${label} color`}
@@ -227,11 +249,13 @@ function NumberControl({
 }: NumberControlProps) {
   const concrete = concreteValue(value);
   return (
-    <label className="realtime-drawing-inspector-field realtime-drawing-selection-number">
-      <span>{fieldLabel(label, value)}</span>
+    <label className="setta-workspace-inspector-config-row realtime-drawing-selection-number">
+      <span className="setta-workspace-inspector-config-label">
+        {fieldLabel(label, value)}
+      </span>
       <input
         aria-label={label}
-        className="setta-workspace-inspector-input"
+        className="setta-workspace-inspector-config-input"
         max={max}
         min={min}
         onChange={(event) => {
@@ -253,15 +277,6 @@ function NumberControl({
   );
 }
 
-function SelectionPanelHeading({ status }: { status: string }) {
-  return (
-    <div className="realtime-drawing-inspector-heading realtime-drawing-selection-heading">
-      <h4>Selection</h4>
-      <span>{status}</span>
-    </div>
-  );
-}
-
 type DrawingSelectedInspectorProps = {
   host: WorkspaceHost;
   sectionId: string;
@@ -270,13 +285,6 @@ type DrawingSelectedInspectorProps = {
 
 function paintValue(enabled: boolean, color: string): string | null {
   return enabled ? color : null;
-}
-
-function percentageLabel(value: DrawingSelectionValue<number>): string {
-  if (value === "mixed") {
-    return "Mixed";
-  }
-  return `${Math.round((value ?? 1) * 100)}%`;
 }
 
 function pressedState<Value>(
@@ -308,6 +316,39 @@ function customFontOption(fontFamily: string | null): string | null {
   return SYSTEM_FONT_OPTIONS.some((option) => option.value === fontFamily)
     ? null
     : fontFamily;
+}
+
+function drawingSelectionStatus(selection: DrawingSelectionSnapshot): string {
+  return selection.count === 1
+    ? DRAWING_SELECTION_KIND_LABELS[selection.kind]
+    : `${selection.count} ${DRAWING_SELECTION_KIND_PLURAL_LABELS[selection.kind]}`;
+}
+
+function drawingSelectionHasLockedObjects(
+  selection: DrawingSelectionSnapshot,
+): boolean {
+  return selection.locked === true || selection.locked === "mixed";
+}
+
+function drawingSelectionHasLayerActions(
+  selection: DrawingSelectionSnapshot,
+): boolean {
+  return selection.canMoveBackward || selection.canMoveForward;
+}
+
+function drawingSelectionHasArrangeActions(
+  selection: DrawingSelectionSnapshot,
+): boolean {
+  return drawingSelectionHasLayerActions(selection) || selection.count >= 2;
+}
+
+function drawingSelectionLockLabel(
+  locked: DrawingSelectionValue<boolean>,
+): string {
+  if (locked === true) {
+    return "Unlock";
+  }
+  return locked === "mixed" ? "Unlock all" : "Lock";
 }
 
 function DrawingAppearanceControls({
@@ -367,24 +408,35 @@ function DrawingAppearanceControls({
           />
         </>
       ) : null}
-      <label className="realtime-drawing-inspector-field realtime-drawing-selection-opacity">
-        <span>{fieldLabel("Opacity", selection.opacity)}</span>
-        <div className="setta-workspace-inspector-config-range">
+      <label className="setta-workspace-inspector-config-row realtime-drawing-selection-opacity">
+        <span className="setta-workspace-inspector-config-label">
+          {fieldLabel("Opacity", selection.opacity)}
+        </span>
+        <div className="realtime-drawing-selection-opacity-value">
           <input
             aria-label="Opacity"
             className="setta-workspace-inspector-config-input"
+            inputMode="numeric"
             max={100}
             min={0}
-            onChange={(event) =>
-              void setDrawingSelectionAppearance(host, sectionId, {
-                opacity: Number(event.currentTarget.value) / 100,
-              })
-            }
+            onChange={(event) => {
+              const opacity = event.currentTarget.valueAsNumber;
+              if (Number.isFinite(opacity) && opacity >= 0 && opacity <= 100) {
+                void setDrawingSelectionAppearance(host, sectionId, {
+                  opacity: opacity / 100,
+                });
+              }
+            }}
+            placeholder={selection.opacity === "mixed" ? "Mixed" : undefined}
             step={1}
-            type="range"
-            value={Math.round((concreteValue(selection.opacity) ?? 1) * 100)}
+            type="number"
+            value={
+              selection.opacity === "mixed"
+                ? ""
+                : Math.round((selection.opacity ?? 1) * 100)
+            }
           />
-          <output>{percentageLabel(selection.opacity)}</output>
+          <span aria-hidden="true">%</span>
         </div>
       </label>
       {selection.supportsCornerRadius ? (
@@ -412,11 +464,13 @@ function DrawingFontFamilyControl({
   const fontFamily = concreteValue(selection.fontFamily);
   const customFont = customFontOption(fontFamily);
   return (
-    <label className="realtime-drawing-inspector-field realtime-drawing-selection-font-family">
-      <span>{fieldLabel("Font family", selection.fontFamily)}</span>
+    <label className="setta-workspace-inspector-config-row realtime-drawing-selection-font-family">
+      <span className="setta-workspace-inspector-config-label">
+        {fieldLabel("Font family", selection.fontFamily)}
+      </span>
       <select
         aria-label="Font family"
-        className="setta-workspace-inspector-input"
+        className="setta-workspace-inspector-config-input"
         onChange={(event) => {
           if (event.currentTarget.value !== "") {
             void setDrawingSelectionTypography(host, sectionId, {
@@ -450,37 +504,40 @@ function DrawingTextEmphasisControls({
   selection,
 }: DrawingSelectedInspectorProps) {
   return (
-    <div
-      aria-label="Text emphasis"
-      className="setta-workspace-inspector-toggle-grid realtime-drawing-selection-emphasis"
-      role="group"
-    >
-      <button
-        aria-label={mixedAccessibleLabel("Bold", selection.fontWeight)}
-        aria-pressed={pressedState(selection.fontWeight, "bold")}
-        className="setta-workspace-inspector-toggle"
-        onClick={() =>
-          void setDrawingSelectionTypography(host, sectionId, {
-            fontWeight: toggledValue(selection.fontWeight, "bold", "normal"),
-          })
-        }
-        type="button"
+    <div className="setta-workspace-inspector-config-row realtime-drawing-selection-text-control">
+      <span className="setta-workspace-inspector-config-label">Style</span>
+      <div
+        aria-label="Text emphasis"
+        className="setta-workspace-inspector-toggle-grid realtime-drawing-selection-emphasis"
+        role="group"
       >
-        Bold
-      </button>
-      <button
-        aria-label={mixedAccessibleLabel("Italic", selection.fontStyle)}
-        aria-pressed={pressedState(selection.fontStyle, "italic")}
-        className="setta-workspace-inspector-toggle"
-        onClick={() =>
-          void setDrawingSelectionTypography(host, sectionId, {
-            fontStyle: toggledValue(selection.fontStyle, "italic", "normal"),
-          })
-        }
-        type="button"
-      >
-        Italic
-      </button>
+        <button
+          aria-label={mixedAccessibleLabel("Bold", selection.fontWeight)}
+          aria-pressed={pressedState(selection.fontWeight, "bold")}
+          className="setta-workspace-inspector-toggle"
+          onClick={() =>
+            void setDrawingSelectionTypography(host, sectionId, {
+              fontWeight: toggledValue(selection.fontWeight, "bold", "normal"),
+            })
+          }
+          type="button"
+        >
+          Bold
+        </button>
+        <button
+          aria-label={mixedAccessibleLabel("Italic", selection.fontStyle)}
+          aria-pressed={pressedState(selection.fontStyle, "italic")}
+          className="setta-workspace-inspector-toggle"
+          onClick={() =>
+            void setDrawingSelectionTypography(host, sectionId, {
+              fontStyle: toggledValue(selection.fontStyle, "italic", "normal"),
+            })
+          }
+          type="button"
+        >
+          Italic
+        </button>
+      </div>
     </div>
   );
 }
@@ -491,31 +548,37 @@ function DrawingTextAlignmentControls({
   selection,
 }: DrawingSelectedInspectorProps) {
   return (
-    <div
-      aria-label="Text alignment"
-      className="setta-workspace-inspector-toggle-grid realtime-drawing-selection-text-alignment"
-      role="group"
-    >
-      {TEXT_ALIGNMENT_ACTIONS.map((action) => (
-        <button
-          aria-label={action.label}
-          aria-pressed={selection.textAlign === action.value}
-          className="setta-workspace-inspector-toggle"
-          key={action.value}
-          onClick={() =>
+    <label className="setta-workspace-inspector-config-row realtime-drawing-selection-text-alignment">
+      <span className="setta-workspace-inspector-config-label">
+        {fieldLabel("Alignment", selection.textAlign)}
+      </span>
+      <select
+        aria-label="Text alignment"
+        className="setta-workspace-inspector-config-input"
+        onChange={(event) => {
+          const alignment = TEXT_ALIGNMENT_ACTIONS.find(
+            (action) => action.value === event.currentTarget.value,
+          );
+          if (alignment !== undefined) {
             void setDrawingSelectionTypography(host, sectionId, {
-              textAlign: action.value,
-            })
+              textAlign: alignment.value,
+            });
           }
-          type="button"
-        >
-          {action.shortLabel}
-        </button>
-      ))}
-      {selection.textAlign === "mixed" ? (
-        <span className="realtime-drawing-selection-mixed-value">Mixed</span>
-      ) : null}
-    </div>
+        }}
+        value={concreteValue(selection.textAlign) ?? ""}
+      >
+        {selection.textAlign === "mixed" ? (
+          <option disabled value="">
+            Mixed
+          </option>
+        ) : null}
+        {TEXT_ALIGNMENT_ACTIONS.map((action) => (
+          <option key={action.value} value={action.value}>
+            {action.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -547,7 +610,7 @@ function DrawingArrangeActions({
 }: DrawingSelectedInspectorProps) {
   return (
     <div className="realtime-drawing-selection-command-group">
-      <h5>Arrange</h5>
+      <h5>Layer</h5>
       <div className="setta-workspace-inspector-actions realtime-drawing-selection-layer-actions">
         <button
           disabled={!selection.canMoveForward}
@@ -641,23 +704,9 @@ function DrawingObjectActions({
   sectionId,
   selection,
 }: DrawingSelectedInspectorProps) {
-  const lockLabel = selection.locked === true ? "Unlock" : "Lock";
-  return (
-    <div className="setta-workspace-inspector-actions realtime-drawing-selection-object-actions">
-      <button
-        disabled={!selection.canDuplicate}
-        onClick={() => void duplicateDrawingSelection(host, sectionId)}
-        type="button"
-      >
-        Duplicate
-      </button>
-      <button
-        disabled={!selection.canGroup}
-        onClick={() => void groupDrawingSelection(host, sectionId)}
-        type="button"
-      >
-        Group
-      </button>
+  const lockLabel = drawingSelectionLockLabel(selection.locked);
+  const groupingAction =
+    selection.count === 1 && selection.kind === "group" ? (
       <button
         disabled={!selection.canUngroup}
         onClick={() => void ungroupDrawingSelection(host, sectionId)}
@@ -665,21 +714,66 @@ function DrawingObjectActions({
       >
         Ungroup
       </button>
+    ) : selection.count >= 2 ? (
       <button
-        disabled={!selection.canLock}
-        onClick={() => void toggleDrawingSelectionLock(host, sectionId)}
+        disabled={!selection.canGroup}
+        onClick={() => void groupDrawingSelection(host, sectionId)}
         type="button"
       >
-        {lockLabel}
+        Group
       </button>
-      <button
-        className="setta-workspace-inspector-danger-action realtime-drawing-selection-delete"
-        disabled={!selection.canDelete}
-        onClick={() => void deleteDrawingSelection(host, sectionId)}
-        type="button"
-      >
-        Delete
-      </button>
+    ) : null;
+  return (
+    <div className="realtime-drawing-selection-command-group">
+      <h5>Actions</h5>
+      <div className="setta-workspace-inspector-actions realtime-drawing-selection-object-actions">
+        <button
+          disabled={!selection.canDuplicate}
+          onClick={() => void duplicateDrawingSelection(host, sectionId)}
+          type="button"
+        >
+          Duplicate
+        </button>
+        {groupingAction}
+        <button
+          disabled={!selection.canLock}
+          onClick={() => void toggleDrawingSelectionLock(host, sectionId)}
+          type="button"
+        >
+          {lockLabel}
+        </button>
+        <button
+          className="setta-workspace-inspector-danger-action realtime-drawing-selection-delete"
+          disabled={!selection.canDelete}
+          onClick={() => void deleteDrawingSelection(host, sectionId)}
+          type="button"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DrawingArrangeAndAlign(props: DrawingSelectedInspectorProps) {
+  const { selection } = props;
+  if (!drawingSelectionHasArrangeActions(selection)) {
+    return null;
+  }
+  return (
+    <div
+      className="realtime-drawing-selection-arrange-group"
+      data-inspector-focus-key="drawing-arrange"
+    >
+      <WorkspaceInspectorSettingsGroup title="Arrange & align">
+        {drawingSelectionHasLayerActions(selection) ? (
+          <DrawingArrangeActions {...props} />
+        ) : null}
+        {selection.count >= 2 ? <DrawingAlignmentActions {...props} /> : null}
+        {selection.count >= 3 ? (
+          <DrawingDistributionActions {...props} />
+        ) : null}
+      </WorkspaceInspectorSettingsGroup>
     </div>
   );
 }
@@ -692,19 +786,30 @@ function DrawingSelectedInspector(props: DrawingSelectedInspectorProps) {
       className="realtime-drawing-selection-inspector"
       data-state="selected"
     >
-      <SelectionPanelHeading
-        status={`${selection.count} selected · ${DRAWING_SELECTION_KIND_LABELS[selection.kind]}`}
-      />
-      <div className="realtime-drawing-selection-properties">
-        <DrawingAppearanceControls {...props} />
-        {selection.supportsTypography ? (
-          <DrawingTypographyControls {...props} />
-        ) : null}
+      <div
+        className="realtime-drawing-selection-primary-group"
+        data-inspector-focus-key="drawing-selection"
+      >
+        <WorkspaceInspectorSettingsGroup
+          defaultOpen
+          status={drawingSelectionStatus(selection)}
+          title="Selection"
+        >
+          <div className="realtime-drawing-selection-properties">
+            <DrawingAppearanceControls {...props} />
+            {selection.supportsTypography ? (
+              <DrawingTypographyControls {...props} />
+            ) : null}
+          </div>
+          <DrawingObjectActions {...props} />
+          {drawingSelectionHasLockedObjects(selection) ? (
+            <p className="setta-workspace-inspector-help realtime-drawing-selection-locked-guidance">
+              Unlock every selected object to arrange or delete the selection.
+            </p>
+          ) : null}
+        </WorkspaceInspectorSettingsGroup>
       </div>
-      <DrawingArrangeActions {...props} />
-      <DrawingAlignmentActions {...props} />
-      <DrawingDistributionActions {...props} />
-      <DrawingObjectActions {...props} />
+      <DrawingArrangeAndAlign {...props} />
     </section>
   );
 }
@@ -724,8 +829,20 @@ function DrawingSelectionState({
       className="realtime-drawing-selection-inspector"
       data-state={state}
     >
-      <SelectionPanelHeading status={status} />
-      <p>{instruction}</p>
+      <div
+        className="realtime-drawing-selection-primary-group"
+        data-inspector-focus-key="drawing-selection"
+      >
+        <WorkspaceInspectorSettingsGroup
+          defaultOpen
+          status={status}
+          title="Selection"
+        >
+          <p className="setta-workspace-inspector-help realtime-drawing-selection-instruction">
+            {instruction}
+          </p>
+        </WorkspaceInspectorSettingsGroup>
+      </div>
     </section>
   );
 }
