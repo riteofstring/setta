@@ -1142,7 +1142,7 @@ async function dragResizeHandle(client, sectionId, delta) {
       if (rect.width <= 0 || rect.height <= 0) {
         return null;
       }
-      const point = { x: rect.left + rect.width / 4, y: rect.top + rect.height / 2 };
+      const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 4 };
       return document.elementFromPoint(point.x, point.y)?.closest(".section-resize-handle-right") === handle
         ? point
         : null;
