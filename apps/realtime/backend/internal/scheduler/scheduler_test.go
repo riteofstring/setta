@@ -242,7 +242,7 @@ func TestDebounceRunsOnlyNewestTask(t *testing.T) {
 	defer scheduler.Close()
 	started := make(chan string, 3)
 	for _, id := range []string{"one", "two", "three"} {
-		if _, err := scheduler.Submit(Task{InvocationID: id, BindingID: "draw", Run: func(context.Context) { started <- id }}); err != nil {
+		if _, err := scheduler.Submit(Task{InvocationID: id, BindingID: "draw", Ready: true, Run: func(context.Context) { started <- id }}); err != nil {
 			t.Fatalf("Submit(%s) error = %v", id, err)
 		}
 	}
@@ -264,7 +264,7 @@ func TestCancelRemovesQueuedAndCancelsActive(t *testing.T) {
 	started := make(chan string, 2)
 	cancelled := make(chan string, 1)
 	dropped := make(chan string, 1)
-	if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "draw", Run: func(ctx context.Context) {
+	if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "draw", Ready: true, Run: func(ctx context.Context) {
 		started <- "one"
 		<-ctx.Done()
 		cancelled <- "one"
@@ -272,7 +272,7 @@ func TestCancelRemovesQueuedAndCancelsActive(t *testing.T) {
 		t.Fatalf("Submit(one) error = %v", err)
 	}
 	receive(t, started)
-	if _, err := scheduler.Submit(Task{InvocationID: "two", BindingID: "draw", Run: func(context.Context) { started <- "two" }, Drop: func() { dropped <- "two" }}); err != nil {
+	if _, err := scheduler.Submit(Task{InvocationID: "two", BindingID: "draw", Ready: true, Run: func(context.Context) { started <- "two" }, Drop: func() { dropped <- "two" }}); err != nil {
 		t.Fatalf("Submit(two) error = %v", err)
 	}
 	if !scheduler.Cancel("two") || scheduler.Pending() != 1 {
@@ -289,6 +289,186 @@ func TestCancelRemovesQueuedAndCancelsActive(t *testing.T) {
 	}
 }
 
+func TestWaitingTaskStartsOnlyAfterReady(t *testing.T) {
+	scheduler := newTestScheduler(t, map[string]Config{
+		"join": {Mode: "latest", ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+	})
+	defer scheduler.Close()
+	started := make(chan string, 1)
+	release := make(chan struct{})
+	if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "join", Run: func(context.Context) {
+		started <- "one"
+		<-release
+	}}); err != nil {
+		t.Fatalf("Submit(one) error = %v", err)
+	}
+	if pending := scheduler.Pending(); pending != 1 {
+		t.Fatalf("Pending() = %d, want waiting task", pending)
+	}
+	select {
+	case value := <-started:
+		t.Fatalf("waiting task started early: %s", value)
+	case <-time.After(30 * time.Millisecond):
+	}
+	if scheduler.Ready("missing") {
+		t.Fatal("Ready(missing) = true")
+	}
+	if !scheduler.Ready("one") {
+		t.Fatal("Ready(one) = false")
+	}
+	if received := receive(t, started); received != "one" {
+		t.Fatalf("started = %q, want one", received)
+	}
+	release <- struct{}{}
+}
+
+func TestDebounceAndDependenciesBothGateTask(t *testing.T) {
+	t.Run("debounce elapses first", func(t *testing.T) {
+		scheduler := newTestScheduler(t, map[string]Config{
+			"join": {Mode: "latest", DebounceMilliseconds: 20, ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+		})
+		defer scheduler.Close()
+		started := make(chan string, 1)
+		if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "join", Run: func(context.Context) { started <- "one" }}); err != nil {
+			t.Fatalf("Submit(one) error = %v", err)
+		}
+		time.Sleep(30 * time.Millisecond)
+		select {
+		case value := <-started:
+			t.Fatalf("dependency-waiting task started after debounce: %s", value)
+		default:
+		}
+		if !scheduler.Ready("one") {
+			t.Fatal("Ready(one) = false")
+		}
+		if received := receive(t, started); received != "one" {
+			t.Fatalf("started = %q, want one", received)
+		}
+	})
+
+	t.Run("dependencies resolve first", func(t *testing.T) {
+		scheduler := newTestScheduler(t, map[string]Config{
+			"join": {Mode: "latest", DebounceMilliseconds: 20, ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+		})
+		defer scheduler.Close()
+		started := make(chan string, 1)
+		if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "join", Run: func(context.Context) { started <- "one" }}); err != nil {
+			t.Fatalf("Submit(one) error = %v", err)
+		}
+		if !scheduler.Ready("one") {
+			t.Fatal("Ready(one) = false")
+		}
+		select {
+		case value := <-started:
+			t.Fatalf("debounced task started early: %s", value)
+		case <-time.After(5 * time.Millisecond):
+		}
+		if received := receive(t, started); received != "one" {
+			t.Fatalf("started = %q, want one", received)
+		}
+	})
+}
+
+func TestLatestReplacesWaitingTask(t *testing.T) {
+	scheduler := newTestScheduler(t, map[string]Config{
+		"join": {Mode: "latest", ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+	})
+	defer scheduler.Close()
+	started := make(chan string, 1)
+	dropped := make(chan string, 1)
+	if _, err := scheduler.Submit(Task{InvocationID: "old", BindingID: "join", Run: func(context.Context) { started <- "old" }, Drop: func() { dropped <- "old" }}); err != nil {
+		t.Fatalf("Submit(old) error = %v", err)
+	}
+	submission, err := scheduler.Submit(Task{InvocationID: "new", BindingID: "join", Run: func(context.Context) { started <- "new" }})
+	if err != nil {
+		t.Fatalf("Submit(new) error = %v", err)
+	}
+	if len(submission.ReplacedInvocationIDs) != 1 || submission.ReplacedInvocationIDs[0] != "old" {
+		t.Fatalf("Submit(new) replacement = %#v, want old", submission.ReplacedInvocationIDs)
+	}
+	if received := receive(t, dropped); received != "old" {
+		t.Fatalf("dropped = %q, want old", received)
+	}
+	if scheduler.Ready("old") {
+		t.Fatal("Ready(old) = true")
+	}
+	if !scheduler.Ready("new") {
+		t.Fatal("Ready(new) = false")
+	}
+	if received := receive(t, started); received != "new" {
+		t.Fatalf("started = %q, want new", received)
+	}
+}
+
+func TestOnceRejectsAnotherInvocationWhileWaiting(t *testing.T) {
+	scheduler := newTestScheduler(t, map[string]Config{
+		"join": {Mode: "once", ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+	})
+	defer scheduler.Close()
+	if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "join", Run: func(context.Context) {}}); err != nil {
+		t.Fatalf("Submit(one) error = %v", err)
+	}
+	if _, err := scheduler.Submit(Task{InvocationID: "two", BindingID: "join", Ready: true, Run: func(context.Context) {}}); !errors.Is(err, ErrBusy) {
+		t.Fatalf("Submit(two) error = %v, want busy", err)
+	}
+	if !scheduler.Cancel("one") {
+		t.Fatal("Cancel(one) = false")
+	}
+}
+
+func TestParallelWaitingTasksBecomeRunnableIndependently(t *testing.T) {
+	scheduler := newTestScheduler(t, map[string]Config{
+		"join": {Mode: "parallel", ConcurrencyGroup: "image", ConcurrencyLimit: 2},
+	})
+	defer scheduler.Close()
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	for _, id := range []string{"one", "two"} {
+		id := id
+		if _, err := scheduler.Submit(Task{InvocationID: id, BindingID: "join", Run: func(context.Context) {
+			started <- id
+			<-release
+		}}); err != nil {
+			t.Fatalf("Submit(%s) error = %v", id, err)
+		}
+	}
+	if !scheduler.Ready("two") || !scheduler.Ready("one") {
+		t.Fatal("Ready(waiting tasks) = false")
+	}
+	seen := map[string]bool{receive(t, started): true, receive(t, started): true}
+	if !seen["one"] || !seen["two"] {
+		t.Fatalf("started = %#v, want both tasks", seen)
+	}
+	release <- struct{}{}
+	release <- struct{}{}
+}
+
+func TestCancelWaitingTaskDropsIt(t *testing.T) {
+	scheduler := newTestScheduler(t, map[string]Config{
+		"join": {Mode: "latest", ConcurrencyGroup: "image", ConcurrencyLimit: 1},
+	})
+	defer scheduler.Close()
+	started := make(chan string, 1)
+	dropped := make(chan string, 1)
+	if _, err := scheduler.Submit(Task{InvocationID: "one", BindingID: "join", Run: func(context.Context) { started <- "one" }, Drop: func() { dropped <- "one" }}); err != nil {
+		t.Fatalf("Submit(one) error = %v", err)
+	}
+	if !scheduler.Cancel("one") {
+		t.Fatal("Cancel(one) = false")
+	}
+	if received := receive(t, dropped); received != "one" {
+		t.Fatalf("dropped = %q, want one", received)
+	}
+	if scheduler.Pending() != 0 || scheduler.Ready("one") {
+		t.Fatalf("cancelled waiting task remains pending")
+	}
+	select {
+	case value := <-started:
+		t.Fatalf("cancelled waiting task started: %s", value)
+	case <-time.After(30 * time.Millisecond):
+	}
+}
+
 func newTestScheduler(t *testing.T, configs map[string]Config) *Scheduler {
 	t.Helper()
 	scheduler, err := New(configs)
@@ -299,7 +479,7 @@ func newTestScheduler(t *testing.T, configs map[string]Config) *Scheduler {
 }
 
 func task(id string, binding string, started chan<- string, release <-chan struct{}) Task {
-	return Task{InvocationID: id, BindingID: binding, Run: func(context.Context) {
+	return Task{InvocationID: id, BindingID: binding, Ready: true, Run: func(context.Context) {
 		started <- id
 		<-release
 	}}

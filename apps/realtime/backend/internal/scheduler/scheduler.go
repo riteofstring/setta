@@ -27,6 +27,7 @@ type Config struct {
 type Task struct {
 	InvocationID string
 	BindingID    string
+	Ready        bool
 	Run          func(context.Context)
 	Drop         func()
 }
@@ -44,9 +45,10 @@ type bindingState struct {
 }
 
 type queuedTask struct {
-	task    Task
-	binding *bindingState
-	ready   bool
+	task            Task
+	binding         *bindingState
+	dependencyReady bool
+	debounceReady   bool
 }
 
 type groupState struct {
@@ -141,7 +143,7 @@ func (scheduler *Scheduler) debounceLocked(binding *bindingState, task Task) (Su
 		if len(group.queue) >= maximumGroupQueue {
 			return Submission{}, ErrQueueFull
 		}
-		group.queue = append(group.queue, queuedTask{task: task, binding: binding})
+		group.queue = append(group.queue, queuedTask{task: task, binding: binding, dependencyReady: task.Ready})
 		binding.queued++
 	}
 	binding.delayedInvocationID = task.InvocationID
@@ -174,7 +176,7 @@ func (scheduler *Scheduler) releaseDebounced(bindingID string, invocationID stri
 	if index < 0 {
 		return
 	}
-	group.queue[index].ready = true
+	group.queue[index].debounceReady = true
 	binding.delayedInvocationID = ""
 	binding.timer = nil
 	scheduler.dispatchLocked(group)
@@ -201,7 +203,7 @@ func (scheduler *Scheduler) enqueueLocked(binding *bindingState, task Task) (Sub
 	if len(group.queue) >= maximumGroupQueue {
 		return Submission{}, ErrQueueFull
 	}
-	group.queue = append(group.queue, queuedTask{task: task, binding: binding, ready: true})
+	group.queue = append(group.queue, queuedTask{task: task, binding: binding, dependencyReady: task.Ready, debounceReady: true})
 	binding.queued++
 	scheduler.dispatchLocked(group)
 	return Submission{}, nil
@@ -236,11 +238,12 @@ func (scheduler *Scheduler) queuedInvocationIndexLocked(group *groupState, invoc
 	return -1
 }
 
-func (scheduler *Scheduler) replaceQueuedLocked(group *groupState, index int, task Task, ready bool) Submission {
+func (scheduler *Scheduler) replaceQueuedLocked(group *groupState, index int, task Task, debounceReady bool) Submission {
 	replaced := group.queue[index].task
 	dropTask(replaced)
 	group.queue[index].task = task
-	group.queue[index].ready = ready
+	group.queue[index].dependencyReady = task.Ready
+	group.queue[index].debounceReady = debounceReady
 	return Submission{ReplacedInvocationIDs: []string{replaced.InvocationID}}
 
 }
@@ -273,11 +276,29 @@ func (scheduler *Scheduler) dispatchLocked(group *groupState) {
 
 func (scheduler *Scheduler) nextRunnableLocked(group *groupState) int {
 	for index, queued := range group.queue {
-		if queued.ready && queued.binding.running < bindingConcurrencyLimit(queued.binding) {
+		if queued.dependencyReady && queued.debounceReady && queued.binding.running < bindingConcurrencyLimit(queued.binding) {
 			return index
 		}
 	}
 	return -1
+}
+
+func (scheduler *Scheduler) Ready(invocationID string) bool {
+	scheduler.mu.Lock()
+	defer scheduler.mu.Unlock()
+	if scheduler.closed {
+		return false
+	}
+	for _, group := range scheduler.groups {
+		index := scheduler.queuedInvocationIndexLocked(group, invocationID)
+		if index < 0 {
+			continue
+		}
+		group.queue[index].dependencyReady = true
+		scheduler.dispatchLocked(group)
+		return true
+	}
+	return false
 }
 
 func bindingConcurrencyLimit(binding *bindingState) int {
