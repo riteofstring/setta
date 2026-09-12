@@ -454,43 +454,57 @@ func (binding Binding) validateTrigger(sections map[string]Section) error {
 	trigger := binding.Trigger
 	switch trigger.Kind {
 	case "event":
-		if trigger.Mode != "" || trigger.Inputs != nil {
-			return errors.New("event binding trigger has join fields")
-		}
-		source, exists := sections[trigger.SectionID]
-		if !exists {
-			return errors.New("binding source section is missing")
-		}
-		if !validEvent(source.Kind, trigger.Event) {
-			return errors.New("binding source event is unsupported")
-		}
+		return validateEventTrigger(trigger, sections)
 	case "join":
-		if trigger.SectionID != "" || trigger.Event != "" {
-			return errors.New("join binding trigger has event fields")
-		}
-		if trigger.Mode != "all" {
-			return errors.New("binding join mode is unsupported")
-		}
-		if len(trigger.Inputs) == 0 || len(trigger.Inputs) > maximumArguments {
-			return errors.New("binding join inputs are missing or exceed the limit")
-		}
-		for name, input := range trigger.Inputs {
-			if !handlerPattern.MatchString(name) {
-				return fmt.Errorf("binding join input name %q is invalid", name)
-			}
-			if _, exists := binding.Arguments[name]; exists {
-				return fmt.Errorf("binding join input %q collides with an argument", name)
-			}
-			if !validID(input.BindingID) || !handlerPattern.MatchString(input.Output) {
-				return fmt.Errorf("binding join input %q reference is invalid", name)
-			}
-		}
+		return validateJoinTrigger(trigger, binding.Arguments)
 	case "disconnected":
-		if trigger.SectionID != "" || trigger.Event != "" || trigger.Mode != "" || trigger.Inputs != nil {
-			return errors.New("disconnected binding trigger has connected fields")
-		}
+		return validateDisconnectedTrigger(trigger)
 	default:
 		return errors.New("binding trigger kind is unsupported")
+	}
+}
+
+func validateEventTrigger(trigger BindingTrigger, sections map[string]Section) error {
+	if trigger.Mode != "" || trigger.Inputs != nil {
+		return errors.New("event binding trigger has join fields")
+	}
+	source, exists := sections[trigger.SectionID]
+	if !exists {
+		return errors.New("binding source section is missing")
+	}
+	if !validEvent(source.Kind, trigger.Event) {
+		return errors.New("binding source event is unsupported")
+	}
+	return nil
+}
+
+func validateJoinTrigger(trigger BindingTrigger, arguments map[string]json.RawMessage) error {
+	if trigger.SectionID != "" || trigger.Event != "" {
+		return errors.New("join binding trigger has event fields")
+	}
+	if trigger.Mode != "all" {
+		return errors.New("binding join mode is unsupported")
+	}
+	if len(trigger.Inputs) == 0 || len(trigger.Inputs) > maximumArguments {
+		return errors.New("binding join inputs are missing or exceed the limit")
+	}
+	for name, input := range trigger.Inputs {
+		if !handlerPattern.MatchString(name) {
+			return fmt.Errorf("binding join input name %q is invalid", name)
+		}
+		if _, exists := arguments[name]; exists {
+			return fmt.Errorf("binding join input %q collides with an argument", name)
+		}
+		if !validID(input.BindingID) || !handlerPattern.MatchString(input.Output) {
+			return fmt.Errorf("binding join input %q reference is invalid", name)
+		}
+	}
+	return nil
+}
+
+func validateDisconnectedTrigger(trigger BindingTrigger) error {
+	if trigger.SectionID != "" || trigger.Event != "" || trigger.Mode != "" || trigger.Inputs != nil {
+		return errors.New("disconnected binding trigger has connected fields")
 	}
 	return nil
 }

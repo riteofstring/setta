@@ -94,27 +94,32 @@ handlers = {
 		t.Fatalf("handler failure result = %#v", result)
 	}
 
+	assertPythonFixtureCancellation(t, runtime.client)
+
+	assertFixtureLogs(t, runtime)
+}
+
+func assertPythonFixtureCancellation(t *testing.T, client *Client) {
+	t.Helper()
 	cancellable := fixtureInvokeParams("cancel-generator", 5, "cancellable", map[string]json.RawMessage{})
-	invocation, err := runtime.client.StartInvoke(cancellable)
+	invocation, err := client.StartInvoke(cancellable)
 	if err != nil {
 		t.Fatalf("StartInvoke(cancellable) error = %v", err)
 	}
-	firstUpdate := readUpdate(t, runtime.client.Updates())
+	firstUpdate := readUpdate(t, client.Updates())
 	if firstUpdate.Identity.InvocationID != cancellable.Identity.InvocationID {
 		t.Fatalf("cancel update identity = %#v", firstUpdate.Identity)
 	}
 	if err := invocation.Cancel(); err != nil {
 		t.Fatalf("Cancel() error = %v", err)
 	}
-	result, err = invocation.Await(testContext(t))
+	result, err := invocation.Await(testContext(t))
 	if err != nil {
 		t.Fatalf("Await(cancellable) error = %v", err)
 	}
 	if result.Error == nil || result.Error.Code != "cancelled" {
 		t.Fatalf("cancel result = %#v", result)
 	}
-
-	assertFixtureLogs(t, runtime)
 }
 
 func assertFixtureLogs(t *testing.T, runtime *fixtureRuntime) {
