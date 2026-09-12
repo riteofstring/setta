@@ -89,7 +89,7 @@ func IsCommand(arguments []string) bool {
 		return false
 	}
 	switch arguments[0] {
-	case "schema", "snapshot", "apply", "run":
+	case "schema", "snapshot", "apply", "run", "export-bench":
 		return true
 	default:
 		return false
@@ -115,6 +115,8 @@ func Run(ctx context.Context, arguments []string, options Options) int {
 		return runApplyCommand(ctx, arguments[1:], options)
 	case "run":
 		return runGeneratedProgramCommand(ctx, arguments[1:], options)
+	case "export-bench":
+		return runBenchExportCommand(ctx, arguments[1:], options)
 	default:
 		writeFailure(options.Stderr, inputFailure("invalid_command", "The Python Canvas command is not supported."), false)
 		return exitInputOrTypedV2Failure
@@ -900,5 +902,7 @@ func writeHelp(writer io.Writer, command string) {
 		_, _ = fmt.Fprintln(writer, "Usage: python-canvas apply --file PATH| - [--url URL] [--wait-diagnostics] [--timeout DURATION] [--pretty]")
 	case "run":
 		_, _ = fmt.Fprintln(writer, "Usage: python-canvas run [--url URL] [--wait-diagnostics] [--diagnostics-timeout DURATION] [--run-timeout DURATION] [--pretty]")
+	case "export-bench":
+		_, _ = fmt.Fprintln(writer, "Usage: python-canvas export-bench --url URL --callable ID --output PATH --python PATH [--name NAME] [--deep-link URL] [--diagnostics-timeout DURATION] [--pretty]")
 	}
 }

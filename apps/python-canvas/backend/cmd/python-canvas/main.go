@@ -87,7 +87,7 @@ func runCommand(ctx context.Context, arguments []string, start serviceStarter, o
 		if writer == nil {
 			writer = io.Discard
 		}
-		_, _ = fmt.Fprintln(writer, "Usage: python-canvas {schema|snapshot|apply|run} ...")
+		_, _ = fmt.Fprintln(writer, "Usage: python-canvas {schema|snapshot|apply|run|export-bench} ...")
 		return 0
 	}
 

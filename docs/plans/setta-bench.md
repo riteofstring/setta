@@ -1,6 +1,6 @@
 # Setta Bench plan
 
-Status: Proposed, deliberately small
+Status: In implementation, deliberately small
 
 Related: [Setta app ideas](../app-ideas.md) and
 [Setta Bench visual walkthrough](../setta-bench.html).
@@ -39,8 +39,8 @@ handoffs rather than shared internal state.
 
 The reference project compares two thumbnail implementations against ten product images:
 
-- **Pillow Canvas** is a revision-bound callable exported by Python Canvas.
-- **Sharp CLI** is an ordinary local command.
+- **Contain** is a CPU-only local command that preserves each image's full composition and pads it.
+- **Cover** is a CPU-only local command that crops each image to fill the target frame.
 - **Product images** is a JSONL manifest naming ten project-owned image cases.
 - **Shared checks** verify output dimensions and maximum file size while recording duration.
 - Each case retains the produced thumbnail as an inspectable artifact.
@@ -112,9 +112,10 @@ Bench composes existing Workspace surfaces and keeps experiment semantics outsid
 
 ### Build view
 
-The canvas shows only the experiment's structure: case set, candidates, evaluator, launch, and
-results. Workspace section cards, ports, edges, Outline, Inspector, canvas controls, and saved-view
-tabs behave the same way they do in the existing applications.
+The canvas shows only the experiment's authored structure: case set, candidates, and shared checks.
+Workspace section cards, ports, edges, Outline, Inspector, canvas controls, and saved-view tabs
+behave the same way they do in the existing applications. Launch is a Workspace command; results
+are generated records shown in Runs and Compare, never authored canvas sections.
 
 Selecting an authored section exposes its small set of valid fields in Inspector. Validation is
 visible before launch. Individual cases and historical runs never become canvas nodes.

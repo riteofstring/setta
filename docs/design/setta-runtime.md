@@ -11,10 +11,15 @@ owns exact application IDs and aliases and dispatches without product-specific b
 command context contains only services every registered application can use; application-specific
 tools remain on their owning adapter.
 
-The Python Canvas and Realtime applications have distinct IDs, project identities, native servers,
-web roots, and live-session records. A session key includes the application ID, so identical local
-project paths cannot collide across applications. Compatibility aliases exist only when explicitly
-retained by a product contract; Realtime introduces none.
+Python Canvas, Realtime, and Bench have distinct IDs, project identities, native servers, web roots,
+and live-session records. A session key includes the application ID, so identical local project
+paths cannot collide across applications. Compatibility aliases exist only when explicitly retained
+by a product contract; Realtime and Bench introduce none.
+
+The Python Canvas adapter forwards candidate export to its native public command while supplying
+the exact launcher interpreter. The resulting versioned directory is an explicit application
+handoff, not shared runtime state. Bench accepts that directory through its own public command and
+copies the material before adding the candidate.
 
 ## Closed packaged manifest
 
@@ -50,21 +55,21 @@ staging, and the wheel backend packages only those verified roots. CI trigger an
 cover every registered app. Runtime boundary checks reject undeclared files, missing app assets,
 and source-checkout fallbacks.
 
-The repository-local Realtime runner fingerprints the platform, pinned toolchain, package locks,
-Workspace and Realtime build inputs, and packaged runtime sources. An installed Realtime runtime
-is reused only when its executable and packaged assets remain valid and an atomically written
-record matches that fingerprint. The first launch or any mismatch builds a fresh wheel into a
-temporary directory and reinstalls the same-version `setta` package into a repository-owned
-environment with the package cache disabled. A successful install publishes the new record before
-the application opens. This prevents an older unpacked `uv tool run` environment from becoming an
-implicit cache while avoiding dependency installation, compilation, wheel creation, and reinstall
-when no relevant input changed.
+Each repository-local application runner fingerprints the selected application, platform, pinned
+toolchain, package locks, Workspace and selected-application build inputs, and packaged runtime
+sources. An installed runtime is reused only when every packaged executable and web root remains
+valid and an atomically written record matches that fingerprint. The first launch or any mismatch
+builds a fresh wheel into a temporary directory and reinstalls the same-version `setta` package into
+a repository-owned environment with the package cache disabled. A successful install publishes the
+new record before the application opens. This prevents an older unpacked environment from becoming
+an implicit cache while avoiding dependency installation, compilation, wheel creation, and
+reinstallation when no relevant input changed.
 
-On a Realtime cache miss after the first complete build, the runner rebuilds Realtime and its
-Workspace dependency while reusing the installed Python Canvas native and web assets. The resulting
-wheel remains complete without rebuilding an unrelated app. Playground project content is not a
-build input, so ordinary drawing and callback edits do not invalidate the packaged application.
-Installed releases continue to use the ordinary `setta` entry point.
+On an application cache miss after the first complete build, the runner rebuilds the selected app
+and Workspace while reusing installed native and web assets for every other app. The resulting wheel
+remains complete without rebuilding unrelated applications. Playground project content is not a
+build input, so ordinary authored edits do not invalidate the packaged application. Installed
+releases continue to use the ordinary `setta` entry point.
 
 The Realtime playground runner treats the checked-in example as an immutable seed. It creates one
 complete working project beneath the repository's ignored `tmp/` tree when absent, validates the
@@ -79,3 +84,8 @@ layout, and lock until the caller explicitly resets it from the immutable fixtur
 Playground wheel builds validate checked-in generated Realtime contracts in check-only mode, and
 all Go compilation uses read-only module resolution, so setup cannot rewrite governed source or
 module locks.
+
+The Bench playground follows the same immutable-seed rule. It prepares ten checked-in product-image
+cases and two modes of one small standard-library Go candidate in an ignored working copy, then
+launches the packaged Bench application. Candidate outputs and Bench history remain in that copy so
+repeat launches demonstrate durable comparison without changing the repository fixture.

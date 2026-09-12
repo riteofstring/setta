@@ -55,7 +55,7 @@ func TestRunCommandWritesRootHelpToStdoutWithoutStartingTheServer(t *testing.T) 
 	if exitCode != 0 || started || stderr.Len() != 0 {
 		t.Fatalf("root help = exit %d started %t stderr %q", exitCode, started, stderr.String())
 	}
-	if stdout.String() != "Usage: python-canvas {schema|snapshot|apply|run} ...\n" {
+	if stdout.String() != "Usage: python-canvas {schema|snapshot|apply|run|export-bench} ...\n" {
 		t.Fatalf("root help stdout = %q", stdout.String())
 	}
 }

@@ -117,6 +117,28 @@ the retained history and the live channel. Attachment tickets are opaque, single
 only for the already-open terminal. Closing is idempotent and returns only after owned artifacts
 and processes are cleaned up.
 
+## Bench candidate export
+
+The public `export-bench` command reads one complete live snapshot, selects one callable by stable
+ID, and exclusively creates a versioned candidate bundle. It freezes the exact project revision,
+authored Python prefix, callable expression and parameter contract, a protocol adapter, source
+identity, and deep link. The command never modifies the Python Canvas project and refuses stale
+diagnostics, diagnostics with errors, missing callables, unsupported incomplete parameters, an
+existing output target, or a non-absolute Python interpreter.
+
+The generated adapter accepts Bench's bounded request on stdin and invokes only the selected
+callable. Case input fields bind by the callable's declared Python passing styles; the execution
+output directory is also available through the reserved `outputDirectory` and `output_directory`
+fields. An ordinary JSON-compatible return becomes the Bench output. A return containing explicit
+`output`, `observations`, and `artifacts` fields becomes the corresponding result envelope. Python
+failures become one structured error envelope with traceback text confined to stderr.
+
+The bundle is frozen source material rather than a hermetic Python environment. It records the
+absolute interpreter selected by the Setta launcher, while third-party imports retain ordinary
+project-environment behavior. Bench copies accepted bundle files into its own runtime storage and
+rewrites their working directory, so subsequent Python Canvas edits cannot alter an accepted
+candidate.
+
 ## Local web boundary
 
 The server binds IPv4 loopback and accepts only the exact listener authority plus the matching

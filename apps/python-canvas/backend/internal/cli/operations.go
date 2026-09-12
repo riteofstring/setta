@@ -530,11 +530,36 @@ func commandSchemas() []commandSchema {
 			Result:    "GeneratedProgramRunResultV2",
 			ExitCodes: runExitCodes,
 		},
+		{
+			Name:      "export-bench",
+			Summary:   "Freeze one callable revision into a public Setta Bench candidate bundle.",
+			Usage:     "setta python-canvas export-bench (--project PATH | --url URL) --callable ID --output PATH [--name NAME] [--deep-link URL] [--diagnostics-timeout DURATION] [--pretty]",
+			Selectors: append([]fieldSchema(nil), liveSelectors...),
+			Options: []fieldSchema{
+				{Name: "--callable", Type: "string", Description: "Stable callable ID from the observed project revision."},
+				{Name: "--output", Type: "path", Description: "New directory installed exclusively with the frozen bundle."},
+				{Name: "--name", Type: "string", Description: "Optional Bench candidate display name."},
+				{Name: "--deep-link", Type: "url", Description: "Optional absolute link back to the source callable."},
+				{Name: "--diagnostics-timeout", Type: "duration", Description: "Diagnostic settlement timeout from greater than zero through one minute."},
+				{Name: "--pretty", Type: "boolean", Description: "Indent the JSON result."},
+			},
+			Result:    "BenchCandidateExportResultV1",
+			ExitCodes: append([]exitCodeSchema(nil), standardExitCodes...),
+		},
 	}
 }
 
 func resultSchemas() []resultSchema {
 	return []resultSchema{
+		{
+			Name:        "BenchCandidateExportResultV1",
+			Description: "The exclusively created public handoff bundle and stable candidate identity.",
+			Fields: []fieldSchema{
+				{Name: "schemaVersion", Type: "string", Values: []string{"python-canvas-bench-export/v1"}},
+				{Name: "bundleDirectory", Type: "path"},
+				{Name: "candidateId", Type: "string"},
+			},
+		},
 		{
 			Name:        "SettaOpenResultV1",
 			Description: "Readiness information printed before the foreground session supervisor waits for its child.",
