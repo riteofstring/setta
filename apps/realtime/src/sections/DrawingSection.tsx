@@ -1078,11 +1078,13 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         tabIndex={0}
       >
         <canvas aria-label={section.name} ref={canvasRef} />
-        {imageDragActive ? (
-          <div className="realtime-drawing-image-drop-message" role="status">
-            Drop image to add
-          </div>
-        ) : null}
+        <div
+          className="realtime-drawing-image-drop-message"
+          hidden={!imageDragActive}
+          role="status"
+        >
+          Drop image to add
+        </div>
       </div>
     </div>
   );

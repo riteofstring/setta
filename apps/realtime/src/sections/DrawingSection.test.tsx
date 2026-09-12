@@ -388,7 +388,10 @@ describe("DrawingSection", () => {
     const picker = element.querySelector<HTMLInputElement>(
       'input[aria-label="Choose drawing image"]',
     );
-    if (stage === null || picker === null) {
+    const dropMessage = element.querySelector<HTMLElement>(
+      ".realtime-drawing-image-drop-message",
+    );
+    if (stage === null || picker === null || dropMessage === null) {
       throw new Error("The drawing image controls were not rendered.");
     }
     const file = new File(["image"], "sketch.png", { type: "image/png" });
@@ -399,7 +402,7 @@ describe("DrawingSection", () => {
     });
     expect(stage.dataset.imageDragActive).toBe("true");
     expect(transfer.dropEffect).toBe("copy");
-    expect(stage.textContent).toContain("Drop image to add");
+    expect(dropMessage.hidden).toBe(false);
 
     let dropEvent: Event | undefined;
     await act(async () => {
@@ -417,7 +420,7 @@ describe("DrawingSection", () => {
       { x: 180, y: 100 },
     );
     expect(stage.dataset.imageDragActive).toBe("false");
-    expect(stage.textContent).not.toContain("Drop image to add");
+    expect(dropMessage.hidden).toBe(true);
     expect(picker.type).toBe("file");
     expect(actions.reportError).not.toHaveBeenCalled();
   });
