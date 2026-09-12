@@ -40,12 +40,12 @@ Use `setta realtime open` for an installed release.
 
 Draw a mark and both processed results update while the stroke is active. The two bindings have
 independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
-waiting on each other. The drawing toolbar provides Select, Pen, Highlighter, Eraser, and Hand
-tools; text, line, arrow, rectangle, and ellipse insertion; brush styling; undo and redo; zoom,
-fit, and actual-size controls; an optional grid and grid snapping; and clearing. Selecting retained
-objects exposes appearance, typography, arrangement, grouping, locking, and deletion controls in
-the right-side Inspector. The example is an ordinary Realtime project: inside the ignored working
-copy its authored document is `.local/realtime/project.json` and its editable handler is `app.py`.
+waiting on each other. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and
+Text tools; a Line, Arrow, Rectangle, and Ellipse menu; image insertion; brush styling; undo and
+redo; and clearing. Grid controls, canvas sizing, object appearance, typography, arrangement,
+grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
+Realtime project: inside the ignored working copy its authored document is
+`.local/realtime/project.json` and its editable handler is `app.py`.
 Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
 reload** for an immediate visual variation. The tracked source under
 `apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
@@ -224,15 +224,19 @@ Fabric.js owns retained drawing objects, free drawing, erasing, selection, trans
 serialization, and raster export. Realtime persists the vector scene only after a coherent gesture
 or command. While a local change is unsettled or awaiting acknowledgement, delayed project
 snapshots cannot replace it, and drawing on the inner canvas does not reorder or persist the outer
-section.
+section. Dragging retained objects, including text and brush strokes, previews the changing raster
+and settles one durable position on release. Settled snapshots exclude selection borders, transform
+handles, and text cursors.
 
-The drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Hand tools plus text,
-line, arrow, rectangle, and ellipse insertion. New objects become the active selection; a new text
-box enters editing immediately. The Inspector's contextual **Selection** panel edits compatible
-fill, stroke, opacity, rectangle radius, and text properties, represents mixed values explicitly,
-and provides stacking, alignment, distribution, duplication, grouping, locking, and deletion.
-Locked objects remain selectable for unlocking but cannot be changed by geometry or destructive
-commands.
+The compact drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Text tools,
+a shape menu, image insertion, undo and redo, and clearing. Text is placed by clicking its intended
+origin; lines, arrows, rectangles, and ellipses are drawn from the user's pointer gesture instead
+of appearing at a default location. A new text box enters editing immediately, and completed
+placement returns to Select. Pen and highlighter color and width stay beside those tools. The
+Inspector's contextual **Selection** panel edits compatible fill, stroke, opacity, rectangle
+radius, and text properties, represents mixed values explicitly, and provides stacking,
+alignment, distribution, duplication, grouping, locking, and deletion. Locked objects remain
+selectable for unlocking but cannot be changed by geometry or destructive commands.
 
 After the drawing stage has focus, Mod-Z, Shift-Mod-Z, Ctrl-Y, Mod-C, Mod-V, Mod-D, Mod-A, Mod-G,
 Shift-Mod-G, Delete, Backspace, Escape, and arrow-key nudging operate on the drawing when their
@@ -240,11 +244,12 @@ actions are available. Shift-arrow nudges ten logical pixels instead of one. Sin
 and E select the Select, Pen, Highlighter, and Eraser tools. Fabric text editing and ordinary form
 controls keep their native keyboard behavior, and unavailable drawing actions fall through.
 
-Zoom, fit, actual size, Hand-tool panning, grid visibility, and grid snapping are local presentation
-state. They do not change the project revision, drawing history, logical canvas, or raster export.
-The grid follows logical coordinates, is not exported, and optional snapping rounds moved objects
-to its intersections. Bare wheel input continues to pan the outer Workspace rather than changing
-drawing zoom.
+The inner drawing surface has no separate zoom or pan mode. It always contain-fits the logical
+canvas, while XYFlow remains the single navigation surface for zooming and panning the workspace.
+Grid visibility and grid snapping are local **Canvas view** options in the Inspector. They do not
+change the project revision, drawing history, logical canvas, or raster export. The grid follows
+logical coordinates, is not exported, and optional snapping rounds moved objects to its
+intersections.
 
 The drawing keeps its logical pixel dimensions and object coordinates when its outer section is
 resized; it stays centered and uniformly contained, so the freely sized frame may provide deliberate
@@ -255,8 +260,9 @@ size** can preserve artwork size using a nine-point anchor or scale the artwork 
 the complete scene and dimensions undo and redo together. **Fit frame to canvas** is a one-shot action
 and does not lock the section's aspect ratio. Image content shown by an output section likewise uses
 centered contain fitting without changing the source image; there is no separate `image` section kind.
-Drawing-image insertion, pressure-shaped brush geometry, and smart alignment guides are not exposed;
-they require durable asset or retained-geometry contracts beyond the current drawing scene.
+Drawing image insertion accepts PNG, JPEG, and WebP files up to 20 MB, corrects source orientation,
+downscales the longest edge to at most 2048 pixels, and embeds a bounded WebP representation in the
+retained scene. Pressure-shaped brush geometry and smart alignment guides are not exposed.
 
 For a completion-paced binding, the browser captures and uploads the first eligible composited
 raster immediately, then retains only one dirty preview or final snapshot while the binding is

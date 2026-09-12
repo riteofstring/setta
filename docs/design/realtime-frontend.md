@@ -78,18 +78,23 @@ The drawing section uses one exact-pinned Fabric.js release for retained objects
 brushes, erasing, selection, transforms, serialization, history, and raster export.
 `RealtimeDrawingRuntime` is the sole Fabric mutation boundary. Setta owns the section shell,
 canonical scene encoding, durable gesture and command boundaries, event name, content upload, and
-snapshot coalescing. Canvas gestures do not activate or reorder the outer Workspace section or
-trigger its transient pressed outline. Primary pointer drag remains local to Fabric, while bare
-wheel input over the non-scrolling drawing stage remains available to Workspace panning. The Code
-editor similarly retains pointer selection while Workspace receives a wheel axis on which the
-editor has no native overflow.
+snapshot coalescing. Fabric scenes pass through JSON serialization before entering project
+contracts because some built-in objects expose JavaScript-only `undefined` properties from
+`toObject`. Canvas gestures do not activate or reorder the outer Workspace section or trigger its
+transient pressed outline. Primary pointer drag remains local to Fabric, while bare wheel input
+over the non-scrolling drawing stage remains available to Workspace panning. The Code editor
+similarly retains pointer selection while Workspace receives a wheel axis on which the editor has
+no native overflow.
 
-The compact drawing toolbar chooses Select, Pen, Highlighter, Eraser, and Hand modes, creates text,
-line, arrow, rectangle, and ellipse objects from Fabric built-ins, and owns history and viewport
-actions. The highlighter is a retained translucent path with a uniform width. Variable-width
-pressure would require a separately designed outlined-path representation; changing a
-`PencilBrush` width during a gesture would still serialize only one uniform width and is therefore
-not presented as pressure support.
+The compact drawing toolbar chooses Select, Pen, Highlighter, Eraser, and Text modes, groups line,
+arrow, rectangle, and ellipse placement in one shape menu, and retains only image insertion,
+history, and clearing as direct actions. Text placement consumes one click; shape placement uses
+the user's drag geometry. Both return to Select after creation instead of adding objects at a
+default location. Pen and highlighter color and width appear only while their tool is active. The
+highlighter is a retained translucent path with a uniform width. Variable-width pressure would
+require a separately designed outlined-path representation; changing a `PencilBrush` width during
+a gesture would still serialize only one uniform width and is therefore not presented as pressure
+support.
 
 Selection properties and structural commands belong in the right-side Inspector rather than the
 toolbar. A host-and-section-keyed external store bridges the mounted Fabric controller to React
@@ -103,9 +108,12 @@ unlocked, while geometry-changing and destructive commands reject any partially 
 Every coherent toolbar, Inspector, keyboard, or pointer mutation records at most one complete scene
 history entry and one durable settlement. Clipboard and clone work revalidates the runtime and its
 source selection after asynchronous Fabric enlivening before installing objects. Text creation
-enters editing immediately, previews text changes, and settles once editing exits. Selection,
-active tool, clipboard, and editing state remain disposable browser state and do not enter the
-canonical scene.
+enters editing immediately, previews text changes, and settles once editing exits. Fabric's
+temporary text-editing movement locks and Textbox's default scaling-flip lock are not interpreted
+as user object locks; explicit locks still set the complete retained lock set. Object movement,
+including freehand paths and text, previews at pointer rate and has a pointer-up settlement fallback
+when Fabric omits `object:modified`. Selection, active tool, clipboard, and editing state remain
+disposable browser state and do not enter the canonical scene.
 
 The drawing stage owns shortcuts only after it has focus. Its resolver handles commands that are
 currently available, stops those events before Workspace, and otherwise yields. Editable controls
@@ -131,25 +139,31 @@ dimensions with the new bounds. The resulting dimensions and scene are one drawi
 one durable settlement, so undo and redo restore them together and a delayed canonical acknowledgement
 cannot split their authority.
 
-Drawing zoom and Hand-tool pan are CSS presentation changes on Fabric's wrapper, not Fabric viewport
-transforms. Fit recomputes the uniform contain scale from logical and stage dimensions; actual size
-means one CSS pixel per logical pixel. A pointer-neutral grid layer sits between Fabric's lower and
-upper canvases, follows the same logical scale, and is absent from scene serialization and raster
-export. Optional grid snapping updates logical object position during movement and relies on the
-existing `object:modified` boundary for one settlement. Zoom, pan, grid visibility, and snapping are
-all disposable state: none changes the project revision, drawing history, backing-store dimensions,
-or outer Workspace viewport.
+The inner drawing viewport always recomputes one uniform contain scale from logical and stage
+dimensions. It has no independent zoom or pan state because upstream XYFlow already owns workspace
+navigation. A pointer-neutral grid layer sits between Fabric's lower and upper canvases, follows
+the same logical scale, and is absent from scene serialization and raster export. Grid visibility
+and optional logical-coordinate snapping live with canvas controls in the right-side Inspector.
+They are disposable state: neither changes the project revision, drawing history, backing-store
+dimensions, or outer Workspace viewport.
 
 Fit frame to canvas is a one-shot layout action, not a persistent constraint. It measures the
 section chrome and the drawing toolbar at the target width before changing the outer section once,
 so toolbar wrapping does not leave accidental padding. Image content references rendered by output
 sections use centered contain fitting and never mutate their source pixels when the outer section
-changes. A dedicated image section is not part of the current section catalog. Drawing-image
-insertion is also deferred because invocation content references are ephemeral; it needs a durable,
-content-addressed project asset contract before Fabric scenes can safely retain image sources.
-Object-edge snapping and temporary smart guides remain outside this increment; grid snapping and
-explicit alignment provide deterministic precision without pointer-rate React state or exported
-guide artifacts.
+changes. A dedicated image section is not part of the current section catalog. Drawing image
+insertion deliberately embeds a browser-prepared data URL in the Fabric scene rather than retaining
+an ephemeral invocation content reference. Input is limited to PNG, JPEG, and WebP files no larger
+than 20 MB; decoding honors source orientation, the longest edge is capped at 2048 pixels, and
+iterative WebP encoding must fit within 600 KiB. These bounds make the image durable with the scene
+without adding a project asset lifecycle. Object-edge snapping and temporary smart guides remain
+outside this increment; grid snapping and explicit alignment provide deterministic precision
+without pointer-rate React state or exported guide artifacts.
+
+Raster snapshot capture exports Fabric's lower scene canvas without its interactive upper canvas,
+so selection borders, transform handles, and text cursors cannot enter settled output. Only an
+active freehand preview composites the upper canvas to include the in-progress stroke, after
+discarding selection state that could add controls.
 
 When every matching binding uses `latest` with zero debounce, the browser treats its invocation
 status as one local completion-paced capacity credit. It captures and uploads the first eligible
