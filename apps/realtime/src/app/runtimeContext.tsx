@@ -1,8 +1,14 @@
 import { createContext, useContext } from "react";
-import type { WorkspaceSectionData } from "@setta/workspace";
+import type {
+  WorkspaceGraphConnection,
+  WorkspaceGraphReconnect,
+  WorkspaceSectionData,
+} from "@setta/workspace";
 
 import type {
+  Binding,
   ContentReference,
+  JsonValue,
   Project,
   RuntimeCancelRequest,
   RuntimeEvent,
@@ -13,6 +19,7 @@ import type { RuntimeViewState } from "./runtimeState";
 export type RealtimeActions = {
   applyRuntimeSource: (sectionId: string, source: string) => Promise<boolean>;
   cancel: (identity: RuntimeCancelRequest["identity"]) => boolean;
+  connectGraph: (connection: WorkspaceGraphConnection) => Promise<boolean>;
   commitSectionData: (
     sectionId: string,
     data: WorkspaceSectionData,
@@ -22,6 +29,8 @@ export type RealtimeActions = {
     event: RuntimeEvent["event"],
     payload: RuntimeEvent["payload"],
   ) => boolean;
+  createHandler: (handler: string) => Promise<boolean>;
+  deleteGraphEdges: (edgeIds: ReadonlyArray<string>) => Promise<boolean>;
   initialize: (
     sectionId: string,
     event: "change" | "snapshot",
@@ -29,8 +38,21 @@ export type RealtimeActions = {
       RuntimeEvent["payload"] | Promise<RuntimeEvent["payload"]>,
   ) => Promise<boolean>;
   reload: () => Promise<boolean>;
+  reconnectGraph: (reconnect: WorkspaceGraphReconnect) => Promise<boolean>;
   reportError: (message: string) => void;
   uploadContent: (content: Blob) => Promise<ContentReference>;
+  updateBinding: (
+    bindingId: string,
+    edit: RealtimeBindingEdit,
+  ) => Promise<boolean>;
+};
+
+export type RealtimeBindingEdit = {
+  arguments?: Record<string, JsonValue>;
+  handler?: string;
+  materialization?: Partial<NonNullable<Binding["materialization"]>> | null;
+  outputNames?: string[];
+  scheduling?: Partial<Binding["scheduling"]>;
 };
 
 type RuntimeSourceNotice = {

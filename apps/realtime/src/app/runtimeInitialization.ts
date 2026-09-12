@@ -3,6 +3,7 @@ import type {
   Project,
   RuntimeEvent,
 } from "../backend/generatedContract";
+import { realtimeAutomaticStartupSource } from "./realtimeGraph";
 import { runtimeCanInvoke, type RuntimeViewState } from "./runtimeState";
 
 type RuntimeInitializationOptions = {
@@ -38,19 +39,57 @@ function supportsStartup(binding: Binding): boolean {
 }
 
 function matchesSource(
+  project: Project,
   binding: Binding,
   sectionId: string,
   event: RuntimeEvent["event"],
 ): boolean {
+  const source = realtimeAutomaticStartupSource(project, binding.id);
   return (
     supportsStartup(binding) &&
-    binding.trigger.sectionId === sectionId &&
-    binding.trigger.event === event
+    source?.sectionId === sectionId &&
+    source.event === event
   );
 }
 
-function initializationKey(sessionId: string, binding: Binding): string {
-  return JSON.stringify([sessionId, canonicalValue(binding)]);
+function bindingAncestors(project: Project, bindingId: string): Binding[] {
+  const bindingsById = new Map(
+    project.bindings.map((binding) => [binding.id, binding]),
+  );
+  const result = new Map<string, Binding>();
+  const pending = [bindingId];
+  while (pending.length > 0) {
+    const currentId = pending.pop()!;
+    if (result.has(currentId)) {
+      continue;
+    }
+    const binding = bindingsById.get(currentId);
+    if (binding === undefined) {
+      continue;
+    }
+    result.set(currentId, binding);
+    if (binding.trigger.kind === "join") {
+      pending.push(
+        ...Object.values(binding.trigger.inputs).map(
+          (input) => input.bindingId,
+        ),
+      );
+    }
+  }
+  return [...result.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+}
+
+function initializationKey(
+  project: Project,
+  sessionId: string,
+  binding: Binding,
+): string {
+  return JSON.stringify([
+    sessionId,
+    canonicalValue(bindingAncestors(project, binding.id)),
+  ]);
 }
 
 function initializationKeys(
@@ -60,8 +99,8 @@ function initializationKeys(
   event: RuntimeEvent["event"],
 ): string[] {
   return project.bindings
-    .filter((binding) => matchesSource(binding, sectionId, event))
-    .map((binding) => initializationKey(sessionId, binding));
+    .filter((binding) => matchesSource(project, binding, sectionId, event))
+    .map((binding) => initializationKey(project, sessionId, binding));
 }
 
 class RuntimeInitializationClaims {

@@ -25,7 +25,9 @@ body,
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -227,6 +229,164 @@ input {
 .realtime-runtime-pane dd {
   margin: 0;
   font-size: 13px;
+}
+
+.realtime-runtime-handlers {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #334155;
+}
+
+.realtime-runtime-handlers h3,
+.realtime-runtime-handlers p,
+.realtime-runtime-handlers ul {
+  margin: 0;
+}
+
+.realtime-runtime-handlers h3 {
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.realtime-runtime-handlers ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.realtime-runtime-handler-create {
+  display: grid;
+  gap: 8px;
+}
+
+.realtime-runtime-handler-create select,
+.realtime-runtime-handler-create button {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  color: #e2e8f0;
+  background: #1e293b;
+}
+
+.realtime-runtime-handler-create button:disabled {
+  opacity: 0.5;
+}
+
+.realtime-handler {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  gap: 9px;
+  overflow: auto;
+  padding: 12px 14px 16px;
+  color: #344054;
+  font-size: 12px;
+}
+
+.realtime-handler-heading,
+.realtime-handler-runtime {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.realtime-handler-heading code {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.realtime-handler-availability,
+.realtime-handler-state {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e4e7ec;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.realtime-handler-availability-available,
+.realtime-handler-state-completed {
+  color: #067647;
+  background: #dcfae6;
+}
+
+.realtime-handler-availability-missing,
+.realtime-handler-state-failed,
+.realtime-handler-state-crashed,
+.realtime-handler-state-blocked,
+.realtime-handler-state-timedOut {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.realtime-handler-state-running,
+.realtime-handler-state-streaming,
+.realtime-handler-state-waiting,
+.realtime-handler-state-queued {
+  color: #175cd3;
+  background: #d1e9ff;
+}
+
+.realtime-handler-message,
+.realtime-handler-error {
+  margin: 0;
+}
+
+.realtime-handler-error {
+  color: #b42318;
+}
+
+.realtime-handler progress {
+  width: 100%;
+}
+
+.realtime-handler-signature {
+  display: grid;
+  gap: 4px;
+  color: #667085;
+}
+
+.realtime-handler-cancel {
+  justify-self: start;
+  padding: 5px 9px;
+  border: 1px solid #fda29b;
+  border-radius: 7px;
+  color: #b42318;
+  background: #fffbfa;
+}
+
+.realtime-handler-inspector-field {
+  display: grid;
+  gap: 5px;
+  color: var(--setta-workspace-inspector-label-color, inherit);
+  font-size: 11px;
+}
+
+.realtime-handler-inspector-field input,
+.realtime-handler-inspector-field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.realtime-handler-inspector-field textarea {
+  resize: vertical;
 }
 
 .realtime-initial-error {

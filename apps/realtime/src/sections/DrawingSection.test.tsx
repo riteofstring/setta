@@ -141,9 +141,16 @@ function startupProject(): Project {
         retention: "lastSuccessful",
         startup: "whenStale",
       },
-      trigger: { event: "snapshot", sectionId: "drawing-main" },
+      trigger: {
+        event: "snapshot",
+        kind: "event",
+        sectionId: "drawing-main",
+      },
     },
   ];
+  project.sections["handler-main"]!.data = {
+    bindingId: "drawing-startup",
+  };
   return project;
 }
 
@@ -244,14 +251,19 @@ describe("DrawingSection", () => {
     const actions = {
       applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
+      connectGraph: vi.fn(async () => true),
       commitSectionData: vi.fn<RealtimeActions["commitSectionData"]>(
         async () => true,
       ),
       emit: vi.fn(() => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
       initialize,
       reload: vi.fn(async () => true),
+      reconnectGraph: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent,
+      updateBinding: vi.fn(async () => true),
     } satisfies RealtimeActions;
     const runtime = {
       ...initialRuntimeViewState,
@@ -351,14 +363,19 @@ describe("DrawingSection", () => {
     const actions = {
       applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
+      connectGraph: vi.fn(async () => true),
       commitSectionData: vi.fn<RealtimeActions["commitSectionData"]>(
         async () => true,
       ),
       emit: vi.fn(() => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
       initialize: vi.fn(async () => false),
       reload: vi.fn(async () => true),
+      reconnectGraph: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent: vi.fn(),
+      updateBinding: vi.fn(async () => true),
     } satisfies RealtimeActions;
     const section = projectWorkspaceDocument(project).sections["drawing-main"]!;
     drawingMocks.loadScene.mockResolvedValue(true);

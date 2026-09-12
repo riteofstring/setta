@@ -136,6 +136,17 @@ describe("project workspace projection", () => {
     ]);
   });
 
+  it("sends handler deletion through the canonical section boundary", () => {
+    const project = makeProject();
+    const document = projectWorkspaceDocument(project);
+    delete document.sections["handler-main"];
+    delete document.topLevelSections["handler-main"];
+
+    expect(workspaceDocumentOperations(project, document)).toEqual([
+      { op: "deleteSection", sectionId: "handler-main" },
+    ]);
+  });
+
   it("retains Workspace-owned selection and minimization across snapshots", () => {
     const project = makeProject();
     const previous = projectWorkspaceDocument(project);

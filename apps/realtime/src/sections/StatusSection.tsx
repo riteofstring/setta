@@ -13,13 +13,18 @@ import type {
 } from "../backend/generatedContract";
 import { readStatusSectionData } from "./sectionData";
 
-const ACTIVE_INVOCATION_STATES = new Set(["queued", "running", "streaming"]);
+const ACTIVE_INVOCATION_STATES = new Set([
+  "queued",
+  "waiting",
+  "running",
+  "streaming",
+]);
 
 function targetBindingIds(bindings: Binding[], sectionId: string): string[] {
   return bindings
     .filter((binding) =>
       Object.values(binding.outputs).some(
-        (target) => target.sectionId === sectionId,
+        (output) => output.target?.sectionId === sectionId,
       ),
     )
     .map((binding) => binding.id);

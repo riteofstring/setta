@@ -12,8 +12,11 @@ import { DrawingInspector } from "../sections/DrawingInspector";
 import { DrawingSection } from "../sections/DrawingSection";
 import { EntrypointCodeControl } from "../sections/EntrypointCodeControl";
 import { InputSection } from "../sections/InputSection";
+import { HandlerInspector } from "../sections/HandlerInspector";
+import { HandlerSection } from "../sections/HandlerSection";
 import { OutputSection } from "../sections/OutputSection";
 import { StatusSection } from "../sections/StatusSection";
+import { assertHandlerSectionData } from "../sections/sectionData";
 
 type RealtimeSectionKind =
   | "input"
@@ -21,6 +24,7 @@ type RealtimeSectionKind =
   | "button"
   | "status"
   | "drawing"
+  | "handler"
   | typeof WORKSPACE_CODE_SECTION_KIND;
 
 export type RealtimeSectionKindCatalog = Record<
@@ -57,6 +61,17 @@ export function createRealtimeSectionKinds(
             positionAndSizeLocked={context.section.positionAndSizeLocked}
             sectionId={context.section.id}
           />
+        ) : null,
+    },
+    handler: {
+      assertValidData: (section) => assertHandlerSectionData(section.data),
+      contentClassName: "flex min-h-0 flex-col",
+      defaultSize: { height: 190, width: 300 },
+      nestedSections: "vertical",
+      renderContent: (section) => <HandlerSection section={section} />,
+      renderInspector: (context) =>
+        context.type === "section" ? (
+          <HandlerInspector data={context.section.data} />
         ) : null,
     },
     input: {

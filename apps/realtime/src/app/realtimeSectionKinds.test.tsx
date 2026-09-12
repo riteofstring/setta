@@ -10,6 +10,7 @@ describe("realtime section registry", () => {
     expect(Object.keys(catalog).sort()).toEqual([
       "button",
       "drawing",
+      "handler",
       "input",
       "output",
       WORKSPACE_CODE_SECTION_KIND,
@@ -18,6 +19,7 @@ describe("realtime section registry", () => {
     const runtimeKinds = [
       "button",
       "drawing",
+      "handler",
       "input",
       "output",
       "status",
@@ -28,5 +30,25 @@ describe("realtime section registry", () => {
       ),
     ).toBe(true);
     expect(catalog[WORKSPACE_CODE_SECTION_KIND].nestedSections).toBeUndefined();
+  });
+
+  it("strictly validates app-owned handler section data", () => {
+    const definition = createRealtimeSectionKinds().handler;
+    const section = {
+      data: { bindingId: "binding-main" },
+    } as unknown as Parameters<
+      NonNullable<typeof definition.assertValidData>
+    >[0];
+
+    expect(() => definition.assertValidData?.(section)).not.toThrow();
+    expect(() =>
+      definition.assertValidData?.({
+        ...section,
+        data: { bindingId: "binding-main", extra: true },
+      }),
+    ).toThrow(/exactly one non-empty bindingId/);
+    expect(() =>
+      definition.assertValidData?.({ ...section, data: { bindingId: "" } }),
+    ).toThrow(/exactly one non-empty bindingId/);
   });
 });

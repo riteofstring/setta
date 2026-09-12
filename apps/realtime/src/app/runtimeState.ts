@@ -17,6 +17,7 @@ type RuntimeLog = Extract<RuntimeEnvelope, { type: "log" }>["log"];
 export type RuntimeViewState = {
   connection: RuntimeConnectionState;
   error: StructuredError | null;
+  handlers: string[];
   invocations: Record<string, InvocationStatus>;
   latestByBinding: Record<string, InvocationIdentity>;
   logs: RuntimeLog[];
@@ -31,6 +32,7 @@ export type RuntimeViewState = {
 export const initialRuntimeViewState: RuntimeViewState = {
   connection: "connecting",
   error: null,
+  handlers: [],
   invocations: {},
   latestByBinding: {},
   logs: [],
@@ -101,6 +103,7 @@ function replaceSnapshot(
   return {
     ...state,
     error: sessionChanged ? null : state.error,
+    handlers: [...snapshot.handlers],
     invocations,
     latestByBinding,
     logs: sessionChanged ? [] : state.logs,
@@ -166,7 +169,7 @@ function outputValues(
   }
   const values: Record<string, JsonValue> = {};
   for (const [outputName, value] of Object.entries(update.outputs)) {
-    const target = binding.outputs[outputName];
+    const target = binding.outputs[outputName]?.target;
     if (target !== undefined) {
       values[runtimeValueKey(target.sectionId, target.field)] = value;
     }
@@ -179,8 +182,12 @@ function acceptsUpdatePresentation(
   update: RuntimeUpdate,
 ): boolean {
   const bindingId = update.identity.bindingId;
+  const previous = state.updates[bindingId];
   return (
-    isIdentityCurrent(update.identity, state.updates[bindingId]?.identity) &&
+    isIdentityCurrent(update.identity, previous?.identity) &&
+    (previous === undefined ||
+      previous.identity.invocationId !== update.identity.invocationId ||
+      update.updateSequence > previous.updateSequence) &&
     isIdentityCurrent(update.identity, state.publishedByBinding[bindingId])
   );
 }
@@ -189,8 +196,12 @@ function acceptsUpdateOutputs(
   state: RuntimeViewState,
   update: RuntimeUpdate,
 ): boolean {
+  const previous = state.updates[update.identity.bindingId];
   return (
     Object.keys(update.outputs).length > 0 &&
+    (previous === undefined ||
+      previous.identity.invocationId !== update.identity.invocationId ||
+      update.updateSequence > previous.updateSequence) &&
     isIdentityCurrent(
       update.identity,
       state.publishedByBinding[update.identity.bindingId],
@@ -263,6 +274,7 @@ export function beginRuntimeReplacement(
     connection: "connecting",
     error: null,
     invocations: {},
+    handlers: [],
     latestByBinding: {},
     publishedByBinding: {},
     sessionId: null,

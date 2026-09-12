@@ -217,6 +217,7 @@ function runDrawingKeyboardAction(
 function snapshotBindings(project: Project, sectionId: string): Binding[] {
   return project.bindings.filter(
     (binding) =>
+      binding.trigger.kind === "event" &&
       binding.trigger.sectionId === sectionId &&
       binding.trigger.event === "snapshot",
   );

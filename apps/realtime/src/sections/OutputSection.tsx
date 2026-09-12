@@ -16,7 +16,12 @@ import {
 } from "../backend/generatedContract";
 import { readOutputSectionData } from "./sectionData";
 
-const ACTIVE_INVOCATION_STATES = new Set(["queued", "running", "streaming"]);
+const ACTIVE_INVOCATION_STATES = new Set([
+  "queued",
+  "waiting",
+  "running",
+  "streaming",
+]);
 const FAILED_INVOCATION_STATES = new Set(["crashed", "failed", "timedOut"]);
 
 type OutputState = {
@@ -41,7 +46,7 @@ function presentValue(value: unknown): string {
 function outputBindings(bindings: Binding[], sectionId: string): Binding[] {
   return bindings.filter((binding) =>
     Object.values(binding.outputs).some(
-      (target) => target.sectionId === sectionId,
+      (output) => output.target?.sectionId === sectionId,
     ),
   );
 }

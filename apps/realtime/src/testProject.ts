@@ -8,8 +8,12 @@ export function makeProject(): Project {
         handler: "run",
         id: "binding-main",
         outputs: {
-          result: { field: "value", sectionId: "output-main" },
-          status: { field: "message", sectionId: "status-main" },
+          result: {
+            target: { field: "value", sectionId: "output-main" },
+          },
+          status: {
+            target: { field: "message", sectionId: "status-main" },
+          },
         },
         scheduling: {
           concurrencyGroup: "main",
@@ -17,7 +21,11 @@ export function makeProject(): Project {
           debounceMilliseconds: 0,
           mode: "latest",
         },
-        trigger: { event: "press", sectionId: "button-main" },
+        trigger: {
+          event: "press",
+          kind: "event",
+          sectionId: "button-main",
+        },
       },
     ],
     configuration: {},
@@ -33,6 +41,13 @@ export function makeProject(): Project {
           zIndex: 2,
         },
         "input-main": { height: 128, width: 300, x: 288, y: 24, zIndex: 1 },
+        "handler-main": {
+          height: 190,
+          width: 300,
+          x: 580,
+          y: 24,
+          zIndex: 2,
+        },
         "output-main": {
           height: 240,
           width: 320,
@@ -101,6 +116,20 @@ export function makeProject(): Project {
         tagColor: null,
         width: 300,
       },
+      "handler-main": {
+        children: [],
+        data: { bindingId: "binding-main" },
+        height: 190,
+        id: "handler-main",
+        isHorizontalOrientation: false,
+        kind: "handler",
+        name: "Run handler",
+        overflowMode: false,
+        positionAndSizeLocked: false,
+        styleColor: null,
+        tagColor: null,
+        width: 300,
+      },
       "output-main": {
         children: [],
         data: { value: null },
@@ -130,6 +159,6 @@ export function makeProject(): Project {
         width: 320,
       },
     },
-    version: 1,
+    version: 2,
   };
 }

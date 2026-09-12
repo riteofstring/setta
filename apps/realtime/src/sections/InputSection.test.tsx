@@ -33,12 +33,17 @@ describe("input startup materialization", () => {
     const actions = {
       applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
+      connectGraph: vi.fn(async () => true),
       commitSectionData: vi.fn(async () => true),
       emit: vi.fn(() => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
       initialize,
       reload: vi.fn(async () => true),
+      reconnectGraph: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent: vi.fn(),
+      updateBinding: vi.fn(async () => true),
     } satisfies RealtimeActions;
     const runtime = {
       ...initialRuntimeViewState,

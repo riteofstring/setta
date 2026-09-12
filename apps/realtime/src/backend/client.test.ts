@@ -260,6 +260,7 @@ describe("realtime client boundary", () => {
     );
     const envelope = {
       snapshot: {
+        handlers: ["run"],
         invocations: {},
         publishedByBinding: {},
         retainedByBinding: {},

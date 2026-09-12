@@ -17,7 +17,7 @@ const binding = {
     debounceMilliseconds: 0,
     mode: "latest",
   },
-  trigger: { event: "change", sectionId: "input" },
+  trigger: { event: "change", kind: "event", sectionId: "input" },
 };
 
 function applyBinding(candidate: Record<string, unknown>): unknown {
@@ -31,6 +31,7 @@ function applyBinding(candidate: Record<string, unknown>): unknown {
 function runtimeSnapshot(retainedByBinding: unknown): unknown {
   return {
     snapshot: {
+      handlers: ["render"],
       invocations: {},
       publishedByBinding: {},
       retainedByBinding,
@@ -93,7 +94,7 @@ describe("generated Realtime materialization contracts", () => {
         applyBinding({
           ...binding,
           materialization: { retention: "lastSuccessful", startup: "always" },
-          trigger: { event: "submit", sectionId: "input" },
+          trigger: { event: "submit", kind: "event", sectionId: "input" },
         }),
       ),
     ).toBe(false);
@@ -102,7 +103,7 @@ describe("generated Realtime materialization contracts", () => {
         applyBinding({
           ...binding,
           materialization: { retention: "lastSuccessful", startup: "manual" },
-          trigger: { event: "submit", sectionId: "input" },
+          trigger: { event: "submit", kind: "event", sectionId: "input" },
         }),
       ),
     ).toBe(true);

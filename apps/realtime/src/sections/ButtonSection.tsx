@@ -8,13 +8,22 @@ import { useRealtime } from "../app/runtimeContext";
 import { runtimeCanInvoke } from "../app/runtimeState";
 import { readButtonSectionData } from "./sectionData";
 
-const ACTIVE_INVOCATION_STATES = new Set(["queued", "running", "streaming"]);
+const ACTIVE_INVOCATION_STATES = new Set([
+  "queued",
+  "waiting",
+  "running",
+  "streaming",
+]);
 
 export function ButtonSection({ section }: { section: WorkspaceSection }) {
   const { actions, project, runtime } = useRealtime();
   const data = readButtonSectionData(section.data);
   const bindingIds = project.bindings
-    .filter((binding) => binding.trigger.sectionId === section.id)
+    .filter(
+      (binding) =>
+        binding.trigger.kind === "event" &&
+        binding.trigger.sectionId === section.id,
+    )
     .map((binding) => binding.id);
   const busy = bindingIds.some((bindingId) => {
     const state = runtime.invocations[bindingId]?.state;

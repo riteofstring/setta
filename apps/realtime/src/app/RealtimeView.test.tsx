@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  commitWorkspaceDocument,
   createWorkspaceHost,
   type WorkspaceSectionData,
 } from "@setta/workspace";
@@ -47,12 +48,16 @@ describe("Realtime workspace presentation", () => {
     const actions: RealtimeActions = {
       applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
+      connectGraph: vi.fn(async () => true),
       commitSectionData: vi.fn(
         async (_sectionId: string, _data: WorkspaceSectionData) => true,
       ),
       emit: vi.fn(() => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
       initialize: vi.fn(async () => true),
       reload: vi.fn(async () => true),
+      reconnectGraph: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent: vi.fn(async () => ({
         byteLength: 0,
@@ -61,6 +66,7 @@ describe("Realtime workspace presentation", () => {
         mediaType: "image/png",
         sha256: "0".repeat(64),
       })),
+      updateBinding: vi.fn(async () => true),
     };
 
     await act(async () => {
@@ -139,7 +145,9 @@ describe("Realtime workspace presentation", () => {
       "status-main": project.layout.topLevelSections["status-main"]!,
     };
     project.bindings[0]!.outputs = {
-      status: { field: "message", sectionId: "status-main" },
+      status: {
+        target: { field: "message", sectionId: "status-main" },
+      },
     };
     const host = createWorkspaceHost();
     const catalog = createRealtimeSectionKinds();
@@ -152,10 +160,14 @@ describe("Realtime workspace presentation", () => {
     const actions: RealtimeActions = {
       applyRuntimeSource: vi.fn(async () => true),
       cancel: vi.fn(() => true),
+      connectGraph: vi.fn(async () => true),
       commitSectionData: vi.fn(async () => true),
       emit: vi.fn(() => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
       initialize: vi.fn(async () => true),
       reload,
+      reconnectGraph: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent: vi.fn(async () => ({
         byteLength: 0,
@@ -164,6 +176,7 @@ describe("Realtime workspace presentation", () => {
         mediaType: "image/png",
         sha256: "0".repeat(64),
       })),
+      updateBinding: vi.fn(async () => true),
     };
     const runtime = {
       ...initialRuntimeViewState,
@@ -175,6 +188,7 @@ describe("Realtime workspace presentation", () => {
           identity: {
             bindingId: "binding-main",
             invocationId: "invocation-main",
+            runId: "run-main",
             sequence: 2,
             sessionId: "session-main",
           },
@@ -221,6 +235,84 @@ describe("Realtime workspace presentation", () => {
     expect(reloadButton?.hasAttribute("disabled")).toBe(false);
     await act(async () => reloadButton?.click());
     expect(reload).toHaveBeenCalledOnce();
+
+    await act(async () => root.unmount());
+    host.dispose();
+    element.remove();
+  });
+
+  it("keeps graph projection coherent while Workspace removes a handler", async () => {
+    const project = makeProject();
+    delete project.sections["drawing-main"];
+    delete project.sections["input-main"];
+    delete project.layout.topLevelSections["drawing-main"];
+    delete project.layout.topLevelSections["input-main"];
+    const host = createWorkspaceHost();
+    registerRealtimeSectionKinds(host, createRealtimeSectionKinds());
+    host.loadDocument(projectWorkspaceDocument(project));
+    const element = document.createElement("div");
+    document.body.append(element);
+    const root = createRoot(element);
+    const actions: RealtimeActions = {
+      applyRuntimeSource: vi.fn(async () => true),
+      cancel: vi.fn(() => true),
+      commitSectionData: vi.fn(async () => true),
+      connectGraph: vi.fn(async () => true),
+      createHandler: vi.fn(async () => true),
+      deleteGraphEdges: vi.fn(async () => true),
+      emit: vi.fn(() => true),
+      initialize: vi.fn(async () => true),
+      reconnectGraph: vi.fn(async () => true),
+      reload: vi.fn(async () => true),
+      reportError: vi.fn(),
+      updateBinding: vi.fn(async () => true),
+      uploadContent: vi.fn(async () => ({
+        byteLength: 0,
+        id: "unused-content",
+        invocationId: "unused-invocation",
+        mediaType: "image/png",
+        sha256: "0".repeat(64),
+      })),
+    };
+
+    await act(async () =>
+      root.render(
+        <RealtimeView
+          actions={actions}
+          error={null}
+          host={host}
+          project={project}
+          runtime={{
+            ...initialRuntimeViewState,
+            handlers: ["run"],
+          }}
+          source={initialRuntimeSourceViewState}
+        />,
+      ),
+    );
+
+    expect(
+      element.querySelector('[data-section-id="handler-main"]'),
+    ).not.toBeNull();
+    expect(
+      element.querySelectorAll("[data-workspace-graph-port-id]").length,
+    ).toBeGreaterThan(0);
+    const workspaceDocument = host.getSnapshot();
+    const sections = { ...workspaceDocument.sections };
+    const topLevelSections = { ...workspaceDocument.topLevelSections };
+    delete sections["handler-main"];
+    delete topLevelSections["handler-main"];
+    await act(async () =>
+      commitWorkspaceDocument(host, {
+        ...workspaceDocument,
+        activeIds: [],
+        sections,
+        topLevelSections,
+      }),
+    );
+    expect(
+      element.querySelector('[data-section-id="handler-main"]'),
+    ).toBeNull();
 
     await act(async () => root.unmount());
     host.dispose();

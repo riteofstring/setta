@@ -44,10 +44,14 @@ describe("entrypoint code header control", () => {
   const actions: RealtimeActions = {
     applyRuntimeSource,
     cancel: vi.fn(() => true),
+    connectGraph: vi.fn(async () => true),
     commitSectionData: vi.fn(async () => true),
     emit: vi.fn(() => true),
+    createHandler: vi.fn(async () => true),
+    deleteGraphEdges: vi.fn(async () => true),
     initialize: vi.fn(async () => true),
     reload: vi.fn(async () => true),
+    reconnectGraph: vi.fn(async () => true),
     reportError: vi.fn(),
     uploadContent: vi.fn(async () => ({
       byteLength: 0,
@@ -56,6 +60,7 @@ describe("entrypoint code header control", () => {
       mediaType: "image/png",
       sha256: "0".repeat(64),
     })),
+    updateBinding: vi.fn(async () => true),
   };
   const project = makeProject();
   const document = {

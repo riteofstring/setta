@@ -18,6 +18,7 @@ function identity(sequence: number, invocationId: string): InvocationIdentity {
   return {
     bindingId: "binding-main",
     invocationId,
+    runId: "run-main",
     sequence,
     sessionId: "session-main",
   };
@@ -34,6 +35,7 @@ describe("runtime state", () => {
   it("publishes a completed output ahead of a newer queued invocation", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: ["run"],
         invocations: {},
         publishedByBinding: {
           "binding-main": identity(2, "invocation-baseline"),
@@ -60,6 +62,7 @@ describe("runtime state", () => {
         message: "complete",
         outputs: { result: "useful" },
         progress: 1,
+        updateSequence: 1,
       },
     });
 
@@ -81,6 +84,7 @@ describe("runtime state", () => {
         message: "complete",
         outputs: { result: "fresh", status: "Complete" },
         progress: 1,
+        updateSequence: 1,
       },
     });
     expect(newer.values[runtimeValueKey("output-main", "value")]).toBe("fresh");
@@ -95,6 +99,7 @@ describe("runtime state", () => {
         message: "late",
         outputs: { result: "stale" },
         progress: 1,
+        updateSequence: 2,
       },
     });
     expect(late).toBe(newer);
@@ -103,6 +108,7 @@ describe("runtime state", () => {
   it("does not advance the published output watermark for progress alone", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: [],
         invocations: {},
         publishedByBinding: {
           "binding-main": identity(2, "invocation-baseline"),
@@ -121,6 +127,7 @@ describe("runtime state", () => {
         message: "working",
         outputs: {},
         progress: 0.5,
+        updateSequence: 2,
       },
     });
 
@@ -136,6 +143,7 @@ describe("runtime state", () => {
         message: "complete",
         outputs: { result: "useful" },
         progress: 1,
+        updateSequence: 1,
       },
     });
     expect(state.values[runtimeValueKey("output-main", "value")]).toBe(
@@ -147,9 +155,52 @@ describe("runtime state", () => {
     expect(state.updates["binding-main"]?.message).toBe("working");
   });
 
+  it("does not let a duplicate update overwrite presentation or output", () => {
+    let state = apply(initialRuntimeViewState, {
+      snapshot: {
+        handlers: ["run"],
+        invocations: {},
+        publishedByBinding: {},
+        retainedByBinding: {},
+        sessionId: "session-main",
+        values: {},
+        workerState: "ready",
+      },
+      type: "snapshot",
+    });
+    state = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(1, "invocation-current"),
+        message: "current",
+        outputs: { result: "current" },
+        progress: 0.5,
+        updateSequence: 2,
+      },
+    });
+
+    const duplicate = apply(state, {
+      type: "update",
+      update: {
+        identity: identity(1, "invocation-current"),
+        message: "duplicate",
+        outputs: { result: "duplicate" },
+        progress: 0.25,
+        updateSequence: 2,
+      },
+    });
+
+    expect(duplicate).toBe(state);
+    expect(duplicate.updates["binding-main"]?.message).toBe("current");
+    expect(duplicate.values[runtimeValueKey("output-main", "value")]).toBe(
+      "current",
+    );
+  });
+
   it("rejects updates from replaced sessions and same-sequence impostors", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: [],
         invocations: {
           current: {
             error: null,
@@ -186,6 +237,7 @@ describe("runtime state", () => {
         message: "impostor",
         outputs: { result: "wrong" },
         progress: 1,
+        updateSequence: 1,
       },
     });
     expect(impostor).toBe(state);
@@ -201,6 +253,7 @@ describe("runtime state", () => {
         message: "late session",
         outputs: { result: "wrong" },
         progress: null,
+        updateSequence: 1,
       },
     });
     expect(rejected).toBe(state);
@@ -209,6 +262,7 @@ describe("runtime state", () => {
   it("revokes the previous session before a replacement socket is authorized", () => {
     const state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: [],
         invocations: {},
         publishedByBinding: {},
         retainedByBinding: { "binding-main": true },
@@ -231,6 +285,7 @@ describe("runtime state", () => {
   it("clears diagnostics only when a snapshot changes the session", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: [],
         invocations: {},
         publishedByBinding: {},
         retainedByBinding: {},
@@ -251,6 +306,7 @@ describe("runtime state", () => {
 
     const sameSession = apply(state, {
       snapshot: {
+        handlers: [],
         invocations: {},
         publishedByBinding: {},
         retainedByBinding: {},
@@ -265,6 +321,7 @@ describe("runtime state", () => {
 
     const replacement = apply(sameSession, {
       snapshot: {
+        handlers: [],
         invocations: {},
         publishedByBinding: {},
         retainedByBinding: {},

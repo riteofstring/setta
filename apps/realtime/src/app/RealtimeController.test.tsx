@@ -7,7 +7,11 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import type { Project, RuntimeEnvelope } from "../backend/generatedContract";
+import type {
+  Project,
+  ProjectOperation,
+  RuntimeEnvelope,
+} from "../backend/generatedContract";
 import { makeProject } from "../testProject";
 import { RealtimeController } from "./RealtimeController";
 import type { RealtimeActions } from "./runtimeContext";
@@ -220,9 +224,16 @@ describe("Realtime workspace mutation projection", () => {
           retention: "lastSuccessful",
           startup: "whenStale",
         },
-        trigger: { event: "change", sectionId: "input-main" },
+        trigger: {
+          event: "change",
+          kind: "event",
+          sectionId: "input-main",
+        },
       },
     ];
+    initial.sections["handler-main"]!.data = {
+      bindingId: "startup-input",
+    };
     mocks.fetchProject.mockResolvedValue(initial);
 
     await act(async () => root.render(<RealtimeController />));
@@ -231,6 +242,7 @@ describe("Realtime workspace mutation projection", () => {
       mocks.runtimeHandlers!.onOpen();
       mocks.runtimeHandlers!.onEnvelope({
         snapshot: {
+          handlers: ["run"],
           invocations: {},
           publishedByBinding: {},
           retainedByBinding: {},
@@ -276,6 +288,7 @@ describe("Realtime workspace mutation projection", () => {
     act(() => {
       mocks.runtimeHandlers!.onEnvelope({
         snapshot: {
+          handlers: ["run"],
           invocations: {},
           publishedByBinding: {},
           retainedByBinding: {},
@@ -293,5 +306,113 @@ describe("Realtime workspace mutation projection", () => {
     expect(mocks.runtimeSend).toHaveBeenLastCalledWith(
       expect.objectContaining({ cause: "startup", sessionId: "session-two" }),
     );
+  });
+
+  it("creates a disconnected binding and its handler section atomically", async () => {
+    const initial = makeProject();
+    const applied = deferred<Project>();
+    mocks.fetchProject.mockResolvedValue(initial);
+    mocks.applyProject.mockReturnValue(applied.promise);
+
+    await act(async () => root.render(<RealtimeController />));
+    await vi.waitFor(() => expect(mocks.renderedActions).not.toBeNull());
+    const creation = mocks.renderedActions!.createHandler("render");
+    await vi.waitFor(() => expect(mocks.applyProject).toHaveBeenCalledOnce());
+    const operations = mocks.applyProject.mock
+      .calls[0]![1] as ProjectOperation[];
+    const bindingOperation = operations.find(
+      (operation) => operation.op === "setBinding",
+    );
+    const sectionOperation = operations.find(
+      (operation) => operation.op === "upsertSection",
+    );
+    expect(bindingOperation).toMatchObject({
+      binding: {
+        arguments: { input: null },
+        handler: "render",
+        outputs: { result: {} },
+        trigger: { kind: "disconnected" },
+      },
+    });
+    expect(sectionOperation).toMatchObject({
+      section: {
+        data: {
+          bindingId:
+            bindingOperation?.op === "setBinding"
+              ? bindingOperation.binding.id
+              : "missing",
+        },
+        kind: "handler",
+        name: "render",
+      },
+    });
+    if (
+      bindingOperation?.op !== "setBinding" ||
+      sectionOperation?.op !== "upsertSection"
+    ) {
+      throw new Error("Expected one binding and one section operation.");
+    }
+    await act(async () =>
+      applied.resolve({
+        ...initial,
+        bindings: [...initial.bindings, bindingOperation.binding],
+        layout: {
+          ...initial.layout,
+          topLevelSections: {
+            ...initial.layout.topLevelSections,
+            [sectionOperation.section.id]: sectionOperation.layout!,
+          },
+        },
+        revision: initial.revision + 1,
+        sections: {
+          ...initial.sections,
+          [sectionOperation.section.id]: sectionOperation.section,
+        },
+      }),
+    );
+    await expect(creation).resolves.toBe(true);
+  });
+
+  it("merges queued binding edits against the latest accepted revision", async () => {
+    const initial = makeProject();
+    const first = deferred<Project>();
+    const second = deferred<Project>();
+    mocks.fetchProject.mockResolvedValue(initial);
+    mocks.applyProject
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    await act(async () => root.render(<RealtimeController />));
+    await vi.waitFor(() => expect(mocks.renderedActions).not.toBeNull());
+    const modeEdit = mocks.renderedActions!.updateBinding("binding-main", {
+      scheduling: { mode: "once" },
+    });
+    const groupEdit = mocks.renderedActions!.updateBinding("binding-main", {
+      scheduling: { concurrencyGroup: "revised-group" },
+    });
+    await vi.waitFor(() => expect(mocks.applyProject).toHaveBeenCalledOnce());
+    const afterMode = structuredClone(initial);
+    afterMode.revision += 1;
+    afterMode.bindings[0]!.scheduling.mode = "once";
+    await act(async () => first.resolve(afterMode));
+    await vi.waitFor(() => expect(mocks.applyProject).toHaveBeenCalledTimes(2));
+    expect(mocks.applyProject.mock.calls[1]![1]).toMatchObject([
+      {
+        binding: {
+          scheduling: {
+            concurrencyGroup: "revised-group",
+            mode: "once",
+          },
+        },
+        op: "setBinding",
+      },
+    ]);
+    const afterGroup = structuredClone(afterMode);
+    afterGroup.revision += 1;
+    afterGroup.bindings[0]!.scheduling.concurrencyGroup = "revised-group";
+    await act(async () => second.resolve(afterGroup));
+
+    await expect(modeEdit).resolves.toBe(true);
+    await expect(groupEdit).resolves.toBe(true);
   });
 });

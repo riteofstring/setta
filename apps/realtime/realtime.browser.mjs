@@ -379,6 +379,7 @@ function binding(id, sectionId, handler, outputs, options = {}) {
     },
     trigger: {
       event: sectionId === "drawing" ? "snapshot" : "press",
+      kind: "event",
       sectionId,
     },
   };
@@ -485,6 +486,46 @@ function projectOperations() {
       ),
       layout(912, 152, 480, 360),
     ],
+    [
+      section(
+        "counter-handler",
+        "handler",
+        "Increment handler",
+        { bindingId: "counter-binding" },
+        [280, 176],
+      ),
+      layout(24, 544, 280, 176),
+    ],
+    [
+      section(
+        "failure-handler",
+        "handler",
+        "Failure handler",
+        { bindingId: "failure-binding" },
+        [280, 176],
+      ),
+      layout(328, 544, 280, 176),
+    ],
+    [
+      section(
+        "slow-handler",
+        "handler",
+        "Slow handler",
+        { bindingId: "slow-binding" },
+        [280, 176],
+      ),
+      layout(632, 544, 280, 176),
+    ],
+    [
+      section(
+        "drawing-handler",
+        "handler",
+        "Drawing handler",
+        { bindingId: "drawing-binding" },
+        [280, 176],
+      ),
+      layout(936, 544, 280, 176),
+    ],
   ];
   return [
     { name: "Realtime Browser Acceptance", op: "setName" },
@@ -495,19 +536,25 @@ function projectOperations() {
     })),
     {
       binding: binding("counter-binding", "counter", "increment", {
-        result: { field: "value", sectionId: "counter-result" },
+        result: {
+          target: { field: "value", sectionId: "counter-result" },
+        },
       }),
       op: "setBinding",
     },
     {
       binding: binding("failure-binding", "failure", "fail", {
-        message: { field: "message", sectionId: "failure-status" },
+        message: {
+          target: { field: "message", sectionId: "failure-status" },
+        },
       }),
       op: "setBinding",
     },
     {
       binding: binding("slow-binding", "slow", "slow", {
-        message: { field: "message", sectionId: "slow-status" },
+        message: {
+          target: { field: "message", sectionId: "slow-status" },
+        },
       }),
       op: "setBinding",
     },
@@ -517,9 +564,15 @@ function projectOperations() {
         "drawing",
         "inspect_drawing",
         {
-          message: { field: "message", sectionId: "drawing-status" },
-          progress: { field: "progress", sectionId: "drawing-status" },
-          result: { field: "value", sectionId: "drawing-result" },
+          message: {
+            target: { field: "message", sectionId: "drawing-status" },
+          },
+          progress: {
+            target: { field: "progress", sectionId: "drawing-status" },
+          },
+          result: {
+            target: { field: "value", sectionId: "drawing-result" },
+          },
         },
         {
           arguments: { drawing: "$event.contentRef" },
