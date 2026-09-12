@@ -19,7 +19,7 @@ function inputValue(value: WorkspaceSectionData, inputKind: string): string {
 }
 
 export function InputSection({ section }: { section: WorkspaceSection }) {
-  const { actions } = useRealtime();
+  const { actions, project, runtime } = useRealtime();
   const data = readInputSectionData(section.data);
   const [draft, setDraft] = useState(() =>
     inputValue(data.value, data.inputKind),
@@ -29,6 +29,20 @@ export function InputSection({ section }: { section: WorkspaceSection }) {
   useEffect(() => {
     setDraft(inputValue(data.value, data.inputKind));
   }, [data.inputKind, data.value]);
+
+  useEffect(() => {
+    void actions.initialize(section.id, "change", () => ({
+      value: data.value,
+    }));
+  }, [
+    actions,
+    data.value,
+    project.revision,
+    runtime.connection,
+    runtime.sessionId,
+    runtime.workerState,
+    section.id,
+  ]);
 
   const settle = async (event: "change" | "submit") => {
     const value =

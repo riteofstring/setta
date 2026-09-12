@@ -291,6 +291,10 @@ function drawingAuthorityValue(
   } as DrawingAuthorityDocument;
 }
 
+function drawingDocumentKey(document: DrawingAuthorityDocument): string {
+  return JSON.stringify(document);
+}
+
 function measureDrawingToolbarHeight(
   stage: HTMLDivElement,
   width: number,
@@ -337,6 +341,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const viewportRef = useRef<DrawingViewportController | null>(null);
   const sceneAuthorityRef = useRef<DrawingSceneAuthority | null>(null);
   const settlementRef = useRef<DrawingSettlementQueue | null>(null);
+  const loadedDocumentKeyRef = useRef<string | null>(null);
+  const [loadedDocumentRevision, setLoadedDocumentRevision] = useState(0);
   const [history, setHistory] = useState(INITIAL_HISTORY_STATE);
   const [highlighter, setHighlighter] =
     useState<DrawingBrushSettings>(INITIAL_HIGHLIGHTER);
@@ -376,6 +382,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     if (element === null) {
       return;
     }
+    loadedDocumentKeyRef.current = null;
     const initialDocument = drawingDocumentRef.current;
     const sceneAuthority = new DrawingSceneAuthority(initialDocument);
     let settlement: DrawingSettlementQueue | null = null;
@@ -448,13 +455,18 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           nextDocument,
         );
         if (committed) {
-          sceneAuthority.acknowledge(
+          const currentDocument = drawingAuthorityValue(background, {
+            ...drawing.getLogicalSize(),
+            scene: drawing.toScene(),
+          });
+          const acknowledged = sceneAuthority.acknowledge(
             pending,
-            drawingAuthorityValue(background, {
-              ...drawing.getLogicalSize(),
-              scene: drawing.toScene(),
-            }),
+            currentDocument,
           );
+          if (acknowledged && drawingRef.current === drawing) {
+            loadedDocumentKeyRef.current = drawingDocumentKey(currentDocument);
+            setLoadedDocumentRevision((revision) => revision + 1);
+          }
         }
         return committed;
       },
@@ -562,8 +574,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     void drawing
       .loadScene(initialDocument.scene)
       .then((loaded) => {
-        if (loaded) {
+        if (loaded && drawingRef.current === drawing) {
           sceneAuthority.loaded(initialDocument);
+          loadedDocumentKeyRef.current = drawingDocumentKey(initialDocument);
+          setLoadedDocumentRevision((revision) => revision + 1);
         }
       })
       .catch((error: unknown) => {
@@ -589,6 +603,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       if (viewportRef.current === drawingViewport) {
         viewportRef.current = null;
       }
+      loadedDocumentKeyRef.current = null;
       drawingRef.current = null;
       void drawing.dispose();
     };
@@ -608,12 +623,19 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       sceneAuthority !== null &&
       sceneAuthority.shouldLoad(drawingDocument)
     ) {
+      loadedDocumentKeyRef.current = null;
       void drawing
         .loadDocument({ height, scene, width })
         .then((loaded) => {
-          if (loaded) {
+          if (
+            loaded &&
+            drawingRef.current === drawing &&
+            sceneAuthorityRef.current === sceneAuthority
+          ) {
             sceneAuthority.loaded(drawingDocument);
             viewportRef.current?.resizeLogical({ height, width });
+            loadedDocumentKeyRef.current = drawingDocumentKey(drawingDocument);
+            setLoadedDocumentRevision((revision) => revision + 1);
           }
         })
         .catch((error: unknown) => {
@@ -625,6 +647,44 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         });
     }
   }, [actions, drawingDocument, height, scene, width]);
+
+  useEffect(() => {
+    if (
+      loadedDocumentKeyRef.current === null ||
+      loadedDocumentKeyRef.current !== drawingDocumentKey(drawingDocument)
+    ) {
+      return;
+    }
+    void actions
+      .initialize(section.id, "snapshot", async () => {
+        const drawing = drawingRef.current;
+        if (drawing === null) {
+          throw new Error("The drawing surface is unavailable.");
+        }
+        const snapshot = await drawing.captureSnapshot();
+        if (drawingRef.current !== drawing) {
+          throw new Error("The drawing surface changed during initialization.");
+        }
+        const reference = await actions.uploadContent(snapshot.blob);
+        return { contentRef: reference };
+      })
+      .catch((error: unknown) => {
+        actions.reportError(
+          error instanceof Error
+            ? error.message
+            : "Realtime could not initialize the drawing.",
+        );
+      });
+  }, [
+    actions,
+    drawingDocument,
+    loadedDocumentRevision,
+    project.revision,
+    runtime.connection,
+    runtime.sessionId,
+    runtime.workerState,
+    section.id,
+  ]);
 
   const chooseTool = (nextTool: DrawingTool) => {
     setTool(nextTool);

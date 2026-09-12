@@ -76,7 +76,7 @@ func emitExampleDrawing(t *testing.T, application *localApplication, reference c
 		t.Fatalf("Snapshot() error = %v", err)
 	}
 	accepted, err := application.coordinator.HandleEvent(contracts.RuntimeEvent{
-		Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload,
+		Type: "event", Cause: "interaction", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload,
 	})
 	if err != nil || accepted != 2 {
 		t.Fatalf("HandleEvent() = %d, %v", accepted, err)

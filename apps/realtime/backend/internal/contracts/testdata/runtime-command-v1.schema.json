@@ -62,7 +62,34 @@
   "oneOf": [
     {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "startup"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "event": {
+                "enum": [
+                  "change",
+                  "snapshot"
+                ]
+              }
+            }
+          }
+        }
+      ],
       "properties": {
+        "cause": {
+          "enum": [
+            "interaction",
+            "startup"
+          ]
+        },
         "event": {
           "enum": [
             "change",
@@ -88,6 +115,7 @@
       },
       "required": [
         "type",
+        "cause",
         "sessionId",
         "sectionId",
         "event",

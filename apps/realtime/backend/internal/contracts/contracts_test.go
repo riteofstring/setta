@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -10,6 +11,88 @@ func TestProjectValidatesCounterAndStreamingBinding(t *testing.T) {
 	project := fixtureProject()
 	if err := project.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestProjectValidatesOptionalMaterializationPolicies(t *testing.T) {
+	project := fixtureProject()
+	policies := []MaterializationPolicy{
+		{Retention: "session", Startup: "always"},
+		{Retention: "session", Startup: "whenStale"},
+		{Retention: "lastSuccessful", Startup: "ifMissing"},
+		{Retention: "lastSuccessful", Startup: "manual"},
+	}
+	for _, policy := range policies {
+		binding := project.Bindings[0]
+		binding.Materialization = &policy
+		project.Bindings[0] = binding
+		if err := project.Validate(); err != nil {
+			t.Fatalf("Validate(%#v) error = %v", policy, err)
+		}
+	}
+}
+
+func TestProjectRejectsInvalidMaterializationPolicies(t *testing.T) {
+	for name, policy := range map[string]MaterializationPolicy{
+		"retention": {Retention: "forever", Startup: "manual"},
+		"startup":   {Retention: "session", Startup: "reload"},
+	} {
+		project := fixtureProject()
+		project.Bindings[0].Materialization = &policy
+		if err := project.Validate(); err == nil {
+			t.Fatalf("Validate(%s) error = nil", name)
+		}
+	}
+}
+
+func TestProjectRejectsAutomaticStartupForNonInitializableTrigger(t *testing.T) {
+	project := fixtureProject()
+	project.Bindings[0].Trigger.Event = "submit"
+	project.Bindings[0].Materialization = &MaterializationPolicy{Retention: "lastSuccessful", Startup: "always"}
+	if err := project.Validate(); err == nil {
+		t.Fatal("Validate() error = nil")
+	}
+	project.Bindings[0].Materialization.Startup = "manual"
+	if err := project.Validate(); err != nil {
+		t.Fatalf("Validate(manual) error = %v", err)
+	}
+}
+
+func TestRuntimeEventValidatesCauseAndNameCombination(t *testing.T) {
+	event := RuntimeEvent{
+		Type: "event", SessionID: "session-1", SectionID: "input-1", Event: "change", Payload: json.RawMessage(`{}`),
+	}
+	for _, combination := range []struct {
+		cause string
+		name  string
+	}{
+		{cause: "interaction", name: "change"},
+		{cause: "interaction", name: "submit"},
+		{cause: "interaction", name: "press"},
+		{cause: "interaction", name: "snapshot"},
+		{cause: "startup", name: "change"},
+		{cause: "startup", name: "snapshot"},
+	} {
+		event.Cause = combination.cause
+		event.Event = combination.name
+		if err := event.Validate(); err != nil {
+			t.Fatalf("Validate(%q, %q) error = %v", combination.cause, combination.name, err)
+		}
+	}
+	for _, combination := range []struct {
+		cause string
+		name  string
+	}{
+		{cause: "", name: "change"},
+		{cause: "reload", name: "change"},
+		{cause: "startup", name: "submit"},
+		{cause: "startup", name: "press"},
+	} {
+		event.Cause = combination.cause
+		event.Event = combination.name
+		if err := event.Validate(); err == nil {
+			t.Fatalf("Validate(%q, %q) error = nil", combination.cause, combination.name)
+		}
 	}
 }
 
@@ -186,6 +269,54 @@ func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
 	}
 	if !publishedRequired {
 		t.Fatalf("runtime snapshot required fields = %#v", required)
+	}
+}
+
+func TestSchemasPublishClosedMaterializationAndStartupContracts(t *testing.T) {
+	projectDefinitions := ProjectSchema()["$defs"].(map[string]any)
+	binding := projectDefinitions["binding"].(map[string]any)
+	bindingProperties := binding["properties"].(map[string]any)
+	materialization := bindingProperties["materialization"].(map[string]any)
+	if materialization["additionalProperties"] != false {
+		t.Fatalf("materialization schema is open: %#v", materialization)
+	}
+	materializationRequired := materialization["required"].([]string)
+	if !slices.Contains(materializationRequired, "retention") || !slices.Contains(materializationRequired, "startup") {
+		t.Fatalf("materialization required fields = %#v", materializationRequired)
+	}
+	bindingRequired := binding["required"].([]string)
+	if slices.Contains(bindingRequired, "materialization") {
+		t.Fatalf("binding materialization is required: %#v", bindingRequired)
+	}
+	startupRule := binding["allOf"].([]any)[0].(map[string]any)
+	startupTrigger := startupRule["then"].(map[string]any)["properties"].(map[string]any)["trigger"].(map[string]any)["properties"].(map[string]any)["event"].(map[string]any)
+	if !slices.Equal(startupTrigger["enum"].([]string), []string{"change", "snapshot"}) {
+		t.Fatalf("binding startup trigger schema = %#v", startupRule)
+	}
+
+	runtimeCommand := RuntimeCommandSchema()
+	event := runtimeCommand["oneOf"].([]any)[0].(map[string]any)
+	eventRequired := event["required"].([]string)
+	eventProperties := event["properties"].(map[string]any)
+	cause := eventProperties["cause"].(map[string]any)
+	if !slices.Contains(eventRequired, "cause") || !slices.Equal(cause["enum"].([]string), []string{"interaction", "startup"}) || event["additionalProperties"] != false {
+		t.Fatalf("runtime event cause schema = %#v", event)
+	}
+	runtimeStartupRule := event["allOf"].([]any)[0].(map[string]any)
+	startupCondition := runtimeStartupRule["if"].(map[string]any)["properties"].(map[string]any)["cause"].(map[string]any)
+	startupEvents := runtimeStartupRule["then"].(map[string]any)["properties"].(map[string]any)["event"].(map[string]any)
+	if startupCondition["const"] != "startup" || !slices.Equal(startupEvents["enum"].([]string), []string{"change", "snapshot"}) {
+		t.Fatalf("runtime startup event schema = %#v", runtimeStartupRule)
+	}
+
+	runtimeDefinitions := RuntimeSchema()["$defs"].(map[string]any)
+	snapshot := runtimeDefinitions["snapshot"].(map[string]any)
+	snapshotRequired := snapshot["required"].([]string)
+	snapshotProperties := snapshot["properties"].(map[string]any)
+	retained := snapshotProperties["retainedByBinding"].(map[string]any)
+	retainedValue := retained["additionalProperties"].(map[string]any)
+	if !slices.Contains(snapshotRequired, "retainedByBinding") || retainedValue["type"] != "boolean" || snapshot["additionalProperties"] != false {
+		t.Fatalf("runtime retained output schema = %#v", snapshot)
 	}
 }
 

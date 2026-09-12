@@ -21,6 +21,7 @@ export type RuntimeViewState = {
   latestByBinding: Record<string, InvocationIdentity>;
   logs: RuntimeLog[];
   publishedByBinding: Record<string, InvocationIdentity>;
+  retainedByBinding: Record<string, boolean>;
   sessionId: string | null;
   updates: Record<string, RuntimeUpdate>;
   values: Record<string, JsonValue>;
@@ -34,6 +35,7 @@ export const initialRuntimeViewState: RuntimeViewState = {
   latestByBinding: {},
   logs: [],
   publishedByBinding: {},
+  retainedByBinding: {},
   sessionId: null,
   updates: {},
   values: {},
@@ -103,6 +105,7 @@ function replaceSnapshot(
     latestByBinding,
     logs: sessionChanged ? [] : state.logs,
     publishedByBinding: { ...snapshot.publishedByBinding },
+    retainedByBinding: { ...snapshot.retainedByBinding },
     sessionId: snapshot.sessionId,
     updates: {},
     values: { ...snapshot.values },
@@ -214,6 +217,9 @@ function acceptUpdate(
     publishedByBinding: acceptsOutputs
       ? { ...state.publishedByBinding, [bindingId]: update.identity }
       : state.publishedByBinding,
+    retainedByBinding: acceptsOutputs
+      ? { ...state.retainedByBinding, [bindingId]: false }
+      : state.retainedByBinding,
     updates: acceptsPresentation
       ? { ...state.updates, [bindingId]: update }
       : state.updates,

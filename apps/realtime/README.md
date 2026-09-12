@@ -116,6 +116,34 @@ input and starts that input when capacity returns, so the handler's observed com
 the cadence without a guessed timing interval. A nonzero debounce remains an explicit trailing
 delay for interactions that should wait for input to become quiet.
 
+### Startup and retained outputs
+
+A binding can independently choose when its initial value is computed and whether its last
+successful outputs survive application restarts:
+
+```json
+{
+  "retention": "lastSuccessful",
+  "startup": "whenStale"
+}
+```
+
+Place this object in the binding's `materialization` field. Omitting it keeps the existing
+session-only, interaction-driven behavior. `retention` is either `session` or `lastSuccessful`.
+The latter stores one successful materialization, including recursively referenced binary content,
+under the runtime-owned `.local/realtime/materializations` directory rather than authored
+`project.json` state.
+
+`startup` is `always`, `whenStale`, `ifMissing`, or `manual`. `whenStale` compares the active source
+version, handler, and resolved arguments; `ifMissing` computes only when no saved result exists.
+Automatic startup is available for `change` and `snapshot` bindings, whose input and drawing
+sections can provide a canonical initial value. Use `manual` for `submit` and `press` bindings.
+
+Only successful handler completion replaces a saved materialization. During an automatic refresh,
+the output section labels and continues showing the saved result; a failed refresh leaves it
+intact. This lets a project retain its last useful result when recomputation is expensive or an
+external resource later becomes unavailable.
+
 One event may fan out to multiple bindings. Independent work should use distinct concurrency groups
 so each handler can start and publish separately. Drawing preview admission waits until every
 matching completion-paced binding is terminal before emitting the next snapshot, so the slowest

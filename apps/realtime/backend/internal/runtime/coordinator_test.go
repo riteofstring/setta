@@ -116,7 +116,7 @@ func TestLatestBindingPublishesRunningResultAndStaysBounded(t *testing.T) {
 	snapshot, _ := coordinator.Snapshot()
 	for index := 0; index < 100; index++ {
 		payload := json.RawMessage(`{"contentRef":"frame-` + string(rune('a'+index%26)) + `"}`)
-		_, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload})
+		_, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload})
 		if err != nil {
 			t.Fatalf("HandleEvent(%d) error = %v", index, err)
 		}
@@ -192,7 +192,7 @@ func TestSuccessfulReturnPublishesFinalBrowserUpdate(t *testing.T) {
 	}
 	<-stream
 	snapshot, _ := coordinator.Snapshot()
-	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
 	if _, err := coordinator.HandleEvent(event); err != nil {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
@@ -220,7 +220,7 @@ func TestLatestBindingStreamsWhileNewerInvocationIsPending(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
 	if _, err := coordinator.HandleEvent(event); err != nil {
 		t.Fatalf("HandleEvent(first) error = %v", err)
 	}
@@ -275,7 +275,7 @@ func TestOlderParallelOutputCannotReplaceNewerPublishedOutput(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
 	for index := 0; index < 2; index++ {
 		if _, err := coordinator.HandleEvent(event); err != nil {
 			t.Fatalf("HandleEvent(%d) error = %v", index, err)
@@ -552,7 +552,7 @@ func TestCancellationRemovesActiveInvocation(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}); err != nil {
+	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}); err != nil {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
 	invocation := receiveInvocation(t, worker.started)
@@ -582,7 +582,7 @@ func TestCancellationDispatchesLatestPendingInvocation(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
 	if _, err := coordinator.HandleEvent(event); err != nil {
 		t.Fatalf("HandleEvent(first) error = %v", err)
 	}
@@ -674,7 +674,7 @@ func startDrawingInvocation(t *testing.T, coordinator *Coordinator, worker *fake
 		t.Fatalf("Reload() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	event := contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: json.RawMessage(`{"contentRef":"frame"}`)}
 	if _, err := coordinator.HandleEvent(event); err != nil {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
@@ -740,7 +740,7 @@ func TestDrawingSnapshotRunsPythonAndAdoptsStreamedArtifact(t *testing.T) {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 	snapshot, _ := coordinator.Snapshot()
-	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload}); err != nil {
+	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload}); err != nil {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
 	assertStyledArtifact(t, coordinator, contentStore)
@@ -795,7 +795,7 @@ func TestLatestBindingReclaimsReplacedContent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("json.Marshal() error = %v", err)
 		}
-		_, err = coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload})
+		_, err = coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: snapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: payload})
 		if err != nil {
 			t.Fatalf("HandleEvent(%d) error = %v", index, err)
 		}
@@ -833,7 +833,7 @@ func TestBusyBindingReclaimsRejectedEventContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal(first) error = %v", err)
 	}
-	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: firstPayload}); err != nil {
+	if _, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: firstPayload}); err != nil {
 		t.Fatalf("HandleEvent(first) error = %v", err)
 	}
 	invocation := receiveInvocation(t, worker.started)
@@ -845,7 +845,7 @@ func TestBusyBindingReclaimsRejectedEventContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal(second) error = %v", err)
 	}
-	accepted, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: secondPayload})
+	accepted, err := coordinator.HandleEvent(contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: runtimeSnapshot.SessionID, SectionID: "drawing", Event: "snapshot", Payload: secondPayload})
 	if err != nil || accepted != 0 {
 		t.Fatalf("HandleEvent(second) = %d, %v", accepted, err)
 	}

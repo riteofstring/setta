@@ -201,7 +201,7 @@ func RuntimeSchema() map[string]any {
 			"type": "object", "maxProperties": maximumOutputs, "propertyNames": handlerNameSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/jsonValue"},
 		},
 	})
-	definitions["snapshot"] = objectSchema([]string{"sessionId", "workerState", "values", "invocations", "publishedByBinding"}, map[string]any{
+	definitions["snapshot"] = objectSchema([]string{"sessionId", "workerState", "values", "invocations", "publishedByBinding", "retainedByBinding"}, map[string]any{
 		"sessionId":   idSchema(),
 		"workerState": map[string]any{"enum": []string{"stopped", "starting", "ready", "failed", "replacing"}},
 		"values": map[string]any{
@@ -212,6 +212,9 @@ func RuntimeSchema() map[string]any {
 		},
 		"publishedByBinding": map[string]any{
 			"type": "object", "maxProperties": maximumBindings, "propertyNames": idSchema(), "additionalProperties": map[string]any{"$ref": "#/$defs/identity"},
+		},
+		"retainedByBinding": map[string]any{
+			"type": "object", "maxProperties": maximumBindings, "propertyNames": idSchema(), "additionalProperties": map[string]any{"type": "boolean"},
 		},
 	})
 	definitions["log"] = objectSchema([]string{"stream", "text"}, map[string]any{
@@ -237,16 +240,23 @@ func RuntimeCommandSchema() map[string]any {
 	identity := objectSchema([]string{"sessionId", "bindingId", "invocationId", "sequence"}, map[string]any{
 		"sessionId": idSchema(), "bindingId": idSchema(), "invocationId": idSchema(), "sequence": map[string]any{"type": "integer", "minimum": 1},
 	})
+	event := objectSchema([]string{"type", "cause", "sessionId", "sectionId", "event", "payload"}, map[string]any{
+		"type": map[string]any{"const": "event"}, "cause": map[string]any{"enum": []string{"interaction", "startup"}}, "sessionId": idSchema(), "sectionId": idSchema(),
+		"event": map[string]any{"enum": []string{"change", "submit", "press", "snapshot"}}, "payload": map[string]any{"$ref": "#/$defs/jsonValue"},
+	})
+	event["allOf"] = []any{
+		map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"cause": map[string]any{"const": "startup"}}},
+			"then": map[string]any{"properties": map[string]any{"event": map[string]any{"enum": []string{"change", "snapshot"}}}},
+		},
+	}
 	return map[string]any{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"$id":     "https://setta.local/schemas/realtime/runtime-command-v1.schema.json",
 		"title":   "Setta Realtime Runtime Command V1",
 		"$defs":   map[string]any{"jsonValue": jsonValueSchema(), "identity": identity},
 		"oneOf": []any{
-			objectSchema([]string{"type", "sessionId", "sectionId", "event", "payload"}, map[string]any{
-				"type": map[string]any{"const": "event"}, "sessionId": idSchema(), "sectionId": idSchema(),
-				"event": map[string]any{"enum": []string{"change", "submit", "press", "snapshot"}}, "payload": map[string]any{"$ref": "#/$defs/jsonValue"},
-			}),
+			event,
 			objectSchema([]string{"type", "identity"}, map[string]any{
 				"type": map[string]any{"const": "cancel"}, "identity": map[string]any{"$ref": "#/$defs/identity"},
 			}),
@@ -411,7 +421,7 @@ func sectionSchema() map[string]any {
 }
 
 func bindingSchema() map[string]any {
-	return objectSchema([]string{"id", "trigger", "handler", "arguments", "scheduling", "outputs"}, map[string]any{
+	schema := objectSchema([]string{"id", "trigger", "handler", "arguments", "scheduling", "outputs"}, map[string]any{
 		"id": idSchema(),
 		"trigger": objectSchema([]string{"sectionId", "event"}, map[string]any{
 			"sectionId": idSchema(), "event": map[string]any{"enum": []string{"change", "submit", "press", "snapshot"}},
@@ -430,7 +440,36 @@ func bindingSchema() map[string]any {
 				"sectionId": idSchema(), "field": map[string]any{"enum": []string{"value", "contentRef", "message", "level", "progress", "scene"}},
 			}),
 		},
+		"materialization": objectSchema([]string{"retention", "startup"}, map[string]any{
+			"retention": map[string]any{"enum": []string{"session", "lastSuccessful"}},
+			"startup":   map[string]any{"enum": []string{"always", "whenStale", "ifMissing", "manual"}},
+		}),
 	})
+	schema["allOf"] = []any{
+		map[string]any{
+			"if": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"materialization": map[string]any{
+						"type":       "object",
+						"properties": map[string]any{"startup": map[string]any{"enum": []string{"always", "whenStale", "ifMissing"}}},
+						"required":   []string{"startup"},
+					},
+				},
+				"required": []string{"materialization"},
+			},
+			"then": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"trigger": map[string]any{
+						"type":       "object",
+						"properties": map[string]any{"event": map[string]any{"enum": []string{"change", "snapshot"}}},
+					},
+				},
+			},
+		},
+	}
+	return schema
 }
 
 func runtimeEnvelopeVariant(kind string, property string, reference string) map[string]any {

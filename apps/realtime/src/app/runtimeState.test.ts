@@ -38,6 +38,7 @@ describe("runtime state", () => {
         publishedByBinding: {
           "binding-main": identity(2, "invocation-baseline"),
         },
+        retainedByBinding: { "binding-main": true },
         sessionId: "session-main",
         values: { [runtimeValueKey("output-main", "value")]: "baseline" },
         workerState: "ready",
@@ -71,6 +72,7 @@ describe("runtime state", () => {
     expect(completed.publishedByBinding["binding-main"]).toEqual(
       identity(3, "invocation-old"),
     );
+    expect(completed.retainedByBinding["binding-main"]).toBe(false);
 
     const newer = apply(completed, {
       type: "update",
@@ -105,6 +107,7 @@ describe("runtime state", () => {
         publishedByBinding: {
           "binding-main": identity(2, "invocation-baseline"),
         },
+        retainedByBinding: {},
         sessionId: "session-main",
         values: { [runtimeValueKey("output-main", "value")]: "baseline" },
         workerState: "ready",
@@ -157,6 +160,7 @@ describe("runtime state", () => {
         publishedByBinding: {
           "binding-main": identity(8, "invocation-current"),
         },
+        retainedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -207,6 +211,7 @@ describe("runtime state", () => {
       snapshot: {
         invocations: {},
         publishedByBinding: {},
+        retainedByBinding: { "binding-main": true },
         sessionId: "session-main",
         values: { [runtimeValueKey("output-main", "value")]: "visible" },
         workerState: "ready",
@@ -218,6 +223,7 @@ describe("runtime state", () => {
     expect(replacing.sessionId).toBeNull();
     expect(replacing.latestByBinding).toEqual({});
     expect(replacing.publishedByBinding).toEqual({});
+    expect(replacing.retainedByBinding).toEqual({ "binding-main": true });
     expect(replacing.connection).toBe("connecting");
     expect(replacing.values).toEqual(state.values);
   });
@@ -227,6 +233,7 @@ describe("runtime state", () => {
       snapshot: {
         invocations: {},
         publishedByBinding: {},
+        retainedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -246,6 +253,7 @@ describe("runtime state", () => {
       snapshot: {
         invocations: {},
         publishedByBinding: {},
+        retainedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -259,6 +267,7 @@ describe("runtime state", () => {
       snapshot: {
         invocations: {},
         publishedByBinding: {},
+        retainedByBinding: {},
         sessionId: "session-replaced",
         values: {},
         workerState: "ready",

@@ -39,13 +39,16 @@ events, invocation status, streamed updates, bounded logs, and structured failur
 reconnection is state replacement: it receives current complete project and runtime state without
 listener replay, polling, force refresh, or locally reconstructed queues.
 
-Every outgoing event is tied to an exact source section and event name. Every update is tied to a
-session, binding, and invocation. The frontend applies only host-authorized current outputs and
+Every outgoing event is tied to an exact source section and event name and declares whether it came
+from a user interaction or startup initialization. Stateful input and drawing sections emit at
+most one startup event for an eligible binding configuration in each ready runtime session; the Go
+host remains authoritative for policy and deduplication. Every update is tied to a session,
+binding, and invocation. The frontend applies only host-authorized current outputs and
 never equates newest submitted status with newest publishable output. Runtime snapshots provide a
-published identity per binding. The browser may therefore apply a completed output while a newer
-invocation is queued, while still rejecting an output older than the host's published watermark.
-Binary data travels through the shared HTTP content path, while runtime messages contain content
-references.
+published identity per binding and identify outputs restored from last-successful materialization.
+The browser may therefore apply a completed output while a newer invocation is queued, while still
+rejecting an output older than the host's published watermark. Binary data travels through the
+shared HTTP content path, while runtime messages contain content references.
 
 Realtime reads source through the same-origin-readable `GET /api/v1/runtime/source` and applies it
 through an exact-origin `PUT` to the same path. It owns the source document, local draft, dirty comparison, apply
@@ -64,9 +67,12 @@ discarding the local draft.
 
 The initial catalog contains bounded input, output, button, status, drawing, and optional singular
 code sections. Inputs commit authored values at their documented boundaries. Buttons emit explicit
-actions. Output and status sections render only canonical session values and invocation state
-addressed by declared binding outputs. The code section has no binding event or output semantics;
-it is an editor projection of the declared entrypoint.
+actions. Output and status sections render only host-canonical runtime values and invocation state
+addressed by declared binding outputs. A retained value remains visible while startup refresh runs
+or fails and is labeled as a saved result until a successful current-session result replaces it.
+An eligible output with no value presents its initialization state rather than an unexplained empty
+surface. The code section has no binding event or output semantics; it is an editor projection of
+the declared entrypoint.
 
 Workspace owns a reusable controlled Code editor, generic native header-action placement and
 styling, and the Mod-Enter key seam. Realtime supplies the draft value, action, disabled state,
@@ -190,8 +196,8 @@ publish independently, and distinct concurrency groups allow independent schedul
 
 Other policies retain the bounded fixed preview timer. Completion-paced work does not use an EWMA
 or another estimate because completion itself supplies capacity feedback. Generator updates remain
-the existing progressive-output path; the frontend adds no typed preview/final transport, result
-cache, batching layer, or Python authoring SDK. The outer Workspace canvas remains its existing
+the existing progressive-output path; the frontend adds no typed preview/final transport, general
+result cache, batching layer, or Python authoring SDK. The outer Workspace canvas remains its existing
 upstream XYFlow projection.
 
 Realtime renders one ordinary, editable `WorkspaceShell`, Workspace host, section registry,

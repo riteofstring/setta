@@ -112,7 +112,7 @@ func testHandler(t *testing.T, serverURL string) (*Handler, *fakeCoordinator, *c
 	}
 	sourceDocument := contracts.RuntimeSourceDocument{ProjectID: projectSnapshot.ID, Entrypoint: "app.py", Version: strings.Repeat("a", 64), Source: "handlers = {}\n"}
 	coordinator := &fakeCoordinator{
-		project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}},
+		project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}},
 		source: sourceDocument, result: contracts.ApplyRuntimeSourceResult{Source: sourceDocument, Activation: contracts.RuntimeSourceActivation{State: "activated"}},
 	}
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)
@@ -334,7 +334,7 @@ func TestRuntimeSocketStartsWithSnapshotAndAcceptsStrictEvent(t *testing.T) {
 		t.Fatalf("content.Open() error = %v", err)
 	}
 	defer contentStore.Close()
-	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}}}
+	coordinator := &fakeCoordinator{project: projectSnapshot, runtime: contracts.RuntimeSnapshot{SessionID: "session-1", WorkerState: "ready", Values: map[string]json.RawMessage{}, Invocations: map[string]contracts.InvocationStatus{}, PublishedByBinding: map[string]contracts.InvocationIdentity{}, RetainedByBinding: map[string]bool{}}}
 	testServer := httptest.NewUnstartedServer(nil)
 	serverURL := "http://" + testServer.Listener.Addr().String()
 	handler, err := New(coordinator, projects, contentStore, projectRoot, "nonce", serverURL)
@@ -358,7 +358,7 @@ func TestRuntimeSocketStartsWithSnapshotAndAcceptsStrictEvent(t *testing.T) {
 	if initial.Type != "snapshot" || initial.Snapshot == nil || initial.Snapshot.SessionID != "session-1" {
 		t.Fatalf("initial envelope = %#v", initial)
 	}
-	event := contracts.RuntimeEvent{Type: "event", SessionID: "session-1", SectionID: "button", Event: "press", Payload: json.RawMessage(`{}`)}
+	event := contracts.RuntimeEvent{Type: "event", Cause: "interaction", SessionID: "session-1", SectionID: "button", Event: "press", Payload: json.RawMessage(`{}`)}
 	if err := wsjson.Write(ctx, connection, event); err != nil {
 		t.Fatalf("event write error = %v", err)
 	}

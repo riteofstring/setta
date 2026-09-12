@@ -363,11 +363,13 @@ function layout(x, y, width, height, zIndex = 1) {
   return { height, width, x, y, zIndex };
 }
 
-function binding(id, sectionId, handler, outputs, arguments_ = {}) {
+function binding(id, sectionId, handler, outputs, options = {}) {
+  const { arguments: arguments_ = {}, materialization } = options;
   return {
     arguments: arguments_,
     handler,
     id,
+    ...(materialization === undefined ? {} : { materialization }),
     outputs,
     scheduling: {
       concurrencyGroup: id,
@@ -519,7 +521,13 @@ function projectOperations() {
           progress: { field: "progress", sectionId: "drawing-status" },
           result: { field: "value", sectionId: "drawing-result" },
         },
-        { drawing: "$event.contentRef" },
+        {
+          arguments: { drawing: "$event.contentRef" },
+          materialization: {
+            retention: "lastSuccessful",
+            startup: "whenStale",
+          },
+        },
       ),
       op: "setBinding",
     },
@@ -2071,10 +2079,23 @@ async function exerciseBrowser(client, origin) {
       (button) => button.textContent?.trim() === "Reload runtime" && !button.disabled,
     )`,
   );
+  await waitForDrawingResult(client, origin);
+  const initializedDrawing = await visibleDrawingResult(client);
+  assert.ok(
+    initializedDrawing !== null && initializedDrawing.sequence >= 1,
+    "The initial drawing did not produce its derived output.",
+  );
 
   await exerciseWorkspaceSection(client, origin);
 
   await clickButton(client, "Reload runtime");
+  await waitFor(
+    client,
+    "the retained drawing result",
+    `Array.from(document.querySelectorAll(".realtime-output-state")).some(
+      (state) => state.textContent?.trim().startsWith("Saved result") === true,
+    )`,
+  );
   await waitFor(
     client,
     "the ready Python worker",

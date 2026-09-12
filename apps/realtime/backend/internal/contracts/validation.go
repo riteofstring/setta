@@ -435,7 +435,25 @@ func (binding Binding) Validate(sections map[string]Section) error {
 	if err := binding.Scheduling.Validate(); err != nil {
 		return err
 	}
+	if binding.Materialization != nil {
+		if err := binding.Materialization.Validate(); err != nil {
+			return err
+		}
+		if binding.Materialization.Startup != "manual" && !slices.Contains([]string{"change", "snapshot"}, binding.Trigger.Event) {
+			return errors.New("binding materialization startup requires a change or snapshot trigger")
+		}
+	}
 	return validateBindingOutputs(binding.Outputs, sections)
+}
+
+func (policy MaterializationPolicy) Validate() error {
+	if !slices.Contains([]string{"session", "lastSuccessful"}, policy.Retention) {
+		return errors.New("binding materialization retention is invalid")
+	}
+	if !slices.Contains([]string{"always", "whenStale", "ifMissing", "manual"}, policy.Startup) {
+		return errors.New("binding materialization startup is invalid")
+	}
+	return nil
 }
 
 func (binding Binding) validateIdentity(sections map[string]Section) error {
@@ -727,8 +745,14 @@ func (event RuntimeEvent) Validate() error {
 	if event.Type != "event" || !validID(event.SessionID) || !validID(event.SectionID) {
 		return errors.New("contracts: runtime event identity is invalid")
 	}
+	if !slices.Contains([]string{"interaction", "startup"}, event.Cause) {
+		return errors.New("contracts: runtime event cause is invalid")
+	}
 	if !slices.Contains([]string{"change", "submit", "press", "snapshot"}, event.Event) {
 		return errors.New("contracts: runtime event name is invalid")
+	}
+	if event.Cause == "startup" && !slices.Contains([]string{"change", "snapshot"}, event.Event) {
+		return errors.New("contracts: startup runtime event name is invalid")
 	}
 	return validateJSON(event.Payload)
 }

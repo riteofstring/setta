@@ -262,6 +262,7 @@ describe("realtime client boundary", () => {
       snapshot: {
         invocations: {},
         publishedByBinding: {},
+        retainedByBinding: {},
         sessionId: "session-main",
         values: {},
         workerState: "ready",
@@ -273,6 +274,7 @@ describe("realtime client boundary", () => {
       new MessageEvent("message", { data: JSON.stringify(envelope) }),
     );
     const event = {
+      cause: "interaction",
       event: "press",
       payload: null,
       sectionId: "button-main",

@@ -52,6 +52,7 @@ import {
   type RealtimeActions,
   type RuntimeSourceViewState,
 } from "./runtimeContext";
+import { RuntimeInitializationCoordinator } from "./runtimeInitialization";
 import { RealtimeView } from "./RealtimeView";
 
 type EnqueueMutation = (
@@ -201,11 +202,21 @@ export function RealtimeController() {
     initialRuntimeSourceViewState,
   );
   const runtimeTransportRef = useRef<RuntimeTransport | null>(null);
+  const initializationRef = useRef<RuntimeInitializationCoordinator | null>(
+    null,
+  );
   const enqueueRef = useRef<EnqueueMutation | null>(null);
   const applyRuntimeSourceRef = useRef<
     ((sectionId: string, source: string) => Promise<boolean>) | null
   >(null);
   const catalogRef = useRef<RealtimeSectionKindCatalog | null>(null);
+  if (initializationRef.current === null) {
+    initializationRef.current = new RuntimeInitializationCoordinator({
+      getProject: () => projectRef.current,
+      getRuntime: () => runtimeRef.current,
+      send: (event) => runtimeTransportRef.current?.send(event) ?? false,
+    });
+  }
   if (catalogRef.current === null) {
     catalogRef.current = createRealtimeSectionKinds((sectionId, data) => {
       void applyRuntimeSourceRef.current?.(sectionId, data.code);
@@ -239,6 +250,7 @@ export function RealtimeController() {
         }
         return (
           runtimeTransportRef.current?.send({
+            cause: "interaction",
             event,
             payload,
             sectionId,
@@ -247,6 +259,12 @@ export function RealtimeController() {
           }) ?? false
         );
       },
+      initialize: (sectionId, event, createPayload) =>
+        initializationRef.current?.initialize(
+          sectionId,
+          event,
+          createPayload,
+        ) ?? Promise.resolve(false),
       reload: async () => {
         setError(null);
         try {

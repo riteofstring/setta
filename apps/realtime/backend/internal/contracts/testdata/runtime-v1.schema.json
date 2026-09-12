@@ -154,6 +154,17 @@
           },
           "type": "object"
         },
+        "retainedByBinding": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "maxProperties": 1024,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "type": "object"
+        },
         "sessionId": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
           "type": "string"
@@ -184,7 +195,8 @@
         "workerState",
         "values",
         "invocations",
-        "publishedByBinding"
+        "publishedByBinding",
+        "retainedByBinding"
       ],
       "type": "object"
     },

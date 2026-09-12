@@ -7,9 +7,10 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import type { Project } from "../backend/generatedContract";
+import type { Project, RuntimeEnvelope } from "../backend/generatedContract";
 import { makeProject } from "../testProject";
 import { RealtimeController } from "./RealtimeController";
+import type { RealtimeActions } from "./runtimeContext";
 
 const mocks = vi.hoisted(() => ({
   applyProject: vi.fn(),
@@ -22,7 +23,13 @@ const mocks = vi.hoisted(() => ({
     onProject: (project: Project) => void;
   } | null,
   reloadRuntime: vi.fn(),
+  renderedActions: null as RealtimeActions | null,
   renderedHost: null as unknown,
+  runtimeHandlers: null as {
+    onEnvelope: (envelope: RuntimeEnvelope) => void;
+    onOpen: () => void;
+  } | null,
+  runtimeSend: vi.fn(() => true),
   uploadContent: vi.fn(),
 }));
 
@@ -47,7 +54,11 @@ vi.mock("../backend/client", () => ({
 }));
 
 vi.mock("./RealtimeView", () => ({
-  RealtimeView: (props: { host: WorkspaceHost | null }) => {
+  RealtimeView: (props: {
+    actions: RealtimeActions;
+    host: WorkspaceHost | null;
+  }) => {
+    mocks.renderedActions = props.actions;
     mocks.renderedHost = props.host;
     return null;
   },
@@ -105,13 +116,19 @@ describe("Realtime workspace mutation projection", () => {
         removeEventListener: () => {},
       })),
     );
+    mocks.renderedActions = null;
     mocks.renderedHost = null;
     mocks.projectEvents = null;
+    mocks.runtimeHandlers = null;
+    mocks.runtimeSend.mockReset().mockReturnValue(true);
     mocks.connectProjectEvents.mockImplementation((handlers) => {
       mocks.projectEvents = handlers;
       return () => {};
     });
-    mocks.connectRuntime.mockReturnValue({ close: () => {}, send: () => true });
+    mocks.connectRuntime.mockImplementation((handlers) => {
+      mocks.runtimeHandlers = handlers;
+      return { close: () => {}, send: mocks.runtimeSend };
+    });
     mocks.reloadRuntime.mockResolvedValue(undefined);
     mocks.uploadContent.mockResolvedValue({
       byteLength: 0,
@@ -190,6 +207,91 @@ describe("Realtime workspace mutation projection", () => {
 
     await vi.waitFor(() =>
       expect(host.getSnapshot().sections["input-main"]?.isMinimized).toBe(true),
+    );
+  });
+
+  it("separates interaction events from one lazy startup event per binding configuration", async () => {
+    const initial = makeProject();
+    initial.bindings = [
+      {
+        ...initial.bindings[0]!,
+        id: "startup-input",
+        materialization: {
+          retention: "lastSuccessful",
+          startup: "whenStale",
+        },
+        trigger: { event: "change", sectionId: "input-main" },
+      },
+    ];
+    mocks.fetchProject.mockResolvedValue(initial);
+
+    await act(async () => root.render(<RealtimeController />));
+    await vi.waitFor(() => expect(mocks.runtimeHandlers).not.toBeNull());
+    act(() => {
+      mocks.runtimeHandlers!.onOpen();
+      mocks.runtimeHandlers!.onEnvelope({
+        snapshot: {
+          invocations: {},
+          publishedByBinding: {},
+          retainedByBinding: {},
+          sessionId: "session-one",
+          values: {},
+          workerState: "ready",
+        },
+        type: "snapshot",
+      });
+    });
+    await vi.waitFor(() => expect(mocks.renderedActions).not.toBeNull());
+    const actions = mocks.renderedActions!;
+
+    expect(actions.emit("input-main", "change", { value: "changed" })).toBe(
+      true,
+    );
+    const createPayload = vi.fn(() => ({ value: "initial" }));
+    await expect(
+      actions.initialize("input-main", "change", createPayload),
+    ).resolves.toBe(true);
+    await expect(
+      actions.initialize("input-main", "change", createPayload),
+    ).resolves.toBe(false);
+
+    expect(createPayload).toHaveBeenCalledOnce();
+    expect(mocks.runtimeSend).toHaveBeenNthCalledWith(1, {
+      cause: "interaction",
+      event: "change",
+      payload: { value: "changed" },
+      sectionId: "input-main",
+      sessionId: "session-one",
+      type: "event",
+    });
+    expect(mocks.runtimeSend).toHaveBeenNthCalledWith(2, {
+      cause: "startup",
+      event: "change",
+      payload: { value: "initial" },
+      sectionId: "input-main",
+      sessionId: "session-one",
+      type: "event",
+    });
+
+    act(() => {
+      mocks.runtimeHandlers!.onEnvelope({
+        snapshot: {
+          invocations: {},
+          publishedByBinding: {},
+          retainedByBinding: {},
+          sessionId: "session-two",
+          values: {},
+          workerState: "ready",
+        },
+        type: "snapshot",
+      });
+    });
+    await expect(
+      actions.initialize("input-main", "change", createPayload),
+    ).resolves.toBe(true);
+    expect(createPayload).toHaveBeenCalledTimes(2);
+    expect(mocks.runtimeSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cause: "startup", sessionId: "session-two" }),
     );
   });
 });

@@ -51,6 +51,7 @@ describe("Realtime workspace presentation", () => {
         async (_sectionId: string, _data: WorkspaceSectionData) => true,
       ),
       emit: vi.fn(() => true),
+      initialize: vi.fn(async () => true),
       reload: vi.fn(async () => true),
       reportError: vi.fn(),
       uploadContent: vi.fn(async () => ({
@@ -153,6 +154,7 @@ describe("Realtime workspace presentation", () => {
       cancel: vi.fn(() => true),
       commitSectionData: vi.fn(async () => true),
       emit: vi.fn(() => true),
+      initialize: vi.fn(async () => true),
       reload,
       reportError: vi.fn(),
       uploadContent: vi.fn(async () => ({

@@ -22,6 +22,12 @@ export type RealtimeActions = {
     event: RuntimeEvent["event"],
     payload: RuntimeEvent["payload"],
   ) => boolean;
+  initialize: (
+    sectionId: string,
+    event: "change" | "snapshot",
+    createPayload: () =>
+      RuntimeEvent["payload"] | Promise<RuntimeEvent["payload"]>,
+  ) => Promise<boolean>;
   reload: () => Promise<boolean>;
   reportError: (message: string) => void;
   uploadContent: (content: Blob) => Promise<ContentReference>;

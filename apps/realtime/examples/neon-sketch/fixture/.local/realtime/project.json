@@ -43,7 +43,7 @@
       "tagColor": null,
       "children": [],
       "data": {
-        "value": "Your neon drawing will appear here."
+        "value": null
       }
     },
     "pillow-result": {
@@ -59,7 +59,7 @@
       "tagColor": null,
       "children": [],
       "data": {
-        "value": "Your Pillow-processed drawing will appear here."
+        "value": null
       }
     },
     "callback": {
@@ -133,6 +133,10 @@
         "concurrencyGroup": "neon-rendering",
         "concurrencyLimit": 1
       },
+      "materialization": {
+        "retention": "lastSuccessful",
+        "startup": "whenStale"
+      },
       "outputs": {
         "image": {
           "sectionId": "result",
@@ -155,6 +159,10 @@
         "debounceMilliseconds": 0,
         "concurrencyGroup": "pillow-rendering",
         "concurrencyLimit": 1
+      },
+      "materialization": {
+        "retention": "lastSuccessful",
+        "startup": "whenStale"
       },
       "outputs": {
         "image": {

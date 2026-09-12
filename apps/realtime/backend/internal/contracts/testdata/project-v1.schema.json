@@ -2,6 +2,49 @@
   "$defs": {
     "binding": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "materialization": {
+                "properties": {
+                  "startup": {
+                    "enum": [
+                      "always",
+                      "whenStale",
+                      "ifMissing"
+                    ]
+                  }
+                },
+                "required": [
+                  "startup"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "materialization"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "trigger": {
+                "properties": {
+                  "event": {
+                    "enum": [
+                      "change",
+                      "snapshot"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ],
       "properties": {
         "arguments": {
           "additionalProperties": {
@@ -21,6 +64,30 @@
         "id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "materialization": {
+          "additionalProperties": false,
+          "properties": {
+            "retention": {
+              "enum": [
+                "session",
+                "lastSuccessful"
+              ]
+            },
+            "startup": {
+              "enum": [
+                "always",
+                "whenStale",
+                "ifMissing",
+                "manual"
+              ]
+            }
+          },
+          "required": [
+            "retention",
+            "startup"
+          ],
+          "type": "object"
         },
         "outputs": {
           "additionalProperties": {

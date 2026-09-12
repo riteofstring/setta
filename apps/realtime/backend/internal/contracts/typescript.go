@@ -68,6 +68,10 @@ export type Binding = {
     concurrencyLimit: number;
   };
   outputs: Record<string, { sectionId: string; field: string }>;
+  materialization?: {
+    retention: "session" | "lastSuccessful";
+    startup: "always" | "whenStale" | "ifMissing" | "manual";
+  };
 };
 
 export type Project = {
@@ -160,6 +164,7 @@ export type RuntimeSnapshot = {
   values: Record<string, JsonValue>;
   invocations: Record<string, InvocationStatus>;
   publishedByBinding: Record<string, InvocationIdentity>;
+  retainedByBinding: Record<string, boolean>;
 };
 
 export type RuntimeUpdate = {
@@ -178,6 +183,7 @@ export type RuntimeEnvelope =
 
 export type RuntimeEvent = {
   type: "event";
+  cause: "interaction" | "startup";
   sessionId: string;
   sectionId: string;
   event: "change" | "submit" | "press" | "snapshot";

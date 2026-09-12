@@ -88,12 +88,13 @@ type Viewport struct {
 }
 
 type Binding struct {
-	ID         string                     `json:"id"`
-	Trigger    BindingTrigger             `json:"trigger"`
-	Handler    string                     `json:"handler"`
-	Arguments  map[string]json.RawMessage `json:"arguments"`
-	Scheduling SchedulingPolicy           `json:"scheduling"`
-	Outputs    map[string]BindingOutput   `json:"outputs"`
+	ID              string                     `json:"id"`
+	Trigger         BindingTrigger             `json:"trigger"`
+	Handler         string                     `json:"handler"`
+	Arguments       map[string]json.RawMessage `json:"arguments"`
+	Scheduling      SchedulingPolicy           `json:"scheduling"`
+	Outputs         map[string]BindingOutput   `json:"outputs"`
+	Materialization *MaterializationPolicy     `json:"materialization,omitempty"`
 }
 
 type BindingTrigger struct {
@@ -106,6 +107,11 @@ type SchedulingPolicy struct {
 	DebounceMilliseconds uint64 `json:"debounceMilliseconds"`
 	ConcurrencyGroup     string `json:"concurrencyGroup"`
 	ConcurrencyLimit     int    `json:"concurrencyLimit"`
+}
+
+type MaterializationPolicy struct {
+	Retention string `json:"retention"`
+	Startup   string `json:"startup"`
 }
 
 type BindingOutput struct {
@@ -258,6 +264,7 @@ type StructuredError struct {
 
 type RuntimeEvent struct {
 	Type      string          `json:"type"`
+	Cause     string          `json:"cause"`
 	SessionID string          `json:"sessionId"`
 	SectionID string          `json:"sectionId"`
 	Event     string          `json:"event"`
@@ -313,6 +320,7 @@ type RuntimeSnapshot struct {
 	Values             map[string]json.RawMessage    `json:"values"`
 	Invocations        map[string]InvocationStatus   `json:"invocations"`
 	PublishedByBinding map[string]InvocationIdentity `json:"publishedByBinding"`
+	RetainedByBinding  map[string]bool               `json:"retainedByBinding"`
 }
 
 type InvocationStatus struct {

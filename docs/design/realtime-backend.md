@@ -44,8 +44,12 @@ filesystem, and atomically renames it. Success increments the revision once and 
 complete snapshot once; conflict and persistence failure leave canonical state unchanged.
 
 Each binding names one exact source section event, one exact handler, resolved argument
-expressions, declared outputs, and a scheduling policy. Go resolves arguments from one event and
-one canonical state snapshot before enqueueing. Display names never become aliases or identities.
+expressions, declared outputs, a scheduling policy, and an optional materialization policy. Go
+resolves arguments from one event and one canonical state snapshot before enqueueing. Display names
+never become aliases or identities. Materialization independently chooses whether the last
+successful outputs remain session-only or survive runtime restarts, and whether startup runs the
+binding always, only when its compute fingerprint is stale, only when no retained result exists, or
+only after an interaction.
 
 ## Browser transports
 
@@ -54,12 +58,14 @@ receives the current complete project snapshot and subsequently receives the new
 snapshot after each accepted mutation. Slow subscribers may skip superseded snapshots, and
 reconnection catches up without replay or force-refresh state.
 
-One WebSocket carries closed ephemeral messages for the current runtime snapshot, events,
+One WebSocket carries closed runtime messages for the current runtime snapshot, interaction and
+startup events,
 invocation status, streamed updates, structured errors, and bounded logs. Reconnection starts with
 the complete current runtime snapshot. Every event and result carries session, binding, and
 invocation identity. Runtime snapshots carry both current invocation status and the published
-identity for each binding, allowing reconnect and slow-subscriber snapshot replacement to preserve
-the distinction between submitted work and applied output.
+identity for each binding, plus which bindings are currently showing a retained result, allowing
+reconnect and slow-subscriber snapshot replacement to preserve the distinction between submitted
+work and applied output.
 
 Large binary values use one HTTP content store. WebSocket and worker messages carry validated
 content references. References are scoped to their owning invocation until the host deliberately
@@ -117,10 +123,16 @@ watermark. Publishing a newer output advances that watermark and prevents any la
 from regressing target values. Progress or message-only updates remain observable without
 advancing the output watermark. Complete runtime snapshots include published identities.
 
-Authored project state is durable and revisioned. Runtime session values are JSON-compatible,
-Go-owned, and present in the current runtime snapshot. Process resources are worker-owned and live
-only for one worker lifetime. Browser interaction state is local and disposable. No scope silently
-stands in for another after reload or reconnect.
+Authored project state is durable and revisioned. Runtime values are JSON-compatible and Go-owned.
+Session-retained values live only in the current runtime snapshot. A binding configured for
+last-successful retention also stores one atomic runtime-owned materialization beneath
+`.local/realtime`, outside `project.json`; its scalar outputs and recursively referenced content
+are restored before worker startup so a failed or unavailable refresh does not erase the last
+usable result. A materialization is replaced only after successful handler completion, never from
+an incomplete stream or failed invocation. Retained content is copied into the current session
+content store and receives fresh content-reference identities. Corrupt or missing retained state is
+treated as unavailable rather than authored project corruption. Process resources remain
+worker-owned for one worker lifetime, and browser interaction state remains local and disposable.
 
 Cancellation removes queued work and requests cooperative cancellation from an active worker.
 Timeout or hard stop replaces the complete worker because arbitrary synchronous Python or native
@@ -129,9 +141,13 @@ cooperative completion, timeout, worker crash, and host-forced replacement.
 
 Handler completion provides the adaptive feedback signal; the scheduler does not estimate runtime
 with an EWMA. Generator and async-generator updates remain the progressive-output contract, and
-normal invocation completion remains its final boundary. Automatic handler cancellation, graph
-invalidation, deterministic result caching, cross-session batching, typed preview/final messages,
-and a Python scheduling SDK are separate contracts and are not part of this design.
+normal invocation completion remains its final and materialization boundary. A startup event is a
+state-initialization signal rather than a user interaction. Go remains authoritative for its
+policy, deduplicates it once per binding and runtime session, and compares a stable fingerprint of
+the active entrypoint version, handler, and normalized resolved arguments for `whenStale`.
+Automatic handler cancellation, graph invalidation, general deterministic result memoization,
+cross-session batching, typed preview/final messages, and a Python scheduling SDK are separate
+contracts and are not part of this design.
 
 ## Worker boundary
 
