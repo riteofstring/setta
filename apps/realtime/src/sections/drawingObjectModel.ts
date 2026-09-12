@@ -10,6 +10,7 @@ import {
   Point,
   Polyline,
   Rect,
+  Textbox,
   type FabricObject,
 } from "fabric";
 
@@ -222,10 +223,22 @@ function selectionKind(objects: FabricObject[]): DrawingSelectionKind {
     : "mixed";
 }
 
+function isImplicitTextLock(
+  object: FabricObject,
+  property: (typeof DRAWING_OBJECT_SERIALIZATION_PROPERTIES)[number],
+): boolean {
+  return (
+    object instanceof Textbox &&
+    (property === "lockScalingFlip" ||
+      (object.isEditing &&
+        (property === "lockMovementX" || property === "lockMovementY")))
+  );
+}
+
 export function isDrawingObjectLocked(object: FabricObject): boolean {
   return (
     DRAWING_OBJECT_SERIALIZATION_PROPERTIES.some(
-      (property) => object[property],
+      (property) => object[property] && !isImplicitTextLock(object, property),
     ) ||
     (object instanceof Group && object.getObjects().some(isDrawingObjectLocked))
   );

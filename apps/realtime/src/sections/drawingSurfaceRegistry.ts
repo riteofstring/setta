@@ -14,6 +14,11 @@ export type DrawingCanvasSize = Readonly<{
   width: number;
 }>;
 
+type DrawingGridOptions = Readonly<{
+  snapEnabled: boolean;
+  visible: boolean;
+}>;
+
 export type DrawingSurfaceController = {
   alignSelection: (alignment: DrawingAlignment) => boolean;
   bringSelectionForward: () => boolean;
@@ -25,6 +30,7 @@ export type DrawingSurfaceController = {
   duplicateSelection: () => Promise<boolean>;
   fitSectionToCanvas: () => boolean;
   getCanvasSize: () => DrawingCanvasSize;
+  getGridOptions: () => DrawingGridOptions;
   getSelectionSnapshot: () => DrawingSelectionSnapshot;
   groupSelection: () => boolean;
   nudgeSelection: (x: number, y: number) => boolean;
@@ -35,6 +41,8 @@ export type DrawingSurfaceController = {
   sendSelectionToBack: () => boolean;
   setSelectionAppearance: (patch: DrawingSelectionAppearancePatch) => boolean;
   setSelectionTypography: (patch: DrawingSelectionTypographyPatch) => boolean;
+  setGridSnapEnabled: (enabled: boolean) => boolean;
+  setGridVisible: (visible: boolean) => boolean;
   subscribeSelection: (listener: () => void) => () => void;
   toggleSelectionLock: () => boolean;
   ungroupSelection: () => boolean;
@@ -43,12 +51,14 @@ export type DrawingSurfaceController = {
 type AvailableDrawingSurfaceSnapshot = Readonly<{
   available: true;
   canvasSize: DrawingCanvasSize;
+  grid: DrawingGridOptions;
   selection: DrawingSelectionSnapshot;
 }>;
 
 type UnavailableDrawingSurfaceSnapshot = Readonly<{
   available: false;
   canvasSize: null;
+  grid: null;
   selection: DrawingSelectionSnapshot;
 }>;
 
@@ -107,6 +117,7 @@ export const UNAVAILABLE_DRAWING_SURFACE_SNAPSHOT: DrawingSurfaceSnapshot =
   Object.freeze({
     available: false,
     canvasSize: null,
+    grid: null,
     selection: EMPTY_DRAWING_SELECTION_SNAPSHOT,
   });
 
@@ -161,9 +172,16 @@ function notifyDrawingSurface(slot: DrawingSurfaceSlot): void {
 
 function drawingSurfaceSnapshotKey(
   canvasSize: DrawingCanvasSize,
+  grid: DrawingGridOptions,
   selection: DrawingSelectionSnapshot,
 ): string {
-  return JSON.stringify([canvasSize.width, canvasSize.height, selection]);
+  return JSON.stringify([
+    canvasSize.width,
+    canvasSize.height,
+    grid.visible,
+    grid.snapEnabled,
+    selection,
+  ]);
 }
 
 function publishDrawingSurface(
@@ -174,8 +192,9 @@ function publishDrawingSurface(
     return;
   }
   const canvasSize = registration.controller.getCanvasSize();
+  const grid = registration.controller.getGridOptions();
   const selection = registration.controller.getSelectionSnapshot();
-  const snapshotKey = drawingSurfaceSnapshotKey(canvasSize, selection);
+  const snapshotKey = drawingSurfaceSnapshotKey(canvasSize, grid, selection);
   if (slot.snapshot.available && slot.snapshotKey === snapshotKey) {
     return;
   }
@@ -185,6 +204,7 @@ function publishDrawingSurface(
       height: canvasSize.height,
       width: canvasSize.width,
     }),
+    grid: Object.freeze({ ...grid }),
     selection: Object.freeze({ ...selection }),
   });
   slot.snapshotKey = snapshotKey;
@@ -341,6 +361,26 @@ export function fitDrawingSectionToCanvas(
 ): boolean {
   return runDrawingSurfaceCommand(host, sectionId, (controller) =>
     controller.fitSectionToCanvas(),
+  );
+}
+
+export function setDrawingGridVisible(
+  host: WorkspaceHost,
+  sectionId: string,
+  visible: boolean,
+): boolean {
+  return runDrawingSurfaceCommand(host, sectionId, (controller) =>
+    controller.setGridVisible(visible),
+  );
+}
+
+export function setDrawingGridSnapEnabled(
+  host: WorkspaceHost,
+  sectionId: string,
+  enabled: boolean,
+): boolean {
+  return runDrawingSurfaceCommand(host, sectionId, (controller) =>
+    controller.setGridSnapEnabled(enabled),
   );
 }
 

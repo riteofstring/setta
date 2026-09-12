@@ -1,4 +1,6 @@
-type DrawingKeyboardTool = "draw" | "erase" | "hand" | "highlighter" | "select";
+import type { DrawingTool } from "./drawingRuntime";
+
+type DrawingKeyboardTool = "draw" | "erase" | "highlighter" | "select";
 
 export type DrawingKeyboardAction =
   | { type: "clear-selection" }
@@ -15,7 +17,7 @@ export type DrawingKeyboardAction =
   | { type: "ungroup-selection" };
 
 export type DrawingKeyboardAvailability = Readonly<{
-  activeTool: DrawingKeyboardTool;
+  activeTool: DrawingTool;
   canClearSelection: boolean;
   canCopySelection: boolean;
   canDeleteSelection: boolean;

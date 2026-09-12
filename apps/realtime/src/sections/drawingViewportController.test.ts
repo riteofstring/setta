@@ -1,10 +1,6 @@
 import { Canvas, Rect } from "fabric";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  DRAWING_VIEWPORT_MAXIMUM_SCALE,
-  DRAWING_VIEWPORT_MINIMUM_SCALE,
-} from "./drawingViewport";
 import { DrawingViewportController } from "./drawingViewportController";
 
 function canvasContext(element: HTMLCanvasElement): CanvasRenderingContext2D {
@@ -50,35 +46,32 @@ afterEach(() => {
 });
 
 describe("drawing viewport controller", () => {
-  it("applies CSS dimensions and clamped wrapper pan without changing Fabric state", async () => {
+  it("applies automatic fit without changing Fabric scene state", async () => {
     const canvas = createCanvas();
     canvas.add(new Rect({ height: 40, left: 20, top: 30, width: 60 }));
     const scene = canvas.toJSON();
     const viewportTransform = [...canvas.viewportTransform];
     const calcOffset = vi.spyOn(canvas, "calcOffset");
-    const changed = vi.fn();
     const controller = new DrawingViewportController(
       canvas,
       { height: 240, width: 320 },
       { height: 120, width: 160 },
-      changed,
     );
 
     expect(canvas.wrapperEl.style.width).toBe("160px");
     expect(canvas.wrapperEl.style.height).toBe("120px");
-    expect(canvas.wrapperEl.style.transform).toBe("translate(0px, 0px)");
-    expect(changed).toHaveBeenCalledTimes(1);
-    const fitted = controller.getPresentation();
-    controller.fit();
-    controller.panBy({ x: 20, y: 20 });
-    expect(controller.getPresentation()).toBe(fitted);
-    expect(changed).toHaveBeenCalledTimes(1);
-
-    controller.actualSize();
-    controller.panBy({ x: 1_000, y: -1_000 });
-    expect(canvas.wrapperEl.style.width).toBe("320px");
-    expect(canvas.wrapperEl.style.height).toBe("240px");
-    expect(canvas.wrapperEl.style.transform).toBe("translate(80px, -60px)");
+    controller.resizeStage({ height: 300, width: 400 });
+    expect(controller.getPresentation()).toEqual({
+      displayHeight: 300,
+      displayWidth: 400,
+      scale: 1.25,
+    });
+    controller.resizeLogical({ height: 600, width: 400 });
+    expect(controller.getPresentation()).toEqual({
+      displayHeight: 300,
+      displayWidth: 200,
+      scale: 0.5,
+    });
     expect(canvas.getWidth()).toBe(320);
     expect(canvas.getHeight()).toBe(240);
     expect(canvas.viewportTransform).toEqual(viewportTransform);
@@ -89,68 +82,12 @@ describe("drawing viewport controller", () => {
     await canvas.dispose();
   });
 
-  it("retains custom zoom on resize, recomputes fit, and stops at zoom bounds", async () => {
-    const canvas = createCanvas();
-    const changed = vi.fn();
-    const controller = new DrawingViewportController(
-      canvas,
-      { height: 240, width: 320 },
-      { height: 120, width: 160 },
-      changed,
-    );
-
-    controller.actualSize();
-    controller.resizeStage({ height: 300, width: 400 });
-    expect(controller.getPresentation().scale).toBe(1);
-    controller.fit();
-    expect(controller.getPresentation()).toMatchObject({
-      displayHeight: 300,
-      displayWidth: 400,
-      mode: "fit",
-      scale: 1.25,
-    });
-    controller.resizeLogical({ height: 600, width: 400 });
-    expect(controller.getPresentation()).toMatchObject({
-      displayHeight: 300,
-      displayWidth: 200,
-      mode: "fit",
-      scale: 0.5,
-    });
-    expect(canvas.getWidth()).toBe(320);
-    expect(canvas.getHeight()).toBe(240);
-
-    controller.actualSize();
-    for (let index = 0; index < 100; index += 1) {
-      controller.zoomIn();
-    }
-    expect(controller.getPresentation().scale).toBe(
-      DRAWING_VIEWPORT_MAXIMUM_SCALE,
-    );
-    const maximum = controller.getPresentation();
-    const changeCountAtMaximum = changed.mock.calls.length;
-    controller.zoomIn();
-    expect(controller.getPresentation()).toBe(maximum);
-    expect(changed).toHaveBeenCalledTimes(changeCountAtMaximum);
-
-    for (let index = 0; index < 100; index += 1) {
-      controller.zoomOut();
-    }
-    expect(controller.getPresentation().scale).toBe(
-      DRAWING_VIEWPORT_MINIMUM_SCALE,
-    );
-
-    controller.dispose();
-    await canvas.dispose();
-  });
-
   it("owns one pointer-neutral grid layer and removes it on dispose", async () => {
     const canvas = createCanvas();
-    const changed = vi.fn();
     const controller = new DrawingViewportController(
       canvas,
       { height: 240, width: 320 },
       { height: 120, width: 160 },
-      changed,
     );
     const grid = canvas.wrapperEl.querySelector<HTMLDivElement>(
       ".realtime-drawing-grid",
@@ -180,15 +117,10 @@ describe("drawing viewport controller", () => {
     expect(grid.style.width).toBe("160px");
     expect(grid.style.height).toBe("120px");
 
-    controller.actualSize();
-    expect(grid.style.getPropertyValue("--realtime-drawing-grid-spacing")).toBe(
-      "20px",
-    );
     controller.setGrid({ spacing: 1, visible: true });
     expect(grid.style.getPropertyValue("--realtime-drawing-grid-spacing")).toBe(
-      "2px",
+      "1px",
     );
-    expect(changed).toHaveBeenCalledTimes(2);
 
     controller.dispose();
     expect(canvas.wrapperEl.querySelector(".realtime-drawing-grid")).toBeNull();
@@ -196,13 +128,12 @@ describe("drawing viewport controller", () => {
     await canvas.dispose();
   });
 
-  it("keeps a zero-scale fitted stage finite and hides its grid", async () => {
+  it("keeps a zero-scale stage finite and hides its grid", async () => {
     const canvas = createCanvas();
     const controller = new DrawingViewportController(
       canvas,
       { height: 240, width: 320 },
       { height: 0, width: 0 },
-      vi.fn(),
     );
     const grid = canvas.wrapperEl.querySelector<HTMLDivElement>(
       ".realtime-drawing-grid",
@@ -211,7 +142,6 @@ describe("drawing viewport controller", () => {
     controller.setGrid({ spacing: 16, visible: true });
     expect(canvas.wrapperEl.style.width).toBe("0px");
     expect(canvas.wrapperEl.style.height).toBe("0px");
-    expect(canvas.wrapperEl.style.transform).toBe("translate(0px, 0px)");
     expect(grid?.hidden).toBe(true);
     expect(
       grid?.style.getPropertyValue("--realtime-drawing-grid-spacing"),

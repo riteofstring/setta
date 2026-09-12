@@ -5,15 +5,10 @@ import {
   DRAWING_GRID_DEFAULT_SPACING,
 } from "./drawingGrid";
 import {
-  actualSizeDrawingViewport,
   createDrawingViewport,
-  fitDrawingViewport,
   getDrawingViewportPresentation,
-  panDrawingViewport,
   resizeDrawingViewportLogical,
   resizeDrawingViewportStage,
-  stepDrawingViewportZoom,
-  type DrawingViewportPoint,
   type DrawingViewportPresentation,
   type DrawingViewportSize,
   type DrawingViewportSnapshot,
@@ -24,35 +19,8 @@ type DrawingViewportGridOptions = Readonly<{
   visible: boolean;
 }>;
 
-type DrawingViewportChangeListener = (
-  presentation: DrawingViewportPresentation,
-) => void;
-
-const DRAWING_VIEWPORT_PRESENTATION_KEYS = [
-  "canZoomIn",
-  "canZoomOut",
-  "displayHeight",
-  "displayWidth",
-  "maximumPanX",
-  "maximumPanY",
-  "mode",
-  "panX",
-  "panY",
-  "scale",
-  "zoomPercent",
-] as const satisfies ReadonlyArray<keyof DrawingViewportPresentation>;
-
 function cssPixels(value: number): string {
   return `${Object.is(value, -0) ? 0 : value}px`;
-}
-
-function presentationsMatch(
-  left: DrawingViewportPresentation,
-  right: DrawingViewportPresentation,
-): boolean {
-  return DRAWING_VIEWPORT_PRESENTATION_KEYS.every(
-    (key) => left[key] === right[key],
-  );
 }
 
 export class DrawingViewportController {
@@ -61,7 +29,6 @@ export class DrawingViewportController {
   private readonly gridElement: HTMLDivElement;
   private gridSpacing = DRAWING_GRID_DEFAULT_SPACING;
   private gridVisible = false;
-  private readonly onChange: DrawingViewportChangeListener;
   private presentation: DrawingViewportPresentation;
   private snapshot: DrawingViewportSnapshot;
 
@@ -69,10 +36,8 @@ export class DrawingViewportController {
     canvas: Canvas,
     logicalSize: DrawingViewportSize,
     stageSize: DrawingViewportSize,
-    onChange: DrawingViewportChangeListener,
   ) {
     this.canvas = canvas;
-    this.onChange = onChange;
     this.snapshot = createDrawingViewport(logicalSize, stageSize);
     this.presentation = getDrawingViewportPresentation(this.snapshot);
     this.gridElement = document.createElement("div");
@@ -86,7 +51,6 @@ export class DrawingViewportController {
       this.canvas.upperCanvasEl,
     );
     this.applyPresentation();
-    this.onChange(this.presentation);
   }
 
   public getPresentation(): DrawingViewportPresentation {
@@ -103,26 +67,6 @@ export class DrawingViewportController {
     this.transition((snapshot) =>
       resizeDrawingViewportLogical(snapshot, logicalSize),
     );
-  }
-
-  public fit(): void {
-    this.transition(fitDrawingViewport);
-  }
-
-  public actualSize(): void {
-    this.transition(actualSizeDrawingViewport);
-  }
-
-  public zoomIn(): void {
-    this.transition((snapshot) => stepDrawingViewportZoom(snapshot, "in"));
-  }
-
-  public zoomOut(): void {
-    this.transition((snapshot) => stepDrawingViewportZoom(snapshot, "out"));
-  }
-
-  public panBy(delta: DrawingViewportPoint): void {
-    this.transition((snapshot) => panDrawingViewport(snapshot, delta));
   }
 
   public setGrid(options: DrawingViewportGridOptions): void {
@@ -157,15 +101,8 @@ export class DrawingViewportController {
       return;
     }
     this.snapshot = nextSnapshot;
-    const nextPresentation = getDrawingViewportPresentation(nextSnapshot);
-    const changed = !presentationsMatch(this.presentation, nextPresentation);
-    if (changed) {
-      this.presentation = nextPresentation;
-    }
+    this.presentation = getDrawingViewportPresentation(nextSnapshot);
     this.applyPresentation();
-    if (changed) {
-      this.onChange(this.presentation);
-    }
   }
 
   private applyPresentation(): void {
@@ -176,9 +113,6 @@ export class DrawingViewportController {
       },
       { cssOnly: true },
     );
-    this.canvas.wrapperEl.style.transform = `translate(${cssPixels(
-      this.presentation.panX,
-    )}, ${cssPixels(this.presentation.panY)})`;
     this.applyGridPresentation();
     this.canvas.calcOffset();
   }

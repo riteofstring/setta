@@ -13,7 +13,12 @@ import {
 function drawingSurfaceController(
   canvas: Pick<
     DrawingSurfaceController,
-    "fitSectionToCanvas" | "getCanvasSize" | "resizeCanvas"
+    | "fitSectionToCanvas"
+    | "getCanvasSize"
+    | "getGridOptions"
+    | "resizeCanvas"
+    | "setGridSnapEnabled"
+    | "setGridVisible"
   >,
 ): DrawingSurfaceController {
   return {
@@ -72,13 +77,18 @@ describe("drawing Inspector", () => {
   it("applies linked canvas dimensions and fits the section on demand", async () => {
     const resizeCanvas = vi.fn(() => true);
     const fitSectionToCanvas = vi.fn(() => true);
+    const setGridSnapEnabled = vi.fn(() => true);
+    const setGridVisible = vi.fn(() => true);
     const unregister = registerDrawingSurface(
       host,
       "drawing-main",
       drawingSurfaceController({
         fitSectionToCanvas,
         getCanvasSize: () => ({ height: 320, width: 480 }),
+        getGridOptions: () => ({ snapEnabled: false, visible: false }),
         resizeCanvas,
+        setGridSnapEnabled,
+        setGridVisible,
       }),
     );
     await act(async () => {
@@ -103,11 +113,22 @@ describe("drawing Inspector", () => {
       [...container.querySelectorAll("h4")].map((heading) =>
         heading.textContent?.trim(),
       ),
-    ).toEqual(["Selection", "Drawing canvas"]);
+    ).toEqual(["Selection", "Canvas view", "Drawing canvas"]);
     expect(
       container.querySelector<HTMLElement>('[aria-label="Drawing selection"]')
         ?.dataset.state,
     ).toBe("empty");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLInputElement>('[aria-label="Show grid"]')!
+        .click();
+      container
+        .querySelector<HTMLInputElement>('[aria-label="Snap objects to grid"]')!
+        .click();
+    });
+    expect(setGridVisible).toHaveBeenCalledWith(true);
+    expect(setGridSnapEnabled).toHaveBeenCalledWith(true);
 
     const width = container.querySelector<HTMLInputElement>(
       '[aria-label="Canvas width"]',
@@ -143,7 +164,7 @@ describe("drawing Inspector", () => {
         .click();
     });
     expect(fitSectionToCanvas).toHaveBeenCalledOnce();
-    unregister();
+    await act(async () => unregister());
   });
 
   it("rejects canvas dimensions outside the persisted contract", async () => {
@@ -154,7 +175,10 @@ describe("drawing Inspector", () => {
       drawingSurfaceController({
         fitSectionToCanvas: () => true,
         getCanvasSize: () => ({ height: 320, width: 480 }),
+        getGridOptions: () => ({ snapEnabled: false, visible: false }),
         resizeCanvas,
+        setGridSnapEnabled: () => true,
+        setGridVisible: () => true,
       }),
     );
     await act(async () => {
@@ -191,6 +215,6 @@ describe("drawing Inspector", () => {
       "between 1 and 8192",
     );
     expect(resizeCanvas).not.toHaveBeenCalled();
-    unregister();
+    await act(async () => unregister());
   });
 });

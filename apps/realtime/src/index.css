@@ -832,7 +832,8 @@ input {
 }
 
 .realtime-drawing-toolbar button:focus-visible,
-.realtime-drawing-toolbar input:focus-visible {
+.realtime-drawing-toolbar input:focus-visible,
+.realtime-drawing-toolbar select:focus-visible {
   outline: 2px solid #6172f3;
   outline-offset: 1px;
 }
@@ -850,6 +851,24 @@ input {
 
 .realtime-drawing-icon-button {
   flex: 0 0 auto;
+}
+
+.realtime-drawing-shape-select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--realtime-drawing-control-color);
+  background: var(--realtime-drawing-control-background);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.realtime-drawing-shape-select:hover {
+  color: #3b82f6;
+  background-color: var(--realtime-drawing-control-hover);
 }
 
 .realtime-drawing-toolbar-icon {
@@ -954,19 +973,6 @@ input {
   color: var(--realtime-drawing-control-color);
   font-variant-numeric: tabular-nums;
   text-align: end;
-}
-
-.realtime-drawing-viewport-controls {
-  gap: 3px;
-}
-
-.realtime-drawing-zoom-value {
-  min-width: 39px;
-  color: var(--realtime-drawing-control-color);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  text-align: center;
 }
 
 .realtime-drawing-toolbar .realtime-drawing-clear-button:hover:not(:disabled) {

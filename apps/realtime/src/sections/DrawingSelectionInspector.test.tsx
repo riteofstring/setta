@@ -58,6 +58,7 @@ function createControllerHarness(
     duplicateSelection: vi.fn(async () => true),
     fitSectionToCanvas: vi.fn(() => true),
     getCanvasSize: () => ({ height: 320, width: 480 }),
+    getGridOptions: () => ({ snapEnabled: false, visible: false }),
     getSelectionSnapshot: () => selection,
     groupSelection: vi.fn(() => true),
     nudgeSelection: vi.fn(() => true),
@@ -68,6 +69,8 @@ function createControllerHarness(
     sendSelectionToBack: vi.fn(() => true),
     setSelectionAppearance: vi.fn(() => true),
     setSelectionTypography: vi.fn(() => true),
+    setGridSnapEnabled: vi.fn(() => true),
+    setGridVisible: vi.fn(() => true),
     subscribeSelection: (listener) => {
       subscribers.add(listener);
       return () => {

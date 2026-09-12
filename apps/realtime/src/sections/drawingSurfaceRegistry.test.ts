@@ -23,6 +23,8 @@ import {
   selectAllDrawingObjects,
   sendDrawingSelectionBackward,
   sendDrawingSelectionToBack,
+  setDrawingGridSnapEnabled,
+  setDrawingGridVisible,
   setDrawingSelectionAppearance,
   setDrawingSelectionTypography,
   subscribeDrawingSurface,
@@ -88,6 +90,7 @@ function createControllerHarness(options?: {
     duplicateSelection: vi.fn(async () => true),
     fitSectionToCanvas: vi.fn(() => true),
     getCanvasSize: vi.fn(() => ({ ...canvasSize })),
+    getGridOptions: vi.fn(() => ({ snapEnabled: false, visible: false })),
     getSelectionSnapshot: vi.fn(() => selection),
     groupSelection: vi.fn(() => true),
     nudgeSelection: vi.fn(() => true),
@@ -101,6 +104,8 @@ function createControllerHarness(options?: {
     sendSelectionToBack: vi.fn(() => true),
     setSelectionAppearance: vi.fn(() => true),
     setSelectionTypography: vi.fn(() => true),
+    setGridSnapEnabled: vi.fn(() => true),
+    setGridVisible: vi.fn(() => true),
     subscribeSelection: vi.fn((listener) => {
       subscribedListeners.push(listener);
       subscribers.add(listener);
@@ -157,6 +162,7 @@ describe("drawing surface registry", () => {
     expect(listener).toHaveBeenCalledOnce();
     expect(ready.available).toBe(true);
     expect(ready.canvasSize).toEqual({ height: 320, width: 480 });
+    expect(ready.grid).toEqual({ snapEnabled: false, visible: false });
     expect(ready.selection).toEqual(firstSelection);
     expect(ready.selection).not.toBe(firstSelection);
     expect(Object.isFrozen(ready)).toBe(true);
@@ -319,6 +325,10 @@ describe("drawing surface registry", () => {
     expect(listener).toHaveBeenCalledTimes(2);
 
     expect(fitDrawingSectionToCanvas(host, "drawing-main")).toBe(true);
+    expect(setDrawingGridVisible(host, "drawing-main", true)).toBe(true);
+    expect(harness.controller.setGridVisible).toHaveBeenCalledWith(true);
+    expect(setDrawingGridSnapEnabled(host, "drawing-main", true)).toBe(true);
+    expect(harness.controller.setGridSnapEnabled).toHaveBeenCalledWith(true);
     expect(
       setDrawingSelectionAppearance(host, "drawing-main", {
         fill: "#16a34a",
@@ -368,6 +378,8 @@ describe("drawing surface registry", () => {
       false,
     );
     expect(fitDrawingSectionToCanvas(host, "drawing-main")).toBe(false);
+    expect(setDrawingGridVisible(host, "drawing-main", true)).toBe(false);
+    expect(setDrawingGridSnapEnabled(host, "drawing-main", true)).toBe(false);
     expect(setDrawingSelectionAppearance(host, "drawing-main", {})).toBe(false);
     expect(setDrawingSelectionTypography(host, "drawing-main", {})).toBe(false);
     expect(toggleDrawingSelectionLock(host, "drawing-main")).toBe(false);

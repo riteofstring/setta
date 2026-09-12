@@ -638,6 +638,85 @@ async function clickSectionButton(client, sectionId, label) {
   );
 }
 
+async function chooseSectionSelect(client, sectionId, label, value) {
+  const selected = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(
+        ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
+      );
+      const select = Array.from(section?.querySelectorAll("select") ?? []).find(
+        (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)},
+      );
+      if (!(select instanceof HTMLSelectElement) || select.disabled) {
+        return false;
+      }
+      select.value = ${JSON.stringify(value)};
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      return select.value === ${JSON.stringify(value)};
+    })()`,
+  );
+  assert.equal(
+    selected,
+    true,
+    `${label} was not selectable for Realtime section ${sectionId}.`,
+  );
+}
+
+async function drawingPoint(client, logicalX, logicalY) {
+  const point = await evaluate(
+    client,
+    `(() => {
+      const canvas = document.querySelector(".realtime-drawing-stage .upper-canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        return null;
+      }
+      const bounds = canvas.getBoundingClientRect();
+      return {
+        x: bounds.left + (${String(logicalX)} / canvas.width) * bounds.width,
+        y: bounds.top + (${String(logicalY)} / canvas.height) * bounds.height,
+      };
+    })()`,
+  );
+  assert.ok(point !== null, "The drawing canvas had no addressable point.");
+  return point;
+}
+
+async function dragDrawingObject(client, start, delta) {
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: start.x,
+    y: start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: start.x,
+    y: start.y,
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: start.x + (delta.x * step) / 8,
+      y: start.y + (delta.y * step) / 8,
+    });
+    await delay(20);
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: start.x + delta.x,
+    y: start.y + delta.y,
+  });
+}
+
 async function dispatchDrawingShortcut(
   client,
   { code, key, modKey = false, shiftKey = false },
@@ -1284,94 +1363,218 @@ async function exerciseDrawingAuthoring(client, origin) {
   assert.equal(regrouped.revision, ungrouped.revision + 1);
 
   const viewRevision = regrouped.revision;
-  const beforeView = await evaluate(
+  const toolbarIsReduced = await evaluate(
     client,
     `(() => {
-      const wrapper = document.querySelector(".realtime-drawing-stage .canvas-container");
-      const canvas = document.querySelector(".realtime-drawing-stage .lower-canvas");
-      return wrapper instanceof HTMLElement && canvas instanceof HTMLCanvasElement
-        ? {
-            height: canvas.height,
-            transform: wrapper.style.transform,
-            width: canvas.width,
-            zoom: document.querySelector('[aria-label="Canvas zoom"]')?.textContent,
-          }
-        : null;
+      const toolbar = document.querySelector('.realtime-drawing-toolbar');
+      if (!(toolbar instanceof HTMLElement)) {
+        return false;
+      }
+      const labels = Array.from(toolbar.querySelectorAll('button')).map(
+        (button) => button.getAttribute('aria-label'),
+      );
+      return labels.length <= 9 &&
+        !labels.includes('Zoom in') &&
+        !labels.includes('Zoom out') &&
+        !labels.includes('Hand') &&
+        !labels.includes('Show grid') &&
+        !labels.includes('Snap to grid');
     })()`,
   );
-  assert.ok(beforeView !== null, "The drawing viewport was not measurable.");
-  await clickSectionButton(client, "drawing", "Zoom in");
-  await clickSectionButton(client, "drawing", "Show grid");
-  await clickSectionButton(client, "drawing", "Snap to grid");
+  assert.equal(toolbarIsReduced, true, "The drawing toolbar was not reduced.");
+  const guidesEnabled = await evaluate(
+    client,
+    `(() => {
+      const grid = document.querySelector('input[aria-label="Show grid"]');
+      const snap = document.querySelector('input[aria-label="Snap objects to grid"]');
+      if (!(grid instanceof HTMLInputElement) || !(snap instanceof HTMLInputElement)) {
+        return false;
+      }
+      grid.click();
+      snap.click();
+      return true;
+    })()`,
+  );
+  assert.equal(guidesEnabled, true, "The drawing guides were not editable.");
   await waitFor(
     client,
-    "the local drawing zoom and grid",
+    "the local drawing grid",
     `(() => {
       const grid = document.querySelector(".realtime-drawing-grid");
       const canvas = document.querySelector(".realtime-drawing-stage .lower-canvas");
-      const zoom = document.querySelector('[aria-label="Canvas zoom"]')?.textContent;
       return grid instanceof HTMLElement && !grid.hidden &&
         getComputedStyle(grid).backgroundSize !== "auto" &&
-        canvas instanceof HTMLCanvasElement &&
-        canvas.width === ${String(beforeView.width)} &&
-        canvas.height === ${String(beforeView.height)} &&
-        zoom !== ${JSON.stringify(beforeView.zoom)};
+        canvas instanceof HTMLCanvasElement;
     })()`,
-  );
-
-  await clickSectionButton(client, "drawing", "Hand");
-  const panStart = await evaluate(
-    client,
-    `(() => {
-      const stage = document.querySelector(".realtime-drawing-stage");
-      const wrapper = stage?.querySelector(".canvas-container");
-      if (!(stage instanceof HTMLElement) || !(wrapper instanceof HTMLElement)) {
-        return null;
-      }
-      const bounds = stage.getBoundingClientRect();
-      return {
-        transform: wrapper.style.transform,
-        x: bounds.left + bounds.width / 2,
-        y: bounds.top + bounds.height / 2,
-      };
-    })()`,
-  );
-  assert.ok(panStart !== null, "The drawing hand tool was not addressable.");
-  await client.send("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 1,
-    clickCount: 1,
-    type: "mousePressed",
-    x: panStart.x,
-    y: panStart.y,
-  });
-  await client.send("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 1,
-    type: "mouseMoved",
-    x: panStart.x + 32,
-    y: panStart.y + 24,
-  });
-  await client.send("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 0,
-    clickCount: 1,
-    type: "mouseReleased",
-    x: panStart.x + 32,
-    y: panStart.y + 24,
-  });
-  await waitFor(
-    client,
-    "the local drawing hand pan",
-    `document.querySelector(".realtime-drawing-stage .canvas-container")?.style.transform !== ${JSON.stringify(panStart.transform)}`,
   );
   await delay(250);
   const afterView = await jsonRequest(origin, "/api/v1/project");
   assert.equal(
     afterView.revision,
     viewRevision,
-    "Drawing viewport controls changed the project revision.",
+    "Drawing guide controls changed the project revision.",
   );
+
+  await clickSectionButton(client, "drawing", "Text");
+  const textStart = await drawingPoint(client, 90, 220);
+  await client.send("Input.dispatchMouseEvent", {
+    buttons: 0,
+    type: "mouseMoved",
+    x: textStart.x,
+    y: textStart.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: textStart.x,
+    y: textStart.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: textStart.x,
+    y: textStart.y,
+  });
+  await waitFor(
+    client,
+    "the positioned text editor",
+    `document.querySelector('[aria-label="Drawing selection"]')?.textContent?.includes("Text") === true &&
+      document.activeElement instanceof HTMLTextAreaElement`,
+  );
+  await client.send("Input.insertText", { text: "Movable text" });
+  await waitFor(
+    client,
+    "the edited drawing text",
+    `document.activeElement instanceof HTMLTextAreaElement &&
+      document.activeElement.value === "Movable text"`,
+  );
+  await clickSectionButton(client, "drawing", "Select");
+  const withText = await findProject(
+    origin,
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.some(
+        (object) => object.type === "Textbox",
+      ),
+    timeoutMilliseconds,
+  );
+  if (withText === null) {
+    const project = await jsonRequest(origin, "/api/v1/project");
+    const editing = await evaluate(
+      client,
+      `(() => ({
+        activeTag: document.activeElement?.tagName ?? null,
+        selection: document.querySelector('[aria-label="Drawing selection"]')?.textContent ?? null,
+        textarea: document.querySelector('.canvas-container textarea')?.value ?? null,
+      }))()`,
+    );
+    throw new Error(
+      `The positioned text was not durable: ${JSON.stringify({ editing, objects: project.sections.drawing.data.scene.objects })}.`,
+    );
+  }
+  const textObject = withText.sections.drawing.data.scene.objects.find(
+    (object) => object.type === "Textbox",
+  );
+  assert.ok(
+    textObject !== undefined &&
+      textObject.text === "Movable text" &&
+      textObject.left > 60 &&
+      textObject.top > 190,
+    `The text was not positioned by its click: ${JSON.stringify(textObject)}.`,
+  );
+  const textMoveStart = await drawingPoint(
+    client,
+    textObject.left + Math.min(textObject.width / 2, 40),
+    textObject.top + 14,
+  );
+  await dragDrawingObject(client, textMoveStart, { x: 36, y: 20 });
+  const movedText = await waitForProject(
+    origin,
+    "one durable text move",
+    (candidate) => {
+      const candidateText = candidate.sections.drawing.data.scene.objects.find(
+        (object) => object.type === "Textbox" && object.text === "Movable text",
+      );
+      return (
+        candidateText !== undefined &&
+        (candidateText.left !== textObject.left ||
+          candidateText.top !== textObject.top)
+      );
+    },
+  );
+  assert.equal(movedText.revision, withText.revision + 1);
+
+  const textColored = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector('input[aria-label="Fill color"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, "#16a34a");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(textColored, true, "The selected text color was not editable.");
+  const styledText = await waitForProject(
+    origin,
+    "one durable text color change",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.some(
+        (object) =>
+          object.type === "Textbox" &&
+          object.text === "Movable text" &&
+          object.fill === "#16a34a",
+      ),
+  );
+  assert.equal(styledText.revision, movedText.revision + 1);
+
+  const imageSubmitted = await evaluate(
+    client,
+    `new Promise((resolve) => {
+      const input = document.querySelector('input[aria-label="Choose drawing image"]');
+      if (!(input instanceof HTMLInputElement)) {
+        resolve(false);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = 24;
+      canvas.height = 16;
+      const context = canvas.getContext("2d");
+      if (context === null) {
+        resolve(false);
+        return;
+      }
+      context.fillStyle = "#2563eb";
+      context.fillRect(0, 0, 24, 16);
+      canvas.toBlob((blob) => {
+        if (blob === null) {
+          resolve(false);
+          return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], "browser-image.png", { type: "image/png" }));
+        input.files = transfer.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        resolve(true);
+      }, "image/png");
+    })`,
+  );
+  assert.equal(imageSubmitted, true, "The drawing image was not submitted.");
+  const withImage = await waitForProject(
+    origin,
+    "one durable image insertion",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.some(
+        (object) => object.type === "Image",
+      ),
+  );
+  assert.equal(withImage.revision, styledText.revision + 1);
   await clickButton(client, "Runtime");
 }
 
@@ -1830,15 +2033,61 @@ async function exerciseBrowser(client, origin) {
   );
   assert.equal(afterStroke.revision, beforeDrawing.revision + 1);
 
-  await clickButton(client, "Add rectangle");
+  await clickSectionButton(client, "drawing", "Select");
+  await dispatchDrawingShortcut(client, {
+    code: "KeyA",
+    key: "a",
+    modKey: true,
+  });
+  const stroke = afterStroke.sections.drawing.data.scene.objects.find(
+    (object) => object.type === "Path",
+  );
+  assert.ok(stroke !== undefined, "The retained brush stroke was absent.");
+  const strokeStart = await drawingPoint(
+    client,
+    stroke.left + stroke.width / 2,
+    stroke.top + stroke.height / 2,
+  );
+  await dragDrawingObject(client, strokeStart, { x: 24, y: 18 });
+  const movedStroke = await waitForProject(
+    origin,
+    "one durable brush stroke move",
+    (candidate) => {
+      const candidateStroke =
+        candidate.sections.drawing.data.scene.objects.find(
+          (object) => object.type === "Path",
+        );
+      return (
+        candidateStroke !== undefined &&
+        (candidateStroke.left !== stroke.left ||
+          candidateStroke.top !== stroke.top)
+      );
+    },
+  );
+  assert.equal(movedStroke.revision, afterStroke.revision + 1);
+
+  await chooseSectionSelect(client, "drawing", "Shape tool", "rectangle");
+  const rectangleStart = await drawingPoint(client, 250, 90);
+  const rectangleEnd = await drawingPoint(client, 390, 190);
+  await dragDrawingObject(client, rectangleStart, {
+    x: rectangleEnd.x - rectangleStart.x,
+    y: rectangleEnd.y - rectangleStart.y,
+  });
   const project = await waitForProject(
     origin,
     "one durable rectangle addition",
     (candidate) =>
       candidate.sections.drawing.data.scene.objects.length >
-      afterStroke.sections.drawing.data.scene.objects.length,
+      movedStroke.sections.drawing.data.scene.objects.length,
   );
-  assert.equal(project.revision, afterStroke.revision + 1);
+  assert.equal(project.revision, movedStroke.revision + 1);
+  const rectangle = project.sections.drawing.data.scene.objects.find(
+    (object) => object.type === "Rect",
+  );
+  assert.ok(
+    rectangle !== undefined && rectangle.left > 200 && rectangle.top > 60,
+    `The rectangle was not placed by its gesture: ${JSON.stringify(rectangle)}.`,
+  );
   await exerciseDrawingAuthoring(client, origin);
 
   await clickButton(client, "Fail");

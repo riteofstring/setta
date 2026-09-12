@@ -20,9 +20,11 @@ import type { Binding, Project } from "../backend/generatedContract";
 import {
   RealtimeDrawingRuntime,
   type DrawingHistoryState,
+  type DrawingPlacementTool,
   type DrawingSelectionSnapshot,
   type DrawingTool,
 } from "./drawingRuntime";
+import { prepareDrawingImage } from "./drawingImage";
 import {
   resolveDrawingKeyboardAction,
   type DrawingKeyboardAction,
@@ -38,7 +40,6 @@ import {
   registerDrawingSurface,
 } from "./drawingSurfaceRegistry";
 import { DrawingToolbarIcon } from "./DrawingToolbarIcon";
-import type { DrawingViewportPresentation } from "./drawingViewport";
 import { DrawingViewportController } from "./drawingViewportController";
 import { readDrawingSectionData } from "./sectionData";
 
@@ -49,34 +50,30 @@ const INITIAL_HISTORY_STATE: DrawingHistoryState = {
   canUndo: false,
 };
 const DRAWING_TOOL_LABELS: Record<DrawingTool, string> = {
+  arrow: "Arrow",
   draw: "Draw",
+  ellipse: "Ellipse",
   erase: "Eraser",
-  hand: "Hand",
   highlighter: "Highlighter",
+  line: "Line",
+  rectangle: "Rectangle",
   select: "Select",
+  text: "Text",
 };
+const DRAWING_SHAPE_TOOLS = [
+  "line",
+  "arrow",
+  "rectangle",
+  "ellipse",
+] as const satisfies ReadonlyArray<Exclude<DrawingPlacementTool, "text">>;
 type DrawingBrushSettings = {
   color: string;
   width: number;
 };
-type DrawingPanGesture = {
-  pointerId: number;
-  x: number;
-  y: number;
-};
 type DrawingBrushPresentation = {
-  disabled: boolean;
   label: "Highlighter" | "Pen";
   maxWidth: number;
   settings: DrawingBrushSettings;
-};
-type DrawingViewportToolbarPresentation = {
-  actualSizePressed: boolean;
-  canZoomIn: boolean;
-  canZoomOut: boolean;
-  fitPressed: boolean;
-  unavailable: boolean;
-  zoomLabel: string;
 };
 type DrawingKeyboardSimpleAction = Exclude<
   DrawingKeyboardAction,
@@ -122,41 +119,20 @@ function drawingBrushPresentation(
 ): DrawingBrushPresentation {
   if (tool === "highlighter") {
     return {
-      disabled: false,
       label: "Highlighter",
       maxWidth: 64,
       settings: highlighter,
     };
   }
   return {
-    disabled: tool !== "draw",
     label: "Pen",
     maxWidth: 32,
     settings: pen,
   };
 }
 
-function drawingViewportToolbarPresentation(
-  viewport: DrawingViewportPresentation | null,
-): DrawingViewportToolbarPresentation {
-  if (viewport === null) {
-    return {
-      actualSizePressed: false,
-      canZoomIn: false,
-      canZoomOut: false,
-      fitPressed: false,
-      unavailable: true,
-      zoomLabel: "–",
-    };
-  }
-  return {
-    actualSizePressed: viewport.mode === "custom" && viewport.scale === 1,
-    canZoomIn: viewport.canZoomIn,
-    canZoomOut: viewport.canZoomOut,
-    fitPressed: viewport.mode === "fit",
-    unavailable: false,
-    zoomLabel: `${Math.round(viewport.zoomPercent)}%`,
-  };
+function isDrawingShapeTool(value: string): value is DrawingTool {
+  return DRAWING_SHAPE_TOOLS.some((tool) => tool === value);
 }
 
 function runDrawingKeyboardAction(
@@ -298,27 +274,23 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   const data = readDrawingSectionData(section.data);
   const { background, height, width } = data;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const drawingRef = useRef<RealtimeDrawingRuntime | null>(null);
   const viewportRef = useRef<DrawingViewportController | null>(null);
-  const panGestureRef = useRef<DrawingPanGesture | null>(null);
   const sceneAuthorityRef = useRef<DrawingSceneAuthority | null>(null);
   const settlementRef = useRef<DrawingSettlementQueue | null>(null);
   const [history, setHistory] = useState(INITIAL_HISTORY_STATE);
   const [highlighter, setHighlighter] =
     useState<DrawingBrushSettings>(INITIAL_HIGHLIGHTER);
   const [pen, setPen] = useState<DrawingBrushSettings>(INITIAL_PEN);
-  const [gridSnapEnabled, setGridSnapEnabled] = useState(false);
-  const [gridVisible, setGridVisible] = useState(false);
+  const [importingImage, setImportingImage] = useState(false);
   const [selection, setSelection] = useState<DrawingSelectionSnapshot>(
     EMPTY_DRAWING_SELECTION_SNAPSHOT,
   );
   const [tool, setTool] = useState<DrawingTool>("draw");
-  const [viewport, setViewport] = useState<DrawingViewportPresentation | null>(
-    null,
-  );
-  const gridSnapEnabledRef = useRef(gridSnapEnabled);
-  const gridVisibleRef = useRef(gridVisible);
+  const gridSnapEnabledRef = useRef(false);
+  const gridVisibleRef = useRef(false);
   const scene = resolveRuntimeValue(
     runtime.values,
     runtimeValueKey(section.id, "scene"),
@@ -336,8 +308,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
   drawingDocumentRef.current = drawingDocument;
   projectRef.current = project;
   runtimeRef.current = runtime;
-  gridSnapEnabledRef.current = gridSnapEnabled;
-  gridVisibleRef.current = gridVisible;
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -359,6 +329,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         sceneAuthority.localChange();
         settlement?.settle();
       },
+      onToolChange: setTool,
       width: initialDocument.width,
     });
     const updateSelection = () => {
@@ -375,7 +346,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       drawing.canvas,
       drawing.getLogicalSize(),
       { height: stage.clientHeight, width: stage.clientWidth },
-      setViewport,
     );
     drawingViewport.setGrid({
       spacing: DRAWING_GRID_DEFAULT_SPACING,
@@ -478,6 +448,10 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         return true;
       },
       getCanvasSize: () => drawing.getLogicalSize(),
+      getGridOptions: () => ({
+        snapEnabled: gridSnapEnabledRef.current,
+        visible: gridVisibleRef.current,
+      }),
       getSelectionSnapshot: () => drawing.getSelectionSnapshot(),
       groupSelection: () => drawing.groupSelection(),
       nudgeSelection: (x, y) => drawing.nudgeSelection(x, y),
@@ -494,6 +468,25 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       sendSelectionToBack: () => drawing.sendSelectionToBack(),
       setSelectionAppearance: (patch) => drawing.setSelectionAppearance(patch),
       setSelectionTypography: (patch) => drawing.setSelectionTypography(patch),
+      setGridSnapEnabled: (enabled) => {
+        if (gridSnapEnabledRef.current === enabled) {
+          return false;
+        }
+        gridSnapEnabledRef.current = enabled;
+        drawing.setGridSnap(enabled ? DRAWING_GRID_DEFAULT_SPACING : null);
+        return true;
+      },
+      setGridVisible: (visible) => {
+        if (gridVisibleRef.current === visible) {
+          return false;
+        }
+        gridVisibleRef.current = visible;
+        drawingViewport.setGrid({
+          spacing: DRAWING_GRID_DEFAULT_SPACING,
+          visible,
+        });
+        return true;
+      },
       subscribeSelection: (listener) => drawing.subscribeSelection(listener),
       toggleSelectionLock: () => drawing.toggleSelectionLock(),
       ungroupSelection: () => drawing.ungroupSelection(),
@@ -592,17 +585,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     drawingRef.current?.setBrush(next.color, next.width);
   };
 
-  const addDrawingObject = (
-    add: (drawing: RealtimeDrawingRuntime) => unknown,
-  ) => {
-    const drawing = drawingRef.current;
-    if (drawing === null) {
-      return;
-    }
-    add(drawing);
-    setTool("select");
-  };
-
   const handleDrawingKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const drawing = drawingRef.current;
     if (drawing === null) {
@@ -637,74 +619,41 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     runDrawingKeyboardAction(drawing, action, setTool);
   };
 
-  const toggleGrid = () => {
-    const next = !gridVisible;
-    gridVisibleRef.current = next;
-    setGridVisible(next);
-    viewportRef.current?.setGrid({
-      spacing: DRAWING_GRID_DEFAULT_SPACING,
-      visible: next,
-    });
-  };
-
-  const toggleGridSnap = () => {
-    const next = !gridSnapEnabled;
-    gridSnapEnabledRef.current = next;
-    setGridSnapEnabled(next);
-    drawingRef.current?.setGridSnap(next ? DRAWING_GRID_DEFAULT_SPACING : null);
-  };
-
-  const handleStagePointerDownCapture = (
-    event: React.PointerEvent<HTMLDivElement>,
+  const handleImageFile = async (
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    event.currentTarget.focus({ preventScroll: true });
-    if (tool !== "hand" || event.button !== 0) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (file === undefined) {
       return;
     }
-    panGestureRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drawingRef.current?.canvas.setCursor("grabbing");
-    event.preventDefault();
-    event.stopPropagation();
+    const drawing = drawingRef.current;
+    setImportingImage(true);
+    try {
+      const source = await prepareDrawingImage(file);
+      if (
+        drawing === null ||
+        drawingRef.current !== drawing ||
+        !(await drawing.addImage(source))
+      ) {
+        throw new Error("Realtime could not add this image to the drawing.");
+      }
+    } catch (error) {
+      actions.reportError(
+        error instanceof Error
+          ? error.message
+          : "Realtime could not add this image to the drawing.",
+      );
+    } finally {
+      input.value = "";
+      setImportingImage(false);
+    }
   };
 
-  const handleStagePointerMoveCapture = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
-    const gesture = panGestureRef.current;
-    if (gesture === null || gesture.pointerId !== event.pointerId) {
-      return;
-    }
-    viewportRef.current?.panBy({
-      x: event.clientX - gesture.x,
-      y: event.clientY - gesture.y,
-    });
-    gesture.x = event.clientX;
-    gesture.y = event.clientY;
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const endHandPan = (event: React.PointerEvent<HTMLDivElement>) => {
-    const gesture = panGestureRef.current;
-    if (gesture === null || gesture.pointerId !== event.pointerId) {
-      return;
-    }
-    panGestureRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    drawingRef.current?.setTool("hand");
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const brushPresentation = drawingBrushPresentation(tool, pen, highlighter);
-  const viewportPresentation = drawingViewportToolbarPresentation(viewport);
+  const brushPresentation =
+    tool === "draw" || tool === "highlighter"
+      ? drawingBrushPresentation(tool, pen, highlighter)
+      : null;
 
   return (
     <div className="realtime-drawing">
@@ -714,7 +663,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         role="toolbar"
       >
         <div className="realtime-drawing-tool-group">
-          {(["select", "draw", "highlighter", "erase", "hand"] as const).map(
+          {(["select", "draw", "highlighter", "erase", "text"] as const).map(
             (candidate) => (
               <button
                 aria-label={DRAWING_TOOL_LABELS[candidate]}
@@ -730,87 +679,78 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             ),
           )}
         </div>
-        <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
-          <label
-            aria-label={`${brushPresentation.label} color`}
-            title={`${brushPresentation.label} color`}
-          >
-            <input
-              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-              disabled={brushPresentation.disabled}
-              onChange={(event) => changeBrushColor(event.currentTarget.value)}
-              type="color"
-              value={brushPresentation.settings.color}
-            />
-          </label>
-          <label
-            className="realtime-drawing-size"
-            title={`${brushPresentation.label} size`}
-          >
-            <span className="realtime-drawing-size-label">Size</span>
-            <input
-              aria-label={`${brushPresentation.label} size`}
-              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-              disabled={brushPresentation.disabled}
-              max={brushPresentation.maxWidth}
-              min={1}
-              onChange={(event) =>
-                changeBrushWidth(Number(event.currentTarget.value))
-              }
-              type="range"
-              value={brushPresentation.settings.width}
-            />
-            <output>{brushPresentation.settings.width}px</output>
-          </label>
-        </div>
+        {brushPresentation === null ? null : (
+          <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
+            <label
+              aria-label={`${brushPresentation.label} color`}
+              title={`${brushPresentation.label} color`}
+            >
+              <input
+                className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+                onChange={(event) =>
+                  changeBrushColor(event.currentTarget.value)
+                }
+                type="color"
+                value={brushPresentation.settings.color}
+              />
+            </label>
+            <label
+              className="realtime-drawing-size"
+              title={`${brushPresentation.label} size`}
+            >
+              <span className="realtime-drawing-size-label">Size</span>
+              <input
+                aria-label={`${brushPresentation.label} size`}
+                className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+                max={brushPresentation.maxWidth}
+                min={1}
+                onChange={(event) =>
+                  changeBrushWidth(Number(event.currentTarget.value))
+                }
+                type="range"
+                value={brushPresentation.settings.width}
+              />
+              <output>{brushPresentation.settings.width}px</output>
+            </label>
+          </div>
+        )}
         <div className="realtime-drawing-tool-group">
+          <select
+            aria-label="Shape tool"
+            className={`realtime-drawing-shape-select ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+            onChange={(event) => {
+              if (isDrawingShapeTool(event.currentTarget.value)) {
+                chooseTool(event.currentTarget.value);
+              }
+            }}
+            title="Shape tool"
+            value={isDrawingShapeTool(tool) ? tool : ""}
+          >
+            <option value="">Shape</option>
+            {DRAWING_SHAPE_TOOLS.map((shape) => (
+              <option key={shape} value={shape}>
+                {DRAWING_TOOL_LABELS[shape]}
+              </option>
+            ))}
+          </select>
           <button
-            aria-label="Add text"
+            aria-label="Add image"
             className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() => addDrawingObject((drawing) => drawing.addText())}
-            title="Add text"
+            disabled={importingImage}
+            onClick={() => imageInputRef.current?.click()}
+            title="Add image"
             type="button"
           >
-            <DrawingToolbarIcon name="text" />
+            <DrawingToolbarIcon name="image" />
           </button>
-          <button
-            aria-label="Add line"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() => addDrawingObject((drawing) => drawing.addLine())}
-            title="Add line"
-            type="button"
-          >
-            <DrawingToolbarIcon name="line" />
-          </button>
-          <button
-            aria-label="Add arrow"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() => addDrawingObject((drawing) => drawing.addArrow())}
-            title="Add arrow"
-            type="button"
-          >
-            <DrawingToolbarIcon name="arrow" />
-          </button>
-          <button
-            aria-label="Add rectangle"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() =>
-              addDrawingObject((drawing) => drawing.addRectangle())
-            }
-            title="Add rectangle"
-            type="button"
-          >
-            <DrawingToolbarIcon name="rectangle" />
-          </button>
-          <button
-            aria-label="Add ellipse"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() => addDrawingObject((drawing) => drawing.addEllipse())}
-            title="Add ellipse"
-            type="button"
-          >
-            <DrawingToolbarIcon name="ellipse" />
-          </button>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Choose drawing image"
+            hidden
+            onChange={(event) => void handleImageFile(event)}
+            ref={imageInputRef}
+            type="file"
+          />
         </div>
         <div className="realtime-drawing-tool-group">
           <button
@@ -834,77 +774,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             <DrawingToolbarIcon name="redo" />
           </button>
         </div>
-        <div className="realtime-drawing-tool-group realtime-drawing-viewport-controls">
-          <button
-            aria-label="Zoom out"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={!viewportPresentation.canZoomOut}
-            onClick={() => viewportRef.current?.zoomOut()}
-            title="Zoom out"
-            type="button"
-          >
-            <DrawingToolbarIcon name="zoom-out" />
-          </button>
-          <button
-            aria-label="Fit canvas"
-            aria-pressed={viewportPresentation.fitPressed}
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewportPresentation.unavailable}
-            onClick={() => viewportRef.current?.fit()}
-            title="Fit canvas"
-            type="button"
-          >
-            <DrawingToolbarIcon name="fit" />
-          </button>
-          <button
-            aria-label="Actual size"
-            aria-pressed={viewportPresentation.actualSizePressed}
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewportPresentation.unavailable}
-            onClick={() => viewportRef.current?.actualSize()}
-            title="Actual size (100%)"
-            type="button"
-          >
-            <DrawingToolbarIcon name="actual-size" />
-          </button>
-          <output
-            aria-label="Canvas zoom"
-            className="realtime-drawing-zoom-value"
-          >
-            {viewportPresentation.zoomLabel}
-          </output>
-          <button
-            aria-label="Zoom in"
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={!viewportPresentation.canZoomIn}
-            onClick={() => viewportRef.current?.zoomIn()}
-            title="Zoom in"
-            type="button"
-          >
-            <DrawingToolbarIcon name="zoom-in" />
-          </button>
-        </div>
         <div className="realtime-drawing-tool-group">
-          <button
-            aria-label="Show grid"
-            aria-pressed={gridVisible}
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={toggleGrid}
-            title="Show grid"
-            type="button"
-          >
-            <DrawingToolbarIcon name="grid" />
-          </button>
-          <button
-            aria-label="Snap to grid"
-            aria-pressed={gridSnapEnabled}
-            className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={toggleGridSnap}
-            title={`Snap to ${DRAWING_GRID_DEFAULT_SPACING}px grid`}
-            type="button"
-          >
-            <DrawingToolbarIcon name="snap" />
-          </button>
           <button
             aria-label="Clear drawing"
             className={`realtime-drawing-clear-button realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
@@ -920,11 +790,9 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         aria-label={`${section.name} drawing editor`}
         className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
         onKeyDown={handleDrawingKeyDown}
-        onLostPointerCapture={endHandPan}
-        onPointerCancelCapture={endHandPan}
-        onPointerDownCapture={handleStagePointerDownCapture}
-        onPointerMoveCapture={handleStagePointerMoveCapture}
-        onPointerUpCapture={endHandPan}
+        onPointerDownCapture={(event) =>
+          event.currentTarget.focus({ preventScroll: true })
+        }
         ref={stageRef}
         role="application"
         tabIndex={0}

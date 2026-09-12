@@ -35,6 +35,14 @@ import {
   type DrawingSelectionTypographyPatch,
 } from "./drawingObjectModel";
 import { isDrawingGridSpacing, snapDrawingPointToGrid } from "./drawingGrid";
+import {
+  createDrawingShapePlacement,
+  isDrawingShapeTool,
+  isMeaningfulDrawingShapePlacement,
+  updateDrawingShapePlacement,
+  type DrawingPlacementTool,
+  type DrawingShapePlacement,
+} from "./drawingPlacement";
 import type { DrawingSnapshot } from "./drawingSettlementQueue";
 
 export type {
@@ -48,7 +56,10 @@ export type {
   DrawingTextAlign,
 } from "./drawingObjectModel";
 
-export type DrawingTool = "select" | "draw" | "highlighter" | "erase" | "hand";
+export type { DrawingPlacementTool } from "./drawingPlacement";
+
+export type DrawingTool =
+  "select" | "draw" | "highlighter" | "erase" | DrawingPlacementTool;
 
 export type DrawingHistoryState = {
   canRedo: boolean;
@@ -88,6 +99,7 @@ type DrawingRuntimeOptions = {
   onHistoryChange: (state: DrawingHistoryState) => void;
   onPreview: () => void;
   onSettled: () => void;
+  onToolChange: (tool: DrawingTool) => void;
   width: number;
 };
 
@@ -97,7 +109,7 @@ type DrawingSerializedObject = Record<string, WorkspaceSectionData>;
 
 type DrawingAsyncOperation = {
   controller: AbortController;
-  kind: "duplicate" | "paste";
+  kind: "duplicate" | "image" | "paste";
   revision: number;
 };
 
@@ -113,8 +125,30 @@ type DrawingArrangement = {
   run: (canvas: Canvas, object: FabricObject) => boolean;
 };
 
+type DrawingToolInteraction = {
+  cursor: string;
+  drawing: boolean;
+  selection: boolean;
+  skipTargetFind: boolean;
+};
+
 const DRAWING_HIGHLIGHTER_ALPHA = 0.32;
 const DRAWING_OBJECT_OFFSET = 12;
+
+function drawingToolInteraction(tool: DrawingTool): DrawingToolInteraction {
+  const shape = isDrawingShapeTool(tool);
+  return {
+    cursor:
+      tool === "text"
+        ? "text"
+        : tool === "erase" || shape
+          ? "crosshair"
+          : "default",
+    drawing: tool === "draw" || tool === "highlighter",
+    selection: tool === "select",
+    skipTargetFind: shape || tool === "text",
+  };
+}
 
 const DRAWING_ARRANGEMENTS: Record<
   DrawingArrangementAction,
@@ -205,11 +239,15 @@ export class RealtimeDrawingRuntime {
   private readonly onHistoryChange: (state: DrawingHistoryState) => void;
   private readonly onPreview: () => void;
   private readonly onSettled: () => void;
+  private readonly onToolChange: (tool: DrawingTool) => void;
+  private objectTransformDirty = false;
+  private placement: DrawingShapePlacement | null = null;
   private readonly renderOnAddRemove: boolean;
   private sceneLoad: AbortController | null = null;
   private selectionSnapshot: DrawingSelectionSnapshot;
   private selectionSnapshotKey = "";
   private readonly selectionSubscribers = new Set<() => void>();
+  private textEditingDirty = false;
 
   public constructor(
     element: HTMLCanvasElement,
@@ -221,6 +259,7 @@ export class RealtimeDrawingRuntime {
     this.onHistoryChange = options.onHistoryChange;
     this.onPreview = options.onPreview;
     this.onSettled = options.onSettled;
+    this.onToolChange = options.onToolChange;
     this.canvas = new Canvas(element, {
       backgroundColor: options.background,
       enablePointerEvents: true,
@@ -243,6 +282,9 @@ export class RealtimeDrawingRuntime {
     this.canvas.on("path:created", this.handleSettled);
     this.canvas.on("object:modified", this.handleObjectModified);
     this.canvas.on("object:moving", this.handleObjectMoving);
+    this.canvas.on("object:rotating", this.handleObjectTransforming);
+    this.canvas.on("object:scaling", this.handleObjectTransforming);
+    this.canvas.on("object:skewing", this.handleObjectTransforming);
     this.canvas.on("selection:created", this.handleSelectionChanged);
     this.canvas.on("selection:updated", this.handleSelectionChanged);
     this.canvas.on("selection:cleared", this.handleSelectionChanged);
@@ -267,21 +309,28 @@ export class RealtimeDrawingRuntime {
   }
 
   public setTool(tool: DrawingTool): void {
+    this.cancelPlacement();
+    const textEditingDirty = this.textEditingDirty;
+    const textSelected = this.finishActiveTextEditing();
     this.tool = tool;
     this.configureBrush();
-    this.canvas.isDrawingMode = tool === "draw" || tool === "highlighter";
-    this.canvas.selection = tool === "select";
-    this.canvas.skipTargetFind = tool === "hand";
-    this.canvas.defaultCursor =
-      tool === "hand" ? "grab" : tool === "erase" ? "crosshair" : "default";
+    const interaction = drawingToolInteraction(tool);
+    this.canvas.isDrawingMode = interaction.drawing;
+    this.canvas.selection = interaction.selection;
+    this.canvas.skipTargetFind = interaction.skipTargetFind;
+    this.canvas.defaultCursor = interaction.cursor;
     for (const object of this.canvas.getObjects()) {
-      object.selectable = tool === "select";
+      object.selectable = interaction.selection;
       object.evented = true;
     }
-    if (tool !== "select") {
+    if (!interaction.selection) {
       this.canvas.discardActiveObject();
     }
     this.canvas.requestRenderAll();
+    if (textEditingDirty || textSelected) {
+      this.textEditingDirty = false;
+      this.recordSettledChange();
+    }
   }
 
   public setGridSnap(spacing: number | null): boolean {
@@ -325,13 +374,17 @@ export class RealtimeDrawingRuntime {
 
   public addText(): Textbox {
     const position = this.nextObjectPosition(180, 48);
+    return this.addTextAt(position);
+  }
+
+  public addTextAt(position: { x: number; y: number }): Textbox {
     const object = new Textbox("Text", {
       fill: "#111827",
       fontFamily: "Arial",
       fontSize: 28,
       left: position.x,
       top: position.y,
-      width: 180,
+      width: Math.max(40, Math.min(180, this.logicalWidth - position.x)),
     });
     this.canvas.add(object);
     this.setTool("select");
@@ -340,8 +393,46 @@ export class RealtimeDrawingRuntime {
     object.selectAll();
     this.canvas.requestRenderAll();
     this.publishSelectionState();
+    this.textEditingDirty = true;
     this.previewLocalChange();
     return object;
+  }
+
+  public async addImage(source: string): Promise<boolean> {
+    if (source.length === 0 || this.loading || this.disposed) {
+      return false;
+    }
+    const operation = this.beginAsyncOperation("image");
+    let image: FabricImage;
+    try {
+      image = await FabricImage.fromURL(source, {
+        signal: operation.controller.signal,
+      });
+    } catch {
+      if (this.isCurrentOperation(operation)) {
+        this.cancelAsyncOperation();
+      }
+      return false;
+    }
+    if (!this.isCurrentOperation(operation)) {
+      return false;
+    }
+    this.completeAsyncOperation(operation);
+    const scale = Math.min(
+      1,
+      (this.logicalWidth * 0.8) / Math.max(image.width, 1),
+      (this.logicalHeight * 0.8) / Math.max(image.height, 1),
+    );
+    image.set({
+      left: (this.logicalWidth - image.width * scale) / 2,
+      scaleX: scale,
+      scaleY: scale,
+      top: (this.logicalHeight - image.height * scale) / 2,
+    });
+    image.setCoords();
+    this.addCreatedObject(image);
+    this.onToolChange("select");
+    return true;
   }
 
   public addLine(): Line {
@@ -753,6 +844,7 @@ export class RealtimeDrawingRuntime {
 
   private async applyScene(scene: WorkspaceSectionData): Promise<boolean> {
     this.cancelAsyncOperation();
+    this.textEditingDirty = false;
     this.sceneLoad?.abort();
     const controller = new AbortController();
     this.sceneLoad = controller;
@@ -792,9 +884,10 @@ export class RealtimeDrawingRuntime {
   }
 
   public toScene(): WorkspaceSectionData {
-    return this.canvas.toObject([
+    const scene = this.canvas.toObject([
       ...DRAWING_OBJECT_SERIALIZATION_PROPERTIES,
-    ]) as WorkspaceSectionData;
+    ]);
+    return JSON.parse(JSON.stringify(scene)) as WorkspaceSectionData;
   }
 
   public toDataURL(): string {
@@ -821,6 +914,9 @@ export class RealtimeDrawingRuntime {
   }
 
   public async capturePreview(): Promise<DrawingSnapshot> {
+    if (!this.drawing) {
+      return this.captureSnapshot();
+    }
     const element = document.createElement("canvas");
     element.width = this.canvas.lowerCanvasEl.width;
     element.height = this.canvas.lowerCanvasEl.height;
@@ -864,6 +960,7 @@ export class RealtimeDrawingRuntime {
   };
 
   private readonly handleObjectModified = (): void => {
+    this.objectTransformDirty = false;
     this.recordSettledChange();
     this.publishSelectionState();
   };
@@ -873,25 +970,36 @@ export class RealtimeDrawingRuntime {
   }: {
     target?: FabricObject;
   }): void => {
+    if (target === undefined || isDrawingObjectLocked(target)) {
+      return;
+    }
+    this.objectTransformDirty = true;
     const spacing = this.gridSnapSpacing;
-    if (
-      spacing === null ||
-      target === undefined ||
-      isDrawingObjectLocked(target)
-    ) {
+    if (spacing !== null) {
+      const position = target.getXY();
+      const snapped = snapDrawingPointToGrid(
+        { x: position.x, y: position.y },
+        spacing,
+      );
+      if (snapped.x !== position.x || snapped.y !== position.y) {
+        target.setXY(new Point(snapped.x, snapped.y));
+        target.setCoords();
+        this.canvas.requestRenderAll();
+      }
+    }
+    this.previewLocalChange();
+  };
+
+  private readonly handleObjectTransforming = ({
+    target,
+  }: {
+    target?: FabricObject;
+  }): void => {
+    if (target === undefined || isDrawingObjectLocked(target)) {
       return;
     }
-    const position = target.getXY();
-    const snapped = snapDrawingPointToGrid(
-      { x: position.x, y: position.y },
-      spacing,
-    );
-    if (snapped.x === position.x && snapped.y === position.y) {
-      return;
-    }
-    target.setXY(new Point(snapped.x, snapped.y));
-    target.setCoords();
-    this.canvas.requestRenderAll();
+    this.objectTransformDirty = true;
+    this.previewLocalChange();
   };
 
   private readonly handleSelectionChanged = (): void => {
@@ -902,10 +1010,15 @@ export class RealtimeDrawingRuntime {
   };
 
   private readonly handleTextChanged = (): void => {
+    this.textEditingDirty = true;
     this.previewLocalChange();
   };
 
   private readonly handleTextEditingExited = (): void => {
+    if (!this.textEditingDirty) {
+      return;
+    }
+    this.textEditingDirty = false;
     this.recordSettledChange();
   };
 
@@ -1005,6 +1118,58 @@ export class RealtimeDrawingRuntime {
     this.canvas.setActiveObject(object);
     this.finishSelectionMutation(true);
     return object;
+  }
+
+  private changeToolAfterPlacement(tool: DrawingTool): void {
+    this.setTool(tool);
+    this.onToolChange(tool);
+  }
+
+  private finishActiveTextEditing(): boolean {
+    const active = this.canvas.getActiveObject();
+    if (!(active instanceof Textbox)) {
+      return false;
+    }
+    if (active.isEditing) {
+      active.exitEditing();
+    }
+    return true;
+  }
+
+  private cancelPlacement(): void {
+    const placement = this.placement;
+    if (placement === null) {
+      return;
+    }
+    this.placement = null;
+    this.canvas.remove(placement.object);
+    this.canvas.requestRenderAll();
+  }
+
+  private placementPoint(point: Point): Point {
+    const spacing = this.gridSnapSpacing;
+    if (spacing === null) {
+      return point;
+    }
+    const snapped = snapDrawingPointToGrid(point, spacing);
+    return new Point(snapped.x, snapped.y);
+  }
+
+  private finishShapePlacement(): void {
+    const placement = this.placement;
+    if (placement === null) {
+      return;
+    }
+    this.placement = null;
+    if (!isMeaningfulDrawingShapePlacement(placement)) {
+      this.canvas.remove(placement.object);
+      this.changeToolAfterPlacement("select");
+      return;
+    }
+    placement.object.set({ evented: true, selectable: true });
+    this.changeToolAfterPlacement("select");
+    this.canvas.setActiveObject(placement.object);
+    this.finishSelectionMutation(true);
   }
 
   private configureBrush(): void {
@@ -1188,6 +1353,14 @@ export class RealtimeDrawingRuntime {
       if (this.erasedInGesture) {
         this.previewLocalChange();
       }
+    } else if (this.tool === "text") {
+      const point = this.placementPoint(event.scenePoint);
+      this.addTextAt(point);
+      this.onToolChange("select");
+    } else if (isDrawingShapeTool(this.tool)) {
+      const point = this.placementPoint(event.scenePoint);
+      this.placement = createDrawingShapePlacement(this.tool, point);
+      this.canvas.add(this.placement.object);
     }
   };
 
@@ -1200,17 +1373,29 @@ export class RealtimeDrawingRuntime {
       if (erased) {
         this.previewLocalChange();
       }
+    } else if (this.placement !== null) {
+      updateDrawingShapePlacement(
+        this.placement,
+        this.placementPoint(event.scenePoint),
+      );
+      this.canvas.requestRenderAll();
+      this.previewLocalChange();
     }
   };
 
   private readonly handlePointerEnd = (): void => {
     this.drawing = false;
+    this.finishShapePlacement();
     if (this.erasing) {
       this.erasing = false;
       if (this.erasedInGesture) {
         this.recordSettledChange();
       }
       this.erasedInGesture = false;
+    }
+    if (this.objectTransformDirty) {
+      this.objectTransformDirty = false;
+      this.recordSettledChange();
     }
   };
 }

@@ -1,9 +1,13 @@
 import {
   ActiveSelection,
+  Ellipse,
+  FabricImage,
   Group,
   Line,
+  Path,
   Point,
   Polyline,
+  Rect,
   Textbox,
   filters,
   type FabricObject,
@@ -88,6 +92,27 @@ function selectObjects(
   }
 }
 
+function fireCanvasPointer(
+  drawing: RealtimeDrawingRuntime,
+  type: "mouse:down" | "mouse:move" | "mouse:up",
+  point: Point,
+): void {
+  drawing.canvas.fire(type, {
+    alreadySelected: false,
+    e: pointerEvent(
+      type === "mouse:down"
+        ? "pointerdown"
+        : type === "mouse:up"
+          ? "pointerup"
+          : "pointermove",
+      point.x,
+      point.y,
+    ),
+    scenePoint: point,
+    viewportPoint: point,
+  });
+}
+
 describe("retained drawing runtime", () => {
   it("draws, erases, selects, transforms, round-trips, and reaches raster export", async () => {
     installCanvasMocks();
@@ -102,6 +127,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: historyChanged,
       onPreview: previewed,
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 320,
     });
     drawing.resizeToFit(160, 200);
@@ -128,11 +154,6 @@ describe("retained drawing runtime", () => {
     restored.setCoords();
     drawing.canvas.fire("object:modified", { target: restored });
     expect(drawing.canvas.getActiveObject()).toBe(restored);
-
-    drawing.setTool("hand");
-    expect(drawing.canvas.skipTargetFind).toBe(true);
-    expect(drawing.canvas.defaultCursor).toBe("grab");
-    expect(restored.selectable).toBe(false);
 
     drawing.setTool("draw");
     expect(drawing.canvas.isDrawingMode).toBe(true);
@@ -209,6 +230,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: vi.fn(),
+      onToolChange: vi.fn(),
       width: 320,
     });
     await roundTrip.loadScene(scene);
@@ -247,6 +269,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 320,
     });
     drawing.resizeToFit(800, 300);
@@ -308,6 +331,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 320,
     });
     const rectangle = drawing.addRectangle();
@@ -347,6 +371,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: previewed,
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 320,
     });
 
@@ -404,6 +429,7 @@ describe("retained drawing runtime", () => {
     expect(snapshot).toMatchObject({
       count: 1,
       kind: "text",
+      locked: false,
       supportsFill: true,
       supportsTypography: true,
     });
@@ -420,10 +446,19 @@ describe("retained drawing runtime", () => {
     text.set("text", "Hello canvas");
     text.initDimensions();
     drawing.canvas.fire("text:changed", { target: text as never });
+    const textScene = drawing.toScene();
+    expect(textScene).toStrictEqual(JSON.parse(JSON.stringify(textScene)));
     expect(previewed).toHaveBeenCalledTimes(2);
     expect(settled).not.toHaveBeenCalled();
     text.exitEditing();
     expect(settled).toHaveBeenCalledOnce();
+    expect(text).toMatchObject({
+      lockMovementX: false,
+      lockMovementY: false,
+      lockRotation: false,
+      lockScalingX: false,
+      lockScalingY: false,
+    });
 
     settled.mockClear();
     text.enterEditing();
@@ -475,6 +510,157 @@ describe("retained drawing runtime", () => {
     element.remove();
   });
 
+  it("arms text and shape tools for user-positioned placement", async () => {
+    installCanvasMocks();
+    const previewed = vi.fn();
+    const settled = vi.fn();
+    const toolChanged = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: previewed,
+      onSettled: settled,
+      onToolChange: toolChanged,
+      width: 320,
+    });
+
+    const shapeCases = [
+      ["rectangle", Rect],
+      ["ellipse", Ellipse],
+      ["line", Line],
+      ["arrow", Polyline],
+    ] as const;
+    for (const [tool, Shape] of shapeCases) {
+      drawing.setTool(tool);
+      const start = new Point(24, 36);
+      const end = new Point(144, 108);
+      fireCanvasPointer(drawing, "mouse:down", start);
+      fireCanvasPointer(drawing, "mouse:move", end);
+      fireCanvasPointer(drawing, "mouse:up", end);
+      const object = drawing.canvas.getObjects().at(-1);
+      expect(object).toBeInstanceOf(Shape);
+      expect(object?.getBoundingRect()).toMatchObject({
+        height: expect.any(Number),
+        left: expect.any(Number),
+        top: expect.any(Number),
+        width: expect.any(Number),
+      });
+      expect(object?.getBoundingRect().width).toBeGreaterThan(100);
+      expect(drawing.canvas.getActiveObject()).toBe(object);
+      expect(drawing.tool).toBe("select");
+    }
+    expect(settled).toHaveBeenCalledTimes(shapeCases.length);
+    expect(toolChanged).toHaveBeenCalledTimes(shapeCases.length);
+
+    previewed.mockClear();
+    drawing.setTool("text");
+    fireCanvasPointer(drawing, "mouse:down", new Point(72, 84));
+    const text = drawing.canvas.getObjects().at(-1);
+    expect(text).toBeInstanceOf(Textbox);
+    expect(text).toMatchObject({ isEditing: true, left: 72, top: 84 });
+    expect(previewed).toHaveBeenCalledOnce();
+    expect(drawing.tool).toBe("select");
+
+    settled.mockClear();
+    drawing.setTool("select");
+    expect(text).toMatchObject({ isEditing: false });
+    expect(settled).toHaveBeenCalledOnce();
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("previews transforms and settles them on pointer release without leaking controls", async () => {
+    installCanvasMocks();
+    const previewed = vi.fn();
+    const settled = vi.fn();
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: previewed,
+      onSettled: settled,
+      onToolChange: vi.fn(),
+      width: 320,
+    });
+    const path = new Path("M 10 10 L 80 60", {
+      fill: null,
+      stroke: "#111827",
+      strokeWidth: 4,
+    });
+    drawing.canvas.add(path);
+    drawing.canvas.setActiveObject(path);
+    drawing.canvas.fire("object:modified", { target: path });
+    previewed.mockClear();
+    settled.mockClear();
+
+    path.set({ left: 80, top: 64 });
+    path.setCoords();
+    drawing.canvas.fire("object:moving", { target: path } as never);
+    expect(previewed).toHaveBeenCalledOnce();
+    fireCanvasPointer(drawing, "mouse:up", new Point(80, 64));
+    expect(settled).toHaveBeenCalledOnce();
+
+    const exported = vi
+      .spyOn(drawing.canvas, "toBlob")
+      .mockResolvedValue(new Blob(["drawing"], { type: "image/png" }));
+    await drawing.capturePreview();
+    expect(exported).toHaveBeenCalledOnce();
+
+    drawing.setTool("draw");
+    fireCanvasPointer(drawing, "mouse:down", new Point(12, 12));
+    exported.mockClear();
+    await drawing.capturePreview();
+    expect(exported).not.toHaveBeenCalled();
+
+    await drawing.dispose();
+    element.remove();
+  });
+
+  it("centers an imported image and records it as one drawing change", async () => {
+    installCanvasMocks();
+    const settled = vi.fn();
+    const toolChanged = vi.fn();
+    const source = document.createElement("canvas");
+    source.width = 800;
+    source.height = 400;
+    vi.spyOn(FabricImage, "fromURL").mockResolvedValue(new FabricImage(source));
+    const element = document.createElement("canvas");
+    document.body.append(element);
+    const drawing = new RealtimeDrawingRuntime(element, {
+      background: "#ffffff",
+      height: 240,
+      onHistoryChange: vi.fn(),
+      onPreview: vi.fn(),
+      onSettled: settled,
+      onToolChange: toolChanged,
+      width: 320,
+    });
+
+    await expect(
+      drawing.addImage("data:image/webp;base64,c2V0dGE="),
+    ).resolves.toBe(true);
+    const image = drawing.canvas.getObjects()[0];
+    expect(image).toBeInstanceOf(FabricImage);
+    expect(image).toMatchObject({
+      left: 32,
+      scaleX: 0.32,
+      scaleY: 0.32,
+      top: 56,
+    });
+    expect(drawing.canvas.getActiveObject()).toBe(image);
+    expect(settled).toHaveBeenCalledOnce();
+    expect(toolChanged).toHaveBeenCalledWith("select");
+
+    await drawing.dispose();
+    element.remove();
+  });
+
   it("arranges, aligns, distributes, groups, clones, and nudges selections", async () => {
     installCanvasMocks();
     const settled = vi.fn();
@@ -486,6 +672,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 640,
     });
     const first = drawing.addRectangle();
@@ -641,6 +828,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: settled,
+      onToolChange: vi.fn(),
       width: 320,
     });
     const locked = drawing.addRectangle();
@@ -733,6 +921,7 @@ describe("retained drawing runtime", () => {
       onHistoryChange: vi.fn(),
       onPreview: vi.fn(),
       onSettled: vi.fn(),
+      onToolChange: vi.fn(),
       width: 320,
     });
     const object = drawing.addRectangle();

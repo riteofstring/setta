@@ -1,4 +1,10 @@
-import { useEffect, useId, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   type WorkspaceSectionData,
   useWorkspaceCapabilities,
@@ -13,7 +19,11 @@ import {
 import {
   fitDrawingSectionToCanvas,
   getDrawingCanvasSize,
+  getDrawingSurfaceSnapshot,
   resizeDrawingCanvas,
+  setDrawingGridSnapEnabled,
+  setDrawingGridVisible,
+  subscribeDrawingSurface,
 } from "./drawingSurfaceRegistry";
 import { DrawingSelectionInspector } from "./DrawingSelectionInspector";
 import { readDrawingSectionData } from "./sectionData";
@@ -131,6 +141,20 @@ export function DrawingInspector({
     width: persisted.width,
   };
   const initialSize = resolveDrawingCanvasSize(host, sectionId, persistedSize);
+  const subscribeSurface = useCallback(
+    (listener: () => void) =>
+      subscribeDrawingSurface(host, sectionId, listener),
+    [host, sectionId],
+  );
+  const getSurface = useCallback(
+    () => getDrawingSurfaceSnapshot(host, sectionId),
+    [host, sectionId],
+  );
+  const surface = useSyncExternalStore(
+    subscribeSurface,
+    getSurface,
+    getSurface,
+  );
   const [anchor, setAnchor] = useState<DrawingCanvasAnchor>("center");
   const [baseline, setBaseline] = useState<CanvasSize>(initialSize);
   const [constrainProportions, setConstrainProportions] = useState(true);
@@ -244,6 +268,38 @@ export function DrawingInspector({
       className="realtime-drawing-inspector"
     >
       <DrawingSelectionInspector sectionId={sectionId} />
+      <div className="realtime-drawing-inspector-heading">
+        <h4>Canvas view</h4>
+      </div>
+      <p>These guides affect editing only and are not part of the image.</p>
+      <label className="realtime-drawing-inspector-checkbox">
+        <input
+          aria-label="Show grid"
+          checked={surface.available && surface.grid.visible}
+          disabled={!surface.available}
+          onChange={(event) =>
+            setDrawingGridVisible(host, sectionId, event.currentTarget.checked)
+          }
+          type="checkbox"
+        />
+        <span>Show grid</span>
+      </label>
+      <label className="realtime-drawing-inspector-checkbox">
+        <input
+          aria-label="Snap objects to grid"
+          checked={surface.available && surface.grid.snapEnabled}
+          disabled={!surface.available}
+          onChange={(event) =>
+            setDrawingGridSnapEnabled(
+              host,
+              sectionId,
+              event.currentTarget.checked,
+            )
+          }
+          type="checkbox"
+        />
+        <span>Snap objects to grid</span>
+      </label>
       <div className="realtime-drawing-inspector-heading">
         <h4>Drawing canvas</h4>
         <span>
