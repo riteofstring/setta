@@ -41,7 +41,9 @@ def _ink_plate(image):
     alpha = softened.point(lambda value: max(0, min(255, round((value - 7) * 1.35))))
     plate = Image.new("RGBA", rgba.size, "#0f172a")
     plate.putalpha(alpha)
-    coverage = sum(alpha.getdata()) / (255 * rgba.width * rgba.height)
+    histogram = alpha.histogram()
+    ink_total = sum(level * count for level, count in enumerate(histogram))
+    coverage = ink_total / (255 * rgba.width * rgba.height)
     rgba.close()
     flattened.close()
     inverted.close()
@@ -122,7 +124,7 @@ def _aurora_svg(image, width, height):
     href="data:image/png;base64,{encoded}" filter="url(#bloom)"/>
 </g>
 <text x="72" y="82" fill="#cffafe" font-family="Arial, sans-serif" font-size="15"
-  font-weight="700" letter-spacing="3">AURORA CHANNEL / {width}×{height}</text>
+  font-weight="700" letter-spacing="3">AURORA CHANNEL / {width}x{height}</text>
 <circle cx="718" cy="69" r="6" fill="#f0abfc"/>
 <circle cx="738" cy="69" r="6" fill="#67e8f9"/>
 </svg>"""
@@ -262,8 +264,12 @@ def _poster_svg(aurora, riso, profile):
     <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#172554"
       flood-opacity="0.22"/>
   </filter>
-  <clipPath id="riso-frame"><rect x="70" y="372" width="760" height="438" rx="18"/></clipPath>
-  <clipPath id="aurora-frame"><rect x="760" y="126" width="610" height="486" rx="26"/></clipPath>
+  <clipPath id="riso-frame">
+    <rect x="70" y="372" width="760" height="438" rx="18"/>
+  </clipPath>
+  <clipPath id="aurora-frame">
+    <rect x="760" y="126" width="610" height="486" rx="26"/>
+  </clipPath>
 </defs>
 <rect width="1440" height="900" fill="url(#paper)"/>
 <rect width="1440" height="900" fill="url(#dots)"/>
@@ -291,8 +297,8 @@ def _poster_svg(aurora, riso, profile):
   <rect x="760" y="126" width="610" height="486" rx="26" fill="#020617"/>
   <image x="760" y="126" width="610" height="486" preserveAspectRatio="xMidYMid slice"
     href="{aurora_image}" clip-path="url(#aurora-frame)"/>
-  <rect x="784" y="150" width="210" height="34" rx="17" fill="#020617" fill-opacity="0.8"
-    stroke="#67e8f9"/>
+  <rect x="784" y="150" width="210" height="34" rx="17" fill="#020617"
+    fill-opacity="0.8" stroke="#67e8f9"/>
   <text x="802" y="173" fill="#cffafe" font-family="Arial, sans-serif" font-size="14"
     font-weight="800" letter-spacing="2">02A / AURORA BLOOM</text>
 </g>
@@ -309,7 +315,9 @@ def _poster_svg(aurora, riso, profile):
     font-weight="800" letter-spacing="2">03 JOIN</text>
 </g>
 <text x="902" y="822" fill="#475569" font-family="Arial, sans-serif" font-size="15"
-  letter-spacing="1">SOURCE {width}×{height}  /  INK {coverage:.1f}%  /  EDITION {edition}</text>
+  letter-spacing="1">
+  SOURCE {width}x{height} / INK {coverage:.1f}% / EDITION {edition}
+</text>
 <text x="1370" y="842" fill="#172554" font-family="Arial, sans-serif" font-size="52"
   font-weight="900" text-anchor="end">LIVE</text>
 </svg>'''
