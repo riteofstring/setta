@@ -2137,12 +2137,26 @@ async function exerciseBrowser(client, origin) {
     },
   );
   assert.equal(movedStroke.revision, afterStroke.revision + 1);
+  await delay(250);
+  const settledMove = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    settledMove.revision,
+    movedStroke.revision,
+    "The brush stroke move settled more than once.",
+  );
 
   await chooseSectionMenuItem(
     client,
     "drawing",
     "Draw a line or shape",
     "Rectangle",
+  );
+  await delay(250);
+  const armedRectangle = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    armedRectangle.revision,
+    settledMove.revision,
+    "Choosing a drawing shape changed the project revision.",
   );
   const rectangleStart = await drawingPoint(client, 250, 90);
   const rectangleEnd = await drawingPoint(client, 390, 190);
@@ -2157,13 +2171,20 @@ async function exerciseBrowser(client, origin) {
       candidate.sections.drawing.data.scene.objects.length >
       movedStroke.sections.drawing.data.scene.objects.length,
   );
-  assert.equal(project.revision, movedStroke.revision + 1);
+  assert.equal(project.revision, armedRectangle.revision + 1);
   const rectangle = project.sections.drawing.data.scene.objects.find(
     (object) => object.type === "Rect",
   );
   assert.ok(
     rectangle !== undefined && rectangle.left > 200 && rectangle.top > 60,
     `The rectangle was not placed by its gesture: ${JSON.stringify(rectangle)}.`,
+  );
+  await delay(250);
+  const settledRectangle = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    settledRectangle.revision,
+    project.revision,
+    "The rectangle placement settled more than once.",
   );
   await exerciseDrawingAuthoring(client, origin);
 

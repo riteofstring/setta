@@ -23,6 +23,7 @@ export type DrawingSurfaceController = {
   alignSelection: (alignment: DrawingAlignment) => boolean;
   bringSelectionForward: () => boolean;
   bringSelectionToFront: () => boolean;
+  clearDrawing: () => boolean;
   clearSelection: () => boolean;
   copySelection: () => boolean;
   deleteSelection: () => boolean;
@@ -361,6 +362,12 @@ export function fitDrawingSectionToCanvas(
 ): boolean {
   return runDrawingSurfaceCommand(host, sectionId, (controller) =>
     controller.fitSectionToCanvas(),
+  );
+}
+
+export function clearDrawing(host: WorkspaceHost, sectionId: string): boolean {
+  return runDrawingSurfaceCommand(host, sectionId, (controller) =>
+    controller.clearDrawing(),
   );
 }
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 type DrawingToolbarIconName =
-  | "clear"
   | "draw"
   | "erase"
   | "highlighter"
@@ -13,12 +12,6 @@ type DrawingToolbarIconName =
   | "undo";
 
 const DRAWING_TOOLBAR_ICONS: Record<DrawingToolbarIconName, ReactNode> = {
-  clear: (
-    <>
-      <path d="M5 7h14M9 7V4h6v3m2 0-1 13H8L7 7" />
-      <path d="M10 11v5m4-5v5" />
-    </>
-  ),
   draw: (
     <>
       <path d="m4 20 4.2-1 10.9-11a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z" />

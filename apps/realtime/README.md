@@ -41,9 +41,9 @@ Use `setta realtime open` for an installed release.
 Draw a mark and both processed results update while the stroke is active. The two bindings have
 independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
 waiting on each other. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and
-Text tools; a **Line & shape** menu; image insertion; contextual creation colors; undo and redo;
-and clearing. Grid controls, canvas sizing, object appearance, typography, arrangement, grouping,
-locking, and deletion live in the right-side Inspector. The example is an ordinary
+Text tools, a **Line & shape** menu, image insertion, contextual creation colors, and undo and
+redo. Grid controls, canvas sizing and clearing, object appearance, typography, arrangement,
+grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
 Realtime project: inside the ignored working copy its authored document is
 `.local/realtime/project.json` and its editable handler is `app.py`.
 Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
@@ -229,7 +229,7 @@ and settles one durable position on release. Settled snapshots exclude selection
 handles, and text cursors.
 
 The compact drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Text tools,
-a Setta-styled **Line & shape** menu, image insertion, undo and redo, and clearing. Text is placed by
+a Setta-styled **Line & shape** menu, image insertion, and undo and redo. Text is placed by
 clicking its intended origin; lines and arrows use the pointer endpoints, while rectangles and
 ellipses use the press and current pointer as opposite corners instead of expanding around the
 initial press. A new text box enters editing immediately, and completed placement returns to
@@ -237,7 +237,8 @@ Select. Contextual controls expose Pen and Highlighter color and width, text and
 shape fill and stroke beside the active tool. The Inspector opens only its contextual **Selection**
 card; compatible fill, stroke, opacity, rectangle radius, text properties, and object actions live
 there. Secondary **Arrange & align** and document-level **Canvas** cards stay collapsed until
-needed. Mixed values remain explicit, and locked objects remain selectable for unlocking but
+needed. Canvas also holds the undoable, destructive **Clear drawing** action. Mixed values remain
+explicit, and locked objects remain selectable for unlocking but
 cannot be changed by geometry or destructive commands. A mixed lock selection offers **Unlock
 all** directly.
 

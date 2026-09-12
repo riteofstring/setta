@@ -6,6 +6,7 @@ import {
   alignDrawingSelection,
   bringDrawingSelectionForward,
   bringDrawingSelectionToFront,
+  clearDrawing,
   clearDrawingSelection,
   copyDrawingSelection,
   deleteDrawingSelection,
@@ -83,6 +84,7 @@ function createControllerHarness(options?: {
     alignSelection: vi.fn(() => true),
     bringSelectionForward: vi.fn(() => true),
     bringSelectionToFront: vi.fn(() => true),
+    clearDrawing: vi.fn(() => true),
     clearSelection: vi.fn(() => true),
     copySelection: vi.fn(() => true),
     deleteSelection: vi.fn(() => true),
@@ -325,6 +327,7 @@ describe("drawing surface registry", () => {
     expect(listener).toHaveBeenCalledTimes(2);
 
     expect(fitDrawingSectionToCanvas(host, "drawing-main")).toBe(true);
+    expect(clearDrawing(host, "drawing-main")).toBe(true);
     expect(setDrawingGridVisible(host, "drawing-main", true)).toBe(true);
     expect(harness.controller.setGridVisible).toHaveBeenCalledWith(true);
     expect(setDrawingGridSnapEnabled(host, "drawing-main", true)).toBe(true);
@@ -378,6 +381,7 @@ describe("drawing surface registry", () => {
       false,
     );
     expect(fitDrawingSectionToCanvas(host, "drawing-main")).toBe(false);
+    expect(clearDrawing(host, "drawing-main")).toBe(false);
     expect(setDrawingGridVisible(host, "drawing-main", true)).toBe(false);
     expect(setDrawingGridSnapEnabled(host, "drawing-main", true)).toBe(false);
     expect(setDrawingSelectionAppearance(host, "drawing-main", {})).toBe(false);

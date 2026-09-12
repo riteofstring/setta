@@ -19,12 +19,14 @@ function drawingSurfaceController(
     | "resizeCanvas"
     | "setGridSnapEnabled"
     | "setGridVisible"
-  >,
+  > &
+    Partial<Pick<DrawingSurfaceController, "clearDrawing">>,
 ): DrawingSurfaceController {
   return {
     alignSelection: () => false,
     bringSelectionForward: () => false,
     bringSelectionToFront: () => false,
+    clearDrawing: () => false,
     clearSelection: () => false,
     copySelection: () => false,
     deleteSelection: () => false,
@@ -89,12 +91,14 @@ describe("drawing Inspector", () => {
   it("applies linked canvas dimensions and fits the section on demand", async () => {
     const resizeCanvas = vi.fn(() => true);
     const fitSectionToCanvas = vi.fn(() => true);
+    const clearDrawing = vi.fn(() => true);
     const setGridSnapEnabled = vi.fn(() => true);
     const setGridVisible = vi.fn(() => true);
     const unregister = registerDrawingSurface(
       host,
       "drawing-main",
       drawingSurfaceController({
+        clearDrawing,
         fitSectionToCanvas,
         getCanvasSize: () => ({ height: 320, width: 480 }),
         getGridOptions: () => ({ snapEnabled: false, visible: false }),
@@ -196,6 +200,15 @@ describe("drawing Inspector", () => {
         .click();
     });
     expect(fitSectionToCanvas).toHaveBeenCalledOnce();
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>("[data-clear-drawing]")!
+        .click();
+    });
+    expect(clearDrawing).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      "Undo is available",
+    );
     await act(async () => unregister());
   });
 

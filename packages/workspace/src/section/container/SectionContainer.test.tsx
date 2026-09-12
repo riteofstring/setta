@@ -362,6 +362,36 @@ describe("SectionContainer", () => {
     ).toBeInstanceOf(HTMLElement);
   });
 
+  it("keeps menu item interactions from activating or raising the section", async () => {
+    registerSectionKinds(testWorkspace.host, {
+      leaf: {
+        renderContent: () => (
+          <div>
+            <button role="menuitem">Action</button>
+            <div role="menuitemcheckbox">Toggle</div>
+            <div role="menuitemradio">Choice</div>
+          </div>
+        ),
+      },
+    });
+    await mount("leaf");
+    const beforeZIndex = testWorkspace.nodeInternals
+      .getState()
+      .x.get("leaf")?.zIndex;
+
+    for (const role of ["menuitem", "menuitemcheckbox", "menuitemradio"]) {
+      const item = getRequiredElement(host, `[role="${role}"]`);
+      await act(async () => {
+        item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    }
+
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([]);
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf")?.zIndex).toBe(
+      beforeZIndex,
+    );
+  });
+
   it("renders only the canonical section placement during a nesting handoff", async () => {
     await act(async () => {
       root.render(

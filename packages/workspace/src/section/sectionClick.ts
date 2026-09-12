@@ -9,7 +9,7 @@ export function getOnSectionClick(host: WorkspaceHost, sectionId: string) {
     const target = event.target instanceof Element ? event.target : null;
     if (
       target?.closest(
-        `button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
+        `button, [role^="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
       ) ||
       getCanvasGesturesStore(host).getState().mouseDownDraggingSection
     ) {

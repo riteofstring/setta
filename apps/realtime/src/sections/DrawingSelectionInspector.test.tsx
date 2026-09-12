@@ -51,6 +51,7 @@ function createControllerHarness(
     alignSelection: vi.fn(() => true),
     bringSelectionForward: vi.fn(() => true),
     bringSelectionToFront: vi.fn(() => true),
+    clearDrawing: vi.fn(() => true),
     clearSelection: vi.fn(() => true),
     copySelection: vi.fn(() => true),
     deleteSelection: vi.fn(() => true),

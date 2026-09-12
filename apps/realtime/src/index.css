@@ -698,6 +698,10 @@ input {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.realtime-drawing-inspector-actions .realtime-drawing-inspector-clear {
+  grid-column: 1 / -1;
+}
+
 .realtime-drawing-inspector-feedback {
   margin: 0;
   padding: 7px 9px;
@@ -977,11 +981,6 @@ input {
   color: var(--realtime-drawing-control-color);
   font-variant-numeric: tabular-nums;
   text-align: end;
-}
-
-.realtime-drawing-toolbar .realtime-drawing-clear-button:hover:not(:disabled) {
-  color: #fff;
-  background: #dc2626;
 }
 
 .realtime-drawing-stage {

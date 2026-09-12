@@ -18,6 +18,7 @@ import {
   type DrawingCanvasAnchor,
 } from "./drawingRuntime";
 import {
+  clearDrawing,
   fitDrawingSectionToCanvas,
   getDrawingCanvasSize,
   getDrawingSurfaceSnapshot,
@@ -253,6 +254,17 @@ export function DrawingInspector({
     setFeedback({ kind: "status", message: "Section fitted to the canvas." });
   }
 
+  function clearCanvas(): void {
+    if (!clearDrawing(host, sectionId)) {
+      setFeedback({ kind: "status", message: "The drawing is already empty." });
+      return;
+    }
+    setFeedback({
+      kind: "status",
+      message: "Drawing cleared. Undo is available.",
+    });
+  }
+
   const dimensionInputAccessibility = drawingDimensionInputAccessibility(
     feedback,
     feedbackId,
@@ -430,6 +442,15 @@ export function DrawingInspector({
             type="button"
           >
             Fit frame to canvas
+          </button>
+          <button
+            className="setta-workspace-inspector-danger-action realtime-drawing-inspector-clear"
+            data-clear-drawing
+            disabled={!surface.available}
+            onClick={clearCanvas}
+            type="button"
+          >
+            Clear drawing
           </button>
         </div>
         <DrawingInspectorFeedback feedback={feedback} id={feedbackId} />

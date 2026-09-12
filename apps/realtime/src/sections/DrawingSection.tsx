@@ -478,6 +478,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       alignSelection: (alignment) => drawing.alignSelection(alignment),
       bringSelectionForward: () => drawing.bringSelectionForward(),
       bringSelectionToFront: () => drawing.bringSelectionToFront(),
+      clearDrawing: () => drawing.clear(),
       clearSelection: () => drawing.clearSelection(),
       copySelection: () => drawing.copySelection(),
       deleteSelection: () => drawing.deleteSelection(),
@@ -875,17 +876,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             type="button"
           >
             <DrawingToolbarIcon name="redo" />
-          </button>
-        </div>
-        <div className="realtime-drawing-tool-group">
-          <button
-            aria-label="Clear drawing"
-            className={`realtime-drawing-clear-button realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            onClick={() => drawingRef.current?.clear()}
-            title="Clear drawing"
-            type="button"
-          >
-            <DrawingToolbarIcon name="clear" />
           </button>
         </div>
       </div>

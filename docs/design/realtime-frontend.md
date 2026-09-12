@@ -88,7 +88,8 @@ no native overflow.
 
 The compact drawing toolbar chooses Select, Pen, Highlighter, Eraser, and Text modes, groups line,
 arrow, rectangle, and ellipse placement in one Setta-styled **Line & shape** menu, and retains only
-image insertion, history, and clearing as direct actions. Text placement consumes one click; shape
+image insertion and history as direct actions. The undoable **Clear drawing** command is a
+destructive Canvas action in the Inspector. Text placement consumes one click; shape
 placement uses the user's drag geometry with the initial press and current pointer as opposite
 corners. Both return to Select after creation instead of adding objects at a default location.
 Contextual toolbar controls expose Pen and Highlighter color and width, text and line color, and
