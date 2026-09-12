@@ -64,6 +64,24 @@ type DrawingPanGesture = {
   x: number;
   y: number;
 };
+type DrawingBrushPresentation = {
+  disabled: boolean;
+  label: "Highlighter" | "Pen";
+  maxWidth: number;
+  settings: DrawingBrushSettings;
+};
+type DrawingViewportToolbarPresentation = {
+  actualSizePressed: boolean;
+  canZoomIn: boolean;
+  canZoomOut: boolean;
+  fitPressed: boolean;
+  unavailable: boolean;
+  zoomLabel: string;
+};
+type DrawingKeyboardSimpleAction = Exclude<
+  DrawingKeyboardAction,
+  { type: "nudge-selection" } | { type: "select-all" } | { type: "set-tool" }
+>;
 
 const INITIAL_PEN: DrawingBrushSettings = {
   color: "#111827",
@@ -81,6 +99,87 @@ const TERMINAL_INVOCATION_STATES = new Set([
   "superseded",
   "timedOut",
 ]);
+
+const DRAWING_KEYBOARD_COMMAND_BY_TYPE: Record<
+  DrawingKeyboardSimpleAction["type"],
+  (drawing: RealtimeDrawingRuntime) => void
+> = {
+  "clear-selection": (drawing) => void drawing.clearSelection(),
+  "copy-selection": (drawing) => void drawing.copySelection(),
+  "delete-selection": (drawing) => void drawing.deleteSelection(),
+  "duplicate-selection": (drawing) => void drawing.duplicateSelection(),
+  "group-selection": (drawing) => void drawing.groupSelection(),
+  paste: (drawing) => void drawing.pasteSelection(),
+  redo: (drawing) => void drawing.redo(),
+  undo: (drawing) => void drawing.undo(),
+  "ungroup-selection": (drawing) => void drawing.ungroupSelection(),
+};
+
+function drawingBrushPresentation(
+  tool: DrawingTool,
+  pen: DrawingBrushSettings,
+  highlighter: DrawingBrushSettings,
+): DrawingBrushPresentation {
+  if (tool === "highlighter") {
+    return {
+      disabled: false,
+      label: "Highlighter",
+      maxWidth: 64,
+      settings: highlighter,
+    };
+  }
+  return {
+    disabled: tool !== "draw",
+    label: "Pen",
+    maxWidth: 32,
+    settings: pen,
+  };
+}
+
+function drawingViewportToolbarPresentation(
+  viewport: DrawingViewportPresentation | null,
+): DrawingViewportToolbarPresentation {
+  if (viewport === null) {
+    return {
+      actualSizePressed: false,
+      canZoomIn: false,
+      canZoomOut: false,
+      fitPressed: false,
+      unavailable: true,
+      zoomLabel: "–",
+    };
+  }
+  return {
+    actualSizePressed: viewport.mode === "custom" && viewport.scale === 1,
+    canZoomIn: viewport.canZoomIn,
+    canZoomOut: viewport.canZoomOut,
+    fitPressed: viewport.mode === "fit",
+    unavailable: false,
+    zoomLabel: `${Math.round(viewport.zoomPercent)}%`,
+  };
+}
+
+function runDrawingKeyboardAction(
+  drawing: RealtimeDrawingRuntime,
+  action: DrawingKeyboardAction,
+  setTool: (tool: DrawingTool) => void,
+): void {
+  if (action.type === "set-tool") {
+    setTool(action.tool);
+    drawing.setTool(action.tool);
+    return;
+  }
+  if (action.type === "nudge-selection") {
+    drawing.nudgeSelection(action.x, action.y);
+    return;
+  }
+  if (action.type === "select-all") {
+    drawing.selectAll();
+    setTool("select");
+    return;
+  }
+  DRAWING_KEYBOARD_COMMAND_BY_TYPE[action.type](drawing);
+}
 
 function snapshotBindings(project: Project, sectionId: string): Binding[] {
   return project.bindings.filter(
@@ -504,52 +603,6 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     setTool("select");
   };
 
-  const runKeyboardAction = (action: DrawingKeyboardAction) => {
-    const drawing = drawingRef.current;
-    if (drawing === null) {
-      return;
-    }
-    switch (action.type) {
-      case "clear-selection":
-        drawing.clearSelection();
-        break;
-      case "copy-selection":
-        drawing.copySelection();
-        break;
-      case "delete-selection":
-        drawing.deleteSelection();
-        break;
-      case "duplicate-selection":
-        void drawing.duplicateSelection();
-        break;
-      case "group-selection":
-        drawing.groupSelection();
-        break;
-      case "nudge-selection":
-        drawing.nudgeSelection(action.x, action.y);
-        break;
-      case "paste":
-        void drawing.pasteSelection();
-        break;
-      case "redo":
-        void drawing.redo();
-        break;
-      case "select-all":
-        drawing.selectAll();
-        setTool("select");
-        break;
-      case "set-tool":
-        chooseTool(action.tool);
-        break;
-      case "undo":
-        void drawing.undo();
-        break;
-      case "ungroup-selection":
-        drawing.ungroupSelection();
-        break;
-    }
-  };
-
   const handleDrawingKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const drawing = drawingRef.current;
     if (drawing === null) {
@@ -581,7 +634,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     }
     event.preventDefault();
     event.stopPropagation();
-    runKeyboardAction(action);
+    runDrawingKeyboardAction(drawing, action, setTool);
   };
 
   const toggleGrid = () => {
@@ -650,7 +703,8 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     event.stopPropagation();
   };
 
-  const activeBrush = tool === "highlighter" ? highlighter : pen;
+  const brushPresentation = drawingBrushPresentation(tool, pen, highlighter);
+  const viewportPresentation = drawingViewportToolbarPresentation(viewport);
 
   return (
     <div className="realtime-drawing">
@@ -678,39 +732,35 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         </div>
         <div className="realtime-drawing-tool-group realtime-drawing-brush-controls">
           <label
-            aria-label={
-              tool === "highlighter" ? "Highlighter color" : "Pen color"
-            }
-            title={tool === "highlighter" ? "Highlighter color" : "Pen color"}
+            aria-label={`${brushPresentation.label} color`}
+            title={`${brushPresentation.label} color`}
           >
             <input
               className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-              disabled={tool !== "draw" && tool !== "highlighter"}
+              disabled={brushPresentation.disabled}
               onChange={(event) => changeBrushColor(event.currentTarget.value)}
               type="color"
-              value={activeBrush.color}
+              value={brushPresentation.settings.color}
             />
           </label>
           <label
             className="realtime-drawing-size"
-            title={tool === "highlighter" ? "Highlighter size" : "Pen size"}
+            title={`${brushPresentation.label} size`}
           >
             <span className="realtime-drawing-size-label">Size</span>
             <input
-              aria-label={
-                tool === "highlighter" ? "Highlighter size" : "Pen size"
-              }
+              aria-label={`${brushPresentation.label} size`}
               className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-              disabled={tool !== "draw" && tool !== "highlighter"}
-              max={tool === "highlighter" ? 64 : 32}
+              disabled={brushPresentation.disabled}
+              max={brushPresentation.maxWidth}
               min={1}
               onChange={(event) =>
                 changeBrushWidth(Number(event.currentTarget.value))
               }
               type="range"
-              value={activeBrush.width}
+              value={brushPresentation.settings.width}
             />
-            <output>{activeBrush.width}px</output>
+            <output>{brushPresentation.settings.width}px</output>
           </label>
         </div>
         <div className="realtime-drawing-tool-group">
@@ -788,7 +838,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           <button
             aria-label="Zoom out"
             className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewport === null || !viewport.canZoomOut}
+            disabled={!viewportPresentation.canZoomOut}
             onClick={() => viewportRef.current?.zoomOut()}
             title="Zoom out"
             type="button"
@@ -797,9 +847,9 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           </button>
           <button
             aria-label="Fit canvas"
-            aria-pressed={viewport?.mode === "fit"}
+            aria-pressed={viewportPresentation.fitPressed}
             className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewport === null}
+            disabled={viewportPresentation.unavailable}
             onClick={() => viewportRef.current?.fit()}
             title="Fit canvas"
             type="button"
@@ -808,9 +858,9 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
           </button>
           <button
             aria-label="Actual size"
-            aria-pressed={viewport?.mode === "custom" && viewport.scale === 1}
+            aria-pressed={viewportPresentation.actualSizePressed}
             className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewport === null}
+            disabled={viewportPresentation.unavailable}
             onClick={() => viewportRef.current?.actualSize()}
             title="Actual size (100%)"
             type="button"
@@ -821,12 +871,12 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
             aria-label="Canvas zoom"
             className="realtime-drawing-zoom-value"
           >
-            {viewport === null ? "–" : `${Math.round(viewport.zoomPercent)}%`}
+            {viewportPresentation.zoomLabel}
           </output>
           <button
             aria-label="Zoom in"
             className={`realtime-drawing-icon-button ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-            disabled={viewport === null || !viewport.canZoomIn}
+            disabled={!viewportPresentation.canZoomIn}
             onClick={() => viewportRef.current?.zoomIn()}
             title="Zoom in"
             type="button"
@@ -867,6 +917,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         </div>
       </div>
       <div
+        aria-label={`${section.name} drawing editor`}
         className={`realtime-drawing-stage ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
         onKeyDown={handleDrawingKeyDown}
         onLostPointerCapture={endHandPan}
@@ -875,6 +926,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
         onPointerMoveCapture={handleStagePointerMoveCapture}
         onPointerUpCapture={endHandPan}
         ref={stageRef}
+        role="application"
         tabIndex={0}
       >
         <canvas aria-label={section.name} ref={canvasRef} />

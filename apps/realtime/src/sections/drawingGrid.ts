@@ -2,7 +2,7 @@ export const DRAWING_GRID_DEFAULT_SPACING = 16;
 export const DRAWING_GRID_MAXIMUM_SPACING = 256;
 export const DRAWING_GRID_MINIMUM_SPACING = 2;
 
-export type DrawingGridPoint = Readonly<{
+type DrawingGridPoint = Readonly<{
   x: number;
   y: number;
 }>;

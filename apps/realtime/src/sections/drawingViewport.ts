@@ -1,6 +1,6 @@
 export const DRAWING_VIEWPORT_MINIMUM_SCALE = 0.1;
 export const DRAWING_VIEWPORT_MAXIMUM_SCALE = 10;
-export const DRAWING_VIEWPORT_ZOOM_STEP = 1.2;
+const DRAWING_VIEWPORT_ZOOM_STEP = 1.2;
 
 export type DrawingViewportSize = Readonly<{
   height: number;
@@ -12,7 +12,7 @@ export type DrawingViewportPoint = Readonly<{
   y: number;
 }>;
 
-export type DrawingViewportMode = "custom" | "fit";
+type DrawingViewportMode = "custom" | "fit";
 
 export type DrawingViewportSnapshot = Readonly<{
   logicalSize: DrawingViewportSize;
@@ -36,7 +36,7 @@ export type DrawingViewportPresentation = Readonly<{
   zoomPercent: number;
 }>;
 
-export type DrawingViewportZoomDirection = "in" | "out";
+type DrawingViewportZoomDirection = "in" | "out";
 
 const DRAWING_VIEWPORT_NUMBER_PRECISION = 1_000_000;
 

@@ -90,11 +90,29 @@ type SelectionCapabilityOptions = {
   canPaste: boolean;
 };
 
+type DrawingSelectionContext = {
+  canvasObjects: FabricObject[];
+  hasSelection: boolean;
+  objects: FabricObject[];
+  selected: Set<FabricObject>;
+  supportsCornerRadius: boolean;
+  supportsFill: boolean;
+  supportsStroke: boolean;
+  supportsTypography: boolean;
+  unlocked: boolean;
+};
+
 type Box = {
   height: number;
   left: number;
   top: number;
   width: number;
+};
+
+type DrawingDistributionAxis = {
+  move: (object: FabricObject, offset: number) => boolean;
+  position: (box: Box) => number;
+  size: (box: Box) => number;
 };
 
 export const DRAWING_OBJECT_SERIALIZATION_PROPERTIES = [
@@ -107,6 +125,22 @@ export const DRAWING_OBJECT_SERIALIZATION_PROPERTIES = [
   "lockSkewingX",
   "lockSkewingY",
 ] as const;
+
+const DRAWING_DISTRIBUTION_AXES: Record<
+  DrawingDistribution,
+  DrawingDistributionAxis
+> = {
+  horizontal: {
+    move: (object, offset) => moveObject(object, offset, 0),
+    position: (box) => box.left,
+    size: (box) => box.width,
+  },
+  vertical: {
+    move: (object, offset) => moveObject(object, 0, offset),
+    position: (box) => box.top,
+    size: (box) => box.height,
+  },
+};
 
 function selectionValue<Value>(
   objects: FabricObject[],
@@ -270,96 +304,223 @@ function canMoveBackward(
   return false;
 }
 
+function selectedObjectsSupport(
+  objects: FabricObject[],
+  predicate: (object: FabricObject) => boolean,
+): boolean {
+  return objects.length > 0 && objects.every(predicate);
+}
+
+function createDrawingSelectionContext(
+  canvas: Canvas,
+): DrawingSelectionContext {
+  const objects = selectedDrawingObjects(canvas);
+  return {
+    canvasObjects: canvas.getObjects(),
+    hasSelection: objects.length > 0,
+    objects,
+    selected: new Set(objects),
+    supportsCornerRadius: selectedObjectsSupport(
+      objects,
+      (object) => object instanceof Rect,
+    ),
+    supportsFill: selectedObjectsSupport(objects, supportsFill),
+    supportsStroke: selectedObjectsSupport(objects, supportsStroke),
+    supportsTypography: selectedObjectsSupport(
+      objects,
+      (object) => object instanceof IText,
+    ),
+    unlocked: selectedObjectsSupport(
+      objects,
+      (object) => !isDrawingObjectLocked(object),
+    ),
+  };
+}
+
+function selectionCapabilities(
+  context: DrawingSelectionContext,
+  options: SelectionCapabilityOptions,
+): Pick<
+  DrawingSelectionSnapshot,
+  | "canAlign"
+  | "canClearSelection"
+  | "canCopy"
+  | "canDelete"
+  | "canDistribute"
+  | "canDuplicate"
+  | "canGroup"
+  | "canLock"
+  | "canMoveBackward"
+  | "canMoveForward"
+  | "canPaste"
+  | "canSelectAll"
+  | "canUngroup"
+> {
+  const multipleUnlocked = context.unlocked && context.objects.length >= 2;
+  return {
+    canAlign: multipleUnlocked,
+    canClearSelection: context.hasSelection,
+    canCopy: context.hasSelection,
+    canDelete: context.unlocked,
+    canDistribute: context.unlocked && context.objects.length >= 3,
+    canDuplicate: context.unlocked,
+    canGroup: multipleUnlocked,
+    canLock: context.hasSelection,
+    canMoveBackward:
+      context.unlocked &&
+      canMoveBackward(context.canvasObjects, context.selected),
+    canMoveForward:
+      context.unlocked &&
+      canMoveForward(context.canvasObjects, context.selected),
+    canPaste: options.canPaste,
+    canSelectAll:
+      context.canvasObjects.length > 0 &&
+      context.objects.length !== context.canvasObjects.length,
+    canUngroup:
+      context.unlocked &&
+      context.objects.length === 1 &&
+      context.objects[0] instanceof Group,
+  };
+}
+
+function supportedSelectionValue<Value>(
+  supported: boolean,
+  objects: FabricObject[],
+  read: (object: FabricObject) => Value,
+): DrawingSelectionValue<Value> {
+  return supported ? selectionValue(objects, read) : null;
+}
+
+function normalizedFontStyle(object: FabricObject): "italic" | "normal" {
+  return (object as IText).fontStyle === "italic" ? "italic" : "normal";
+}
+
+function normalizedFontWeight(object: FabricObject): "bold" | "normal" {
+  const weight = (object as IText).fontWeight;
+  return weight === "bold" || Number(weight) >= 600 ? "bold" : "normal";
+}
+
+function normalizedTextAlign(object: FabricObject): DrawingTextAlign {
+  const align = (object as IText).textAlign;
+  return align === "center" || align === "right" || align === "justify"
+    ? align
+    : "left";
+}
+
+function selectionAppearance(
+  context: DrawingSelectionContext,
+): Pick<
+  DrawingSelectionSnapshot,
+  | "cornerRadius"
+  | "fillColor"
+  | "fillEnabled"
+  | "opacity"
+  | "strokeColor"
+  | "strokeEnabled"
+  | "strokeWidth"
+  | "supportsCornerRadius"
+  | "supportsFill"
+  | "supportsStroke"
+> {
+  return {
+    cornerRadius: supportedSelectionValue(
+      context.supportsCornerRadius,
+      context.objects,
+      (object) => (object as Rect).rx,
+    ),
+    fillColor: supportedSelectionValue(
+      context.supportsFill,
+      context.objects,
+      (object) => paintColor(object.fill),
+    ),
+    fillEnabled: supportedSelectionValue(
+      context.supportsFill,
+      context.objects,
+      (object) => paintEnabled(object.fill),
+    ),
+    opacity: supportedSelectionValue(
+      context.hasSelection,
+      context.objects,
+      (object) => object.opacity,
+    ),
+    strokeColor: supportedSelectionValue(
+      context.supportsStroke,
+      context.objects,
+      (object) => paintColor(object.stroke),
+    ),
+    strokeEnabled: supportedSelectionValue(
+      context.supportsStroke,
+      context.objects,
+      (object) => paintEnabled(object.stroke),
+    ),
+    strokeWidth: supportedSelectionValue(
+      context.supportsStroke,
+      context.objects,
+      (object) => object.strokeWidth,
+    ),
+    supportsCornerRadius: context.supportsCornerRadius,
+    supportsFill: context.supportsFill,
+    supportsStroke: context.supportsStroke,
+  };
+}
+
+function selectionTypography(
+  context: DrawingSelectionContext,
+): Pick<
+  DrawingSelectionSnapshot,
+  | "fontFamily"
+  | "fontSize"
+  | "fontStyle"
+  | "fontWeight"
+  | "supportsTypography"
+  | "textAlign"
+> {
+  return {
+    fontFamily: supportedSelectionValue(
+      context.supportsTypography,
+      context.objects,
+      (object) => (object as IText).fontFamily,
+    ),
+    fontSize: supportedSelectionValue(
+      context.supportsTypography,
+      context.objects,
+      (object) => (object as IText).fontSize,
+    ),
+    fontStyle: supportedSelectionValue(
+      context.supportsTypography,
+      context.objects,
+      normalizedFontStyle,
+    ),
+    fontWeight: supportedSelectionValue(
+      context.supportsTypography,
+      context.objects,
+      normalizedFontWeight,
+    ),
+    supportsTypography: context.supportsTypography,
+    textAlign: supportedSelectionValue(
+      context.supportsTypography,
+      context.objects,
+      normalizedTextAlign,
+    ),
+  };
+}
+
 export function createDrawingSelectionSnapshot(
   canvas: Canvas,
   options: SelectionCapabilityOptions,
 ): DrawingSelectionSnapshot {
-  const objects = selectedDrawingObjects(canvas);
-  const canvasObjects = canvas.getObjects();
-  const selected = new Set(objects);
-  const unlocked =
-    objects.length > 0 &&
-    objects.every((object) => !isDrawingObjectLocked(object));
-  const fillSupported = objects.length > 0 && objects.every(supportsFill);
-  const strokeSupported = objects.length > 0 && objects.every(supportsStroke);
-  const typographySupported =
-    objects.length > 0 && objects.every((object) => object instanceof IText);
-  const cornerRadiusSupported =
-    objects.length > 0 && objects.every((object) => object instanceof Rect);
+  const context = createDrawingSelectionContext(canvas);
   const snapshot: DrawingSelectionSnapshot = {
-    canAlign: objects.length >= 2 && unlocked,
-    canClearSelection: objects.length > 0,
-    canCopy: objects.length > 0,
-    canDelete: objects.length > 0 && unlocked,
-    canDistribute: objects.length >= 3 && unlocked,
-    canDuplicate: objects.length > 0 && unlocked,
-    canGroup: objects.length >= 2 && unlocked,
-    canLock: objects.length > 0,
-    canMoveBackward: unlocked && canMoveBackward(canvasObjects, selected),
-    canMoveForward: unlocked && canMoveForward(canvasObjects, selected),
-    canPaste: options.canPaste,
-    canSelectAll:
-      canvasObjects.length > 0 && objects.length !== canvasObjects.length,
-    canUngroup: objects.length === 1 && objects[0] instanceof Group && unlocked,
-    cornerRadius: cornerRadiusSupported
-      ? selectionValue(objects, (object) => (object as Rect).rx)
-      : null,
-    count: objects.length,
-    fillColor: fillSupported
-      ? selectionValue(objects, (object) => paintColor(object.fill))
-      : null,
-    fillEnabled: fillSupported
-      ? selectionValue(objects, (object) => paintEnabled(object.fill))
-      : null,
-    fontFamily: typographySupported
-      ? selectionValue(objects, (object) => (object as IText).fontFamily)
-      : null,
-    fontSize: typographySupported
-      ? selectionValue(objects, (object) => (object as IText).fontSize)
-      : null,
-    fontStyle: typographySupported
-      ? selectionValue(objects, (object) =>
-          (object as IText).fontStyle === "italic" ? "italic" : "normal",
-        )
-      : null,
-    fontWeight: typographySupported
-      ? selectionValue(objects, (object) =>
-          (object as IText).fontWeight === "bold" ||
-          Number((object as IText).fontWeight) >= 600
-            ? "bold"
-            : "normal",
-        )
-      : null,
-    kind: selectionKind(objects),
-    locked:
-      objects.length > 0
-        ? selectionValue(objects, isDrawingObjectLocked)
-        : null,
-    opacity:
-      objects.length > 0
-        ? selectionValue(objects, (object) => object.opacity)
-        : null,
-    strokeColor: strokeSupported
-      ? selectionValue(objects, (object) => paintColor(object.stroke))
-      : null,
-    strokeEnabled: strokeSupported
-      ? selectionValue(objects, (object) => paintEnabled(object.stroke))
-      : null,
-    strokeWidth: strokeSupported
-      ? selectionValue(objects, (object) => object.strokeWidth)
-      : null,
-    supportsCornerRadius: cornerRadiusSupported,
-    supportsFill: fillSupported,
-    supportsStroke: strokeSupported,
-    supportsTypography: typographySupported,
-    textAlign: typographySupported
-      ? selectionValue(objects, (object) => {
-          const align = (object as IText).textAlign;
-          return align === "center" || align === "right" || align === "justify"
-            ? align
-            : "left";
-        })
-      : null,
+    ...selectionCapabilities(context, options),
+    ...selectionAppearance(context),
+    ...selectionTypography(context),
+    count: context.objects.length,
+    kind: selectionKind(context.objects),
+    locked: supportedSelectionValue(
+      context.hasSelection,
+      context.objects,
+      isDrawingObjectLocked,
+    ),
   };
   return Object.freeze(snapshot);
 }
@@ -368,21 +529,113 @@ function validColor(value: string | null): boolean {
   return value === null || value.trim().length > 0;
 }
 
-export function isDrawingAppearancePatchValid(
+function validOptionalColor(value: string | null | undefined): boolean {
+  return value === undefined ? true : validColor(value);
+}
+
+function validOptionalNumber(
+  value: number | undefined,
+  minimum: number,
+  maximum = Number.POSITIVE_INFINITY,
+): boolean {
+  return value === undefined
+    ? true
+    : Number.isFinite(value) && value >= minimum && value <= maximum;
+}
+
+function isDrawingAppearancePatchValid(
   patch: DrawingSelectionAppearancePatch,
 ): boolean {
-  return (
-    (patch.fill === undefined || validColor(patch.fill)) &&
-    (patch.stroke === undefined || validColor(patch.stroke)) &&
-    (patch.opacity === undefined ||
-      (Number.isFinite(patch.opacity) &&
-        patch.opacity >= 0 &&
-        patch.opacity <= 1)) &&
-    (patch.strokeWidth === undefined ||
-      (Number.isFinite(patch.strokeWidth) && patch.strokeWidth >= 0)) &&
-    (patch.cornerRadius === undefined ||
-      (Number.isFinite(patch.cornerRadius) && patch.cornerRadius >= 0))
-  );
+  return [
+    validOptionalColor(patch.fill),
+    validOptionalColor(patch.stroke),
+    validOptionalNumber(patch.opacity, 0, 1),
+    validOptionalNumber(patch.strokeWidth, 0),
+    validOptionalNumber(patch.cornerRadius, 0),
+  ].every(Boolean);
+}
+
+function applyDrawingFill(
+  object: FabricObject,
+  fill: DrawingSelectionAppearancePatch["fill"],
+): boolean {
+  if (fill === undefined || !supportsFill(object) || object.fill === fill) {
+    return false;
+  }
+  object.set("fill", fill);
+  return true;
+}
+
+function applyDrawingStroke(
+  object: FabricObject,
+  stroke: DrawingSelectionAppearancePatch["stroke"],
+): boolean {
+  if (
+    stroke === undefined ||
+    !supportsStroke(object) ||
+    object.stroke === stroke
+  ) {
+    return false;
+  }
+  object.set("stroke", stroke);
+  return true;
+}
+
+function applyDrawingStrokeWidth(
+  object: FabricObject,
+  strokeWidth: DrawingSelectionAppearancePatch["strokeWidth"],
+): boolean {
+  if (
+    strokeWidth === undefined ||
+    !supportsStroke(object) ||
+    object.strokeWidth === strokeWidth
+  ) {
+    return false;
+  }
+  object.set("strokeWidth", strokeWidth);
+  return true;
+}
+
+function applyDrawingOpacity(
+  object: FabricObject,
+  opacity: DrawingSelectionAppearancePatch["opacity"],
+): boolean {
+  if (opacity === undefined || object.opacity === opacity) {
+    return false;
+  }
+  object.set("opacity", opacity);
+  return true;
+}
+
+function applyDrawingCornerRadius(
+  object: FabricObject,
+  cornerRadius: DrawingSelectionAppearancePatch["cornerRadius"],
+): boolean {
+  if (cornerRadius === undefined || !(object instanceof Rect)) {
+    return false;
+  }
+  if (object.rx === cornerRadius && object.ry === cornerRadius) {
+    return false;
+  }
+  object.set({ rx: cornerRadius, ry: cornerRadius });
+  return true;
+}
+
+function applyDrawingObjectAppearance(
+  object: FabricObject,
+  patch: DrawingSelectionAppearancePatch,
+): boolean {
+  const changed = [
+    applyDrawingFill(object, patch.fill),
+    applyDrawingStroke(object, patch.stroke),
+    applyDrawingStrokeWidth(object, patch.strokeWidth),
+    applyDrawingOpacity(object, patch.opacity),
+    applyDrawingCornerRadius(object, patch.cornerRadius),
+  ].some(Boolean);
+  if (changed) {
+    object.setCoords();
+  }
+  return changed;
 }
 
 export function applyDrawingAppearance(
@@ -394,53 +647,12 @@ export function applyDrawingAppearance(
   }
   let changed = false;
   for (const object of objects) {
-    let objectChanged = false;
-    if (
-      patch.fill !== undefined &&
-      supportsFill(object) &&
-      object.fill !== patch.fill
-    ) {
-      object.set("fill", patch.fill);
-      objectChanged = true;
-    }
-    if (
-      patch.stroke !== undefined &&
-      supportsStroke(object) &&
-      object.stroke !== patch.stroke
-    ) {
-      object.set("stroke", patch.stroke);
-      objectChanged = true;
-    }
-    if (
-      patch.strokeWidth !== undefined &&
-      supportsStroke(object) &&
-      object.strokeWidth !== patch.strokeWidth
-    ) {
-      object.set("strokeWidth", patch.strokeWidth);
-      objectChanged = true;
-    }
-    if (patch.opacity !== undefined && object.opacity !== patch.opacity) {
-      object.set("opacity", patch.opacity);
-      objectChanged = true;
-    }
-    if (patch.cornerRadius !== undefined && object instanceof Rect) {
-      if (
-        object.rx !== patch.cornerRadius ||
-        object.ry !== patch.cornerRadius
-      ) {
-        object.set({ rx: patch.cornerRadius, ry: patch.cornerRadius });
-        objectChanged = true;
-      }
-    }
-    if (objectChanged) {
-      object.setCoords();
-      changed = true;
-    }
+    changed = applyDrawingObjectAppearance(object, patch) || changed;
   }
   return changed;
 }
 
-export function isDrawingTypographyPatchValid(
+function isDrawingTypographyPatchValid(
   patch: DrawingSelectionTypographyPatch,
 ): boolean {
   return (
@@ -448,6 +660,50 @@ export function isDrawingTypographyPatchValid(
     (patch.fontSize === undefined ||
       (Number.isFinite(patch.fontSize) && patch.fontSize > 0))
   );
+}
+
+function applyChangedValue<Value>(
+  current: Value,
+  value: Value | undefined,
+  apply: (value: Value) => void,
+): boolean {
+  if (value === undefined || Object.is(current, value)) {
+    return false;
+  }
+  apply(value);
+  return true;
+}
+
+function applyDrawingObjectTypography(
+  object: FabricObject,
+  patch: DrawingSelectionTypographyPatch,
+): boolean {
+  if (!(object instanceof IText)) {
+    return false;
+  }
+  const changes = [
+    applyChangedValue(object.fontFamily, patch.fontFamily, (value) =>
+      object.set("fontFamily", value),
+    ),
+    applyChangedValue(object.fontSize, patch.fontSize, (value) =>
+      object.set("fontSize", value),
+    ),
+    applyChangedValue(object.fontStyle, patch.fontStyle, (value) =>
+      object.set("fontStyle", value),
+    ),
+    applyChangedValue(object.fontWeight, patch.fontWeight, (value) =>
+      object.set("fontWeight", value),
+    ),
+    applyChangedValue(object.textAlign, patch.textAlign, (value) =>
+      object.set("textAlign", value),
+    ),
+  ];
+  if (!changes.some(Boolean)) {
+    return false;
+  }
+  object.initDimensions();
+  object.setCoords();
+  return true;
 }
 
 export function applyDrawingTypography(
@@ -459,37 +715,7 @@ export function applyDrawingTypography(
   }
   let changed = false;
   for (const object of objects) {
-    if (!(object instanceof IText)) {
-      continue;
-    }
-    const next: Partial<IText> = {};
-    if (
-      patch.fontFamily !== undefined &&
-      object.fontFamily !== patch.fontFamily
-    ) {
-      next.fontFamily = patch.fontFamily;
-    }
-    if (patch.fontSize !== undefined && object.fontSize !== patch.fontSize) {
-      next.fontSize = patch.fontSize;
-    }
-    if (patch.fontStyle !== undefined && object.fontStyle !== patch.fontStyle) {
-      next.fontStyle = patch.fontStyle;
-    }
-    if (
-      patch.fontWeight !== undefined &&
-      object.fontWeight !== patch.fontWeight
-    ) {
-      next.fontWeight = patch.fontWeight;
-    }
-    if (patch.textAlign !== undefined && object.textAlign !== patch.textAlign) {
-      next.textAlign = patch.textAlign;
-    }
-    if (Object.keys(next).length > 0) {
-      object.set(next);
-      object.initDimensions();
-      object.setCoords();
-      changed = true;
-    }
+    changed = applyDrawingObjectTypography(object, patch) || changed;
   }
   return changed;
 }
@@ -595,37 +821,27 @@ export function distributeDrawingObjects(
     return false;
   }
   const boxes = selectionBoxes(objects);
-  const horizontal = distribution === "horizontal";
+  const axis = DRAWING_DISTRIBUTION_AXES[distribution];
   const sorted = [...objects].sort((first, second) => {
     const firstBox = boxes.get(first)!;
     const secondBox = boxes.get(second)!;
-    return horizontal
-      ? firstBox.left - secondBox.left
-      : firstBox.top - secondBox.top;
+    return axis.position(firstBox) - axis.position(secondBox);
   });
   const firstBox = boxes.get(sorted[0]!)!;
   const lastBox = boxes.get(sorted[sorted.length - 1]!)!;
-  const totalSize = sorted.reduce((sum, object) => {
-    const box = boxes.get(object)!;
-    return sum + (horizontal ? box.width : box.height);
-  }, 0);
-  const start = horizontal ? firstBox.left : firstBox.top;
-  const end = horizontal
-    ? lastBox.left + lastBox.width
-    : lastBox.top + lastBox.height;
+  const totalSize = sorted.reduce(
+    (sum, object) => sum + axis.size(boxes.get(object)!),
+    0,
+  );
+  const start = axis.position(firstBox);
+  const end = axis.position(lastBox) + axis.size(lastBox);
   const gap = (end - start - totalSize) / (sorted.length - 1);
   let cursor = start;
   let changed = false;
   for (const object of sorted) {
     const box = boxes.get(object)!;
-    const current = horizontal ? box.left : box.top;
-    changed =
-      moveObject(
-        object,
-        horizontal ? cursor - current : 0,
-        horizontal ? 0 : cursor - current,
-      ) || changed;
-    cursor += (horizontal ? box.width : box.height) + gap;
+    changed = axis.move(object, cursor - axis.position(box)) || changed;
+    cursor += axis.size(box) + gap;
   }
   return changed;
 }

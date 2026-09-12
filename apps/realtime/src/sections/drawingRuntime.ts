@@ -106,8 +106,37 @@ type BrushSettings = {
   width: number;
 };
 
+type DrawingArrangementAction = "back" | "backward" | "forward" | "front";
+
+type DrawingArrangement = {
+  reverse: boolean;
+  run: (canvas: Canvas, object: FabricObject) => boolean;
+};
+
 const DRAWING_HIGHLIGHTER_ALPHA = 0.32;
 const DRAWING_OBJECT_OFFSET = 12;
+
+const DRAWING_ARRANGEMENTS: Record<
+  DrawingArrangementAction,
+  DrawingArrangement
+> = {
+  back: {
+    reverse: true,
+    run: (canvas, object) => canvas.sendObjectToBack(object),
+  },
+  backward: {
+    reverse: false,
+    run: (canvas, object) => canvas.sendObjectBackwards(object),
+  },
+  forward: {
+    reverse: true,
+    run: (canvas, object) => canvas.bringObjectForward(object),
+  },
+  front: {
+    reverse: false,
+    run: (canvas, object) => canvas.bringObjectToFront(object),
+  },
+};
 
 const DRAWING_CANVAS_ANCHOR_FACTORS: Record<
   DrawingCanvasAnchor,
@@ -1013,9 +1042,7 @@ export class RealtimeDrawingRuntime {
       : null;
   }
 
-  private arrangeSelection(
-    action: "back" | "backward" | "forward" | "front",
-  ): boolean {
+  private arrangeSelection(action: DrawingArrangementAction): boolean {
     const objects = this.unlockedSelection(1);
     if (objects === null) {
       return false;
@@ -1024,23 +1051,11 @@ export class RealtimeDrawingRuntime {
     const ordered = this.canvas
       .getObjects()
       .filter((object) => selected.has(object));
+    const arrangement = DRAWING_ARRANGEMENTS[action];
+    const candidates = arrangement.reverse ? ordered.reverse() : ordered;
     let changed = false;
-    if (action === "forward") {
-      for (const object of [...ordered].reverse()) {
-        changed = this.canvas.bringObjectForward(object) || changed;
-      }
-    } else if (action === "backward") {
-      for (const object of ordered) {
-        changed = this.canvas.sendObjectBackwards(object) || changed;
-      }
-    } else if (action === "front") {
-      for (const object of ordered) {
-        changed = this.canvas.bringObjectToFront(object) || changed;
-      }
-    } else {
-      for (const object of [...ordered].reverse()) {
-        changed = this.canvas.sendObjectToBack(object) || changed;
-      }
+    for (const object of candidates) {
+      changed = arrangement.run(this.canvas, object) || changed;
     }
     return this.finishSelectionMutation(changed);
   }

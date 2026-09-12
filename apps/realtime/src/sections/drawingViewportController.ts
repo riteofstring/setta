@@ -19,14 +19,28 @@ import {
   type DrawingViewportSnapshot,
 } from "./drawingViewport";
 
-export type DrawingViewportGridOptions = Readonly<{
+type DrawingViewportGridOptions = Readonly<{
   spacing: number;
   visible: boolean;
 }>;
 
-export type DrawingViewportChangeListener = (
+type DrawingViewportChangeListener = (
   presentation: DrawingViewportPresentation,
 ) => void;
+
+const DRAWING_VIEWPORT_PRESENTATION_KEYS = [
+  "canZoomIn",
+  "canZoomOut",
+  "displayHeight",
+  "displayWidth",
+  "maximumPanX",
+  "maximumPanY",
+  "mode",
+  "panX",
+  "panY",
+  "scale",
+  "zoomPercent",
+] as const satisfies ReadonlyArray<keyof DrawingViewportPresentation>;
 
 function cssPixels(value: number): string {
   return `${Object.is(value, -0) ? 0 : value}px`;
@@ -36,18 +50,8 @@ function presentationsMatch(
   left: DrawingViewportPresentation,
   right: DrawingViewportPresentation,
 ): boolean {
-  return (
-    left.canZoomIn === right.canZoomIn &&
-    left.canZoomOut === right.canZoomOut &&
-    left.displayHeight === right.displayHeight &&
-    left.displayWidth === right.displayWidth &&
-    left.maximumPanX === right.maximumPanX &&
-    left.maximumPanY === right.maximumPanY &&
-    left.mode === right.mode &&
-    left.panX === right.panX &&
-    left.panY === right.panY &&
-    left.scale === right.scale &&
-    left.zoomPercent === right.zoomPercent
+  return DRAWING_VIEWPORT_PRESENTATION_KEYS.every(
+    (key) => left[key] === right[key],
   );
 }
 
