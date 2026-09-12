@@ -41,6 +41,12 @@ import {
   EMPTY_DRAWING_SELECTION_SNAPSHOT,
   registerDrawingSurface,
 } from "./drawingSurfaceRegistry";
+import {
+  drawingSelectionColorPatch,
+  drawingSelectionPaintLabel,
+  drawingToolbarSelectionPaints,
+  type DrawingSelectionPaint,
+} from "./drawingToolbarSelection";
 import { DrawingToolbarIcon } from "./DrawingToolbarIcon";
 import { DrawingViewportController } from "./drawingViewportController";
 import { readDrawingSectionData } from "./sectionData";
@@ -655,6 +661,15 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
     drawingRef.current?.setCreationColor(target, color);
   };
 
+  const changeSelectionColor = (
+    target: DrawingSelectionPaint["target"],
+    color: string,
+  ) => {
+    drawingRef.current?.setSelectionAppearance(
+      drawingSelectionColorPatch(target, color),
+    );
+  };
+
   const handleDrawingKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const drawing = drawingRef.current;
     if (drawing === null) {
@@ -725,6 +740,7 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
       ? drawingBrushPresentation(tool, pen, highlighter)
       : null;
   const creationPaints = drawingCreationPaints(tool, creationColors);
+  const selectionPaints = drawingToolbarSelectionPaints(tool, selection);
 
   return (
     <div className="realtime-drawing">
@@ -848,6 +864,31 @@ export function DrawingSection({ section }: { section: WorkspaceSection }) {
                   className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
                   onChange={(event) =>
                     changeCreationColor(paint.target, event.currentTarget.value)
+                  }
+                  type="color"
+                  value={paint.color}
+                />
+              </label>
+            ))}
+          </div>
+        )}
+        {selectionPaints.length === 0 ? null : (
+          <div className="realtime-drawing-tool-group realtime-drawing-creation-colors">
+            {selectionPaints.map((paint) => (
+              <label
+                className="realtime-drawing-toolbar-color"
+                key={paint.target}
+                title={drawingSelectionPaintLabel(selection, paint)}
+              >
+                <span>{paint.label}</span>
+                <input
+                  aria-label={drawingSelectionPaintLabel(selection, paint)}
+                  className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+                  onChange={(event) =>
+                    changeSelectionColor(
+                      paint.target,
+                      event.currentTarget.value,
+                    )
                   }
                   type="color"
                   value={paint.color}

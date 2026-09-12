@@ -41,10 +41,10 @@ Use `setta realtime open` for an installed release.
 Draw a mark and both processed results update while the stroke is active. The two bindings have
 independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
 waiting on each other. The compact drawing toolbar provides Select, Pen, Highlighter, Eraser, and
-Text tools, a **Line & shape** menu, image insertion, contextual creation colors, and undo and
-redo. Grid controls, canvas sizing and clearing, object appearance, typography, arrangement,
-grouping, locking, and deletion live in the right-side Inspector. The example is an ordinary
-Realtime project: inside the ignored working copy its authored document is
+Text tools, a **Line & shape** menu, image insertion, contextual creation and selection colors, and
+undo and redo. Grid controls, canvas sizing and clearing, detailed object appearance, typography,
+arrangement, grouping, locking, and deletion live in the right-side Inspector. The example is an
+ordinary Realtime project: inside the ignored working copy its authored document is
 `.local/realtime/project.json` and its editable handler is `app.py`.
 Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
 reload** for an immediate visual variation. The tracked source under
@@ -234,8 +234,9 @@ clicking its intended origin; lines and arrows use the pointer endpoints, while 
 ellipses use the press and current pointer as opposite corners instead of expanding around the
 initial press. A new text box enters editing immediately, and completed placement returns to
 Select. Contextual controls expose Pen and Highlighter color and width, text and line color, and
-shape fill and stroke beside the active tool. The Inspector opens only its contextual **Selection**
-card; compatible fill, stroke, opacity, rectangle radius, text properties, and object actions live
+shape fill and stroke beside the active tool. Concrete colors remain available in the same toolbar
+controls when a compatible object is selected. The Inspector opens only its contextual **Selection**
+card; mixed or disabled paint, opacity, rectangle radius, text properties, and object actions live
 there. Secondary **Arrange & align** and document-level **Canvas** cards stay collapsed until
 needed. Canvas also holds the undoable, destructive **Clear drawing** action. Mixed values remain
 explicit, and locked objects remain selectable for unlocking but

@@ -1582,7 +1582,7 @@ async function exerciseDrawingAuthoring(client, origin) {
   const textColored = await evaluate(
     client,
     `(() => {
-      const input = document.querySelector('input[aria-label="Fill color"]');
+      const input = document.querySelector('input[aria-label="Selected text color"]');
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       if (!(input instanceof HTMLInputElement) || setter === undefined) {
         return false;
@@ -1592,7 +1592,11 @@ async function exerciseDrawingAuthoring(client, origin) {
       return true;
     })()`,
   );
-  assert.equal(textColored, true, "The selected text color was not editable.");
+  assert.equal(
+    textColored,
+    true,
+    "The selected text color was not editable from the toolbar.",
+  );
   const styledText = await waitForProject(
     origin,
     "one durable text color change",
@@ -2185,6 +2189,46 @@ async function exerciseBrowser(client, origin) {
     settledRectangle.revision,
     project.revision,
     "The rectangle placement settled more than once.",
+  );
+  await waitFor(
+    client,
+    "the selected rectangle paint controls",
+    `document.querySelector('input[aria-label="Selected rectangle fill color"]') instanceof HTMLInputElement &&
+      document.querySelector('input[aria-label="Selected rectangle stroke color"]') instanceof HTMLInputElement`,
+  );
+  const toolbarFillChanged = await evaluate(
+    client,
+    `(() => {
+      const input = document.querySelector('input[aria-label="Selected rectangle fill color"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (!(input instanceof HTMLInputElement) || setter === undefined) {
+        return false;
+      }
+      setter.call(input, "#7c3aed");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    toolbarFillChanged,
+    true,
+    "The selected rectangle fill was not editable from the toolbar.",
+  );
+  const toolbarStyledRectangle = await waitForProject(
+    origin,
+    "one durable toolbar drawing style change",
+    (candidate) =>
+      candidate.sections.drawing.data.scene.objects.some(
+        (object) => object.type === "Rect" && object.fill === "#7c3aed",
+      ),
+  );
+  assert.equal(toolbarStyledRectangle.revision, settledRectangle.revision + 1);
+  await delay(250);
+  const settledToolbarStyle = await jsonRequest(origin, "/api/v1/project");
+  assert.equal(
+    settledToolbarStyle.revision,
+    toolbarStyledRectangle.revision,
+    "The toolbar drawing style change settled more than once.",
   );
   await exerciseDrawingAuthoring(client, origin);
 

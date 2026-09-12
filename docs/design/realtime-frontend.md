@@ -93,14 +93,17 @@ destructive Canvas action in the Inspector. Text placement consumes one click; s
 placement uses the user's drag geometry with the initial press and current pointer as opposite
 corners. Both return to Select after creation instead of adding objects at a default location.
 Contextual toolbar controls expose Pen and Highlighter color and width, text and line color, and
-shape fill and stroke only while the corresponding tool is active. The highlighter icon includes
-its active translucent color so it remains distinct from Pen before activation. The highlighter
-is a retained translucent path with a uniform width. Variable-width pressure would require a
-separately designed outlined-path representation; changing a `PencilBrush` width during a gesture
-would still serialize only one uniform width and is therefore not presented as pressure support.
+shape fill and stroke while the corresponding creation tool is active. After placement returns to
+Select, the same paint controls show and edit concrete colors supported by the current selection.
+Mixed or disabled paint values and less common appearance properties remain explicit in the
+Inspector instead of being approximated by a toolbar swatch. The highlighter icon includes its
+active translucent color so it remains distinct from Pen before activation. The highlighter is a
+retained translucent path with a uniform width. Variable-width pressure would require a separately
+designed outlined-path representation; changing a `PencilBrush` width during a gesture would still
+serialize only one uniform width and is therefore not presented as pressure support.
 
-Selection properties and structural commands belong in the right-side Inspector rather than the
-toolbar. A host-and-section-keyed external store bridges the mounted Fabric controller to React
+Detailed selection properties and structural commands belong in the right-side Inspector. A
+host-and-section-keyed external store bridges the mounted Fabric controller to React
 without putting Fabric objects or selection into Workspace state. Its stable primitive snapshots
 let the Inspector mount before the drawing, represent unavailable and empty states, preserve mixed
 values, survive minimization, and expose only properties shared by the current selection. The same
