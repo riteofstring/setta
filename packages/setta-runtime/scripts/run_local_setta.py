@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -14,6 +15,43 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"
 LOCAL_ENVIRONMENT = ROOT / "build" / "setta-wheel" / "local-environment"
+LOCAL_BUILD_STATE = ROOT / "build" / "setta-wheel" / "local-build.json"
+LOCAL_BUILD_STATE_FORMAT = 1
+REALTIME_BUILD_INPUTS = (
+    ROOT / ".code-polishy.lock.json",
+    ROOT / ".node-version",
+    ROOT / "LICENSE",
+    ROOT / "README.md",
+    ROOT / "package.json",
+    ROOT / "pnpm-lock.yaml",
+    ROOT / "pnpm-workspace.yaml",
+    ROOT / "pyproject.toml",
+    ROOT / "uv.lock",
+    ROOT / "uv.toml",
+    ROOT / "scripts" / "check-package-boundary.mjs",
+    ROOT / "scripts" / "compile-katex-styles.mjs",
+    ROOT / "packages" / "workspace" / "package.json",
+    ROOT / "packages" / "workspace" / "src",
+    ROOT / "packages" / "workspace" / "tailwind-preset.mjs",
+    ROOT / "packages" / "workspace" / "tailwind.config.js",
+    ROOT / "packages" / "workspace" / "tsconfig.build.json",
+    ROOT / "packages" / "workspace" / "tsconfig.json",
+    ROOT / "packages" / "workspace" / "vite.config.ts",
+    ROOT / "apps" / "realtime" / "backend",
+    ROOT / "apps" / "realtime" / "index.html",
+    ROOT / "apps" / "realtime" / "package.json",
+    ROOT / "apps" / "realtime" / "scripts",
+    ROOT / "apps" / "realtime" / "src",
+    ROOT / "apps" / "realtime" / "tsconfig.json",
+    ROOT / "apps" / "realtime" / "vite.config.ts",
+    ROOT / "packages" / "setta-runtime" / "licenses",
+    ROOT / "packages" / "setta-runtime" / "platform_contract.py",
+    ROOT / "packages" / "setta-runtime" / "scripts",
+    ROOT / "packages" / "setta-runtime" / "setta_build_backend.py",
+    ROOT / "packages" / "setta-runtime" / "src",
+)
+BUILD_INPUT_IGNORED_DIRECTORIES = {".ruff_cache", "__pycache__"}
+BUILD_INPUT_IGNORED_SUFFIXES = {".pyc"}
 
 
 class LocalRunError(RuntimeError):
@@ -39,6 +77,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
 
 def run(arguments: Sequence[str]) -> int:
+    fingerprint = _realtime_build_fingerprint() if arguments[0] == "realtime" else None
+    if fingerprint is not None:
+        cached = _cached_realtime_executable(fingerprint)
+        if cached is not None:
+            sys.stdout.write("run_local_setta: reusing unchanged local build\n")
+            return _run_foreground([str(cached), *arguments], ROOT)
     uv = _required_command("uv")
     pnpm = _required_command("pnpm")
     go = _pinned_go()
@@ -51,7 +95,88 @@ def run(arguments: Sequence[str]) -> int:
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
         wheel = _build_current_wheel(go, Path(wheel_directory), reusable)
         setta = _install_current_wheel(uv, wheel)
+    if fingerprint is not None:
+        _record_realtime_build(fingerprint)
     return _run_foreground([str(setta), *arguments], ROOT)
+
+
+def _realtime_build_fingerprint() -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        f"{platform.system()}\0{platform.machine()}\0{sys.implementation.cache_tag}\0".encode()
+    )
+    for path in _build_input_files(REALTIME_BUILD_INPUTS):
+        try:
+            relative = path.relative_to(ROOT).as_posix()
+            payload = path.read_bytes()
+        except OSError as error:
+            raise LocalRunError(f"cannot read local build input: {path}") from error
+        digest.update(relative.encode())
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _build_input_files(inputs: Sequence[Path]) -> tuple[Path, ...]:
+    files: list[Path] = []
+    for path in inputs:
+        if path.is_file() and not path.is_symlink():
+            files.append(path)
+            continue
+        if not path.is_dir() or path.is_symlink():
+            raise LocalRunError(f"local build input is missing or invalid: {path}")
+        for candidate in path.rglob("*"):
+            if any(
+                part in BUILD_INPUT_IGNORED_DIRECTORIES
+                for part in candidate.relative_to(path).parts
+            ):
+                continue
+            if (
+                candidate.is_file()
+                and not candidate.is_symlink()
+                and candidate.suffix not in BUILD_INPUT_IGNORED_SUFFIXES
+            ):
+                files.append(candidate)
+    return tuple(sorted(files, key=lambda candidate: candidate.as_posix()))
+
+
+def _cached_realtime_executable(fingerprint: str) -> Path | None:
+    try:
+        document = json.loads(LOCAL_BUILD_STATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if document != {
+        "fingerprint": fingerprint,
+        "format": LOCAL_BUILD_STATE_FORMAT,
+    }:
+        return None
+    _, setta = _environment_executables(LOCAL_ENVIRONMENT)
+    if not setta.is_file() or _reusable_app_assets("realtime") is None:
+        return None
+    return setta
+
+
+def _record_realtime_build(fingerprint: str) -> None:
+    document = {
+        "fingerprint": fingerprint,
+        "format": LOCAL_BUILD_STATE_FORMAT,
+    }
+    try:
+        LOCAL_BUILD_STATE.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".local-build-", dir=LOCAL_BUILD_STATE.parent
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(document, stream, sort_keys=True)
+                stream.write("\n")
+            os.replace(temporary, LOCAL_BUILD_STATE)
+        finally:
+            temporary.unlink(missing_ok=True)
+    except OSError as error:
+        raise LocalRunError("cannot record the local Setta build") from error
 
 
 def _build_current_wheel(
