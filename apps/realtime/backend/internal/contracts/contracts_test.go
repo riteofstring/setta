@@ -344,6 +344,29 @@ func TestApplyDisconnectsDeletedSourcesAndClearsDeletedTargets(t *testing.T) {
 	}
 }
 
+func TestApplyDisconnectsDeletedPipelineSourceTransitively(t *testing.T) {
+	project := unaryPipelineFixture()
+	addPipelineBinding(&project, Binding{
+		ID: "final", Trigger: BindingTrigger{Kind: "join", Mode: "all", Inputs: map[string]BindingInput{"value": {BindingID: "forward", Output: "value"}}}, Handler: "final",
+		Arguments: map[string]json.RawMessage{}, Scheduling: scheduling("final"), Outputs: map[string]BindingOutput{},
+	})
+	updated, err := Apply(project, ApplyRequest{
+		ProjectID: project.ID, ExpectedRevision: project.Revision,
+		Operations: []json.RawMessage{json.RawMessage(`{"op":"deleteSection","sectionId":"counter"}`)},
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	for _, binding := range updated.Bindings {
+		if binding.Trigger.Kind != "disconnected" {
+			t.Fatalf("binding %q trigger = %#v, want disconnected", binding.ID, binding.Trigger)
+		}
+		if binding.ID != "increment" && string(binding.Arguments["value"]) != "null" {
+			t.Fatalf("binding %q arguments = %#v, want preserved null input", binding.ID, binding.Arguments)
+		}
+	}
+}
+
 func TestApplyIsRevisionCheckedAndAtomic(t *testing.T) {
 	project := fixtureProject()
 	request := ApplyRequest{
@@ -420,6 +443,13 @@ func TestRuntimeSourceContractsAreClosedVersionedAndValidateActivation(t *testin
 }
 
 func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
+	assertHTTPSchemaContracts(t)
+	assertWorkerSchemaContracts(t)
+	assertRuntimeSchemaContracts(t)
+}
+
+func assertHTTPSchemaContracts(t *testing.T) {
+	t.Helper()
 	apply := ApplyRequestSchema()
 	direct := DirectInvokeRequestSchema()
 	if apply["$id"] != "https://setta.local/schemas/realtime/apply-request-v2.schema.json" || direct["$id"] != "https://setta.local/schemas/realtime/direct-invoke-request-v1.schema.json" {
@@ -430,6 +460,10 @@ func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
 	if operations["minItems"] != 1 || operations["maxItems"] != 128 || apply["additionalProperties"] != false || direct["additionalProperties"] != false {
 		t.Fatalf("HTTP schema bounds = %#v, %#v", apply, direct)
 	}
+}
+
+func assertWorkerSchemaContracts(t *testing.T) {
+	t.Helper()
 	worker, err := json.Marshal(WorkerSchema())
 	if err != nil {
 		t.Fatalf("json.Marshal(worker) error = %v", err)
@@ -449,6 +483,10 @@ func TestHTTPAndWorkerSchemasPublishClosedVersionedContracts(t *testing.T) {
 	if err := DecodeStrict([]byte(`{"outputs":{},"updateCount":0,"error":null}`), &invokeResult); err != nil {
 		t.Fatalf("DecodeStrict(invoke result) error = %v", err)
 	}
+}
+
+func assertRuntimeSchemaContracts(t *testing.T) {
+	t.Helper()
 	runtimeDefinitions := RuntimeSchema()["$defs"].(map[string]any)
 	identity := runtimeDefinitions["identity"].(map[string]any)
 	properties := identity["properties"].(map[string]any)

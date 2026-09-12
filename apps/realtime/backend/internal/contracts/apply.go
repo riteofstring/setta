@@ -153,11 +153,17 @@ func applySetViewport(project *Project, raw json.RawMessage) error {
 func deleteSection(project *Project, sectionID string) {
 	deleteSectionBinding(project, sectionID)
 	deleteSectionRecord(project, sectionID)
+	disconnectedBindingIDs := []string{}
 	for index := range project.Bindings {
 		binding := &project.Bindings[index]
-		disconnectSectionTrigger(binding, sectionID)
+		if disconnectSectionTrigger(binding, sectionID) {
+			disconnectedBindingIDs = append(disconnectedBindingIDs, binding.ID)
+		}
 		clearSectionOutputTargets(binding, sectionID)
 		clearSectionArguments(binding, sectionID)
+	}
+	for _, bindingID := range disconnectedBindingIDs {
+		removeBindingInputReferences(project, bindingID)
 	}
 }
 
@@ -172,10 +178,12 @@ func deleteSectionBinding(project *Project, sectionID string) {
 	}
 }
 
-func disconnectSectionTrigger(binding *Binding, sectionID string) {
+func disconnectSectionTrigger(binding *Binding, sectionID string) bool {
 	if binding.Trigger.Kind == "event" && binding.Trigger.SectionID == sectionID {
 		disconnectBinding(binding)
+		return true
 	}
+	return false
 }
 
 func clearSectionOutputTargets(binding *Binding, sectionID string) {
@@ -245,23 +253,34 @@ func deleteBindingHandlerSections(project *Project, bindingID string) {
 }
 
 func removeBindingInputReferences(project *Project, bindingID string) {
-	for index := range project.Bindings {
-		binding := &project.Bindings[index]
-		if binding.Trigger.Kind != "join" {
+	pending := []string{bindingID}
+	processed := make(map[string]bool)
+	for len(pending) > 0 {
+		removedBindingID := pending[0]
+		pending = pending[1:]
+		if processed[removedBindingID] {
 			continue
 		}
-		for name, input := range binding.Trigger.Inputs {
-			if input.BindingID != bindingID {
+		processed[removedBindingID] = true
+		for index := range project.Bindings {
+			binding := &project.Bindings[index]
+			if binding.Trigger.Kind != "join" {
 				continue
 			}
-			delete(binding.Trigger.Inputs, name)
-			if binding.Arguments == nil {
-				binding.Arguments = make(map[string]json.RawMessage)
+			for name, input := range binding.Trigger.Inputs {
+				if input.BindingID != removedBindingID {
+					continue
+				}
+				delete(binding.Trigger.Inputs, name)
+				if binding.Arguments == nil {
+					binding.Arguments = make(map[string]json.RawMessage)
+				}
+				binding.Arguments[name] = json.RawMessage("null")
 			}
-			binding.Arguments[name] = json.RawMessage("null")
-		}
-		if len(binding.Trigger.Inputs) == 0 {
-			disconnectBinding(binding)
+			if len(binding.Trigger.Inputs) == 0 {
+				disconnectBinding(binding)
+				pending = append(pending, binding.ID)
+			}
 		}
 	}
 }
