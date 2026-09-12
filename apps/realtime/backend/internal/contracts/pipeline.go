@@ -44,23 +44,44 @@ type disconnectedBindingTrigger struct {
 func (trigger BindingTrigger) MarshalJSON() ([]byte, error) {
 	switch trigger.Kind {
 	case "event":
-		if trigger.Mode != "" || trigger.Inputs != nil {
-			return nil, errors.New("contracts: event binding trigger has join fields")
+		if err := trigger.validateEventFields(); err != nil {
+			return nil, err
 		}
 		return json.Marshal(eventBindingTrigger{Kind: trigger.Kind, SectionID: trigger.SectionID, Event: trigger.Event})
 	case "join":
-		if trigger.SectionID != "" || trigger.Event != "" {
-			return nil, errors.New("contracts: join binding trigger has event fields")
+		if err := trigger.validateJoinFields(); err != nil {
+			return nil, err
 		}
 		return json.Marshal(joinBindingTrigger{Kind: trigger.Kind, Mode: trigger.Mode, Inputs: trigger.Inputs})
 	case "disconnected":
-		if trigger.SectionID != "" || trigger.Event != "" || trigger.Mode != "" || trigger.Inputs != nil {
-			return nil, errors.New("contracts: disconnected binding trigger has connected fields")
+		if err := trigger.validateDisconnectedFields(); err != nil {
+			return nil, err
 		}
 		return json.Marshal(disconnectedBindingTrigger{Kind: trigger.Kind})
 	default:
 		return nil, fmt.Errorf("contracts: unsupported binding trigger kind %q", trigger.Kind)
 	}
+}
+
+func (trigger BindingTrigger) validateEventFields() error {
+	if trigger.Mode != "" || trigger.Inputs != nil {
+		return errors.New("contracts: event binding trigger has join fields")
+	}
+	return nil
+}
+
+func (trigger BindingTrigger) validateJoinFields() error {
+	if trigger.SectionID != "" || trigger.Event != "" {
+		return errors.New("contracts: join binding trigger has event fields")
+	}
+	return nil
+}
+
+func (trigger BindingTrigger) validateDisconnectedFields() error {
+	if trigger.SectionID != "" || trigger.Event != "" || trigger.Mode != "" || trigger.Inputs != nil {
+		return errors.New("contracts: disconnected binding trigger has connected fields")
+	}
+	return nil
 }
 
 func (trigger *BindingTrigger) UnmarshalJSON(data []byte) error {
@@ -178,26 +199,8 @@ func compileBindingEdges(compiled *CompiledPipeline) error {
 			root := PipelineEvent{SectionID: binding.Trigger.SectionID, Event: binding.Trigger.Event}
 			compiled.EventBindings[root] = append(compiled.EventBindings[root], bindingID)
 		case "join":
-			inputs := make(map[string]BindingInput, len(binding.Trigger.Inputs))
-			parentIDs := make(map[string]struct{})
-			for _, inputName := range sortedInputNames(binding.Trigger.Inputs) {
-				input := binding.Trigger.Inputs[inputName]
-				producer, exists := compiled.Bindings[input.BindingID]
-				if !exists {
-					return fmt.Errorf("contracts: binding %q input %q references missing binding %q", bindingID, inputName, input.BindingID)
-				}
-				if input.BindingID == bindingID {
-					return fmt.Errorf("contracts: binding %q references itself", bindingID)
-				}
-				if _, exists := producer.Outputs[input.Output]; !exists {
-					return fmt.Errorf("contracts: binding %q input %q references missing output %q on binding %q", bindingID, inputName, input.Output, input.BindingID)
-				}
-				inputs[inputName] = input
-				parentIDs[input.BindingID] = struct{}{}
-			}
-			compiled.InputsByBinding[bindingID] = inputs
-			for parentID := range parentIDs {
-				compiled.ChildrenByBinding[parentID] = append(compiled.ChildrenByBinding[parentID], bindingID)
+			if err := compileJoinBindingEdges(compiled, bindingID, binding); err != nil {
+				return err
 			}
 		case "disconnected":
 		default:
@@ -209,6 +212,31 @@ func compileBindingEdges(compiled *CompiledPipeline) error {
 	}
 	for bindingID := range compiled.ChildrenByBinding {
 		sort.Strings(compiled.ChildrenByBinding[bindingID])
+	}
+	return nil
+}
+
+func compileJoinBindingEdges(compiled *CompiledPipeline, bindingID string, binding Binding) error {
+	inputs := make(map[string]BindingInput, len(binding.Trigger.Inputs))
+	parentIDs := make(map[string]struct{})
+	for _, inputName := range sortedInputNames(binding.Trigger.Inputs) {
+		input := binding.Trigger.Inputs[inputName]
+		producer, exists := compiled.Bindings[input.BindingID]
+		if !exists {
+			return fmt.Errorf("contracts: binding %q input %q references missing binding %q", bindingID, inputName, input.BindingID)
+		}
+		if input.BindingID == bindingID {
+			return fmt.Errorf("contracts: binding %q references itself", bindingID)
+		}
+		if _, exists := producer.Outputs[input.Output]; !exists {
+			return fmt.Errorf("contracts: binding %q input %q references missing output %q on binding %q", bindingID, inputName, input.Output, input.BindingID)
+		}
+		inputs[inputName] = input
+		parentIDs[input.BindingID] = struct{}{}
+	}
+	compiled.InputsByBinding[bindingID] = inputs
+	for parentID := range parentIDs {
+		compiled.ChildrenByBinding[parentID] = append(compiled.ChildrenByBinding[parentID], bindingID)
 	}
 	return nil
 }

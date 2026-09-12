@@ -151,29 +151,46 @@ func applySetViewport(project *Project, raw json.RawMessage) error {
 }
 
 func deleteSection(project *Project, sectionID string) {
-	section, exists := project.Sections[sectionID]
-	if exists && section.Kind == "handler" {
-		var data HandlerSectionData
-		if DecodeStrict(section.Data, &data) == nil {
-			deleteBinding(project, data.BindingID)
-		}
-	}
+	deleteSectionBinding(project, sectionID)
 	deleteSectionRecord(project, sectionID)
 	for index := range project.Bindings {
 		binding := &project.Bindings[index]
-		if binding.Trigger.Kind == "event" && binding.Trigger.SectionID == sectionID {
-			disconnectBinding(binding)
+		disconnectSectionTrigger(binding, sectionID)
+		clearSectionOutputTargets(binding, sectionID)
+		clearSectionArguments(binding, sectionID)
+	}
+}
+
+func deleteSectionBinding(project *Project, sectionID string) {
+	section, exists := project.Sections[sectionID]
+	if !exists || section.Kind != "handler" {
+		return
+	}
+	var data HandlerSectionData
+	if DecodeStrict(section.Data, &data) == nil {
+		deleteBinding(project, data.BindingID)
+	}
+}
+
+func disconnectSectionTrigger(binding *Binding, sectionID string) {
+	if binding.Trigger.Kind == "event" && binding.Trigger.SectionID == sectionID {
+		disconnectBinding(binding)
+	}
+}
+
+func clearSectionOutputTargets(binding *Binding, sectionID string) {
+	for name, output := range binding.Outputs {
+		if output.Target != nil && output.Target.SectionID == sectionID {
+			output.Target = nil
+			binding.Outputs[name] = output
 		}
-		for name, output := range binding.Outputs {
-			if output.Target != nil && output.Target.SectionID == sectionID {
-				output.Target = nil
-				binding.Outputs[name] = output
-			}
-		}
-		for name, argument := range binding.Arguments {
-			if bindingReferencesSection(argument, sectionID) {
-				binding.Arguments[name] = json.RawMessage("null")
-			}
+	}
+}
+
+func clearSectionArguments(binding *Binding, sectionID string) {
+	for name, argument := range binding.Arguments {
+		if bindingReferencesSection(argument, sectionID) {
+			binding.Arguments[name] = json.RawMessage("null")
 		}
 	}
 }
@@ -211,6 +228,11 @@ func deleteBinding(project *Project, bindingID string) {
 		}
 	}
 	project.Bindings = bindings
+	deleteBindingHandlerSections(project, bindingID)
+	removeBindingInputReferences(project, bindingID)
+}
+
+func deleteBindingHandlerSections(project *Project, bindingID string) {
 	for sectionID, section := range project.Sections {
 		if section.Kind != "handler" {
 			continue
@@ -220,6 +242,9 @@ func deleteBinding(project *Project, bindingID string) {
 			deleteSectionRecord(project, sectionID)
 		}
 	}
+}
+
+func removeBindingInputReferences(project *Project, bindingID string) {
 	for index := range project.Bindings {
 		binding := &project.Bindings[index]
 		if binding.Trigger.Kind != "join" {
