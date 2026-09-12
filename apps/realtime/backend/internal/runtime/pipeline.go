@@ -567,7 +567,7 @@ func (coordinator *Coordinator) beginPipelineInvocation(runID string, bindingID 
 	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
 	params := contracts.InvokeParams{
 		Identity: identity, Handler: node.binding.Handler, Arguments: cloneRawMap(node.arguments),
-		Content: append([]contracts.ContentReference(nil), node.references...),
+		Content: append([]contracts.ContentReference{}, node.references...),
 	}
 	return params, true
 }

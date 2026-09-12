@@ -208,6 +208,9 @@ func TestSuccessfulReturnPublishesFinalBrowserUpdate(t *testing.T) {
 		t.Fatalf("HandleEvent() error = %v", err)
 	}
 	invocation := receiveInvocation(t, worker.started)
+	if invocation.Content == nil {
+		t.Fatal("invocation content is nil")
+	}
 	worker.reply(invocation.Identity.InvocationID, `"final"`)
 	envelope := receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
 		return envelope.Type == "update"
