@@ -2,12 +2,20 @@ package contracts
 
 import (
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
 const BenchCandidateBundleVersionV1 = 1
+
+var benchCandidateIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+
+func ValidBenchCandidateID(value string) bool {
+	return benchCandidateIDPattern.MatchString(value)
+}
 
 type BenchCandidateBundleV1 struct {
 	Version   int                    `json:"version"`
@@ -41,20 +49,20 @@ func (bundle BenchCandidateBundleV1) Validate() error {
 	if bundle.Source.Application != "python-canvas" {
 		return ValidationError{Field: "source.application", Problem: "must be python-canvas"}
 	}
-	if err := requireStableID("source.projectId", bundle.Source.ProjectID); err != nil {
-		return err
+	if !ValidBenchCandidateID(bundle.Source.ProjectID) {
+		return ValidationError{Field: "source.projectId", Problem: "is incompatible with the Bench candidate contract"}
 	}
 	if bundle.Source.ProjectRevision < 1 {
 		return ValidationError{Field: "source.projectRevision", Problem: "must be positive"}
 	}
-	if err := requireStableID("source.callableId", bundle.Source.CallableID); err != nil {
+	if !ValidBenchCandidateID(bundle.Source.CallableID) {
+		return ValidationError{Field: "source.callableId", Problem: "is incompatible with the Bench candidate contract"}
+	}
+	if err := requireSafeBenchDeepLink(bundle.Source.DeepLink); err != nil {
 		return err
 	}
-	if err := requireBoundedBenchText("source.deepLink", bundle.Source.DeepLink, 4096); err != nil {
-		return err
-	}
-	if err := requireStableID("candidate.id", bundle.Candidate.ID); err != nil {
-		return err
+	if !ValidBenchCandidateID(bundle.Candidate.ID) {
+		return ValidationError{Field: "candidate.id", Problem: "is incompatible with the Bench candidate contract"}
 	}
 	if err := requireDisplayName("candidate.name", bundle.Candidate.Name); err != nil {
 		return err
@@ -70,6 +78,21 @@ func (bundle BenchCandidateBundleV1) Validate() error {
 	}
 	if bundle.Candidate.Command.WorkingDirectory != "." {
 		return ValidationError{Field: "candidate.command.workingDirectory", Problem: "must be the bundle root"}
+	}
+	return nil
+}
+
+func requireSafeBenchDeepLink(value string) error {
+	if err := requireBoundedBenchText("source.deepLink", value, 4096); err != nil {
+		return err
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || parsed.User != nil {
+		return ValidationError{Field: "source.deepLink", Problem: "must be an absolute HTTP or HTTPS URL without user information"}
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ValidationError{Field: "source.deepLink", Problem: "must be an absolute HTTP or HTTPS URL without user information"}
 	}
 	return nil
 }

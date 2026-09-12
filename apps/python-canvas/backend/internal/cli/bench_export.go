@@ -8,13 +8,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/setta/python-canvas/backend/internal/pythonenv"
 )
 
 type benchExportCommandOptions struct {
@@ -74,12 +77,30 @@ func runBenchExportCommand(ctx context.Context, arguments []string, options Opti
 		writeFailure(options.Stderr, failure, command.pretty)
 		return failure.exitCode
 	}
-	bundle, runtime, program, failure := buildBenchBundle(snapshot, command)
+	bundle, runtimeDocument, program, failure := buildBenchBundle(snapshot, command)
 	if failure != nil {
 		writeFailure(options.Stderr, failure, command.pretty)
 		return failure.exitCode
 	}
-	directory, err := writeBenchBundle(command.output, bundle, runtime, program)
+	identity, failure := client.runtimeSession(ctx)
+	if failure != nil {
+		writeFailure(options.Stderr, failure, command.pretty)
+		return failure.exitCode
+	}
+	environment, err := pythonenv.Resolve(ctx, pythonenv.Options{
+		ProjectPath: identity.ProjectPath, LauncherPython: command.python,
+	})
+	if err != nil {
+		failure = inputFailure("python_environment_invalid", "The Python Canvas environment cannot be exported: "+safeOperationErrorReason(err))
+		writeFailure(options.Stderr, failure, command.pretty)
+		return failure.exitCode
+	}
+	bundle.Candidate.Command.Argv[0] = environment.InterpreterPath()
+	if err := bundle.Validate(); err != nil {
+		writeFailure(options.Stderr, unexpectedFailure("internal_error", "Unable to build a valid Bench candidate bundle."), command.pretty)
+		return exitUnexpectedFailure
+	}
+	directory, err := writeBenchBundle(command.output, bundle, runtimeDocument, program)
 	if err != nil {
 		writeFailure(options.Stderr, inputFailure("export_failed", "The Bench candidate bundle could not be created: "+safeOperationErrorReason(err)), command.pretty)
 		return exitInputOrTypedV2Failure
@@ -125,9 +146,12 @@ func validateBenchExportArguments(command benchExportCommandOptions) *commandFai
 	if _, err := validateServiceURL(command.url); err != nil {
 		return inputFailure("invalid_url", "The service URL must be an absolute loopback HTTP URL without a base path, query, user info, or fragment.")
 	}
-	for label, value := range map[string]string{"callable": command.callableID, "output": command.output, "python": command.python} {
-		if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') {
-			return inputFailure("invalid_input", "Export requires a valid --"+label+" value.")
+	for _, required := range []struct {
+		label string
+		value string
+	}{{label: "callable", value: command.callableID}, {label: "output", value: command.output}, {label: "python", value: command.python}} {
+		if strings.TrimSpace(required.value) == "" || strings.TrimSpace(required.value) != required.value || !utf8.ValidString(required.value) || strings.ContainsRune(required.value, '\x00') {
+			return inputFailure("invalid_input", "Export requires a valid --"+required.label+" value.")
 		}
 	}
 	if !filepath.IsAbs(command.python) {
@@ -142,8 +166,12 @@ func validateBenchExportArguments(command benchExportCommandOptions) *commandFai
 	}
 	if command.deepLink != "" {
 		parsed, err := url.Parse(command.deepLink)
-		if err != nil || !parsed.IsAbs() || parsed.User != nil || invalidBenchText(command.deepLink, 4096) {
-			return inputFailure("invalid_input", "Deep link must be an absolute URL without user information.")
+		if err != nil {
+			return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
+		}
+		scheme := strings.ToLower(parsed.Scheme)
+		if parsed.Host == "" || parsed.User != nil || scheme != "http" && scheme != "https" || invalidBenchText(command.deepLink, 4096) {
+			return inputFailure("invalid_input", "Deep link must be an absolute HTTP or HTTPS URL without user information.")
 		}
 	}
 	if _, failure := parseDiagnosticTimeout(command.diagnosticsTimeout); failure != nil {
@@ -172,9 +200,12 @@ func buildBenchBundle(snapshot contracts.ProjectSnapshotV2, command benchExportC
 	if selected == nil {
 		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("callable_not_found", "The selected callable does not exist in the current project revision.")
 	}
+	if !contracts.ValidBenchCandidateID(snapshot.Project.ID) || !contracts.ValidBenchCandidateID(selected.ID) {
+		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("unsupported_source_identity", "The selected project and callable identities must be compatible with the Bench candidate contract.")
+	}
 	parameters := make([]benchRuntimeParameter, 0, len(selected.Parameters))
 	for _, parameter := range selected.Parameters {
-		if parameter.Name == "" || parameter.AuthoredExpression == "" {
+		if parameter.Name == "" || parameter.AuthoredExpression == "" && parameter.Default == nil {
 			return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, inputFailure("callable_incomplete", "The selected callable contains an incomplete parameter.")
 		}
 		parameters = append(parameters, benchRuntimeParameter{Name: parameter.Name, PassingStyle: parameter.PassingStyle, HasDefault: parameter.Default != nil})
@@ -204,7 +235,19 @@ func buildBenchBundle(snapshot contracts.ProjectSnapshotV2, command benchExportC
 		return contracts.BenchCandidateBundleV1{}, benchRuntimeDocument{}, nil, unexpectedFailure("internal_error", "Unable to build a valid Bench candidate bundle.")
 	}
 	runtime := benchRuntimeDocument{Version: 1, CallableExpression: selected.AuthoredExpression, Parameters: parameters}
-	return bundle, runtime, []byte(snapshot.PythonTarget.Prefix), nil
+	return bundle, runtime, []byte(snapshot.GeneratedCode.Code), nil
+}
+
+func (client *serviceClient) runtimeSession(ctx context.Context) (contracts.RuntimeSessionIdentityV2, *commandFailure) {
+	content, failure := client.requestContent(ctx, http.MethodGet, contracts.RuntimeSessionPathV2, nil, defaultRequestTimeout)
+	if failure != nil {
+		return contracts.RuntimeSessionIdentityV2{}, failure
+	}
+	var identity contracts.RuntimeSessionIdentityV2
+	if err := decodeStrictJSON(content, &identity); err != nil || identity.Validate() != nil {
+		return contracts.RuntimeSessionIdentityV2{}, unexpectedFailure("malformed_response", "The service returned an invalid runtime session identity.")
+	}
+	return identity, nil
 }
 
 func writeBenchBundle(output string, bundle contracts.BenchCandidateBundleV1, runtime benchRuntimeDocument, program []byte) (string, error) {
@@ -257,11 +300,29 @@ func writeBenchBundle(output string, bundle contracts.BenchCandidateBundleV1, ru
 			return "", err
 		}
 	}
+	if err := syncBenchBundleDirectory(staging); err != nil {
+		return "", fmt.Errorf("sync bundle directory: %w", err)
+	}
 	if err := os.Rename(staging, absolute); err != nil {
 		return "", fmt.Errorf("install bundle: %w", err)
 	}
 	committed = true
+	if err := syncBenchBundleDirectory(parent); err != nil {
+		return "", fmt.Errorf("sync bundle parent: %w", err)
+	}
 	return absolute, nil
+}
+
+func syncBenchBundleDirectory(path string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	return directory.Sync()
 }
 
 func writeBenchBundleFile(path string, content []byte) error {
@@ -269,9 +330,14 @@ func writeBenchBundleFile(path string, content []byte) error {
 	if err != nil {
 		return fmt.Errorf("create bundle file: %w", err)
 	}
-	if _, err := file.Write(content); err != nil {
+	written, err := file.Write(content)
+	if err != nil {
 		_ = file.Close()
 		return fmt.Errorf("write bundle file: %w", err)
+	}
+	if written != len(content) {
+		_ = file.Close()
+		return errors.New("write bundle file: short write")
 	}
 	if err := file.Sync(); err != nil {
 		_ = file.Close()
@@ -284,6 +350,7 @@ func writeBenchBundleFile(path string, content []byte) error {
 }
 
 const benchCandidatePython = `import asyncio
+import contextlib
 import inspect
 import json
 import pathlib
@@ -301,19 +368,38 @@ def load_runtime():
 
 
 def bind_arguments(runtime, request):
-    provided = request.get("input")
+    case = request.get("case")
+    if not isinstance(case, dict):
+        raise TypeError("Bench case is required")
+    provided = case.get("input")
     if not isinstance(provided, dict):
         raise TypeError("Bench case input must be an object")
     values = dict(provided)
-    values.setdefault("outputDirectory", request["outputDirectory"])
-    values.setdefault("output_directory", request["outputDirectory"])
+    values["outputDirectory"] = request["outputDirectory"]
+    values["output_directory"] = request["outputDirectory"]
     args = []
     kwargs = {}
+    positional = [parameter for parameter in runtime["parameters"] if parameter["passingStyle"] == "positional_only"]
+    last_provided = max((index for index, parameter in enumerate(positional) if parameter["name"] in values), default=-1)
+    variadic_values = [values.get(parameter["name"], []) for parameter in runtime["parameters"] if parameter["passingStyle"] == "variadic_positional"]
+    if any(variadic_values):
+        last_provided = len(positional) - 1
+    signature = inspect.signature(runtime["callable"])
+    positional_index = 0
     for parameter in runtime["parameters"]:
         name = parameter["name"]
         style = parameter["passingStyle"]
         if style == "positional_only":
-            args.append(values[name])
+            if name in values:
+                args.append(values[name])
+            elif positional_index <= last_provided:
+                default = signature.parameters[name].default
+                if default is inspect.Parameter.empty:
+                    raise KeyError(name)
+                args.append(default)
+            elif not parameter["hasDefault"]:
+                raise KeyError(name)
+            positional_index += 1
         elif style == "variadic_positional":
             args.extend(values.get(name, []))
         elif style == "variadic_keyword":
@@ -339,11 +425,15 @@ def result_envelope(value):
 def main():
     try:
         request = json.load(sys.stdin)
-        runtime, callable_value = load_runtime()
-        args, kwargs = bind_arguments(runtime, request)
-        value = callable_value(*args, **kwargs)
-        if inspect.isawaitable(value):
-            value = asyncio.run(value)
+        if request.get("protocolVersion") != "bench-candidate/v1":
+            raise ValueError("Bench candidate protocol version is unsupported")
+        with contextlib.redirect_stdout(sys.stderr):
+            runtime, callable_value = load_runtime()
+            runtime["callable"] = callable_value
+            args, kwargs = bind_arguments(runtime, request)
+            value = callable_value(*args, **kwargs)
+            if inspect.isawaitable(value):
+                value = asyncio.run(value)
         print(json.dumps(result_envelope(value), ensure_ascii=False, separators=(",", ":")))
     except Exception as error:
         traceback.print_exc(file=sys.stderr)
