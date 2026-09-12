@@ -26,6 +26,42 @@ type DrawingSectionData = {
   width: number;
 };
 
+export type HandlerSectionData = {
+  bindingId: string;
+};
+
+function handlerData(value: unknown): HandlerSectionData | null {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1
+  ) {
+    return null;
+  }
+  const bindingId = (value as { bindingId?: unknown }).bindingId;
+  return typeof bindingId === "string" && bindingId.length > 0
+    ? { bindingId }
+    : null;
+}
+
+export function assertHandlerSectionData(
+  data: unknown,
+): asserts data is HandlerSectionData {
+  if (handlerData(data) === null) {
+    throw new Error(
+      "Realtime handler section data must contain exactly one non-empty bindingId.",
+    );
+  }
+}
+
+export function readHandlerSectionData(
+  data: unknown,
+): HandlerSectionData {
+  assertHandlerSectionData(data);
+  return data;
+}
+
 export function readInputSectionData(
   data: WorkspaceSectionData | undefined,
 ): InputSectionData {

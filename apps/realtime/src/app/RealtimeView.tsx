@@ -21,6 +21,10 @@ import {
   type RuntimeSourceViewState,
 } from "./runtimeContext";
 import type { RuntimeViewState } from "./runtimeState";
+import {
+  canConnectRealtimeGraph,
+  projectRealtimeGraph,
+} from "./realtimeGraph";
 
 const EMPTY_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 const REALTIME_RUNTIME_TAB: WorkspaceShellTabDefinition = {
@@ -206,6 +210,41 @@ function RealtimeRuntimePane() {
           <dd>{activeInvocations}</dd>
         </div>
       </dl>
+      <section className="realtime-runtime-handlers" aria-label="Runtime handlers">
+        <h3>Handlers</h3>
+        {handlers.length === 0 ? (
+          <p>No handlers discovered.</p>
+        ) : (
+          <ul>
+            {handlers.map((name) => (
+              <li key={name}>
+                <code>{name}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="realtime-runtime-handler-create">
+          <select
+            aria-label="New handler"
+            onChange={(event) => setHandler(event.currentTarget.value)}
+            value={handler}
+          >
+            <option value="">Choose a handler</option>
+            {handlers.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!handler || creating}
+            onClick={() => void handleCreate()}
+            type="button"
+          >
+            {creating ? "Adding…" : "Add handler"}
+          </button>
+        </div>
+      </section>
       <RuntimeFeedback error={error} runtime={runtime} source={source} />
     </div>
   );
@@ -265,8 +304,62 @@ export function RealtimeView(props: RealtimeViewProps) {
 }
 
 function RealtimeWorkspace() {
+  const { actions, project } = useRealtime();
+  const workspaceDocument = useWorkspaceDocumentSnapshot();
   const [viewState, setViewState] = useState<WorkspaceShellViewState>(() =>
     createWorkspaceShellViewState({ trailingTabId: "runtime" }),
+  );
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const visibleSectionIds = useMemo(
+    () => new Set(Object.keys(workspaceDocument.sections)),
+    [workspaceDocument.sections],
+  );
+  const projection = useMemo(
+    () => projectRealtimeGraph(project, visibleSectionIds),
+    [project, visibleSectionIds],
+  );
+  const projectedEdgeIds = useMemo(
+    () => new Set(projection.edges.map((edge) => edge.id)),
+    [projection.edges],
+  );
+  useEffect(() => {
+    setSelectedEdgeIds((current) => {
+      const next = new Set(
+        [...current].filter((edgeId) => projectedEdgeIds.has(edgeId)),
+      );
+      return next.size === current.size ? current : next;
+    });
+  }, [projectedEdgeIds]);
+  const projectedSelectedEdgeIds = useMemo(
+    () =>
+      new Set(
+        [...selectedEdgeIds].filter((edgeId) => projectedEdgeIds.has(edgeId)),
+      ),
+    [projectedEdgeIds, selectedEdgeIds],
+  );
+  const canvas = useMemo(
+    () => ({
+      graph: {
+        canConnect: (connection: Parameters<typeof canConnectRealtimeGraph>[1]) =>
+          canConnectRealtimeGraph(project, connection),
+        edges: projection.edges,
+        onConnect: (connection: Parameters<typeof actions.connectGraph>[0]) => {
+          void actions.connectGraph(connection);
+        },
+        onDelete: (edgeIds: ReadonlyArray<string>) => {
+          void actions.deleteGraphEdges(edgeIds);
+        },
+        onReconnect: (reconnect: Parameters<typeof actions.reconnectGraph>[0]) => {
+          void actions.reconnectGraph(reconnect);
+        },
+        onSelectedEdgeIdsChange: setSelectedEdgeIds,
+        ports: projection.ports,
+        selectedEdgeIds: projectedSelectedEdgeIds,
+      },
+    }),
+    [actions, project, projectedSelectedEdgeIds, projection],
   );
   const handleViewStateChange = useCallback(
     (next: WorkspaceShellViewState) => setViewState(next),

@@ -150,6 +150,7 @@ describe("runtime state", () => {
   it("rejects updates from replaced sessions and same-sequence impostors", () => {
     let state = apply(initialRuntimeViewState, {
       snapshot: {
+        handlers: [],
         invocations: {
           current: {
             error: null,

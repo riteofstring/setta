@@ -158,9 +158,11 @@ func (coordinator *Coordinator) Apply(request contracts.ApplyRequest) (contracts
 	reuseScheduler := reflect.DeepEqual(coordinator.bindings, bindings)
 	previous := coordinator.scheduler
 	if !reuseScheduler {
+		coordinator.invalidateAllRunsLocked(previous, "project_changed", "The project pipeline changed.")
 		coordinator.scheduler = replacement
 	}
 	coordinator.bindings = bindings
+	coordinator.pipeline = pipeline
 	discarded := coordinator.dropUnretainedMaterializationsLocked(bindings)
 	coordinator.mu.Unlock()
 	if reuseScheduler {
@@ -263,8 +265,10 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 		return contracts.InitializeResult{}, ErrClosed
 	}
 	previous := coordinator.scheduler
+	coordinator.invalidateAllRunsLocked(previous, "runtime_reloaded", "The runtime was reloaded.")
 	coordinator.scheduler = replacement
 	coordinator.bindings = bindings
+	coordinator.pipeline = pipeline
 	coordinator.sessionID = sessionID
 	coordinator.workerState = "starting"
 	discarded := coordinator.resetRuntimeLocked(projectSnapshot, sourceVersion)
@@ -289,12 +293,17 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 func (coordinator *Coordinator) failSourceActivationLocked() error {
 	coordinator.mu.Lock()
 	previous := coordinator.scheduler
+	coordinator.invalidateAllRunsLocked(previous, "source_activation_failed", "Runtime source activation failed.")
+	discarded := coordinator.runtimeReferencesLocked()
 	coordinator.workerState = "failed"
+	coordinator.handlers = []string{}
 	coordinator.invocations = make(map[string]contracts.InvocationStatus)
 	coordinator.invocationBindings = make(map[string]contracts.Binding)
 	coordinator.invocationOutputs = make(map[string]map[string]json.RawMessage)
 	coordinator.invocationHashes = make(map[string]string)
 	coordinator.invocationHolds = make(map[string]bool)
+	coordinator.runs = make(map[string]*pipelineRun)
+	coordinator.invocationRuns = make(map[string]string)
 	coordinator.sequences = make(map[string]uint64)
 	coordinator.publishedByBinding = make(map[string]contracts.InvocationIdentity)
 	coordinator.active = make(map[string]struct{})
@@ -302,6 +311,7 @@ func (coordinator *Coordinator) failSourceActivationLocked() error {
 	coordinator.mu.Unlock()
 	stopErr := coordinator.worker.Stop()
 	previous.Close()
+	_ = coordinator.content.DeleteReferences(discarded)
 	return stopErr
 }
 
@@ -625,6 +635,12 @@ func (coordinator *Coordinator) acceptUpdate(update contracts.RuntimeUpdate) {
 	if coordinator.closed || update.Identity.SessionID != coordinator.sessionID {
 		return
 	}
+	run := coordinator.runs[update.Identity.RunID]
+	node := pipelineRunNode(run, update.Identity.BindingID, update.Identity)
+	if node == nil || update.UpdateSequence == 0 || update.UpdateSequence != node.updateSequence+1 {
+		coordinator.discardArtifactsLocked(update)
+		return
+	}
 	binding, exists := coordinator.invocationBindings[update.Identity.InvocationID]
 	if !exists {
 		coordinator.discardArtifactsLocked(update)
@@ -640,24 +656,24 @@ func (coordinator *Coordinator) acceptUpdate(update contracts.RuntimeUpdate) {
 		coordinator.invocations[update.Identity.InvocationID] = status
 		coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
 	}
-	outputs := map[string]json.RawMessage{}
-	if coordinator.outputApplicableLocked(update.Identity) {
-		outputs = cloneRawMap(update.Outputs)
-		coordinator.adoptArtifactsLocked(update, outputs)
-		if len(outputs) > 0 {
-			coordinator.mergeInvocationOutputsLocked(update.Identity.InvocationID, outputs)
-			if coordinator.invocationHolds[update.Identity.InvocationID] {
-				outputs = map[string]json.RawMessage{}
-			} else {
-				coordinator.applyPublishedOutputsLocked(binding, update.Identity, outputs)
-			}
-		}
-	} else {
-		coordinator.discardArtifactsLocked(update)
+	outputs := cloneRawMap(update.Outputs)
+	coordinator.adoptArtifactsLocked(update, outputs)
+	if len(outputs) > 0 {
+		coordinator.mergeInvocationOutputsLocked(update.Identity.InvocationID, outputs)
+		coordinator.retainOutputReferencesLocked(run, outputs)
 	}
-	update.Outputs = outputs
+	published := false
+	if !coordinator.invocationHolds[update.Identity.InvocationID] {
+		published = coordinator.applyPublishedOutputsLocked(binding, update.Identity, outputs)
+	}
+	node.updateSequence = update.UpdateSequence
+	coordinator.signalNodeLocked(node)
+	browserOutputs := map[string]json.RawMessage{}
+	if published {
+		browserOutputs = cloneRawMap(outputs)
+	}
 	browserUpdate := contracts.BrowserRuntimeUpdate{
-		Identity: update.Identity, Progress: update.Progress, Message: update.Message, Outputs: update.Outputs,
+		Identity: update.Identity, UpdateSequence: update.UpdateSequence, Progress: update.Progress, Message: update.Message, Outputs: browserOutputs,
 	}
 	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "update", Update: &browserUpdate})
 }
@@ -746,13 +762,29 @@ func (coordinator *Coordinator) consumeLogs() {
 }
 
 func (coordinator *Coordinator) applyOutputsLocked(binding contracts.Binding, outputs map[string]json.RawMessage) {
+	displaced := []contracts.ContentReference{}
 	for name, value := range outputs {
-		target, exists := binding.Outputs[name]
-		if !exists {
+		output, exists := binding.Outputs[name]
+		if !exists || output.Target == nil {
 			continue
 		}
-		coordinator.values[target.SectionID+"."+target.Field] = append(json.RawMessage(nil), value...)
+		key := output.Target.SectionID + "." + output.Target.Field
+		if previous, exists := coordinator.values[key]; exists {
+			references, err := contentReferencesInRawMap(map[string]json.RawMessage{key: previous})
+			if err == nil {
+				displaced = appendUniqueReferences(displaced, references)
+			}
+		}
+		coordinator.values[key] = append(json.RawMessage(nil), value...)
 	}
+	protected := coordinator.protectedReferencesLocked()
+	cleanup := []contracts.ContentReference{}
+	for _, reference := range displaced {
+		if !protected[reference.ID] {
+			cleanup = append(cleanup, reference)
+		}
+	}
+	_ = coordinator.content.DeleteReferences(cleanup)
 }
 
 func (coordinator *Coordinator) Snapshot() (contracts.RuntimeSnapshot, error) {
@@ -837,7 +869,7 @@ func (coordinator *Coordinator) snapshotLocked() contracts.RuntimeSnapshot {
 		retainedByBinding[bindingID] = retained
 	}
 	return contracts.RuntimeSnapshot{
-		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Values: values,
+		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Handlers: append([]string(nil), coordinator.handlers...), Values: values,
 		Invocations: invocations, PublishedByBinding: publishedByBinding, RetainedByBinding: retainedByBinding,
 	}
 }

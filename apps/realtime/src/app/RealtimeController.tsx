@@ -35,6 +35,11 @@ import {
   type ProjectOperation,
 } from "./projectProjection";
 import {
+  connectRealtimeGraphOperations,
+  deleteRealtimeGraphOperations,
+  reconnectRealtimeGraphOperations,
+} from "./realtimeGraph";
+import {
   applyRuntimeEnvelope,
   beginRuntimeReplacement,
   initialRuntimeViewState,
@@ -86,6 +91,75 @@ function newStagingId(): string {
     globalThis.crypto?.randomUUID?.() ??
     `drawing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
   );
+}
+
+function newDomainId(prefix: string): string {
+  const suffix =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${suffix}`;
+}
+
+function createHandlerOperations(
+  project: Project,
+  handler: string,
+  bindingId: string,
+  sectionId: string,
+): ProjectOperation[] {
+  const right = Object.entries(project.layout.topLevelSections).reduce(
+    (maximum, [id, layout]) => {
+      const section = project.sections[id];
+      const width = layout.width ??
+        (typeof section?.width === "number" ? section.width : 300);
+      return Math.max(maximum, layout.x + width);
+    },
+    0,
+  );
+  const zIndex = Object.values(project.layout.topLevelSections).reduce(
+    (maximum, layout) => Math.max(maximum, layout.zIndex),
+    0,
+  );
+  const binding: Binding = {
+    arguments: { input: null },
+    handler,
+    id: bindingId,
+    outputs: { result: {} },
+    scheduling: {
+      concurrencyGroup: bindingId,
+      concurrencyLimit: 1,
+      debounceMilliseconds: 0,
+      mode: "latest",
+    },
+    trigger: { kind: "disconnected" },
+  };
+  const section: Section = {
+    children: [],
+    data: { bindingId },
+    height: 190,
+    id: sectionId,
+    isHorizontalOrientation: false,
+    kind: "handler",
+    name: handler,
+    overflowMode: false,
+    positionAndSizeLocked: false,
+    styleColor: null,
+    tagColor: null,
+    width: 300,
+  };
+  return [
+    { binding, op: "setBinding" },
+    {
+      layout: {
+        height: 190,
+        width: 300,
+        x: right + 40,
+        y: 24,
+        zIndex: zIndex + 1,
+      },
+      op: "upsertSection",
+      section,
+    },
+  ];
 }
 
 function runtimeSourceSectionId(project: Project): string | null {
@@ -259,6 +333,24 @@ export function RealtimeController() {
           }) ?? false
         );
       },
+      createHandler: (handler) => {
+        const bindingId = newDomainId("binding");
+        const sectionId = newDomainId("handler");
+        return (
+          enqueueRef.current?.((current) =>
+            createHandlerOperations(
+              current,
+              handler,
+              bindingId,
+              sectionId,
+            ),
+          ) ?? Promise.resolve(false)
+        );
+      },
+      deleteGraphEdges: (edgeIds) =>
+        enqueueRef.current?.((current) =>
+          deleteRealtimeGraphOperations(current, edgeIds),
+        ) ?? Promise.resolve(false),
       initialize: (sectionId, event, createPayload) =>
         initializationRef.current?.initialize(
           sectionId,
@@ -275,9 +367,61 @@ export function RealtimeController() {
           return false;
         }
       },
+      reconnectGraph: (reconnect) =>
+        enqueueRef.current?.((current) =>
+          reconnectRealtimeGraphOperations(current, reconnect),
+        ) ?? Promise.resolve(false),
       reportError: setError,
       uploadContent: (content: Blob): Promise<ContentReference> =>
         uploadContent(content, newStagingId()),
+      updateBinding: (bindingId, edit) =>
+        enqueueRef.current?.((current) => {
+          const binding = current.bindings.find(
+            (candidate) => candidate.id === bindingId,
+          );
+          if (binding === undefined) {
+            return [];
+          }
+          const argumentsValue =
+            edit.arguments === undefined
+              ? binding.arguments
+              : { ...edit.arguments };
+          if (binding.trigger.kind === "join") {
+            for (const inputName of Object.keys(binding.trigger.inputs)) {
+              delete argumentsValue[inputName];
+            }
+          }
+          const outputs =
+            edit.outputNames === undefined
+              ? binding.outputs
+              : Object.fromEntries(
+                  edit.outputNames.map((name) => [
+                    name,
+                    binding.outputs[name] ?? {},
+                  ]),
+                );
+          const materialization =
+            edit.materialization === undefined
+              ? binding.materialization
+              : edit.materialization ?? undefined;
+          const next: Binding = {
+            ...binding,
+            arguments: argumentsValue,
+            handler: edit.handler ?? binding.handler,
+            outputs,
+            scheduling: edit.scheduling ?? binding.scheduling,
+          };
+          if (materialization === undefined) {
+            delete next.materialization;
+          } else {
+            next.materialization =
+              binding.trigger.kind !== "disconnected" ||
+              materialization.startup === "manual"
+                ? materialization
+                : { ...materialization, startup: "manual" };
+          }
+          return [{ binding: next, op: "setBinding" }];
+        }) ?? Promise.resolve(false),
     }),
     [],
   );

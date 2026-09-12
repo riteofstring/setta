@@ -29,8 +29,21 @@ export type RealtimeActions = {
       RuntimeEvent["payload"] | Promise<RuntimeEvent["payload"]>,
   ) => Promise<boolean>;
   reload: () => Promise<boolean>;
+  reconnectGraph: (reconnect: WorkspaceGraphReconnect) => Promise<boolean>;
   reportError: (message: string) => void;
   uploadContent: (content: Blob) => Promise<ContentReference>;
+  updateBinding: (
+    bindingId: string,
+    edit: RealtimeBindingEdit,
+  ) => Promise<boolean>;
+};
+
+export type RealtimeBindingEdit = {
+  arguments?: Record<string, JsonValue>;
+  handler?: string;
+  materialization?: Binding["materialization"] | null;
+  outputNames?: string[];
+  scheduling?: Binding["scheduling"];
 };
 
 type RuntimeSourceNotice = {

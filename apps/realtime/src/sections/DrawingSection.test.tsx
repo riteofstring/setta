@@ -141,7 +141,11 @@ function startupProject(): Project {
         retention: "lastSuccessful",
         startup: "whenStale",
       },
-      trigger: { event: "snapshot", sectionId: "drawing-main" },
+      trigger: {
+        event: "snapshot",
+        kind: "event",
+        sectionId: "drawing-main",
+      },
     },
   ];
   return project;

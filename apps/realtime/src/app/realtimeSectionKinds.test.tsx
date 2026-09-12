@@ -29,4 +29,22 @@ describe("realtime section registry", () => {
     ).toBe(true);
     expect(catalog[WORKSPACE_CODE_SECTION_KIND].nestedSections).toBeUndefined();
   });
+
+  it("strictly validates app-owned handler section data", () => {
+    const definition = createRealtimeSectionKinds().handler;
+    const section = {
+      data: { bindingId: "binding-main" },
+    } as unknown as Parameters<NonNullable<typeof definition.assertValidData>>[0];
+
+    expect(() => definition.assertValidData?.(section)).not.toThrow();
+    expect(() =>
+      definition.assertValidData?.({
+        ...section,
+        data: { bindingId: "binding-main", extra: true },
+      }),
+    ).toThrow(/exactly one non-empty bindingId/);
+    expect(() =>
+      definition.assertValidData?.({ ...section, data: { bindingId: "" } }),
+    ).toThrow(/exactly one non-empty bindingId/);
+  });
 });
