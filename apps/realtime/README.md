@@ -40,12 +40,14 @@ Use `setta realtime open` for an installed release.
 
 Draw a mark and both processed results update while the stroke is active. The two bindings have
 independent concurrency groups, so the SVG and Pillow handlers are admitted and publish without
-waiting on each other. The toolbar also provides selection, whole-object erasing, brush color and
-size, rectangle and ellipse insertion, undo, redo, selected-object deletion, and clearing. The
-example is an ordinary Realtime project: inside the ignored working copy its authored document is
-`.local/realtime/project.json` and its editable handler is `app.py`. Change the three palette colors
-in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply & reload** for an immediate visual
-variation. The tracked source under
+waiting on each other. The drawing toolbar provides Select, Pen, Highlighter, Eraser, and Hand
+tools; text, line, arrow, rectangle, and ellipse insertion; brush styling; undo and redo; zoom,
+fit, and actual-size controls; an optional grid and grid snapping; and clearing. Selecting retained
+objects exposes appearance, typography, arrangement, grouping, locking, and deletion controls in
+the right-side Inspector. The example is an ordinary Realtime project: inside the ignored working
+copy its authored document is `.local/realtime/project.json` and its editable handler is `app.py`.
+Change the three palette colors in `_pillow_risograph`, or the `MaxFilter` size, then use **Apply &
+reload** for an immediate visual variation. The tracked source under
 `apps/realtime/examples/neon-sketch/fixture` is only the immutable seed. Playground activity never
 modifies that fixture or adds runtime state to Git. It requires no GPU or model download; Pillow is
 the example project's sole exact-pinned dependency.
@@ -219,9 +221,31 @@ invocation status, updates, and logs use one WebSocket. Reconnection replaces lo
 current complete snapshots while retaining browser-owned selection and minimized presentation.
 
 Fabric.js owns retained drawing objects, free drawing, erasing, selection, transforms, history,
-serialization, and raster export. Realtime persists the vector scene only after a coherent
-gesture. While a local gesture is unsettled or awaiting acknowledgement, delayed project snapshots
-cannot replace it, and drawing on the inner canvas does not reorder or persist the outer section.
+serialization, and raster export. Realtime persists the vector scene only after a coherent gesture
+or command. While a local change is unsettled or awaiting acknowledgement, delayed project
+snapshots cannot replace it, and drawing on the inner canvas does not reorder or persist the outer
+section.
+
+The drawing toolbar provides Select, Pen, translucent Highlighter, Eraser, and Hand tools plus text,
+line, arrow, rectangle, and ellipse insertion. New objects become the active selection; a new text
+box enters editing immediately. The Inspector's contextual **Selection** panel edits compatible
+fill, stroke, opacity, rectangle radius, and text properties, represents mixed values explicitly,
+and provides stacking, alignment, distribution, duplication, grouping, locking, and deletion.
+Locked objects remain selectable for unlocking but cannot be changed by geometry or destructive
+commands.
+
+After the drawing stage has focus, Mod-Z, Shift-Mod-Z, Ctrl-Y, Mod-C, Mod-V, Mod-D, Mod-A, Mod-G,
+Shift-Mod-G, Delete, Backspace, Escape, and arrow-key nudging operate on the drawing when their
+actions are available. Shift-arrow nudges ten logical pixels instead of one. Single-key V, P, H,
+and E select the Select, Pen, Highlighter, and Eraser tools. Fabric text editing and ordinary form
+controls keep their native keyboard behavior, and unavailable drawing actions fall through.
+
+Zoom, fit, actual size, Hand-tool panning, grid visibility, and grid snapping are local presentation
+state. They do not change the project revision, drawing history, logical canvas, or raster export.
+The grid follows logical coordinates, is not exported, and optional snapping rounds moved objects
+to its intersections. Bare wheel input continues to pan the outer Workspace rather than changing
+drawing zoom.
+
 The drawing keeps its logical pixel dimensions and object coordinates when its outer section is
 resized; it stays centered and uniformly contained, so the freely sized frame may provide deliberate
 padding. The section's normal surface continues through that non-drawable frame space, while a subtle
@@ -231,6 +255,8 @@ size** can preserve artwork size using a nine-point anchor or scale the artwork 
 the complete scene and dimensions undo and redo together. **Fit frame to canvas** is a one-shot action
 and does not lock the section's aspect ratio. Image content shown by an output section likewise uses
 centered contain fitting without changing the source image; there is no separate `image` section kind.
+Drawing-image insertion, pressure-shaped brush geometry, and smart alignment guides are not exposed;
+they require durable asset or retained-geometry contracts beyond the current drawing scene.
 
 For a completion-paced binding, the browser captures and uploads the first eligible composited
 raster immediately, then retains only one dirty preview or final snapshot while the binding is
