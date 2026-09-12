@@ -1,7 +1,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setWorkspaceSectionSize, type WorkspaceHost } from "@setta/workspace";
+import {
+  commitWorkspaceDocument,
+  setWorkspaceSectionSize,
+  type WorkspaceHost,
+} from "@setta/workspace";
 
 import type { Project } from "../backend/generatedContract";
 import { makeProject } from "../testProject";
@@ -14,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   connectRuntime: vi.fn(),
   fetchProject: vi.fn(),
   fetchRuntimeSource: vi.fn(),
+  projectEvents: null as {
+    onProject: (project: Project) => void;
+  } | null,
   reloadRuntime: vi.fn(),
   renderedHost: null as unknown,
   uploadContent: vi.fn(),
@@ -99,7 +106,11 @@ describe("Realtime workspace mutation projection", () => {
       })),
     );
     mocks.renderedHost = null;
-    mocks.connectProjectEvents.mockReturnValue(() => {});
+    mocks.projectEvents = null;
+    mocks.connectProjectEvents.mockImplementation((handlers) => {
+      mocks.projectEvents = handlers;
+      return () => {};
+    });
     mocks.connectRuntime.mockReturnValue({ close: () => {}, send: () => true });
     mocks.reloadRuntime.mockResolvedValue(undefined);
     mocks.uploadContent.mockResolvedValue({
@@ -144,6 +155,41 @@ describe("Realtime workspace mutation projection", () => {
     await act(async () => second.resolve(resizedProject(initial, 6, 360)));
     await vi.waitFor(() =>
       expect(host.getSnapshot().sections["input-main"]?.size.width).toBe(360),
+    );
+  });
+
+  it("retains newer workspace presentation when a pending change settles", async () => {
+    const initial = makeProject();
+    const pending = deferred<Project>();
+    const accepted = resizedProject(initial, 5, 330);
+    mocks.fetchProject.mockResolvedValue(initial);
+    mocks.applyProject.mockReturnValue(pending.promise);
+
+    await act(async () => root.render(<RealtimeController />));
+    await vi.waitFor(() => expect(mocks.projectEvents).not.toBeNull());
+    const host = mocks.renderedHost as WorkspaceHost;
+
+    act(() => setWorkspaceSectionSize(host, "input-main", { width: 330 }));
+    await vi.waitFor(() => expect(mocks.applyProject).toHaveBeenCalledOnce());
+    await act(async () => mocks.projectEvents!.onProject(accepted));
+    act(() => {
+      const document = host.getSnapshot();
+      commitWorkspaceDocument(host, {
+        ...document,
+        sections: {
+          ...document.sections,
+          "input-main": {
+            ...document.sections["input-main"]!,
+            isMinimized: true,
+          },
+        },
+      });
+    });
+
+    await act(async () => pending.resolve(accepted));
+
+    await vi.waitFor(() =>
+      expect(host.getSnapshot().sections["input-main"]?.isMinimized).toBe(true),
     );
   });
 });

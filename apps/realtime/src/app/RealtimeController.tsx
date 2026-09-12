@@ -59,6 +59,12 @@ type EnqueueMutation = (
   origin?: "application" | "workspace",
 ) => Promise<boolean>;
 
+type WorkspaceProjection = {
+  preserveSourceDraft: boolean;
+  project: Project;
+  sourceDocument: RuntimeSourceDocument | null;
+};
+
 type RuntimeTransport = {
   close: () => void;
   send: (command: RuntimeCommand) => boolean;
@@ -266,7 +272,7 @@ export function RealtimeController() {
     let projecting = false;
     let mutationChain = Promise.resolve();
     let pendingWorkspaceMutations = 0;
-    let deferredWorkspaceDocument: WorkspaceDocument | null = null;
+    let deferredWorkspaceProjection: WorkspaceProjection | null = null;
     let disconnectProjectEvents: (() => void) | null = null;
     let retryTimer: number | null = null;
     let runtimeGeneration = 0;
@@ -305,7 +311,13 @@ export function RealtimeController() {
       return nextProject.revision >= current.revision;
     };
 
-    const commitWorkspaceProjection = (document: WorkspaceDocument) => {
+    const commitWorkspaceProjection = (projection: WorkspaceProjection) => {
+      const document = projectWorkspaceDocument(
+        projection.project,
+        workspaceHost.getSnapshot(),
+        projection.sourceDocument,
+        projection.preserveSourceDraft,
+      );
       projecting = true;
       try {
         commitWorkspaceDocument(workspaceHost, document);
@@ -314,27 +326,27 @@ export function RealtimeController() {
       }
     };
 
-    const publishWorkspaceProjection = (document: WorkspaceDocument) => {
+    const publishWorkspaceProjection = (projection: WorkspaceProjection) => {
       if (pendingWorkspaceMutations > 0) {
-        deferredWorkspaceDocument = document;
+        deferredWorkspaceProjection = projection;
         return;
       }
-      deferredWorkspaceDocument = null;
-      commitWorkspaceProjection(document);
+      deferredWorkspaceProjection = null;
+      commitWorkspaceProjection(projection);
     };
 
     const completeWorkspaceMutation = () => {
       pendingWorkspaceMutations -= 1;
       if (
         pendingWorkspaceMutations !== 0 ||
-        deferredWorkspaceDocument === null ||
+        deferredWorkspaceProjection === null ||
         !active
       ) {
         return;
       }
-      const document = deferredWorkspaceDocument;
-      deferredWorkspaceDocument = null;
-      commitWorkspaceProjection(document);
+      const projection = deferredWorkspaceProjection;
+      deferredWorkspaceProjection = null;
+      commitWorkspaceProjection(projection);
     };
 
     const acceptProject = (
@@ -355,14 +367,11 @@ export function RealtimeController() {
         setError("Realtime rejected source for another project entrypoint.");
         return false;
       }
-      publishWorkspaceProjection(
-        projectWorkspaceDocument(
-          nextProject,
-          workspaceHost.getSnapshot(),
-          sourceDocument,
-          preserveSourceDraft,
-        ),
-      );
+      publishWorkspaceProjection({
+        preserveSourceDraft,
+        project: nextProject,
+        sourceDocument,
+      });
       projectRef.current = nextProject;
       setProject(nextProject);
       if (sourceSectionId === null) {
@@ -780,7 +789,7 @@ export function RealtimeController() {
       workspaceHost.dispose();
       projectRef.current = null;
       sourceRef.current = initialRuntimeSourceViewState;
-      deferredWorkspaceDocument = null;
+      deferredWorkspaceProjection = null;
     };
   }, []);
 
