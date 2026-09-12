@@ -98,55 +98,31 @@ func normalizeFingerprintValue(value any) (any, error) {
 	}
 }
 
-func startupBindingSignature(binding contracts.Binding) string {
+func (coordinator *Coordinator) startupBindingEligibleLocked(binding contracts.Binding, fingerprint string) bool {
+	policy := binding.Materialization
+	if policy == nil {
+		return false
+	}
 	signatureBytes, err := json.Marshal(binding)
 	if err != nil {
-		return ""
+		return false
 	}
 	signatureDigest := sha256.Sum256(signatureBytes)
-	return hex.EncodeToString(signatureDigest[:])
-}
-
-func (coordinator *Coordinator) startupAttemptedLocked(binding contracts.Binding) bool {
-	signature := startupBindingSignature(binding)
-	return signature != "" && coordinator.startupAttempts[binding.ID] == signature
-}
-
-func (coordinator *Coordinator) startupActionLocked(binding contracts.Binding, fingerprint string, target bool) startupAction {
-	savedFingerprint, retained := coordinator.materializedHashes[binding.ID]
-	if !target {
-		if retained && savedFingerprint == fingerprint {
-			return startupAdopt
-		}
-		return startupRun
-	}
-	policy := binding.Materialization
-	if policy == nil || coordinator.startupAttemptedLocked(binding) {
-		return startupSkip
-	}
-	signature := startupBindingSignature(binding)
-	if signature == "" {
-		return startupSkip
+	signature := hex.EncodeToString(signatureDigest[:])
+	if coordinator.startupAttempts[binding.ID] == signature {
+		return false
 	}
 	coordinator.startupAttempts[binding.ID] = signature
+	savedFingerprint, exists := coordinator.materializedHashes[binding.ID]
 	switch policy.Startup {
 	case "always":
-		return startupRun
+		return true
 	case "whenStale":
-		if retained && savedFingerprint == fingerprint {
-			return startupAdopt
-		}
-		return startupRun
+		return !exists || savedFingerprint != fingerprint
 	case "ifMissing":
-		if !retained {
-			return startupRun
-		}
-		if savedFingerprint == fingerprint {
-			return startupAdopt
-		}
-		return startupSkip
+		return !exists
 	default:
-		return startupSkip
+		return false
 	}
 }
 
@@ -162,15 +138,12 @@ func (coordinator *Coordinator) resetRuntimeLocked(projectSnapshot contracts.Pro
 	previousOutputs := coordinator.materializedOutput
 	previousReferences := coordinator.materializedRefs
 	previousFingerprints := coordinator.materializedHashes
-	runtimeReferences := coordinator.runtimeReferencesLocked()
 	coordinator.values = make(map[string]json.RawMessage)
 	coordinator.invocations = make(map[string]contracts.InvocationStatus)
 	coordinator.invocationBindings = make(map[string]contracts.Binding)
 	coordinator.invocationOutputs = make(map[string]map[string]json.RawMessage)
 	coordinator.invocationHashes = make(map[string]string)
 	coordinator.invocationHolds = make(map[string]bool)
-	coordinator.runs = make(map[string]*pipelineRun)
-	coordinator.invocationRuns = make(map[string]string)
 	coordinator.sequences = make(map[string]uint64)
 	coordinator.publishedByBinding = make(map[string]contracts.InvocationIdentity)
 	coordinator.retainedByBinding = make(map[string]bool)

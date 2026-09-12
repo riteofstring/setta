@@ -93,13 +93,6 @@ func (worker *fakeWorker) reply(invocationID string, value string) {
 	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{"image": json.RawMessage(value)}}
 }
 
-func (worker *fakeWorker) replyWithUpdateCount(invocationID string, value string, updateCount uint64) {
-	worker.mu.Lock()
-	channel := worker.replies[invocationID]
-	worker.mu.Unlock()
-	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{"image": json.RawMessage(value)}, UpdateCount: updateCount}
-}
-
 func (worker *fakeWorker) replyError(invocationID string, code string) {
 	worker.mu.Lock()
 	channel := worker.replies[invocationID]
@@ -236,8 +229,8 @@ func TestLatestBindingStreamsWhileNewerInvocationIsPending(t *testing.T) {
 		t.Fatalf("HandleEvent(second) error = %v", err)
 	}
 	progress := 0.5
-		coordinator.acceptUpdate(contracts.RuntimeUpdate{
-			Identity: first.Identity, UpdateSequence: 1, Progress: &progress, Message: "Preview",
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity: first.Identity, Progress: &progress, Message: "Preview",
 		Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	current, err := coordinator.Snapshot()
@@ -645,21 +638,18 @@ func TestCancellationRejectsLateWorkerUpdates(t *testing.T) {
 	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "cancelled")
 }
 
-func TestInvocationCompletionWaitsForBufferedStreamUpdate(t *testing.T) {
+func TestCompletedInvocationAcceptsBufferedStreamUpdate(t *testing.T) {
 	coordinator, worker := testCoordinator(t)
 	defer coordinator.Close()
 	invocation := startDrawingInvocation(t, coordinator, worker)
-	worker.replyWithUpdateCount(invocation.Identity.InvocationID, `"ordinary"`, 1)
-	time.Sleep(10 * time.Millisecond)
-	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "running")
-	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity:       invocation.Identity,
-		UpdateSequence: 1,
-		Outputs:        map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)},
-		Artifacts:      []contracts.WorkerArtifact{},
-	})
+	worker.reply(invocation.Identity.InvocationID, `"ordinary"`)
 	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
 	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "completed")
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity:  invocation.Identity,
+		Outputs:   map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)},
+		Artifacts: []contracts.WorkerArtifact{},
+	})
 	snapshot, err := coordinator.Snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot() error = %v", err)

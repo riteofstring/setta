@@ -179,12 +179,8 @@ function acceptsUpdatePresentation(
   update: RuntimeUpdate,
 ): boolean {
   const bindingId = update.identity.bindingId;
-  const previous = state.updates[bindingId];
   return (
-    isIdentityCurrent(update.identity, previous?.identity) &&
-    (previous === undefined ||
-      previous.identity.invocationId !== update.identity.invocationId ||
-      update.updateSequence >= previous.updateSequence) &&
+    isIdentityCurrent(update.identity, state.updates[bindingId]?.identity) &&
     isIdentityCurrent(update.identity, state.publishedByBinding[bindingId])
   );
 }
@@ -193,12 +189,8 @@ function acceptsUpdateOutputs(
   state: RuntimeViewState,
   update: RuntimeUpdate,
 ): boolean {
-  const previous = state.updates[update.identity.bindingId];
   return (
     Object.keys(update.outputs).length > 0 &&
-    (previous === undefined ||
-      previous.identity.invocationId !== update.identity.invocationId ||
-      update.updateSequence >= previous.updateSequence) &&
     isIdentityCurrent(
       update.identity,
       state.publishedByBinding[update.identity.bindingId],

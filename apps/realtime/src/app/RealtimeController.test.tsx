@@ -220,11 +220,7 @@ describe("Realtime workspace mutation projection", () => {
           retention: "lastSuccessful",
           startup: "whenStale",
         },
-        trigger: {
-          event: "change",
-          kind: "event",
-          sectionId: "input-main",
-        },
+        trigger: { event: "change", sectionId: "input-main" },
       },
     ];
     mocks.fetchProject.mockResolvedValue(initial);

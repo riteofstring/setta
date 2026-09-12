@@ -44,7 +44,6 @@ function matchesSource(
 ): boolean {
   return (
     supportsStartup(binding) &&
-    binding.trigger.kind === "event" &&
     binding.trigger.sectionId === sectionId &&
     binding.trigger.event === event
   );

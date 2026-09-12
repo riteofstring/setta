@@ -125,60 +125,7 @@ def pillow_risograph(drawing):
         target.unlink(missing_ok=True)
 
 
-def _embedded_image(reference, expected_media_type, name):
-    if reference.get("mediaType") != expected_media_type:
-        raise ValueError(f"The {name} result must be {expected_media_type}.")
-    path = reference.get("path")
-    if not isinstance(path, str) or not path:
-        raise ValueError(f"The {name} result path is unavailable.")
-    encoded = base64.b64encode(pathlib.Path(path).read_bytes()).decode("ascii")
-    return f"data:{expected_media_type};base64,{encoded}"
-
-
-def _combined_svg(neon, riso):
-    neon_image = _embedded_image(neon, "image/svg+xml", "neon")
-    riso_image = _embedded_image(riso, "image/png", "risograph")
-    return f'''<svg xmlns="http://www.w3.org/2000/svg"
-  width="1200" height="540" viewBox="0 0 1200 540">
-<defs>
-  <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#020617"/>
-    <stop offset="1" stop-color="#312e81"/>
-  </linearGradient>
-</defs>
-<rect width="1200" height="540" rx="28" fill="url(#background)"/>
-<text x="48" y="52" fill="#e0f2fe" font-family="sans-serif" font-size="24"
-  font-weight="700">Neon + Risograph</text>
-<rect x="40" y="76" width="540" height="424" rx="18" fill="#020617"/>
-<rect x="620" y="76" width="540" height="424" rx="18" fill="#fff7ed"/>
-<image x="56" y="92" width="508" height="392" preserveAspectRatio="xMidYMid meet"
-  href="{neon_image}"/>
-<image x="636" y="92" width="508" height="392" preserveAspectRatio="xMidYMid meet"
-  href="{riso_image}"/>
-</svg>'''
-
-
-def combine(neon, riso):
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", prefix="setta-combined-", suffix=".svg", delete=False
-    ) as output:
-        output.write(_combined_svg(neon, riso))
-        target = pathlib.Path(output.name)
-    try:
-        yield {
-            "outputs": {},
-            "progress": 1,
-            "message": "Combining neon and risograph results",
-            "artifacts": [
-                {"name": "image", "mediaType": "image/svg+xml", "path": str(target)}
-            ],
-        }
-    finally:
-        target.unlink(missing_ok=True)
-
-
 globals()["handlers"] = {
-    "combine": combine,
     "neon_glitch": neon_glitch,
     "pillow_risograph": pillow_risograph,
 }

@@ -15,18 +15,18 @@ function startupProject() {
         retention: "lastSuccessful",
         startup: "whenStale",
       },
-      trigger: { event: "change", kind: "event", sectionId: "input-main" },
+      trigger: { event: "change", sectionId: "input-main" },
     },
     {
       ...project.bindings[0]!,
       id: "manual-input",
       materialization: { retention: "session", startup: "manual" },
-      trigger: { event: "change", kind: "event", sectionId: "input-main" },
+      trigger: { event: "change", sectionId: "input-main" },
     },
     {
       ...project.bindings[0]!,
       id: "ordinary-input",
-      trigger: { event: "change", kind: "event", sectionId: "input-main" },
+      trigger: { event: "change", sectionId: "input-main" },
     },
   ];
   return project;
