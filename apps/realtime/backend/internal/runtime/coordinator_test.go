@@ -402,6 +402,9 @@ func assertSourceReloadSessions(t *testing.T, initial contracts.RuntimeEnvelope,
 	if initial.Snapshot == nil || starting.Snapshot.SessionID == initial.Snapshot.SessionID || ready.Snapshot.SessionID != starting.Snapshot.SessionID {
 		t.Fatalf("source reload sessions = initial %#v, starting %#v, ready %#v", initial.Snapshot, starting.Snapshot, ready.Snapshot)
 	}
+	if starting.Snapshot.Handlers == nil {
+		t.Fatalf("starting snapshot handlers = %#v", starting.Snapshot.Handlers)
+	}
 }
 
 func assertSavedRuntimeSource(t *testing.T, path string, expected string) {

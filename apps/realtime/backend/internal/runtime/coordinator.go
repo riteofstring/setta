@@ -815,7 +815,7 @@ func (coordinator *Coordinator) snapshotLocked() contracts.RuntimeSnapshot {
 		retainedByBinding[bindingID] = retained
 	}
 	return contracts.RuntimeSnapshot{
-		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Handlers: append([]string(nil), coordinator.handlers...), Values: values,
+		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Handlers: append([]string{}, coordinator.handlers...), Values: values,
 		Invocations: invocations, PublishedByBinding: publishedByBinding, RetainedByBinding: retainedByBinding,
 	}
 }
