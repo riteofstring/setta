@@ -1,0 +1,367 @@
+/* @vitest-environment jsdom */
+import {
+  afterEach as afterEachWorkspaceTestHost,
+  beforeEach as beforeEachWorkspaceTestHost,
+} from "vitest";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+  WorkspaceTestProvider,
+} from "../../../test/workspaceTestHost";
+
+let testWorkspace: WorkspaceTestHost;
+beforeEachWorkspaceTestHost(() => {
+  testWorkspace = createWorkspaceTestHost();
+});
+afterEachWorkspaceTestHost(() => {
+  testWorkspace.host.dispose();
+});
+
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initialCanvasState, useReactFlow } from "../../canvas/store";
+import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useSectionRefs } from "../../section/sectionRefs";
+import {
+  ColorValueControl,
+  type ColorValueControlProps,
+} from "./ColorValueControl";
+
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+const SECTION_ID = "panel";
+const ITEM_ID = "item-accent";
+const NATIVE_INPUT_ID = `${SECTION_ID}-${ITEM_ID}-ColorValueInput`;
+
+const CHOICES = [
+  { color: "#ef4444", description: "Red" },
+  { color: "#22c55e", description: "Green" },
+  { color: "#3b82f6", description: "Blue" },
+];
+
+describe("ColorValueControl", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    testWorkspace.itemSelectionMode.getState().reset();
+    testWorkspace.sectionRefs.getState().reset();
+    testWorkspace.reactFlow.setState({ ...initialCanvasState });
+  });
+
+  async function mount(props: Partial<ColorValueControlProps> = {}) {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {createElement(ColorValueControl, {
+            ariaLabel: "Accent color",
+            sectionId: SECTION_ID,
+            itemId: ITEM_ID,
+            value: "#22c55e",
+            onValueChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
+      );
+    });
+  }
+
+  function getTrigger(): HTMLButtonElement {
+    const trigger = host.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="listbox"]',
+    );
+    if (!trigger) {
+      throw new Error("The configured color trigger is not rendered.");
+    }
+    return trigger;
+  }
+
+  async function openPopover() {
+    await act(async () => {
+      getTrigger().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
+  async function flushAnimationFrame() {
+    await act(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(null)),
+      );
+    });
+  }
+
+  it("renders the configured trigger with the reference presentation", async () => {
+    await mount({ choices: CHOICES });
+    const wrapper = host.firstElementChild;
+
+    for (const expectedClass of [
+      "nodrag",
+      "section-value",
+      "single-cell-container",
+      "w-[calc(100%_-_2px)]",
+      "h-[calc(100%_-_4px)]",
+      "justify-self-start",
+      "self-center",
+    ]) {
+      expect(wrapper?.classList.contains(expectedClass)).toBe(true);
+    }
+    const trigger = getTrigger();
+    expect(trigger.getAttribute("aria-label")).toBe("Accent color: Green");
+    for (const expectedClass of [
+      "flex-1",
+      "rounded-lg",
+      "single-cell-container",
+      "text-white",
+    ]) {
+      expect(trigger.classList.contains(expectedClass)).toBe(true);
+    }
+
+    const swatch = trigger.querySelector<HTMLElement>(
+      "div.single-cell-child.rounded-lg",
+    );
+    expect(swatch?.style.backgroundColor).toBe("rgb(34, 197, 94)");
+    expect(trigger.querySelector("p")?.textContent).toBe("Green");
+    expect(trigger.querySelector("i.gg-chevron-down")).not.toBeNull();
+  });
+
+  it("falls back to the first choice when the value matches none", async () => {
+    await mount({ choices: CHOICES, value: "#000000" });
+    expect(getTrigger().querySelector("p")?.textContent).toBe("Red");
+  });
+
+  it("opens the listbox and reports one selection before closing", async () => {
+    const onValueChange = vi.fn();
+    await mount({ choices: CHOICES, onValueChange });
+    await openPopover();
+    const listbox = document.querySelector('[role="listbox"]');
+    expect(listbox?.getAttribute("aria-label")).toBe("Accent color choices");
+    expect(listbox?.parentElement?.classList.contains("setta-workspace")).toBe(
+      true,
+    );
+    const options = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="option"]'),
+    );
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Red",
+      "Green",
+      "Blue",
+    ]);
+
+    const optionSwatch = options[0]?.querySelector<HTMLElement>(
+      "div.h-4.w-4.rounded-full",
+    );
+    expect(optionSwatch?.style.backgroundColor).toBe("rgb(239, 68, 68)");
+    const blueOption = options.find((option) => option.textContent === "Blue");
+    await act(async () => {
+      blueOption?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenCalledWith("#3b82f6");
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it("preserves a locally rtl trigger direction across the popover portal", async () => {
+    host.dir = "rtl";
+    await mount({ choices: CHOICES });
+
+    await openPopover();
+
+    expect(
+      document.querySelector<HTMLElement>('[role="listbox"]')?.parentElement
+        ?.dir,
+    ).toBe("rtl");
+  });
+
+  it("keeps one listbox option tabbable and supports wrapped arrow, Home, and End navigation", async () => {
+    await mount({ choices: CHOICES });
+    await openPopover();
+    const options = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+    );
+    expect(options.map((option) => option.tabIndex)).toEqual([-1, 0, -1]);
+    options[1]?.focus();
+    await act(async () => {
+      options[1]?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(options[2]);
+    await act(async () => {
+      options[2]?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(options[0]);
+    await act(async () => {
+      options[0]?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "End",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(options[2]);
+  });
+
+  it("closes an open listbox on Escape and restores section focus", async () => {
+    const sectionRoot = document.createElement("div");
+    sectionRoot.tabIndex = -1;
+    document.body.appendChild(sectionRoot);
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    await mount({ choices: CHOICES });
+    await openPopover();
+    const selectedOption = document.querySelector<HTMLButtonElement>(
+      '[role="option"][aria-selected="true"]',
+    );
+    selectedOption?.focus();
+    await act(async () => {
+      selectedOption?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        }),
+      );
+    });
+    await act(async () => {
+      await vi.waitFor(() => expect(document.activeElement).toBe(sectionRoot));
+    });
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
+    sectionRoot.remove();
+  });
+
+  it("repositions the open popover when the canvas transform changes", async () => {
+    await mount({ choices: CHOICES });
+    await openPopover();
+
+    await flushAnimationFrame();
+    const onScroll = vi.fn();
+    const onResize = vi.fn();
+    window.addEventListener("scroll", onScroll);
+    window.addEventListener("resize", onResize);
+    act(() => {
+      testWorkspace.reactFlow.setState({ transform: [12, -4, 1.5] });
+    });
+    await flushAnimationFrame();
+    expect(onScroll).toHaveBeenCalledTimes(1);
+    expect(onResize).toHaveBeenCalledTimes(1);
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("resize", onResize);
+  });
+
+  it("returns focus to the section on trigger Escape without letting the event bubble", async () => {
+    const sectionRoot = document.createElement("div");
+    sectionRoot.tabIndex = -1;
+    document.body.appendChild(sectionRoot);
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    await mount({ choices: CHOICES });
+    await act(async () => {
+      getTrigger().dispatchEvent(
+        new KeyboardEvent("keydown", {
+          code: "Escape",
+          key: "Escape",
+          bubbles: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
+    sectionRoot.remove();
+  });
+
+  it("disables the configured trigger from the host flag and item-select mode", async () => {
+    await mount({ choices: CHOICES, disabled: true });
+    expect(getTrigger().disabled).toBe(true);
+    testWorkspace.itemSelectionMode.setState({ isSelectingItems: true });
+    await mount({ choices: CHOICES });
+    expect(getTrigger().disabled).toBe(true);
+  });
+
+  it("renders the native path behind the eyedropper glyph without choices", async () => {
+    await mount({ value: "#afbacf" });
+    expect(
+      host.querySelector("i.gg-color-picker.single-cell-child"),
+    ).not.toBeNull();
+    const input = host.querySelector<HTMLInputElement>('input[type="color"]');
+    if (!input) {
+      throw new Error("The native color input is not rendered.");
+    }
+    expect(input.id).toBe(`${testWorkspace.domId}-${NATIVE_INPUT_ID}`);
+    expect(input.value).toBe("#afbacf");
+    expect(input.getAttribute("aria-label")).toBe("Accent color");
+    for (const expectedClass of [
+      "setta-workspace-native-reset",
+      "setta-workspace-native-color",
+      "single-cell-child",
+      "!rounded-lg",
+      "!border",
+      "!border-setta-500/20",
+      "dark:!border-setta-500/40",
+      "cursor-pointer",
+    ]) {
+      expect(input.classList.contains(expectedClass)).toBe(true);
+    }
+  });
+
+  it("reports each native input gesture once through the string seam", async () => {
+    const onValueChange = vi.fn();
+    await mount({ value: "#afbacf", onValueChange });
+    const input = host.querySelector<HTMLInputElement>('input[type="color"]');
+    if (!input) {
+      throw new Error("The native color input is not rendered.");
+    }
+    const setNativeValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!setNativeValue) {
+      throw new Error("The native input value setter is unavailable.");
+    }
+    await act(async () => {
+      setNativeValue.call(input, "#123456");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenCalledWith("#123456");
+  });
+
+  it("disables the native input from the host flag", async () => {
+    await mount({ disabled: true });
+    expect(
+      host.querySelector<HTMLInputElement>('input[type="color"]')?.disabled,
+    ).toBe(true);
+  });
+});

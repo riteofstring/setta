@@ -1,0 +1,290 @@
+.setta-workspace-shell {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background-color: rgb(239 241 246);
+  isolation: isolate;
+}
+
+.setta-workspace.setta-workspace-dark.setta-workspace-shell {
+  background-color: rgb(11 14 19);
+}
+
+.setta-workspace-shell-pane-region {
+  position: relative;
+  z-index: 30;
+  min-width: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.setta-workspace-shell-pane-region[data-workspace-shell-pane-region="leading"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.setta-workspace-shell-pane-region[data-workspace-shell-pane-region="trailing"] {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.setta-workspace-shell-center {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+}
+
+.setta-workspace-shell-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.setta-workspace-shell-pane {
+  position: absolute;
+  inset-block: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  padding-block: 10px;
+  border-color: rgb(182 192 211);
+  background-color: rgb(239 241 246);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 10%),
+    0 2px 4px -2px rgb(0 0 0 / 10%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-pane {
+  border-color: rgb(26 33 45);
+  background-color: rgb(11 14 19);
+}
+
+.setta-workspace-shell-pane[data-pane="leading"] {
+  inset-inline-start: 0;
+  padding-inline-start: 36px;
+  border-inline-end-width: 1px;
+}
+
+.setta-workspace-shell-pane[data-pane="trailing"] {
+  inset-inline-end: 0;
+  padding-inline-end: 28px;
+  border-inline-start-width: 1px;
+}
+
+.setta-workspace-shell-pane[data-full-width="true"] {
+  border-inline-width: 0;
+}
+
+.setta-workspace-shell-pane[data-pane="leading"][data-visible="false"] {
+  transform: translateX(
+    calc(-1 * var(--setta-workspace-shell-pane-closed-offset))
+  );
+}
+
+.setta-workspace-shell-pane[data-pane="trailing"][data-visible="false"] {
+  transform: translateX(var(--setta-workspace-shell-pane-closed-offset));
+}
+
+.setta-workspace-shell-pane[data-visible="true"] {
+  transform: translateX(0);
+}
+
+.setta-workspace-shell-pane[data-pane="leading"]:dir(
+    rtl
+  )[data-visible="false"] {
+  transform: translateX(var(--setta-workspace-shell-pane-closed-offset));
+}
+
+.setta-workspace-shell-pane[data-pane="trailing"]:dir(
+    rtl
+  )[data-visible="false"] {
+  transform: translateX(
+    calc(-1 * var(--setta-workspace-shell-pane-closed-offset))
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .setta-workspace-shell-pane {
+    transition-property: transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+.setta-workspace-shell-rail {
+  position: absolute;
+  inset-block: 0;
+  z-index: 32;
+  display: flex;
+  width: 40px;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  padding-block: 8px;
+  background-color: rgb(239 241 246);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-rail {
+  background-color: rgb(11 14 19);
+}
+
+.setta-workspace-shell-rail[data-workspace-shell-rail="leading"] {
+  inset-inline-start: 0;
+  border-inline-end: 1px solid rgb(182 192 211 / 75%);
+}
+
+.setta-workspace-shell-rail[data-workspace-shell-rail="trailing"] {
+  inset-inline-end: 0;
+  border-inline-start: 1px solid rgb(182 192 211 / 75%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-rail[data-workspace-shell-rail="leading"] {
+  border-inline-end-color: rgb(21 26 35);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-rail[data-workspace-shell-rail="trailing"] {
+  border-inline-start-color: rgb(21 26 35);
+}
+
+.setta-workspace-shell-tablist {
+  display: flex;
+  width: 32px;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setta-workspace-shell-tab {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: rgb(117 136 174);
+  touch-action: manipulation;
+}
+
+.setta-workspace-shell-tab::after {
+  position: absolute;
+  inset: -2px;
+  content: "";
+}
+
+.setta-workspace-shell-tab:hover {
+  color: rgb(65 80 108);
+}
+
+.setta-workspace-shell-tab:disabled,
+.setta-workspace-shell-tab[data-disabled="true"] {
+  cursor: default;
+  color: rgb(150 164 192 / 50%);
+}
+
+.setta-workspace-shell-tab:disabled:hover {
+  color: rgb(150 164 192 / 50%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-tab {
+  color: rgb(65 80 108);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-tab:hover {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-tab:disabled,
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-tab[data-disabled="true"],
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-shell-tab:disabled:hover {
+  color: rgb(43 54 74 / 50%);
+}
+
+.setta-workspace-shell-tab[data-active="true"] {
+  color: rgb(59 130 246);
+}
+
+.setta-workspace-shell-tab:focus-visible,
+.setta-workspace-shell-full-width-button:focus-visible,
+.setta-workspace-shell-resize-handle:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+
+.setta-workspace-shell-tab-icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.setta-workspace-shell-panel {
+  display: flex;
+  width: calc(100% - 1.5rem);
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-inline: auto;
+  flex-direction: column;
+  overflow: hidden;
+  padding-inline: 6px;
+}
+
+.setta-workspace-shell-pane-title {
+  min-width: 0;
+  min-height: 16px;
+  margin-block-end: 4px;
+  overflow: hidden;
+  color: rgb(148 163 184);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.setta-workspace-shell-pane[data-pane="leading"]
+  .setta-workspace-shell-pane-title {
+  padding-inline-end: 32px;
+}
+
+.setta-workspace-shell-pane[data-pane="trailing"]
+  .setta-workspace-shell-pane-title {
+  padding-inline-start: 40px;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-shell-pane-title {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-shell-pane-body {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}

@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "contentReference": {
+      "additionalProperties": false,
+      "properties": {
+        "byteLength": {
+          "maximum": 268435456,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "invocationId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "mediaType": {
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "mediaType",
+        "byteLength",
+        "sha256",
+        "invocationId"
+      ],
+      "type": "object"
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$id": "https://setta.local/schemas/realtime/direct-invoke-request-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      },
+      "maxProperties": 128,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "content": {
+      "items": {
+        "$ref": "#/$defs/contentReference"
+      },
+      "maxItems": 128,
+      "type": "array"
+    }
+  },
+  "required": [
+    "arguments",
+    "content"
+  ],
+  "title": "Setta Realtime Direct Invoke Request V1",
+  "type": "object"
+}

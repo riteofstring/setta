@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-12T07:16:00Z",
+  "source": {
+    "commit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "fixtureUrl": "http://127.0.0.1:3000/sliding_peak",
+    "settingsUrl": "http://127.0.0.1:3000/settings",
+    "authoritativeIdleMetrics": "../../../phase0/reference/computed/settings-style-metrics.json"
+  },
+  "browser": {
+    "viewportCssPx": {
+      "width": 1512,
+      "height": 805
+    },
+    "devicePixelRatio": 2,
+    "workspaceTransform": "matrix(2.05904, 0, 0, 2.05904, 386.682, 83.8807)",
+    "workspaceScale": 2.05904
+  },
+  "fixture": {
+    "sectionAuthoredCssPx": {
+      "width": 200,
+      "height": 210
+    },
+    "ordinaryRowAuthoredCssPx": {
+      "width": 176,
+      "height": 20
+    },
+    "wrappedTextRowAuthoredCssPx": {
+      "width": 176,
+      "height": 36
+    },
+    "valueColumnAuthoredCssPx": 78,
+    "labelColumnAuthoredCssPx": 82
+  },
+  "idle": {
+    "sharedTypography": {
+      "label": {
+        "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+        "fontSizeCssPx": 12,
+        "lineHeightCssPx": 16,
+        "fontWeight": 400,
+        "lightColor": "rgb(36, 41, 46)",
+        "darkColor": "rgb(201, 209, 217)"
+      },
+      "value": {
+        "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+        "fontSizeCssPx": 12,
+        "lineHeightCssPx": 16,
+        "fontWeight": 400,
+        "lightColor": "rgb(36, 41, 46)",
+        "darkColor": "rgb(201, 209, 217)"
+      }
+    },
+    "section": {
+      "borderRadiusCssPx": 8,
+      "lightBackgroundColor": "rgb(239, 241, 246)",
+      "darkBackgroundColor": "rgb(16, 20, 27)"
+    },
+    "switch": {
+      "authoredOuterCssPx": {
+        "width": 34.3906,
+        "height": 16.3907
+      },
+      "paddingCssPx": 3.2,
+      "thumbCssPx": 10,
+      "borderRadiusCssPx": 9999,
+      "uncheckedLightBackgroundColor": "rgb(117, 136, 174)",
+      "uncheckedDarkBackgroundColor": "rgb(65, 80, 108)",
+      "checkedDarkBackgroundColor": "rgb(29, 78, 216)",
+      "checkedThumbTransform": "matrix(1, 0, 0, 1, 16, 0)"
+    },
+    "dropdown": {
+      "fixtureAuthoredOuterCssPx": {
+        "width": 74,
+        "height": 18
+      },
+      "paddingCssPx": {
+        "top": 0,
+        "right": 24,
+        "bottom": 0,
+        "left": 12
+      },
+      "borderRadiusCssPx": 9999,
+      "fontSizeCssPx": 12,
+      "lineHeightCssPx": 16,
+      "fontWeight": 500,
+      "lightBackgroundColor": "rgb(255, 255, 255)",
+      "lightBorderColor": "rgb(220, 225, 234)",
+      "darkBackgroundColor": "rgb(11, 14, 19)",
+      "darkBorderColor": "rgba(43, 54, 74, 0.7)"
+    },
+    "configuredColorTrigger": {
+      "fixtureAuthoredOuterCssPx": {
+        "width": 76,
+        "height": 18
+      },
+      "borderRadiusCssPx": 8,
+      "exampleSelectedValue": "#22c55e",
+      "exampleSelectedLabel": "Green"
+    }
+  },
+  "focusedAndOpen": {
+    "textEditor": {
+      "activeElementClass": "cm-content cm-lineWrapping",
+      "fontSizeCssPx": 12,
+      "lineHeightCssPx": 16,
+      "paddingCssPx": 0,
+      "lightColor": "rgb(36, 41, 46)",
+      "valueDividerFocusColor": "rgb(96, 165, 250)"
+    },
+    "dropdown": {
+      "ariaExpanded": true,
+      "focusBoxShadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgba(59, 130, 246, 0.5) 0px 0px 0px 2px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "listboxCssPx": {
+        "width": 152.3672,
+        "height": 97.3984
+      },
+      "listboxBorderRadiusCssPx": 6,
+      "listboxBorder": "1px solid rgb(229, 231, 235)",
+      "optionFontSizeCssPx": 12,
+      "optionLineHeightCssPx": 16,
+      "choices": ["Alpha", "Beta", "Gamma"]
+    },
+    "colorPicker": {
+      "ariaExpanded": true,
+      "listboxCssPx": {
+        "width": 140.4844,
+        "height": 72
+      },
+      "optionAuthoredHeightCssPx": 24,
+      "swatchCssPx": 16,
+      "swatchBorderRadiusCssPx": 9999,
+      "choices": [
+        {
+          "label": "Red",
+          "color": "rgb(239, 68, 68)"
+        },
+        {
+          "label": "Green",
+          "color": "rgb(34, 197, 94)"
+        },
+        {
+          "label": "Blue",
+          "color": "rgb(59, 130, 246)"
+        }
+      ]
+    },
+    "duplicateNameError": {
+      "message": "Param name \"enabled\" already exists under this parent.",
+      "fontSizeCssPx": 10,
+      "fontWeight": 500,
+      "lineHeightCssPx": 13.75,
+      "paddingCssPx": {
+        "block": 4,
+        "inline": 8
+      },
+      "borderRadiusCssPx": 6,
+      "light": {
+        "inputColor": "rgb(239, 68, 68)",
+        "backgroundColor": "rgb(254, 242, 242)",
+        "borderColor": "rgb(252, 165, 165)",
+        "color": "rgb(185, 28, 28)"
+      },
+      "dark": {
+        "inputColor": "rgb(252, 165, 165)",
+        "backgroundColor": "rgb(18, 0, 0)",
+        "borderColor": "rgb(127, 29, 29)",
+        "color": "rgb(254, 202, 202)"
+      }
+    }
+  },
+  "disabled": {
+    "resolution": [
+      "isSelectingParams",
+      "disabledOrFrozen",
+      "!canEditParams",
+      "isDeploymentMode && isCodeParam"
+    ],
+    "source": "frontend/src/components/Params/ParamUIs/ParamUI.tsx:resolveParamUIDisabled",
+    "visualContract": "No blanket opacity delta. Native controls receive disabled; text activation and editable cursor/selection are suppressed, and param-select mode suppresses the blue focus divider.",
+    "visualReference": [
+      "../screenshots/01-controls-idle-dark.png",
+      "../screenshots/12-controls-idle-light.png"
+    ]
+  }
+}

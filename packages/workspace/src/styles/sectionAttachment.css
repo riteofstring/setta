@@ -1,0 +1,25 @@
+.setta-workspace-joined-section-group:not(
+  :has([data-workspace-attached-section])
+) {
+  outline-width: 0;
+}
+
+.setta-workspace-joined-section-group:has([data-workspace-attached-section])
+  > [data-section-id] {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+  outline-width: 0;
+}
+
+.setta-workspace-joined-section-group:has([data-workspace-attached-section])
+  > [data-section-id]
+  > section {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.setta-workspace-joined-section-group [data-workspace-attached-section] {
+  margin-block-start: -1px;
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}

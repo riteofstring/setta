@@ -1,0 +1,478 @@
+diff --git a/frontend/package.json b/frontend/package.json
+index a066b1d68..f94a8b89e 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -35,6 +35,7 @@
+     "@radix-ui/react-popover": "1.1.15",
+     "@radix-ui/react-slider": "1.1.0",
+     "@radix-ui/react-switch": "1.0.1",
++    "@setta/workspace": "file:./setta-workspace-0.0.0.tgz",
+     "@tailwindcss/container-queries": "0.1.1",
+     "@tailwindcss/typography": "0.5.9",
+     "@uiw/codemirror-theme-github": "4.21.21",
+diff --git a/frontend/vite.config.ts b/frontend/vite.config.ts
+index ea0d59eb7..aabed6703 100644
+--- a/frontend/vite.config.ts
++++ b/frontend/vite.config.ts
+@@ -96,6 +96,16 @@ export default defineConfig({
+       "@codemirror/autocomplete",
+     ],
+   },
++  // Temporary Phase 2 integration adapter: build the packed @setta/workspace proof entry
++  // alongside the application entry.
++  build: {
++    rollupOptions: {
++      input: {
++        index: path.resolve(__dirname, "index.html"),
++        workspaceIntegration: path.resolve(__dirname, "workspace-integration.html"),
++      },
++    },
++  },
+   server: {
+     host: devFrontendHost,
+     port: devFrontendPort,
+diff --git a/frontend/workspace-integration.html b/frontend/workspace-integration.html
+new file mode 100644
+index 000000000..83eee7659
+--- /dev/null
++++ b/frontend/workspace-integration.html
+@@ -0,0 +1,12 @@
++<!doctype html>
++<html lang="en" class="dark">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Setta integration: packed @setta/workspace</title>
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/workspace-integration/main.tsx"></script>
++  </body>
++</html>
+diff --git a/frontend/workspace-integration/integration.css b/frontend/workspace-integration/integration.css
+new file mode 100644
+index 000000000..710818afb
+--- /dev/null
++++ b/frontend/workspace-integration/integration.css
+@@ -0,0 +1,113 @@
++/* Plain host chrome for the temporary Setta integration adapter. Deliberately not Tailwind:
++ * the adapter proves that consuming the packed artifact needs only dist/styles.css. Layout and
++ * colors mirror the extraction playground host (setta palette values from the package preset)
++ * around the accepted slice. */
++
++body {
++  margin: 0;
++  font-family:
++    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
++    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
++  background-color: hsl(219, 24%, 89%);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++}
++
++html.dark body {
++  background-color: hsl(220, 27%, 6%);
++}
++
++.integration-shell {
++  display: flex;
++  flex-direction: column;
++  height: 100vh;
++  padding: 2rem;
++  box-sizing: border-box;
++}
++
++.integration-header {
++  display: flex;
++  align-items: center;
++  gap: 1rem;
++  margin-bottom: 2rem;
++}
++
++.integration-header h1 {
++  margin: 0;
++  font-size: 0.875rem;
++  line-height: 1.25rem;
++  font-weight: 600;
++  color: hsl(219, 25%, 34%);
++}
++
++html.dark .integration-header h1 {
++  color: hsl(220, 25%, 67%);
++}
++
++.integration-header button {
++  font: inherit;
++  font-size: 0.75rem;
++  line-height: 1rem;
++  color: hsl(219, 25%, 34%);
++  background-color: transparent;
++  border: 1px solid hsl(219, 25%, 77%);
++  border-radius: 0.375rem;
++  padding: 0.25rem 0.5rem;
++}
++
++html.dark .integration-header button {
++  color: hsl(220, 25%, 67%);
++  border-color: hsl(219, 26%, 23%);
++}
++
++.integration-header p {
++  margin: 0;
++  font-size: 0.75rem;
++  line-height: 1rem;
++  color: hsl(220, 25%, 45%);
++}
++
++html.dark .integration-header p {
++  color: hsl(220, 26%, 57%);
++}
++
++.integration-workspace {
++  display: flex;
++  flex: 1;
++  gap: 0.5rem;
++  min-height: 0;
++}
++
++.integration-toolbar {
++  display: flex;
++  flex-direction: column;
++  width: 2.25rem;
++  padding-bottom: 0.25rem;
++}
++
++.integration-canvas {
++  flex: 1;
++  min-height: 0;
++  overflow: hidden;
++  border-radius: 0.5rem;
++  border: 1px solid hsl(219, 25%, 77%);
++}
++
++html.dark .integration-canvas {
++  border-color: hsl(220, 26%, 14%);
++}
++
++.integration-leaf-slot {
++  padding: 0 0.25rem;
++}
++
++.integration-leaf-body {
++  margin: 0;
++  font-size: 0.75rem;
++  line-height: 1rem;
++  color: hsl(220, 25%, 45%);
++}
++
++html.dark .integration-leaf-body {
++  color: hsl(220, 26%, 57%);
++}
+diff --git a/frontend/workspace-integration/main.tsx b/frontend/workspace-integration/main.tsx
+new file mode 100644
+index 000000000..6586e48b6
+--- /dev/null
++++ b/frontend/workspace-integration/main.tsx
+@@ -0,0 +1,169 @@
++import {
++  loadWorkspaceDocument,
++  registerSectionKinds,
++  setWorkspaceDocumentChangeCallback,
++  useWorkspaceAppearance,
++  WorkspaceCanvas,
++  WorkspaceControls,
++  WorkspaceTooltip,
++  type WorkspaceDocumentInput,
++  type WorkspaceSection,
++  type WorkspaceSectionInput,
++} from "@setta/workspace";
++import "@setta/workspace/styles.css";
++import { StrictMode, useEffect, useState } from "react";
++import { createRoot } from "react-dom/client";
++import "./integration.css";
++
++// Temporary Phase 2 Setta integration adapter: proves that the Setta frontend at the recorded
++// reference commit (043d3b2e9) installs the locally packed @setta/workspace tarball and renders
++// the accepted Phase 1 slice through the packed public exports and compiled stylesheet alone.
++// This is proof code — it imports no Setta application module and is preserved as evidence,
++// not merged. The slice document and leaf kind mirror the extraction playground exactly.
++
++function getLeafBody(section: WorkspaceSection): string {
++  const data = section.data;
++  if (data === null || typeof data !== "object" || Array.isArray(data)) {
++    throw new Error(`Leaf section ${section.id} is missing its body data.`);
++  }
++  const body = data["body"];
++  if (typeof body !== "string") {
++    throw new Error(`Leaf section ${section.id} is missing its body text.`);
++  }
++  return body;
++}
++
++function LeafSectionBody({ section }: { section: WorkspaceSection }) {
++  return (
++    <div className="section-full-no-title integration-leaf-slot">
++      <p className="integration-leaf-body">{getLeafBody(section)}</p>
++    </div>
++  );
++}
++
++function makeLeafSection(
++  id: string,
++  name: string,
++  overrides: Partial<WorkspaceSectionInput> = {},
++): WorkspaceSectionInput {
++  return {
++    id,
++    kind: "leaf",
++    name,
++    data: { body: name },
++    isMinimized: false,
++    positionAndSizeLocked: false,
++    isHorizontalOrientation: false,
++    styleColor: null,
++    tagColor: null,
++    children: [],
++    ...overrides,
++  };
++}
++
++// The approved Phase 1 slice as the playground renders it: one root leaf plus one root group
++// with a nested leaf, and the pre-instantiated locked and style-colored chrome states.
++const sliceDocument: WorkspaceDocumentInput = {
++  sections: {
++    "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
++    "locked-leaf": makeLeafSection("locked-leaf", "Locked leaf", {
++      positionAndSizeLocked: true,
++    }),
++    "styled-leaf": makeLeafSection("styled-leaf", "Style-colored leaf", {
++      styleColor: "#3b82f6",
++    }),
++    "root-group": {
++      id: "root-group",
++      kind: "group",
++      name: "Root group",
++      isMinimized: false,
++      positionAndSizeLocked: false,
++      isHorizontalOrientation: false,
++      styleColor: null,
++      tagColor: null,
++      children: ["nested-leaf"],
++    },
++    "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf"),
++  },
++  topLevelSections: {
++    "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
++    "locked-leaf": { x: 312, y: 24, w: 200, h: 122, zIndex: 1 },
++    "styled-leaf": { x: 600, y: 24, w: 200, h: 122, zIndex: 2 },
++    "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
++  },
++  viewport: { x: 0, y: 0, zoom: 1 },
++  activeIds: [],
++};
++
++function toggleDarkMode() {
++  const next = !useWorkspaceAppearance.getState().darkMode;
++  document.documentElement.classList.toggle("dark", next);
++  useWorkspaceAppearance.setState({ darkMode: next });
++}
++
++// The host side of the document-change callback: every package-initiated canonical commit
++// reports the serializable document once; a host re-load never does.
++function DocumentChangeReadout() {
++  const [documentChangeCount, setDocumentChangeCount] = useState(0);
++  useEffect(() => {
++    setWorkspaceDocumentChangeCallback(() => {
++      setDocumentChangeCount((count) => count + 1);
++    });
++    return () => setWorkspaceDocumentChangeCallback(null);
++  }, []);
++  return <>{documentChangeCount}</>;
++}
++
++function IntegrationApp() {
++  const darkMode = useWorkspaceAppearance((state) => state.darkMode);
++
++  return (
++    <main className="integration-shell">
++      <header className="integration-header">
++        <h1>Setta integration: packed @setta/workspace</h1>
++        <button type="button" onClick={toggleDarkMode}>
++          Switch to {darkMode ? "light" : "dark"} mode
++        </button>
++        <button type="button" onClick={() => loadWorkspaceDocument(sliceDocument)}>
++          Reload document
++        </button>
++        <p>
++          <DocumentChangeReadout /> document changes reported.
++        </p>
++      </header>
++      <div className="integration-workspace">
++        <aside className="integration-toolbar">
++          <WorkspaceControls />
++        </aside>
++        <div className="integration-canvas">
++          <WorkspaceCanvas />
++        </div>
++      </div>
++      <WorkspaceTooltip />
++    </main>
++  );
++}
++
++// The appearance store must reflect the boot dark-mode class before the document loads, and
++// kind registration precedes the load because loading validates kinds against the registry.
++useWorkspaceAppearance.setState({
++  darkMode: document.documentElement.classList.contains("dark"),
++});
++registerSectionKinds({
++  leaf: {
++    renderContent: (section) => <LeafSectionBody section={section} />,
++    defaultSize: { width: 200, height: 122 },
++  },
++});
++loadWorkspaceDocument(sliceDocument);
++
++const rootElement = document.getElementById("root");
++if (!rootElement) {
++  throw new Error("Integration adapter root element missing.");
++}
++
++createRoot(rootElement).render(
++  <StrictMode>
++    <IntegrationApp />
++  </StrictMode>,
++);
+diff --git a/frontend/workspace-integration/render-proof.mjs b/frontend/workspace-integration/render-proof.mjs
+new file mode 100644
+index 000000000..16c6525f0
+--- /dev/null
++++ b/frontend/workspace-integration/render-proof.mjs
+@@ -0,0 +1,105 @@
++import { mkdirSync, readFileSync } from "node:fs";
++import { createServer } from "node:http";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++
++import { chromium } from "@playwright/test";
++
++// Temporary Phase 2 render proof for the Setta integration adapter: serve the already-built
++// dist (at the build's /static/ base; `vite preview`'s SPA fallback serves index.html for
++// every HTML path, so a minimal exact-file server stands in for it) and drive the
++// packed-workspace entry in headless Chromium. Records dark and light screenshots plus
++// measured slice geometry. Usage: node workspace-integration/render-proof.mjs <output-directory>
++
++const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
++const outputDirectory = process.argv[2];
++if (!outputDirectory) {
++  throw new Error("Usage: node workspace-integration/render-proof.mjs <output-directory>");
++}
++mkdirSync(outputDirectory, { recursive: true });
++
++const port = 4199;
++const pageUrl = `http://127.0.0.1:${String(port)}/static/workspace-integration.html`;
++
++const contentTypes = new Map([
++  [".html", "text/html"],
++  [".js", "text/javascript"],
++  [".css", "text/css"],
++  [".map", "application/json"],
++  [".png", "image/png"],
++  [".svg", "image/svg+xml"],
++  [".webmanifest", "application/manifest+json"],
++]);
++
++const server = createServer((request, response) => {
++  const requestPath = new URL(request.url ?? "/", `http://127.0.0.1:${String(port)}`).pathname;
++  const distRelative = requestPath.replace(/^\/static\//u, "");
++  const filePath = path.join(frontendRoot, "dist", path.normalize(distRelative));
++  try {
++    const body = readFileSync(filePath);
++    response.writeHead(200, {
++      "content-type": contentTypes.get(path.extname(filePath)) ?? "application/octet-stream",
++    });
++    response.end(body);
++  } catch {
++    response.writeHead(404);
++    response.end();
++  }
++});
++await new Promise((resolve) => server.listen(port, "127.0.0.1", () => resolve(undefined)));
++
++const expectedSectionNames = [
++  "Idle leaf",
++  "Locked leaf",
++  "Style-colored leaf",
++  "Root group",
++  "Nested leaf",
++];
++
++try {
++  const browser = await chromium.launch();
++  const page = await browser.newPage({
++    viewport: { width: 1492, height: 696 },
++    deviceScaleFactor: 2,
++  });
++  const pageErrors = [];
++  page.on("pageerror", (error) => pageErrors.push(String(error)));
++  page.on("console", (message) => {
++    if (message.type() === "error") {
++      pageErrors.push(message.text());
++    }
++  });
++
++  await page.goto(pageUrl);
++  for (const name of expectedSectionNames) {
++    await page.getByText(name, { exact: true }).first().waitFor({ timeout: 10_000 });
++  }
++  await page.locator(".react-flow__controls-button").waitFor({ timeout: 10_000 });
++
++  const idleLeafBox = await page.evaluate(() => {
++    const titles = [...document.querySelectorAll(".react-flow__node *")];
++    const title = titles.find((element) => element.textContent === "Idle leaf");
++    const node = title?.closest(".react-flow__node");
++    if (!node) {
++      return null;
++    }
++    const rect = node.getBoundingClientRect();
++    return { width: rect.width, height: rect.height };
++  });
++
++  await page.screenshot({ path: path.join(outputDirectory, "integration-dark.png") });
++  await page.getByRole("button", { name: "Switch to light mode" }).click();
++  await page.waitForTimeout(250);
++  await page.screenshot({ path: path.join(outputDirectory, "integration-light.png") });
++
++  await browser.close();
++  if (pageErrors.length > 0) {
++    throw new Error(`Page errors while rendering the integration entry:\n${pageErrors.join("\n")}`);
++  }
++  console.log(
++    `RENDER PROOF PASSED: all slice sections and the toolbar rendered; ` +
++      `idle leaf outer box ${JSON.stringify(idleLeafBox)}`,
++  );
++} finally {
++  server.close();
++}
+diff --git a/frontend/workspace-integration/tsconfig.json b/frontend/workspace-integration/tsconfig.json
+new file mode 100644
+index 000000000..eeeaeabae
+--- /dev/null
++++ b/frontend/workspace-integration/tsconfig.json
+@@ -0,0 +1,16 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "jsx": "react-jsx",
++    "strict": true,
++    "noUncheckedIndexedAccess": true,
++    "noEmit": true,
++    "skipLibCheck": true,
++    "isolatedModules": true,
++    "types": ["vite/client"]
++  },
++  "include": ["."]
++}

@@ -1,0 +1,440 @@
+.setta-workspace-inspector-config {
+  gap: 4px;
+  padding-block-start: 4px;
+}
+
+.setta-workspace-inspector-config-row {
+  display: grid;
+  min-width: 0;
+  min-height: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 44%);
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+}
+
+.setta-workspace-inspector-config-row:hover {
+  background-color: rgb(203 213 225 / 17%);
+}
+
+.setta-workspace-inspector-config-label {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(86 105 143);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-label {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace-inspector-config-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  padding: 1px 2px;
+  border: 0;
+  border-block-end: 1px solid rgb(182 192 211);
+  border-radius: 0;
+  background-color: transparent;
+  color: rgb(43 54 74);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+select.setta-workspace-inspector-config-input {
+  cursor: pointer;
+}
+
+input[type="color"].setta-workspace-inspector-config-input {
+  width: 28px;
+  height: 24px;
+  justify-self: end;
+  cursor: pointer;
+  border: 1px solid rgb(100 116 139 / 30%);
+  border-radius: 9999px;
+  padding: 0;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-input {
+  border-block-end-color: rgb(43 54 74);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-config-input[aria-invalid="true"] {
+  border-block-end-color: rgb(220 38 38);
+  outline-color: rgb(220 38 38);
+}
+
+.setta-workspace-inspector-config-row > .setta-workspace-inspector-error {
+  grid-column: 1 / -1;
+}
+
+.setta-workspace-inspector-config-readonly {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-readonly {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace-inspector-config-action {
+  display: flex;
+  min-height: 28px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block: 4px;
+  padding: 2px 12px;
+  border: 0;
+  border-radius: 12px;
+  background-color: rgb(226 232 240);
+  color: rgb(100 116 139);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+  text-transform: uppercase;
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-config-action:hover {
+  background-color: rgb(203 213 225);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config-action {
+  background-color: rgb(26 33 45);
+  color: rgb(100 116 139);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-action:hover {
+  background-color: rgb(26 33 45);
+}
+
+.setta-workspace-inspector-config-list,
+.setta-workspace-inspector-config-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setta-workspace-inspector-config-group {
+  gap: 2px;
+}
+
+.setta-workspace-inspector-config-list-item {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 4px;
+}
+
+.setta-workspace-parameter-config-choice-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.setta-workspace-parameter-config-color-fields {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.setta-workspace-parameter-config-choice-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgb(182 192 211);
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(43 54 74);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-parameter-config-choice-text {
+  border-color: rgb(43 54 74);
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-parameter-config-choice-text:focus-visible {
+  border-color: rgb(59 130 246);
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 0;
+}
+
+.setta-workspace-parameter-config-color-input {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid rgb(100 116 139 / 30%);
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.setta-workspace-inspector-config-remove {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background-color: transparent;
+  color: rgb(148 163 184);
+  font-size: 18px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-config-remove:hover {
+  background-color: rgb(241 245 249);
+  color: rgb(55 65 81);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-config-remove:hover {
+  background-color: rgb(43 54 74 / 55%);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-config-range {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+input[type="range"].setta-workspace-inspector-config-input {
+  height: 20px;
+  cursor: pointer;
+  border: 0;
+  accent-color: rgb(59 130 246);
+}
+
+.setta-workspace-inspector-config-range > span {
+  color: rgb(100 116 139);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.setta-workspace-inspector-help,
+.setta-workspace-inspector-error,
+.setta-workspace-inspector-unsupported p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.setta-workspace-inspector-help,
+.setta-workspace-inspector-unsupported p {
+  color: rgb(100 116 139);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-help,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported p {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-inspector-error {
+  color: rgb(185 28 28);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-error {
+  color: rgb(252 165 165);
+}
+
+.setta-workspace-inspector-readonly-row {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-inspector-readonly-value {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(43 54 74);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-readonly-value {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-checkbox {
+  display: flex;
+  min-height: 32px;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  color: rgb(65 80 108);
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-checkbox input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  accent-color: rgb(37 99 235);
+}
+
+.setta-workspace-inspector-checkbox:has(input:disabled),
+.setta-workspace-inspector button:disabled,
+.setta-workspace-inspector-config-input:disabled,
+.setta-workspace-inspector-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.setta-workspace-inspector-toggle-grid,
+.setta-workspace-inspector-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.setta-workspace-inspector-toggle,
+.setta-workspace-inspector-actions button,
+.setta-workspace-inspector-primary-action {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 4px;
+  background-color: transparent;
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-toggle[aria-pressed="true"],
+.setta-workspace-inspector-primary-action {
+  border-color: rgb(59 130 246 / 75%);
+  background-color: rgb(219 234 254);
+  color: rgb(30 64 175);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-toggle,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-actions button,
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-primary-action {
+  border-color: rgb(43 54 74 / 70%);
+  color: rgb(150 164 192);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-toggle[aria-pressed="true"],
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-primary-action {
+  border-color: rgb(59 130 246);
+  background-color: rgb(30 58 138 / 65%);
+  color: rgb(239 246 255);
+}
+
+.setta-workspace-inspector-actions .setta-workspace-inspector-danger-action {
+  border-color: rgb(248 113 113 / 65%);
+  color: rgb(185 28 28);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-actions
+  .setta-workspace-inspector-danger-action {
+  border-color: rgb(127 29 29);
+  color: rgb(252 165 165);
+}
+
+.setta-workspace-inspector-size-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.setta-workspace-inspector-size-fields label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setta-workspace-inspector-resolved-size {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: rgb(100 116 139);
+  font-size: 11px;
+}
+
+.setta-workspace-inspector-item-name {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setta-workspace-inspector-item-name > *,
+.setta-workspace-inspector-item-name .section-key,
+.setta-workspace-inspector-item-name .section-key-value {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1;
+  grid-row: auto;
+}
+
+.setta-workspace-inspector-contribution {
+  min-width: 0;
+}
+
+@media (forced-colors: active) {
+  .setta-workspace-inspector-input,
+  .setta-workspace-inspector-config-input,
+  .setta-workspace-inspector-toggle,
+  .setta-workspace-inspector-actions button,
+  .setta-workspace-inspector-primary-action {
+    border: 1px solid CanvasText;
+  }
+
+  .setta-workspace-inspector-input:focus-visible,
+  .setta-workspace-inspector-config-input:focus-visible,
+  .setta-workspace-inspector button:focus-visible {
+    outline-color: Highlight;
+  }
+}

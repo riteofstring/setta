@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-10T22:43:58-07:00",
+  "sourceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+  "notes": [
+    "Pointer traces came from the running frozen-reference development app through Chrome DevTools Protocol input.",
+    "INP values characterize this disposable development capture and are not package performance budgets.",
+    "Trace wall durations include holds used to preserve active states for screenshots."
+  ],
+  "traces": [
+    {
+      "file": "../interaction-captures/selection-pointer-trace.json.gz",
+      "scenario": "select root leaf from ordinary title/surface",
+      "traceDurationSeconds": 26.712,
+      "traceEvents": 5495,
+      "result": "selected outline became visible; section bounding box did not change"
+    },
+    {
+      "file": "../interaction-captures/resize-pointer-trace.json.gz",
+      "scenario": "bottom-right resize activation, movement, and release",
+      "traceDurationSeconds": 8.955,
+      "traceEvents": 16237,
+      "interactionToNextPaintMs": 84,
+      "result": "authored size changed from 202x124 to 302x212; section origin did not translate"
+    },
+    {
+      "file": "../interaction-captures/move-pointer-trace.json.gz",
+      "scenario": "root section movement from ordinary noninteractive surface",
+      "traceDurationSeconds": 8.675,
+      "traceEvents": 6718,
+      "interactionToNextPaintMs": 86,
+      "result": "top-level layout position changed after pointer release"
+    },
+    {
+      "file": "../interaction-captures/sort-within-parent-pointer-trace.json.gz",
+      "scenario": "horizontal sibling reorder within parent",
+      "traceDurationSeconds": 55.129,
+      "traceEvents": 60864,
+      "interactionToNextPaintMs": 196,
+      "result": "sibling order changed and persisted on drop"
+    },
+    {
+      "file": "../interaction-captures/sustained-sort-drag-trace.json.gz",
+      "scenario": "horizontal sort held active",
+      "traceDurationSeconds": 85.818,
+      "traceEvents": 67152,
+      "interactionToNextPaintMs": 208,
+      "result": "source placeholder remained in layout while overlay followed pointer"
+    },
+    {
+      "file": "../interaction-captures/invalid-drop-pointer-trace.json.gz",
+      "scenario": "held pointer with production-derived invalid target",
+      "traceDurationSeconds": 57.405,
+      "traceEvents": 118129,
+      "interactionToNextPaintMs": 193,
+      "result": "getBehaviorDropType(active,target) returned INVALID and the target rendered rgba(185, 28, 28, 0.2) feedback"
+    },
+    {
+      "file": "../interaction-captures/cross-depth-free-move-trace.json.gz",
+      "scenario": "nested leaf moved to top-level freeform space",
+      "traceDurationSeconds": 28.602,
+      "traceEvents": 44393,
+      "interactionToNextPaintMs": 254,
+      "result": "oak_round changed from nested to top-level at x=704.77, y=687.07"
+    },
+    {
+      "file": "../interaction-captures/nested-param-drag-trace.json.gz",
+      "scenario": "nested parameter/item reorder",
+      "traceDurationSeconds": 41.462,
+      "traceEvents": 59371,
+      "interactionToNextPaintMs": 139,
+      "result": "alpha moved after gamma; final order beta, gamma, alpha, delta"
+    }
+  ],
+  "sectionSurfaceMovement": {
+    "header": "cross-depth and within-parent drags activated from header/title chrome",
+    "bodyWhitespace": {
+      "beforeCssPx": { "x": 704.77, "y": 687.07 },
+      "afterCssPx": { "x": 827.84, "y": 584.51 },
+      "result": "top-level leaf moved"
+    },
+    "otherNoninteractiveSurface": "root move trace activated from the normal section surface, not a dedicated drag handle"
+  },
+  "interactiveExclusions": {
+    "unchangedGeometryBaseline": {
+      "rootSectionCssPx": { "x": 458.621, "y": 276.824, "width": 206.491, "height": 144.954 },
+      "generatedEditorSectionCssPx": {
+        "x": 458.621,
+        "y": 502.459,
+        "width": 343.24,
+        "height": 103.929
+      }
+    },
+    "attempts": [
+      {
+        "surface": "callable text input",
+        "pointerStartCssPx": { "x": 599.47, "y": 324.34 },
+        "pointerEndCssPx": { "x": 679.47, "y": 364.34 },
+        "activeElementTag": "INPUT",
+        "result": "root and editor section geometry unchanged"
+      },
+      {
+        "surface": "compact section header button",
+        "pointerStartCssPx": { "x": 626.14, "y": 287.76 },
+        "pointerEndCssPx": { "x": 706.14, "y": 327.76 },
+        "activeElementTag": "BUTTON",
+        "result": "root and editor section geometry unchanged"
+      },
+      {
+        "surface": "CodeMirror editor body",
+        "pointerStartCssPx": { "x": 639.64, "y": 550.92 },
+        "pointerEndCssPx": { "x": 719.64, "y": 590.92 },
+        "activeElementTag": "DIV",
+        "result": "root and editor section geometry unchanged"
+      },
+      {
+        "surface": "bottom-right resize affordance",
+        "result": "size changed by 100x88 authored CSS pixels, position did not move, and section drag did not activate"
+      }
+    ]
+  },
+  "nestedItemDrag": {
+    "activeItem": "alpha",
+    "beforeOrder": ["alpha", "beta", "gamma", "delta"],
+    "afterOrder": ["beta", "gamma", "alpha", "delta"],
+    "liveAnnouncement": "Draggable item 2bfe68f685f83aeaed75e1839141c028::settaParamList::unpinned was dropped over droppable target 9997d0e2b27c479a7fcba21b54e2af57::settaParamList::unpinned",
+    "sectionGeometryChanged": false
+  }
+}

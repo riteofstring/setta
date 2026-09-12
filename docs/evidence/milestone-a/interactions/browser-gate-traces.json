@@ -1,0 +1,131 @@
+{
+  "source": {
+    "acceptedCommit": "ca10df2a7f8a6904cd1db5dc9b8428a85042b086",
+    "captureDate": "2026-08-14",
+    "url": "http://127.0.0.1:4173/"
+  },
+  "tagColor": {
+    "resetNotificationDelta": 1,
+    "afterReset": {
+      "value": "",
+      "resetEnabled": false,
+      "description": "None · no tag color"
+    },
+    "hostChoiceNotificationDelta": 1,
+    "afterHostChoice": {
+      "value": "#0f766e",
+      "resetEnabled": true,
+      "description": "Host teal · #0f766e",
+      "outlineText": "Idle leaf, color tag #0f766e"
+    }
+  },
+  "overflow": {
+    "initialBoundedMode": {
+      "groupRect": {
+        "width": 520,
+        "height": 360
+      },
+      "directScrollerCount": 1,
+      "scroller": {
+        "clientHeight": 274,
+        "scrollHeight": 424,
+        "scrollTop": 0
+      }
+    },
+    "trustedVerticalWheel": {
+      "scrollTopAfter": 150,
+      "canvasTransformBefore": "transform: translate(0px, 0px) scale(1);",
+      "canvasTransformAfter": "transform: translate(0px, 0px) scale(1);",
+      "urlAfter": "http://127.0.0.1:4173/",
+      "dialog": null
+    },
+    "hostReload": {
+      "documentChangeDelta": 0,
+      "scrollTopAfter": 150
+    },
+    "autoMode": {
+      "reportedDocumentChangeDelta": 2,
+      "notificationOwners": ["canonical overflow-mode commit", "measured top-level layout commit"],
+      "groupRect": {
+        "width": 766,
+        "height": 496
+      },
+      "directScrollerCount": 0
+    },
+    "boundedModeRestored": {
+      "reportedDocumentChangeDelta": 2,
+      "notificationOwners": ["canonical overflow-mode commit", "measured top-level layout commit"],
+      "groupRect": {
+        "width": 520,
+        "height": 360
+      },
+      "directScrollerCount": 1
+    }
+  },
+  "ungroup": {
+    "documentChangeDelta": 1,
+    "rootGroupCountAfter": 0,
+    "focusAfter": {
+      "role": "group",
+      "label": "Nested leaf section",
+      "tabIndex": -1
+    },
+    "promotedGeometry": {
+      "nestedLeaf": {
+        "width": 202,
+        "height": 124
+      },
+      "nestedGroup": {
+        "width": 718,
+        "height": 284
+      }
+    },
+    "outlineTail": [
+      {
+        "label": "Button",
+        "level": 1,
+        "selected": false
+      },
+      {
+        "label": "Dropzone",
+        "level": 1,
+        "selected": false
+      },
+      {
+        "label": "Nested leaf, color tag #f97316",
+        "level": 1,
+        "selected": false
+      },
+      {
+        "label": "Nested group",
+        "level": 1,
+        "selected": false
+      },
+      {
+        "label": "Horizontal group",
+        "level": 2,
+        "selected": false
+      },
+      {
+        "label": "First row leaf",
+        "level": 3,
+        "selected": false
+      },
+      {
+        "label": "Second row leaf",
+        "level": 3,
+        "selected": false
+      },
+      {
+        "label": "Third row leaf",
+        "level": 3,
+        "selected": false
+      }
+    ]
+  },
+  "browser": {
+    "dialog": null,
+    "warningsAndErrors": [],
+    "urlAfter": "http://127.0.0.1:4173/"
+  }
+}

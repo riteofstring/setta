@@ -1,0 +1,140 @@
+package terminal
+
+import (
+	"bytes"
+	"errors"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestManagedRunCommandShowsOnlyInterpreterAndRelativeArtifact(t *testing.T) {
+	directory := t.TempDir()
+	artifact, err := createRunArtifact(directory, "print('managed artifact')\n")
+	if err != nil {
+		t.Fatalf("create run artifact: %v", err)
+	}
+	t.Cleanup(func() { _ = artifact.remove() })
+	if filepath.IsAbs(artifact.relativePath) {
+		t.Fatalf("run artifact path = %q, want relative", artifact.relativePath)
+	}
+	if !strings.HasPrefix(artifact.relativePath, ".setta-run-") {
+		t.Fatalf("run artifact path = %q, want backend-owned short name", artifact.relativePath)
+	}
+
+	command := managedRunCommand("python-interpreter", artifact.relativePath)
+	if !strings.Contains(command, "python-interpreter") ||
+		!strings.Contains(command, artifact.relativePath) {
+		t.Fatalf("run command = %q, want interpreter and artifact", command)
+	}
+	if strings.Count(command, artifact.relativePath) != 1 {
+		t.Fatalf("run command = %q, want one artifact reference", command)
+	}
+	for _, implementationDetail := range []string{
+		"__setta_status",
+		"rm -f",
+		"del /f /q",
+		directory,
+	} {
+		if strings.Contains(command, implementationDetail) {
+			t.Fatalf("run command = %q, unexpectedly exposes %q", command, implementationDetail)
+		}
+	}
+}
+
+func TestNewRequiresResolvedPythonEnvironment(t *testing.T) {
+	_, err := New(Options{ProjectDirectory: t.TempDir()})
+	if !errors.Is(err, ErrPythonEnvironmentRequired) {
+		t.Fatalf("New() error = %v, want resolved Python environment", err)
+	}
+}
+
+func TestValidateSizeUsesTheSharedConPTYSafeMaximum(t *testing.T) {
+	for _, size := range [][2]int{
+		{1, 1},
+		{terminalMaximumDimension, terminalMaximumDimension},
+	} {
+		if err := validateSize(size[0], size[1]); err != nil {
+			t.Fatalf("validateSize(%d, %d) error = %v", size[0], size[1], err)
+		}
+	}
+	for _, size := range [][2]int{
+		{0, 24},
+		{80, 0},
+		{terminalMaximumDimension + 1, 24},
+		{80, terminalMaximumDimension + 1},
+	} {
+		if err := validateSize(size[0], size[1]); !errors.Is(err, ErrInvalidSize) {
+			t.Fatalf("validateSize(%d, %d) error = %v, want %v", size[0], size[1], err, ErrInvalidSize)
+		}
+	}
+}
+
+func TestAttachHandoffPreservesHistoryAndOneActiveStream(t *testing.T) {
+	session := &session{
+		columns:   80,
+		rows:      24,
+		done:      make(chan struct{}),
+		history:   historyBuffer{limit: defaultHistoryLimit},
+		artifacts: make(map[string]struct{}),
+	}
+	service := &Service{
+		session: session,
+		tickets: map[string]ticket{
+			"first":  {session: session, expiresAt: time.Now().Add(time.Minute)},
+			"second": {session: session, expiresAt: time.Now().Add(time.Minute)},
+			"third":  {session: session, expiresAt: time.Now().Add(time.Minute)},
+		},
+	}
+
+	service.appendOutput(session, []byte("before-attach\n"))
+	first, err := service.Attach("first")
+	if err != nil {
+		t.Fatalf("attach first stream: %v", err)
+	}
+	if got := string(first.History); got != "before-attach\n" {
+		t.Fatalf("first attachment history = %q", got)
+	}
+
+	service.appendOutput(session, []byte("after-attach\n"))
+	select {
+	case output := <-first.Output:
+		if got := string(output); got != "after-attach\n" {
+			t.Fatalf("first attachment live output = %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("first attachment missed live output")
+	}
+	if got := string(first.History); got != "before-attach\n" {
+		t.Fatalf("history copy changed after live output: %q", got)
+	}
+
+	if _, err := service.Attach("second"); !errors.Is(err, ErrAttachmentActive) {
+		t.Fatalf("second active attachment error = %v, want %v", err, ErrAttachmentActive)
+	}
+	first.Close()
+	third, err := service.Attach("third")
+	if err != nil {
+		t.Fatalf("reattach stream: %v", err)
+	}
+	t.Cleanup(third.Close)
+	if got := string(third.History); got != "before-attach\nafter-attach\n" {
+		t.Fatalf("reattached history = %q", got)
+	}
+}
+
+func TestHistoryBufferKeepsExact64KiBTail(t *testing.T) {
+	history := historyBuffer{limit: defaultHistoryLimit}
+	prefix := bytes.Repeat([]byte("x"), defaultHistoryLimit)
+	history.append(prefix)
+	history.append([]byte("tail"))
+
+	if got := len(history.bytes); got != defaultHistoryLimit {
+		t.Fatalf("history size = %d, want %d", got, defaultHistoryLimit)
+	}
+	want := append(append([]byte(nil), prefix[4:]...), []byte("tail")...)
+	if !bytes.Equal(history.copy(), want) {
+		t.Fatal("history did not retain the exact bounded tail")
+	}
+}

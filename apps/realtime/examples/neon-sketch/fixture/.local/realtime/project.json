@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "id": "project-neon-sketch",
+  "revision": 0,
+  "name": "Neon Sketch",
+  "runtime": {
+    "kind": "python",
+    "entrypoint": "app.py"
+  },
+  "sections": {
+    "drawing": {
+      "id": "drawing",
+      "kind": "drawing",
+      "name": "Draw here",
+      "width": 520,
+      "height": 400,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "background": "#ffffff",
+        "height": 320,
+        "scene": {
+          "objects": [],
+          "version": "7.4.0"
+        },
+        "width": 520
+      }
+    },
+    "result": {
+      "id": "result",
+      "kind": "output",
+      "name": "Neon result",
+      "width": 520,
+      "height": 310,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "value": null
+      }
+    },
+    "pillow-result": {
+      "id": "pillow-result",
+      "kind": "output",
+      "name": "Pillow risograph",
+      "width": 520,
+      "height": 310,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "value": null
+      }
+    },
+    "callback": {
+      "id": "callback",
+      "kind": "code",
+      "name": "Realtime callback",
+      "width": 520,
+      "height": 520,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "source": "entrypoint"
+      }
+    }
+  },
+  "layout": {
+    "topLevelSections": {
+      "drawing": {
+        "x": 24,
+        "y": 24,
+        "width": 520,
+        "height": 400,
+        "zIndex": 1
+      },
+      "result": {
+        "x": 568,
+        "y": 24,
+        "width": 520,
+        "height": 310,
+        "zIndex": 1
+      },
+      "pillow-result": {
+        "x": 568,
+        "y": 358,
+        "width": 520,
+        "height": 310,
+        "zIndex": 1
+      },
+      "callback": {
+        "x": 24,
+        "y": 448,
+        "width": 520,
+        "height": 520,
+        "zIndex": 1
+      }
+    },
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "bindings": [
+    {
+      "id": "stylize-drawing",
+      "trigger": {
+        "sectionId": "drawing",
+        "event": "snapshot"
+      },
+      "handler": "neon_glitch",
+      "arguments": {
+        "drawing": "$event.contentRef"
+      },
+      "scheduling": {
+        "mode": "latest",
+        "debounceMilliseconds": 0,
+        "concurrencyGroup": "neon-rendering",
+        "concurrencyLimit": 1
+      },
+      "materialization": {
+        "retention": "lastSuccessful",
+        "startup": "whenStale"
+      },
+      "outputs": {
+        "image": {
+          "sectionId": "result",
+          "field": "contentRef"
+        }
+      }
+    },
+    {
+      "id": "render-risograph",
+      "trigger": {
+        "sectionId": "drawing",
+        "event": "snapshot"
+      },
+      "handler": "pillow_risograph",
+      "arguments": {
+        "drawing": "$event.contentRef"
+      },
+      "scheduling": {
+        "mode": "latest",
+        "debounceMilliseconds": 0,
+        "concurrencyGroup": "pillow-rendering",
+        "concurrencyLimit": 1
+      },
+      "materialization": {
+        "retention": "lastSuccessful",
+        "startup": "whenStale"
+      },
+      "outputs": {
+        "image": {
+          "sectionId": "pillow-result",
+          "field": "contentRef"
+        }
+      }
+    }
+  ],
+  "configuration": {}
+}

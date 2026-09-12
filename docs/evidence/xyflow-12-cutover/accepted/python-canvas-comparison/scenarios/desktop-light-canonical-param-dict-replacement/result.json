@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "geometryDiff": "scenarios/desktop-light-canonical-param-dict-replacement/geometry-diff.json",
+    "pixelDiff": "scenarios/desktop-light-canonical-param-dict-replacement/pixel-diff.png",
+    "pixelDiffRecords": "scenarios/desktop-light-canonical-param-dict-replacement/pixel-diff.ndjson"
+  },
+  "baseline": {
+    "metadataSha256": "ef2d3ccb41846e2b6ca91c21f35a53a8ff270d4b7fdd8b8a822f0538b834a8eb",
+    "screenshotSha256": "5af2e77327c2bbd840fc523413a8c9d5644b4f214ec1b773cbf40dc75950da0e"
+  },
+  "candidate": {
+    "metadataSha256": "ef2d3ccb41846e2b6ca91c21f35a53a8ff270d4b7fdd8b8a822f0538b834a8eb",
+    "screenshotSha256": "678a69262759d505863b20cc82a1a15fcb37f428c9968952ecde7a2da20894bc"
+  },
+  "contract": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true
+  },
+  "geometry": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true,
+    "tolerance": 0.25
+  },
+  "id": "desktop-light-canonical-param-dict-replacement",
+  "passed": true,
+  "pixels": {
+    "antialiasPixels": 0,
+    "changedPixels": 27,
+    "dimensionsDiffer": false,
+    "differenceRecordCount": 27,
+    "differenceRecordsFormat": "ndjson",
+    "differenceRecordsSha256": "5e8295aa1d7a16cd3abb67c3a1806f96f0fda6fd12d5c6ab4c715af294465cf6",
+    "edgeRasterComponents": 3,
+    "edgeRasterPixels": 27,
+    "maximumChannelDifference": 49,
+    "meaningfulPixels": 0,
+    "passed": true
+  }
+}

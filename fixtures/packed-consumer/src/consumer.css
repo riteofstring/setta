@@ -1,0 +1,127 @@
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  background-color: hsl(219, 24%, 89%);
+  -webkit-font-smoothing: antialiased;
+}
+
+html.dark body {
+  background-color: hsl(220, 27%, 6%);
+}
+
+.consumer-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.consumer-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.75rem;
+  color: hsl(219, 14%, 40%);
+}
+
+html.dark .consumer-header {
+  color: hsl(219, 14%, 72%);
+}
+
+.consumer-header h1 {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.consumer-header p {
+  margin: 0;
+}
+
+.consumer-header button {
+  min-width: 0;
+}
+
+.consumer-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.consumer-host-pane {
+  display: grid;
+  gap: 0.75rem;
+  color: hsl(219, 26%, 23%);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+html.dark .consumer-host-pane {
+  color: hsl(219, 25%, 77%);
+}
+
+.consumer-host-pane p {
+  margin: 0;
+}
+
+.consumer-host-pane button {
+  justify-self: start;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.consumer-note-body {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  color: hsl(219, 14%, 46%);
+}
+
+html.dark .consumer-note-body {
+  color: hsl(219, 14%, 68%);
+}
+
+.consumer-packed-items {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+@media (max-width: 60rem) {
+  .consumer-shell {
+    height: 100dvh;
+    padding: 1rem;
+  }
+
+  .consumer-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .consumer-header h1,
+  .consumer-header p {
+    flex-basis: 100%;
+  }
+
+  .consumer-header button {
+    min-height: 2.75rem;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 40rem) {
+  .consumer-shell {
+    padding: 0.5rem;
+  }
+}

@@ -1,0 +1,798 @@
+{
+  "version": 4,
+  "project": {
+    "kind": "application",
+    "capabilities": ["backend", "frontend", "ui"]
+  },
+  "documentation": {
+    "design": [
+      {
+        "path": "docs/design/development-tooling.md",
+        "sourcePaths": [
+          "apps/playground/vitest.config.ts",
+          "apps/playground/vitest.setup.ts",
+          "packages/workspace/vite.config.ts",
+          "packages/workspace/vitest.setup.ts",
+          "scripts/cdp-port.sh",
+          "scripts/chrome-devtools-mcp.sh",
+          "scripts/inspect-playground.mjs",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs",
+          "scripts/lib/parity-image.mjs",
+          "scripts/lib/playground-parity-provenance.mjs",
+          "scripts/profile-workspace-performance.mjs",
+          "scripts/workspace-browser-interactions.mjs",
+          "scripts/xyflow-parity/artifact-output.mjs",
+          "scripts/xyflow-parity/capture-actions.mjs",
+          "scripts/xyflow-parity/capture-geometry.mjs",
+          "scripts/xyflow-parity/capture-playground.mjs",
+          "scripts/xyflow-parity/compare-geometry.mjs",
+          "scripts/xyflow-parity/compare-playground.mjs",
+          "scripts/xyflow-parity/scenario-catalog-canvas.mjs",
+          "scripts/xyflow-parity/scenario-catalog-interface.mjs",
+          "scripts/xyflow-parity/scenario-catalog-values.mjs",
+          "scripts/xyflow-parity/scenario-catalog-windows.mjs",
+          "scripts/xyflow-parity/scenario-catalog.mjs"
+        ]
+      },
+      {
+        "path": "docs/design/python-canvas-backend.md",
+        "module": "python-canvas-backend"
+      },
+      {
+        "path": "docs/design/python-canvas-frontend.md",
+        "module": "python-canvas-frontend"
+      },
+      {
+        "path": "docs/design/realtime-backend.md",
+        "module": "realtime-backend"
+      },
+      {
+        "path": "docs/design/realtime-frontend.md",
+        "module": "realtime-frontend"
+      },
+      {
+        "path": "docs/design/setta-runtime.md",
+        "module": "setta-runtime"
+      },
+      {
+        "path": "docs/design/workspace.md",
+        "module": "workspace"
+      }
+    ]
+  },
+  "generation": {
+    "producers": [
+      {
+        "name": "python-canvas-contracts",
+        "outputs": [
+          "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
+          "apps/python-canvas/src/backend/generatedContract.ts"
+        ],
+        "inputs": [
+          "apps/python-canvas/backend/cmd/generate-contract/*.go",
+          "apps/python-canvas/backend/internal/contracts/*.go"
+        ],
+        "generate": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/python-canvas",
+            "run",
+            "contract:generate"
+          ],
+          "timeoutSeconds": 300
+        },
+        "verify": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/python-canvas",
+            "run",
+            "contract:check"
+          ],
+          "timeoutSeconds": 300
+        }
+      },
+      {
+        "name": "realtime-contracts",
+        "outputs": [
+          "apps/realtime/backend/internal/contracts/testdata/apply-request-v2.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/apply-runtime-source-request-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/apply-runtime-source-result-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/direct-invoke-request-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/project-v2.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/runtime-v2.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/runtime-command-v2.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/runtime-source-v1.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/worker-v2.schema.json",
+          "apps/realtime/backend/internal/contracts/testdata/content-reference-v1.schema.json",
+          "apps/realtime/src/backend/generatedContract.ts",
+          "apps/realtime/src/backend/generatedValidators.js",
+          "apps/realtime/src/backend/generatedValidators.d.ts"
+        ],
+        "inputs": [
+          "apps/realtime/backend/cmd/generate-contract/*.go",
+          "apps/realtime/backend/internal/contracts/*.go",
+          "apps/realtime/scripts/compile-validators.mjs"
+        ],
+        "generate": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/realtime",
+            "run",
+            "contract:generate"
+          ],
+          "timeoutSeconds": 300
+        },
+        "verify": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/realtime",
+            "run",
+            "contract:check"
+          ],
+          "timeoutSeconds": 300
+        }
+      }
+    ]
+  },
+  "scope": {
+    "generated": [
+      "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
+      "apps/python-canvas/src/backend/generatedContract.ts",
+      "apps/realtime/backend/internal/contracts/testdata/*.schema.json",
+      "apps/realtime/src/backend/generatedContract.ts",
+      "apps/realtime/src/backend/generatedValidators.js",
+      "apps/realtime/src/backend/generatedValidators.d.ts",
+      "docs/evidence/**/*.json",
+      "docs/evidence/**/*.json.gz"
+    ],
+    "entryPoints": [
+      "apps/playground/vitest.setup.ts",
+      "apps/python-canvas/backend/cmd/python-canvas/main.go",
+      "apps/python-canvas/src/main.tsx",
+      "apps/python-canvas/vitest.setup.ts",
+      "apps/python-canvas/visual-parity/compare.mjs",
+      "apps/python-canvas/visual-parity/capture.mjs",
+      "apps/realtime/backend/cmd/realtime/main.go",
+      "apps/realtime/examples/neon-sketch/app.py",
+      "apps/realtime/src/main.tsx",
+      "apps/realtime/vitest.setup.ts",
+      "packages/workspace/tailwind-preset.mjs",
+      "packages/workspace/tailwind.config.d.ts",
+      "packages/workspace/vitest.setup.ts",
+      "scripts/check-package-boundary.mjs",
+      "scripts/check-workspace-policy.mjs",
+      "scripts/compile-katex-styles.mjs",
+      "scripts/profile-workspace-performance.mjs",
+      "scripts/workspace-browser-interactions.mjs",
+      "scripts/xyflow-parity/capture-playground.mjs",
+      "scripts/xyflow-parity/compare-playground.mjs",
+      "scripts/verify-packed-consumer.mjs"
+    ],
+    "development": [
+      "apps/playground/**",
+      "apps/python-canvas/vite.config.ts",
+      "apps/python-canvas/vitest.config.ts",
+      "apps/python-canvas/vitest.setup.ts",
+      "apps/python-canvas/visual-parity/**",
+      "apps/realtime/vite.config.ts",
+      "apps/realtime/vitest.config.ts",
+      "apps/realtime/vitest.setup.ts",
+      "apps/realtime/scripts/**",
+      "fixtures/**",
+      "packages/workspace/tailwind.config.js",
+      "packages/workspace/vite.config.ts",
+      "packages/workspace/vitest.setup.ts",
+      "scripts/**"
+    ]
+  },
+  "quality": {
+    "allowComments": false
+  },
+  "portability": {},
+  "modules": [
+    {
+      "name": "workspace",
+      "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
+    },
+    {
+      "name": "playground",
+      "paths": ["apps/playground/**"],
+      "dependsOn": ["workspace"]
+    },
+    {
+      "name": "python-canvas-backend",
+      "paths": ["apps/python-canvas/backend/**"]
+    },
+    {
+      "name": "python-canvas-frontend",
+      "paths": [
+        "apps/python-canvas/*",
+        "apps/python-canvas/src/**",
+        "apps/python-canvas/visual-parity/**"
+      ],
+      "dependsOn": ["workspace", "python-canvas-backend"]
+    },
+    {
+      "name": "realtime-backend",
+      "paths": ["apps/realtime/backend/**", "apps/realtime/examples/**"]
+    },
+    {
+      "name": "realtime-frontend",
+      "paths": [
+        "apps/realtime/*",
+        "apps/realtime/scripts/**",
+        "apps/realtime/src/**"
+      ],
+      "dependsOn": ["workspace", "realtime-backend"]
+    },
+    {
+      "name": "setta-runtime",
+      "paths": [
+        "packages/setta-runtime/**",
+        "pyproject.toml",
+        "uv.lock",
+        "uv.toml"
+      ],
+      "dependsOn": [
+        "python-canvas-backend",
+        "python-canvas-frontend",
+        "realtime-backend",
+        "realtime-frontend"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "setta-package-contract",
+      "provides": ["package-contract"],
+      "argv": ["node", "scripts/check-package-boundary.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["check", "gate"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "workspace-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/workspace", "run", "build"],
+      "modules": ["workspace"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "playground-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/playground", "run", "build"],
+      "modules": ["playground"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "python-canvas-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "apps/python-canvas/backend",
+      "modules": ["python-canvas-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "python-canvas-frontend-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "build"],
+      "modules": ["python-canvas-frontend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "realtime-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "apps/realtime/backend",
+      "modules": ["realtime-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "realtime-frontend-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/realtime", "run", "build"],
+      "modules": ["realtime-frontend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "workspace-package-policy",
+      "provides": ["workspace-policy"],
+      "argv": ["node", "scripts/check-workspace-policy.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-python-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["uv", "lock", "--check"],
+      "modules": ["setta-runtime"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "realtime-go-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["go", "mod", "tidy", "-diff"],
+      "cwd": "apps/realtime/backend",
+      "modules": ["realtime-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "setta-runtime-build",
+      "provides": ["build"],
+      "argv": [
+        "python3",
+        "packages/setta-runtime/scripts/build_setta_wheel.py"
+      ],
+      "modules": ["setta-runtime"],
+      "runOn": ["build"],
+      "timeoutSeconds": 1800
+    }
+  ],
+  "tests": {
+    "paths": [
+      "apps/playground/src/**/*.test.ts",
+      "apps/playground/src/**/*.test.tsx",
+      "apps/python-canvas/backend/**/*_test.go",
+      "apps/python-canvas/*.test.mjs",
+      "apps/python-canvas/src/**/*.test.ts",
+      "apps/python-canvas/src/**/*.test.tsx",
+      "apps/realtime/backend/**/*_test.go",
+      "apps/realtime/src/**/*.test.ts",
+      "apps/realtime/src/**/*.test.tsx",
+      "packages/setta-runtime/tests/**",
+      "packages/workspace/src/**/*.test.ts",
+      "packages/workspace/src/**/*.test.tsx"
+    ],
+    "ownership": [
+      {
+        "paths": [
+          "packages/workspace/src/**/*.test.ts",
+          "packages/workspace/src/**/*.test.tsx"
+        ],
+        "module": "workspace",
+        "focusedSuite": "workspace-focused"
+      },
+      {
+        "paths": [
+          "apps/playground/src/**/*.test.ts",
+          "apps/playground/src/**/*.test.tsx"
+        ],
+        "module": "playground",
+        "focusedSuite": "playground-focused"
+      },
+      {
+        "paths": ["apps/python-canvas/backend/**/*_test.go"],
+        "module": "python-canvas-backend",
+        "focusedSuite": "python-canvas-backend-focused"
+      },
+      {
+        "paths": [
+          "apps/python-canvas/*.test.mjs",
+          "apps/python-canvas/src/**/*.test.ts",
+          "apps/python-canvas/src/**/*.test.tsx"
+        ],
+        "module": "python-canvas-frontend",
+        "focusedSuite": "python-canvas-frontend-focused"
+      },
+      {
+        "paths": ["packages/setta-runtime/tests/**"],
+        "module": "setta-runtime",
+        "focusedSuite": "setta-runtime-focused"
+      },
+      {
+        "paths": ["apps/realtime/backend/**/*_test.go"],
+        "module": "realtime-backend",
+        "focusedSuite": "realtime-backend-focused"
+      },
+      {
+        "paths": [
+          "apps/realtime/src/**/*.test.ts",
+          "apps/realtime/src/**/*.test.tsx"
+        ],
+        "module": "realtime-frontend",
+        "focusedSuite": "realtime-frontend-focused"
+      }
+    ],
+    "requiredKinds": ["component", "browser", "contract"],
+    "suites": [
+      {
+        "name": "setta-runtime-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["setta-runtime"],
+        "paths": ["packages/setta-runtime/tests/**"],
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/setta-runtime/tests",
+          "-t",
+          "packages/setta-runtime",
+          "-p",
+          "test_*.py"
+        ],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "workspace-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["workspace"],
+        "paths": [
+          "packages/workspace/src/**/*.test.ts",
+          "packages/workspace/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 1200
+      },
+      {
+        "name": "playground-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["playground"],
+        "paths": [
+          "apps/playground/src/**/*.test.ts",
+          "apps/playground/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 1200
+      },
+      {
+        "name": "python-canvas-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-backend"],
+        "paths": ["apps/python-canvas/backend/**/*_test.go"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "apps/python-canvas/backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "python-canvas-frontend-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-frontend"],
+        "paths": [
+          "apps/python-canvas/*.test.mjs",
+          "apps/python-canvas/src/**/*.test.ts",
+          "apps/python-canvas/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/python-canvas", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
+        "name": "realtime-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["realtime-backend"],
+        "paths": ["apps/realtime/backend/**/*_test.go"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "apps/realtime/backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "realtime-frontend-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["realtime-frontend"],
+        "paths": [
+          "apps/realtime/src/**/*.test.ts",
+          "apps/realtime/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/realtime", "run", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
+        "name": "realtime-contract-drift",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/realtime/backend/internal/contracts/**",
+          "apps/realtime/src/backend/**",
+          "apps/realtime/scripts/compile-validators.mjs",
+          "apps/realtime/package.json"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/realtime",
+          "run",
+          "contract:check"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "python-canvas-contract-drift",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/python-canvas/backend/internal/contracts/**",
+          "apps/python-canvas/src/backend/generatedContract.ts",
+          "apps/python-canvas/package.json"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "run",
+          "contract:check"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "python-canvas-cross-language-boundary",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/python-canvas/backend/internal/contracts/**",
+          "apps/python-canvas/src/backend/**"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "exec",
+          "vitest",
+          "run",
+          "src/backend/generatedContract.test.ts",
+          "src/backend/runtimeContract.test.ts"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "workspace-browser-interactions",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/playground/**",
+          "packages/workspace/src/canvas/**",
+          "packages/workspace/src/windowing/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs",
+          "scripts/workspace-browser-interactions.mjs"
+        ],
+        "argv": ["pnpm", "run", "workspace:browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 900
+      },
+      {
+        "name": "python-canvas-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": ["apps/python-canvas/**"],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/python-canvas",
+          "run",
+          "browser:test"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "realtime-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/realtime/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/realtime", "run", "browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
+        "name": "packed-consumer-contract",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "expensive",
+        "argv": ["pnpm", "run", "consumer:check"],
+        "runOn": ["full"],
+        "timeoutSeconds": 1800
+      },
+      {
+        "name": "workspace-browser-profile",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "expensive",
+        "argv": ["pnpm", "run", "performance:profile", "--", "--passes", "1"],
+        "runOn": ["full"],
+        "timeoutSeconds": 1800
+      }
+    ]
+  },
+  "supplyChain": {
+    "minimumReleaseAgeDays": 30,
+    "auditLevel": "low",
+    "recurringSecurityMonitoring": true,
+    "allowedDependencyProtocols": ["workspace:"],
+    "allowedLicenses": [
+      "0BSD",
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "BlueOak-1.0.0",
+      "CC0-1.0",
+      "ISC",
+      "MIT",
+      "MIT-0",
+      "MPL-2.0",
+      "Python-2.0"
+    ],
+    "releaseArtifacts": [
+      {
+        "name": "go",
+        "versionFile": "apps/python-canvas/backend/.go-version",
+        "source": "go-toolchain"
+      },
+      {
+        "name": "realtime-go",
+        "versionFile": "apps/realtime/backend/.go-version",
+        "source": "go-toolchain"
+      }
+    ],
+    "releaseAgeAssessments": [
+      {
+        "id": "fast-uri-3-1-6-security-fix",
+        "ecosystem": "pnpm",
+        "package": "fast-uri",
+        "version": "3.1.6",
+        "scope": "pnpm-lock.yaml",
+        "category": "security-fix",
+        "evidence": "https://github.com/fastify/fast-uri/security/advisories/GHSA-5jgf-p345-68v8",
+        "reason": "This exact release fixes the high-severity host-confusion and SSRF vulnerabilities in the newest dependency release old enough for ordinary admission.",
+        "owner": "realtime-frontend",
+        "reviewed": "2026-09-07",
+        "expires": "2026-09-22"
+      },
+      {
+        "id": "xyflow-react-12-11-5-supported-release",
+        "ecosystem": "pnpm",
+        "package": "@xyflow/react",
+        "version": "12.11.5",
+        "scope": "pnpm-lock.yaml",
+        "category": "supported-release",
+        "evidence": "https://registry.npmjs.org/@xyflow/react/12.11.5",
+        "reason": "This exact supported upstream release is required to replace Setta's private xyflow fork while retaining the current workspace contract.",
+        "owner": "workspace",
+        "reviewed": "2026-08-30",
+        "expires": "2026-09-24"
+      },
+      {
+        "id": "xyflow-system-0-0-81-supported-release",
+        "ecosystem": "pnpm",
+        "package": "@xyflow/system",
+        "version": "0.0.81",
+        "scope": "pnpm-lock.yaml",
+        "category": "supported-release",
+        "evidence": "https://registry.npmjs.org/@xyflow/system/0.0.81",
+        "reason": "This exact supported engine release is required by @xyflow/react 12.11.5 for the private-fork replacement.",
+        "owner": "workspace",
+        "reviewed": "2026-08-30",
+        "expires": "2026-09-24"
+      },
+      {
+        "id": "go-1-26-6-security-fix",
+        "ecosystem": "artifact",
+        "package": "go",
+        "version": "1.26.6",
+        "scope": "apps/python-canvas/backend/.go-version",
+        "category": "security-fix",
+        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
+        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
+        "owner": "python-canvas-backend",
+        "reviewed": "2026-08-26",
+        "expires": "2026-09-12"
+      },
+      {
+        "id": "realtime-go-1-26-6-security-fix",
+        "ecosystem": "artifact",
+        "package": "realtime-go",
+        "version": "1.26.6",
+        "scope": "apps/realtime/backend/.go-version",
+        "category": "security-fix",
+        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
+        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
+        "owner": "realtime-backend",
+        "reviewed": "2026-09-07",
+        "expires": "2026-09-12"
+      }
+    ],
+    "vulnerabilityAssessments": [
+      {
+        "id": "vitest-mocker-redirect-unreachable",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-82fw-gwwq-j7x9",
+        "package": "vitest",
+        "affectedVersion": "4.1.10",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The unauthenticated path requires the public mockerPlugin or interceptorPlugin on a reachable Vite HMR socket; Setta uses only Node or jsdom vitest run configurations with no Browser Mode, API listener, or affected plugin import.",
+        "impact": "No Setta process accepts remote redirect-mock registration, so an untrusted client cannot reach the arbitrary file-read sink.",
+        "evidence": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "tracking": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "owner": "frontend-test-tooling",
+        "approvedBy": "kevin",
+        "approval": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "reviewed": "2026-09-09",
+        "expires": "2026-09-18"
+      },
+      {
+        "id": "vitest-mocker-package-redirect-unreachable",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-82fw-gwwq-j7x9",
+        "package": "@vitest/mocker",
+        "affectedVersion": "4.1.10",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The vulnerable package is present only behind Vitest's Node or jsdom runner; Setta exposes no public mocker interceptor WebSocket registration path and imports no affected plugin.",
+        "impact": "No Setta process accepts remote redirect-mock registration, so an untrusted client cannot reach the arbitrary file-read sink.",
+        "evidence": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "tracking": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "owner": "frontend-test-tooling",
+        "approvedBy": "kevin",
+        "approval": "https://github.com/riteofstring/setta/blob/realtime-app-plan/docs/evidence/security/vitest-mocker-assessment-2026-09-09.md",
+        "reviewed": "2026-09-09",
+        "expires": "2026-09-18"
+      }
+    ],
+    "dependencyOverridePolicies": [
+      {
+        "id": "fast-uri-security-fix",
+        "ecosystem": "pnpm",
+        "path": "package.json",
+        "field": "pnpm.overrides",
+        "contentSha256": "f4b60c0a7fbf9308dde0b4562a5b2ea674d5c41d314304eb347e7e1a421ce742",
+        "reason": "Ajv allows the vulnerable fast-uri release; force the first fixed 3.x release until normal minimum-age resolution can select it without an override.",
+        "owner": "realtime-frontend",
+        "reviewed": "2026-09-07",
+        "expires": "2026-09-22"
+      }
+    ]
+  }
+}

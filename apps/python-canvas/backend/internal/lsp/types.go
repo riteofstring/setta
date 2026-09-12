@@ -1,0 +1,48 @@
+package lsp
+
+import "encoding/json"
+
+type Position struct {
+	Line      int `json:"line"`
+	Character int `json:"character"`
+}
+
+type Range struct {
+	Start Position `json:"start"`
+	End   Position `json:"end"`
+}
+
+type Diagnostic struct {
+	Range    Range  `json:"range"`
+	Severity int    `json:"severity,omitempty"`
+	Message  string `json:"message"`
+	Code     string `json:"code"`
+}
+
+type DocumentDiagnostics struct {
+	URI         string
+	Version     int
+	Diagnostics []Diagnostic
+}
+
+type SignatureHelpResult struct {
+	Signatures []SignatureInformation `json:"signatures,omitempty"`
+}
+
+type SignatureInformation struct {
+	Label      string                 `json:"label"`
+	Parameters []ParameterInformation `json:"parameters,omitempty"`
+}
+
+type ParameterInformation struct {
+	Label json.RawMessage `json:"label"`
+}
+
+type CompletionResult struct {
+	Items []CompletionItem `json:"items"`
+}
+
+type CompletionItem struct {
+	Label      string `json:"label"`
+	InsertText string `json:"insertText,omitempty"`
+}

@@ -1,0 +1,993 @@
+{
+  "source": {
+    "acceptanceRecordCommit": "a0e50eccf1b7e87cafd10b4f93cb7085653a40cf",
+    "acceptedSourceCommit": "a371f749bcfe708131db14b90d3e8795238c2217",
+    "phaseAuditCommit": "06bc14516ed8b99363a26a832455e84765f41b3d",
+    "frozenReferenceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "captureDate": "2026-08-15",
+    "timezone": "America/Los_Angeles"
+  },
+  "capture": {
+    "browserSurface": "headless Google Chrome 152.0.7977.42 (--headless=new) over the DevTools protocol",
+    "devicePixelRatio": 1,
+    "format": "jpeg",
+    "url": "http://127.0.0.1:4173/",
+    "desktopViewport": {
+      "width": 1512,
+      "height": 861
+    },
+    "compactViewport": {
+      "width": 320,
+      "height": 861
+    },
+    "effective200PercentViewport": {
+      "width": 756,
+      "height": 431
+    }
+  },
+  "screenshots": {
+    "01-accepted-commands-dark-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 133644,
+      "sha256": "4d66338c4b508e31487e06329b47fc61e25bcdd030373d9e66ade78ea75e56d9"
+    },
+    "02-accepted-commands-light-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 147733,
+      "sha256": "68f01178a743781d846a5828c652c12471116b0a4265fb5e3061c030ebd77896"
+    },
+    "03-section-header-menu-dark-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 136801,
+      "sha256": "cf03c7c71395931d50dc539debe40dc8bd17f73e31dbdacc5c2a4db9f156a4cb"
+    },
+    "04-pane-creation-menu-dark-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 137706,
+      "sha256": "7fd6ae9cd4f996f54f6e2910a6bf0e7ac9a9ee36585d9668373ef810f68fa9ef"
+    },
+    "05-inspector-command-actions-dark-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 137946,
+      "sha256": "6b0c66ba3aa39024192496c4aa316a4092edb525bee4852bdfcd9238eba22213"
+    },
+    "06-host-toolbar-state-and-shortcuts-dark-1512x861.jpg": {
+      "width": 1512,
+      "height": 861,
+      "bytes": 157607,
+      "sha256": "cf11744a337f24f3fd1934fc35ea040d3a520ab57ce54356c16162605c9796f4"
+    },
+    "07-compact-commands-dark-320x861.jpg": {
+      "width": 320,
+      "height": 861,
+      "bytes": 34845,
+      "sha256": "2853f9ba86632d368fecc14521e9ba6dfcabc46799403a5f8a4531018dbbf2d3"
+    },
+    "08-accepted-commands-dark-756x431-effective-200-percent.jpg": {
+      "width": 756,
+      "height": 431,
+      "bytes": 30788,
+      "sha256": "588d4f21509c33224ab816fd6ba452fd696b792cd52b7753727b14afce9a3a75"
+    }
+  },
+  "builtArtifacts": {
+    "packages/workspace/dist/index.js": {
+      "bytes": 944046,
+      "sha256": "d669ed0d3dec115d653a05b689ac9abc3c467d10807a1b80e9769485022a4459"
+    },
+    "packages/workspace/dist/styles.css": {
+      "bytes": 144720,
+      "sha256": "a426c7a6182ac369ee7b51501460bf153f094793f859856764dee007ad8948ca"
+    },
+    "packages/workspace/dist/types/index.d.ts": {
+      "bytes": 8616,
+      "sha256": "102cdb401ba7fd326d3a7a26e5cdc74ef9ac18a6025ee8f17d5923abef6d1137"
+    },
+    "apps/playground/dist/index.html": {
+      "bytes": 525,
+      "sha256": "09759f77d79bb9a66b9115157faf9fd6cf9059521d42638bb57be0af5a40edcf"
+    },
+    "apps/playground/dist/assets/index-COFuOsUG.js": {
+      "bytes": 1782966,
+      "sha256": "91d4dc393d27ebc885e083276cd14da0675102182c1ee82ea170ffed38e520c3"
+    },
+    "apps/playground/dist/assets/index-BuCSGX32.css": {
+      "bytes": 127773,
+      "sha256": "7e4054f1ef99253fdacc9b366bde0d8c729863fc8b47e85c9276c9dd55f69c17"
+    }
+  },
+  "toolbar": {
+    "desktopDefault": {
+      "rect": {
+        "x": 4,
+        "y": 527,
+        "width": 32,
+        "height": 330
+      },
+      "compactGroup": null,
+      "controls": [
+        {
+          "name": "Host note",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 534,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "zoom in",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 579,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "zoom out",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 606,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "fit view",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 633,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "toggle snap to grid",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 660,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "reset zoom",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 7,
+            "y": 687,
+            "width": 26,
+            "height": 26
+          }
+        },
+        {
+          "name": "Highlight host controls",
+          "pressed": "false",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 717,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "Clear host action status",
+          "pressed": null,
+          "disabled": true,
+          "nativeDisabled": false,
+          "disabledReason": "There is no host action status to clear yet.",
+          "opacity": "0.4",
+          "rect": {
+            "x": 9,
+            "y": 753,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "toggle minimap",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 798,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "move minimap to right",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 825,
+            "width": 23,
+            "height": 23
+          }
+        }
+      ]
+    },
+    "desktopAfterHostToggle": {
+      "rect": {
+        "x": 4,
+        "y": 527,
+        "width": 32,
+        "height": 330
+      },
+      "compactGroup": null,
+      "controls": [
+        {
+          "name": "Host note",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 534,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "zoom in",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 579,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "zoom out",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 606,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "fit view",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 633,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "toggle snap to grid",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 660,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "reset zoom",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 7,
+            "y": 687,
+            "width": 26,
+            "height": 26
+          }
+        },
+        {
+          "name": "Highlight host controls",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 717,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "Clear host action status",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 753,
+            "width": 23,
+            "height": 32
+          }
+        },
+        {
+          "name": "toggle minimap",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 798,
+            "width": 23,
+            "height": 23
+          }
+        },
+        {
+          "name": "move minimap to right",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "disabledReason": null,
+          "opacity": "1",
+          "rect": {
+            "x": 9,
+            "y": 825,
+            "width": 23,
+            "height": 23
+          }
+        }
+      ]
+    },
+    "compact": {
+      "toolbar": [
+        {
+          "name": "Host note",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "zoom in",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "zoom out",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "fit view",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "toggle snap to grid",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "reset zoom",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "Highlight host controls",
+          "pressed": "false",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "Clear host action status",
+          "pressed": null,
+          "disabled": true,
+          "nativeDisabled": false,
+          "reason": "There is no host action status to clear yet.",
+          "opacity": "0.4"
+        },
+        {
+          "name": "toggle minimap",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "move minimap to right",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        }
+      ],
+      "overflow": {
+        "horizontal": false,
+        "vertical": false
+      },
+      "compactGroups": [
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true",
+        "true"
+      ],
+      "touchTargets": [
+        {
+          "name": "Host note",
+          "width": 23,
+          "height": 32
+        },
+        {
+          "name": "zoom in",
+          "width": 23,
+          "height": 23
+        },
+        {
+          "name": "zoom out",
+          "width": 23,
+          "height": 23
+        },
+        {
+          "name": "fit view",
+          "width": 23,
+          "height": 23
+        },
+        {
+          "name": "toggle snap to grid",
+          "width": 23,
+          "height": 23
+        },
+        {
+          "name": "reset zoom",
+          "width": 26,
+          "height": 26
+        },
+        {
+          "name": "Highlight host controls",
+          "width": 23,
+          "height": 32
+        },
+        {
+          "name": "Clear host action status",
+          "width": 23,
+          "height": 32
+        },
+        {
+          "name": "toggle minimap",
+          "width": 23,
+          "height": 23
+        },
+        {
+          "name": "move minimap to right",
+          "width": 23,
+          "height": 23
+        }
+      ]
+    },
+    "compactControlHitGeometry": {
+      "note": "The 24 px pseudo-element hit area is a coarse-pointer rule, measured here with touch emulation; the painted control box is unchanged.",
+      "finePointer": [
+        {
+          "name": "Host note",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "zoom in",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "zoom out",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "fit view",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "toggle snap to grid",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "reset zoom",
+          "touchTarget": "compact",
+          "controlWidth": 26,
+          "controlHeight": 26,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "Highlight host controls",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "Clear host action status",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "toggle minimap",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        },
+        {
+          "name": "move minimap to right",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "auto",
+          "hitAreaHeight": "auto",
+          "hitAreaContent": "none"
+        }
+      ],
+      "coarsePointer": [
+        {
+          "name": "Host note",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "zoom in",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "zoom out",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "fit view",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "toggle snap to grid",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "reset zoom",
+          "touchTarget": "compact",
+          "controlWidth": 26,
+          "controlHeight": 26,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "Highlight host controls",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "Clear host action status",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 32,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "toggle minimap",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        },
+        {
+          "name": "move minimap to right",
+          "touchTarget": "compact",
+          "controlWidth": 23,
+          "controlHeight": 23,
+          "hitAreaWidth": "24px",
+          "hitAreaHeight": "24px",
+          "hitAreaContent": "\"\""
+        }
+      ]
+    },
+    "effective200Percent": {
+      "toolbar": [
+        {
+          "name": "Host note",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "zoom in",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "zoom out",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "fit view",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "toggle snap to grid",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "reset zoom",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "Highlight host controls",
+          "pressed": "false",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "Clear host action status",
+          "pressed": null,
+          "disabled": true,
+          "nativeDisabled": false,
+          "reason": "There is no host action status to clear yet.",
+          "opacity": "0.4"
+        },
+        {
+          "name": "toggle minimap",
+          "pressed": "true",
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        },
+        {
+          "name": "move minimap to right",
+          "pressed": null,
+          "disabled": false,
+          "nativeDisabled": false,
+          "reason": null,
+          "opacity": "1"
+        }
+      ],
+      "overflow": {
+        "horizontal": false,
+        "vertical": false
+      }
+    }
+  },
+  "pageOverflow": {
+    "desktop": {
+      "horizontal": false,
+      "vertical": false
+    },
+    "compact": {
+      "horizontal": false,
+      "vertical": false
+    },
+    "effective200Percent": {
+      "horizontal": false,
+      "vertical": false
+    }
+  },
+  "menuGeometry": {
+    "sectionHeaderMenu": {
+      "section": "root-group",
+      "label": "Workspace section actions",
+      "rect": {
+        "x": 388,
+        "y": 252,
+        "width": 160,
+        "height": 119
+      }
+    },
+    "paneMenu": {
+      "at": {
+        "x": 1150,
+        "y": 700
+      },
+      "label": "Create a workspace section",
+      "rect": {
+        "x": 1150,
+        "y": 469,
+        "width": 160,
+        "height": 231
+      }
+    }
+  },
+  "keyBindingLabels": [
+    {
+      "label": "Canvas",
+      "chord": "Drag empty space to pan. Press F to fit the workspace."
+    },
+    {
+      "label": "Sections",
+      "chord": "Drag a surface to move it. Hold Alt while dragging to nest it."
+    },
+    {
+      "label": "Parameters",
+      "chord": "Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab to indent."
+    },
+    {
+      "label": "Menus",
+      "chord": "Right-click, or use Shift+F10 from the keyboard."
+    },
+    {
+      "label": "Toolbar",
+      "chord": "Host controls sit above and below the zoom group. The top one adds a note."
+    },
+    {
+      "label": "Control help",
+      "chord": "Hold Q while hovering a parameter control."
+    },
+    {
+      "label": "Group",
+      "chord": "⌘ + G"
+    },
+    {
+      "label": "Ungroup",
+      "chord": "⌘ + Shift + G"
+    },
+    {
+      "label": "Delete",
+      "chord": "Backspace"
+    },
+    {
+      "label": "Lock Position & Size",
+      "chord": "⌘ + Alt + L"
+    },
+    {
+      "label": "Unlock Position & Size",
+      "chord": "⌘ + Alt + U"
+    },
+    {
+      "label": "Select all",
+      "chord": "⌘ + A"
+    },
+    {
+      "label": "Select top-level non-group sections",
+      "chord": "⌘ + Shift + A"
+    },
+    {
+      "label": "Focus next section",
+      "chord": "Alt + J"
+    },
+    {
+      "label": "Focus previous section",
+      "chord": "Alt + K"
+    },
+    {
+      "label": "Move parameters up",
+      "chord": "Alt + ArrowUp"
+    },
+    {
+      "label": "Move parameters down",
+      "chord": "Alt + ArrowDown"
+    },
+    {
+      "label": "Indent parameters",
+      "chord": "Tab"
+    },
+    {
+      "label": "Unindent parameters",
+      "chord": "Shift + Tab"
+    },
+    {
+      "label": "Fit view",
+      "chord": "F"
+    },
+    {
+      "label": "Zoom in",
+      "chord": "Equal"
+    },
+    {
+      "label": "Zoom out",
+      "chord": "Minus"
+    },
+    {
+      "label": "Reset zoom",
+      "chord": "⌘ + Comma"
+    },
+    {
+      "label": "Zoom to pointer",
+      "chord": "Z"
+    },
+    {
+      "label": "Focus leading pane",
+      "chord": "Ctrl + Shift + 2"
+    },
+    {
+      "label": "Focus canvas",
+      "chord": "Ctrl + Shift + 3"
+    },
+    {
+      "label": "Focus trailing pane",
+      "chord": "Ctrl + Shift + 4"
+    },
+    {
+      "label": "Host note",
+      "chord": "N"
+    },
+    {
+      "label": "Position marker",
+      "chord": "G"
+    }
+  ]
+}

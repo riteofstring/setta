@@ -1,0 +1,62 @@
+{
+  "provenance": {
+    "referenceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "url": "http://127.0.0.1:3063/settings",
+    "captureDate": "2026-08-12",
+    "viewport": { "width": 1492, "height": 696 },
+    "devicePixelRatio": 1,
+    "input": "Real pointer actions against the already-running pinned reference"
+  },
+  "traces": [
+    {
+      "name": "empty UI Editor",
+      "action": "Open the trailing UI Editor while canonical section selection is empty.",
+      "after": {
+        "paneTitle": "UI EDITOR",
+        "message": "Select A Section to Edit",
+        "screenshotDark": "screenshots/19-inspector-empty-dark-1492x696.jpg",
+        "screenshotLight": "screenshots/22-inspector-empty-light-1492x696.jpg"
+      }
+    },
+    {
+      "name": "one selected settings section",
+      "action": "Activate backend from the Overview and keep the UI Editor's Section tab selected.",
+      "after": {
+        "paneTitle": "SECTION",
+        "sectionSettingsVisible": true,
+        "inputPortsVisible": true,
+        "outputPortsVisible": true,
+        "appearanceDisclosureVisible": true,
+        "screenshotDark": "screenshots/20-inspector-section-dark-1492x696.jpg",
+        "screenshotLight": "screenshots/23-inspector-section-light-1492x696.jpg"
+      }
+    },
+    {
+      "name": "selected section parameter configuration",
+      "action": "Select the UI Editor's Params tab for backend.",
+      "after": {
+        "paneTitle": "PARAMS",
+        "filterVisible": true,
+        "parameterLabelsVisible": true,
+        "comboboxesVisible": true,
+        "screenshotDark": "screenshots/21-inspector-params-dark-1492x696.jpg",
+        "screenshotLight": "screenshots/24-inspector-params-light-1492x696.jpg"
+      }
+    }
+  ],
+  "referenceLimitation": {
+    "attemptedSection": "gui",
+    "failure": "The frozen UI configuration path reaches ColorPickerInput.tsx with AvailableColors choices undefined and throws while mapping the choices.",
+    "handling": "The stable backend settings section supplies the ordinary Section and Params presentation evidence. The frozen product failure is recorded once and is not treated as package behavior, a waived developer gate, or a plan blocker."
+  },
+  "authorizedNewSelectionBoundary": {
+    "reference": "UiEditor reads one solely active section and UIConfig lists every parameter for it.",
+    "absent": [
+      "one-selected-item Inspector branching",
+      "multiple-item Inspector branching",
+      "multiple-section common actions",
+      "Inspector field Escape restoration and package mutation status announcements"
+    ],
+    "packageAuthority": "The workspace-shell milestone's concrete built-in selection Inspector contract."
+  }
+}

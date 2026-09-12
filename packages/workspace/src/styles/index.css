@@ -1,0 +1,42 @@
+@import "./scopedBase.css";
+@import "./workspace.css";
+@import "./workspaceSectionAttention.css";
+@import "../graph/workspaceGraph.css";
+@import "./workspaceShell.css";
+@import "./workspaceNavigator.css";
+@import "./workspaceInspector.css";
+@import "./workspaceInspectorConfiguration.css";
+@import "./workspaceOutline.css";
+@import "./workspaceSavedViews.css";
+@import "./workspaceMenus.css";
+@import "./workspaceParameterConfiguration.css";
+@import "./sectionAttachment.css";
+@import "./listRoot.css";
+@import "./itemToolbar.css";
+@import "./sectionField.css";
+@import "./generatedDocument.css";
+@import "./workspaceToolbar.css";
+@import "./workspaceFocusVisibility.css";
+@import "./workspaceInteractionPolicy.css";
+@import "./workspaceWindowing.css";
+@import "./workspaceWindowManager.css";
+@import "./workspaceBottomDock.css";
+@import "./workspaceWindowSpaces.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.section-args-nested {
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
+  grid-template-areas: "left-gutter key center-gutter value";
+}
+
+.section-args-nested-key-value {
+  grid-template-columns: 1fr 0.75rem 1fr;
+  grid-template-areas: "key center-gutter value";
+}
+
+.\[\&\>p\]\:section-key-value > p {
+  grid-column: key / value;
+}

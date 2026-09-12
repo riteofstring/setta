@@ -1,0 +1,558 @@
+:root {
+  color-scheme: light dark;
+  color: light-dark(#172033, #c9d1d9);
+  background: light-dark(#f7f8fb, #0b0e13);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  block-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: light-dark(#f7f8fb, #0b0e13);
+}
+
+.python-canvas-app,
+.python-canvas-workspace {
+  block-size: 100dvh;
+  inline-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-app {
+  overflow: hidden;
+}
+
+.setta-workspace [data-section-type="python-canvas.callable-pending"],
+.setta-workspace
+  [data-section-type="python-canvas.parameter-dictionary-pending"],
+.setta-workspace [data-section-type="python-canvas.list-pending"] {
+  visibility: hidden;
+}
+
+.python-canvas-announcer {
+  position: fixed;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.python-canvas-params-pane {
+  display: flex;
+  block-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  color: light-dark(rgb(43 54 74), rgb(182 192 211));
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.python-canvas-params-filter {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  margin-inline: 2px;
+}
+
+.python-canvas-params-filter-icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: light-dark(rgb(65 80 108), rgb(117 136 174));
+  pointer-events: none;
+  scale: 0.75;
+}
+
+.python-canvas-params-filter input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: 4px;
+  padding-inline: 20px 0;
+  border: 0;
+  border-block-end: 1px solid light-dark(rgb(182 192 211), rgb(43 54 74));
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+}
+
+.python-canvas-params-filter input:focus-visible {
+  border-block-end-color: rgb(147 197 253);
+  outline: 0;
+}
+
+.python-canvas-params-filter input::placeholder {
+  color: light-dark(rgb(117 136 174), rgb(43 54 74));
+}
+
+.python-canvas-params-list {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 16px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding-inline: 6px;
+  scrollbar-gutter: stable;
+}
+
+.python-canvas-params-group {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 8px;
+  margin-inline: 2px;
+  text-align: start;
+}
+
+.python-canvas-params-group h3 {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(86 105 143);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-canvas-params-group:hover h3 {
+  color: light-dark(rgb(0 0 0), rgb(182 192 211));
+}
+
+.python-canvas-params-group dl {
+  display: flex;
+  min-inline-size: 0;
+  margin: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.python-canvas-params-group dl > div {
+  display: grid;
+  min-inline-size: 0;
+  min-block-size: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 44%);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+}
+
+.python-canvas-params-group dl > div:hover {
+  background-color: light-dark(rgb(203 213 225 / 17%), rgb(43 54 74 / 24%));
+}
+
+.python-canvas-params-group dt {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: light-dark(rgb(86 105 143), rgb(150 164 192));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-canvas-params-group dd {
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.python-canvas-params-group code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.python-canvas-params-empty {
+  margin: 0;
+  padding-inline: 12px;
+  color: light-dark(rgb(100 116 139), rgb(86 105 143));
+}
+
+.python-canvas-target-editor-boundary {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-target-editor-boundary > * {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-section,
+.python-canvas-generated-python-editor {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-section {
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.python-canvas-generated-python-editor {
+  flex: 1 1 auto;
+}
+
+.python-canvas-generated-python-editor > * {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-run-control,
+.python-canvas-generated-python-terminal-control {
+  display: inline-flex;
+  inline-size: 1rem;
+  block-size: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-end: 0.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.python-canvas-generated-python-run-control {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-run-control:hover {
+  color: #22c55e;
+}
+
+.python-canvas-generated-python-run-control:active {
+  color: #1d4ed8;
+}
+
+.python-canvas-generated-python-terminal-control {
+  color: hsl(220 26% 57%);
+}
+
+.python-canvas-generated-python-terminal-control:hover {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-terminal-control-visible {
+  color: hsl(219 25% 34%);
+}
+
+.python-canvas-generated-python-terminal-control-visible:hover {
+  color: #2563eb;
+}
+
+.python-canvas-generated-python-run-control:focus-visible,
+.python-canvas-generated-python-terminal-control:focus-visible,
+.python-canvas-generated-python-terminal-trash:focus-visible,
+.python-canvas-generated-python-terminal-splitter:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.python-canvas-generated-python-run-control:disabled,
+.python-canvas-generated-python-terminal-control:disabled,
+.python-canvas-generated-python-terminal-trash:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.python-canvas-generated-python-run-control svg {
+  inline-size: 1em;
+  block-size: 1em;
+  fill: currentcolor;
+}
+
+.python-canvas-generated-python-terminal-control svg {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  fill: currentcolor;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-run-control {
+  color: hsl(219 25% 34%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-run-control:hover {
+  color: #a6e22e;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control {
+  color: hsl(219 25% 34%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control:hover {
+  color: hsl(220 25% 67%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control-visible {
+  color: hsl(220 25% 45%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-control-visible:hover {
+  color: #0084ff;
+}
+
+.python-canvas-generated-python-terminal-pane {
+  position: relative;
+  box-sizing: border-box;
+  min-block-size: 100px;
+  min-inline-size: 0;
+  margin-inline: 1px;
+  overflow: hidden;
+  border: 1px solid hsl(219 24% 89%);
+  border-radius: 0.5rem;
+  background: #06070a;
+}
+
+.setta-workspace.setta-workspace-dark
+  .python-canvas-generated-python-terminal-pane {
+  border-color: hsl(220 26% 14%);
+}
+
+.python-canvas-generated-python-terminal-surface {
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.python-canvas-generated-python-terminal-surface .xterm {
+  block-size: 100%;
+}
+
+.xterm .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b83a transparent;
+}
+
+@supports (not (-moz-appearance: none)) {
+  .xterm .xterm-viewport::-webkit-scrollbar {
+    width: 0.375rem;
+    height: 0.375rem;
+    background-color: transparent;
+  }
+
+  .xterm .xterm-viewport::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .xterm .xterm-viewport::-webkit-scrollbar-thumb {
+    background-color: #94a3b83a;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+  }
+}
+
+.xterm .xterm-scrollable-element > .scrollbar {
+  opacity: 1;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar.vertical {
+  width: 0.375rem !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar.horizontal {
+  height: 0.375rem !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  border-radius: 9999px;
+  background: #94a3b83a !important;
+}
+
+.python-canvas-generated-python-terminal-trash {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: 0.25rem;
+  inset-inline-end: 0.25rem;
+  display: inline-flex;
+  inline-size: 1rem;
+  min-inline-size: 1rem;
+  block-size: 1rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: hsl(219 25% 34%);
+  cursor: pointer;
+}
+
+.python-canvas-generated-python-terminal-trash:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.python-canvas-gg-trash {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  inline-size: 10px;
+  block-size: 12px;
+  margin-block-start: 2px;
+  border: 2px solid transparent;
+  border-end-start-radius: 1px;
+  border-end-end-radius: 1px;
+  box-shadow:
+    0 0 0 2px,
+    inset -2px 0 0,
+    inset 2px 0 0;
+}
+
+.python-canvas-gg-trash::after,
+.python-canvas-gg-trash::before {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  content: "";
+}
+
+.python-canvas-gg-trash::after {
+  inset-block-start: -4px;
+  inset-inline-start: -5px;
+  inline-size: 16px;
+  block-size: 2px;
+  border-radius: 3px;
+  background: currentcolor;
+}
+
+.python-canvas-gg-trash::before {
+  inset-block-start: -7px;
+  inset-inline-start: -2px;
+  inline-size: 10px;
+  block-size: 4px;
+  border: 2px solid;
+  border-block-end-color: transparent;
+  border-start-start-radius: 2px;
+  border-start-end-radius: 2px;
+}
+
+.python-canvas-generated-python-terminal-splitter {
+  position: absolute;
+  z-index: 19;
+  inset-block-end: -0.25rem;
+  inset-inline: 0;
+  block-size: 0.5rem;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.python-canvas-generated-python-terminal-splitter::after {
+  position: absolute;
+  inset-block-end: 0.1875rem;
+  inset-inline: 0;
+  block-size: 1px;
+  background: hsl(220 25% 67% / 55%);
+  content: "";
+}
+
+.python-canvas-callable-section {
+  position: relative;
+  display: grid;
+  gap: 0.625rem;
+  min-inline-size: 0;
+}
+
+.python-canvas-parameter-pending-overlay {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block-start: 0.75rem;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.python-canvas-parameter-spinner {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 0.1875rem solid color-mix(in srgb, #3b82f6 24%, transparent);
+  border-block-start-color: #3b82f6;
+  border-radius: 50%;
+  animation: python-canvas-parameter-spin 700ms linear infinite;
+}
+
+@keyframes python-canvas-parameter-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .python-canvas-parameter-spinner {
+    animation: none;
+  }
+}
+
+.python-canvas-callable-field {
+  display: grid;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.python-canvas-callable-section p,
+.python-canvas-callable-field p {
+  margin: 0;
+}
+
+.python-canvas-parameter-dictionary-section {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.python-canvas-parameter-label {
+  min-inline-size: 0;
+  margin: 0;
+  padding-block: 0.125rem;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

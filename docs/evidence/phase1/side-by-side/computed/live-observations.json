@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-11T18:07:57Z",
+  "source": {
+    "mainCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "extractionCommit": "2f824f03166b9c8d8f96e09e89ef0334477a5f39",
+    "mainUrl": "http://127.0.0.1:3063/being_cliff",
+    "playgroundUrl": "http://127.0.0.1:5174/"
+  },
+  "browser": {
+    "family": "Google Chrome",
+    "connection": "ChatGPT Chrome extension",
+    "viewportCssPx": {
+      "width": 1492,
+      "height": 696
+    },
+    "devicePixelRatio": 2
+  },
+  "liveFixesClosedBeforePresentation": [
+    {
+      "commit": "c63e6f890",
+      "problem": "The playground host body used the title-spanning section-full grid area and overlapped the package header.",
+      "result": "The body now begins at the search row; the header bottom and body top both resolve to 174 CSS px without overlap."
+    },
+    {
+      "commit": "1b4c516df",
+      "problem": "The playground fixture used arbitrary 224 x 96 inner leaf dimensions.",
+      "result": "The fixture now produces the frozen reference's 200 x 122 inner and 202 x 124 outer leaf dimensions."
+    },
+    {
+      "commit": "ae1e8c3b6",
+      "problem": "A later Tailwind p-1 utility reduced reset zoom from the reference's 26 x 26 to 24 x 24.",
+      "result": "The package fork rule owns the live 5 px padding again; reset zoom is 26 x 26 with a 12 x 12 icon."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "The package canvas inherited the playground's near-black host surface and omitted the frozen fork's SVG grid.",
+      "result": "The package owns the exact reference canvas surfaces and zoom-aware grid: dark rgb(28, 35, 49) with #2b364a dots, light rgb(148, 163, 184) with #afbacf dots, and a 15 px default gap."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "Invalid-drop feedback stayed inside the target section's stacking context and could be covered during free movement.",
+      "result": "Drop feedback is portaled to the body so the target section cannot cover it; the first portal layer placed it above the preview.",
+      "parityClassification": "Developer-directed correction that escapes the target stacking context.",
+      "supersededBy": "2f824f031"
+    },
+    {
+      "commit": "2f824f031",
+      "problem": "At the Phase 2 gate, the developer compared the package with main and found that placing the full red banner above the blue drag preview made the warning visually dominant and unlike the reference.",
+      "result": "The portal remains, but the DnD layers are explicit: target 500, feedback 750, preview 1000. Feedback stays above the target and below the preview, matching main's visual order.",
+      "parityClassification": "Developer-directed refinement that preserves the stacking-context fix while restoring reference layer hierarchy."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "Cross-parent insertion inherited direction-sensitive trailing-edge logic, so tiny downward pointer motion could show the placeholder after the first child on entry.",
+      "result": "Cross-parent insertion uses the dragged section's leading edge; same-parent sorting retains direction-aware edge selection and its 10 px hysteresis.",
+      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen cross-parent edge choice.",
+      "supersededBy": "6a295560f"
+    },
+    {
+      "commit": "6a295560f",
+      "problem": "The leading-edge correction fixed entry placement but made top-to-bottom switching require the dragged section's top edge to cross the frozen target midpoint, biasing the threshold by the preview height.",
+      "result": "Cross-parent insertion compares the pointer with the frozen target midpoint and preserves a symmetric 10 px dead band; vertical and horizontal transitions are covered. Same-parent sorting continues to use directional edges.",
+      "parityClassification": "Developer-directed collision correction recovered from the pre-directional-edge implementation history and scoped to cross-parent moves.",
+      "supersededBy": "2cbb1d9dc"
+    },
+    {
+      "commit": "2cbb1d9dc",
+      "problem": "Placeholder insertion moved the nested target down 132 px (midpoint 486 to 618), and alternating group/child collision winners caused the single global hysteresis snapshot to forget the child's original geometry.",
+      "result": "The tracker now preserves the first geometry and current past-halfway state independently for each collision target. Alternating winners no longer shift the pointer threshold; the temporary trace was removed and a focused regression recreates the displacement.",
+      "parityClassification": "Principled correction to make target-local hysteresis state match target-local insertion decisions."
+    }
+  ],
+  "canvasBackground": {
+    "referenceAndPlaygroundDark": {
+      "surface": "rgb(28, 35, 49)",
+      "gridPattern": "dots",
+      "gridColor": "#2b364a",
+      "gridGapCssPxAtZoom1": 15,
+      "dotRadiusCssPxAtZoom1": 1
+    },
+    "referenceAndPlaygroundLight": {
+      "surface": "rgb(148, 163, 184)",
+      "gridPattern": "dots",
+      "gridColor": "#afbacf",
+      "gridGapCssPxAtZoom1": 15,
+      "dotRadiusCssPxAtZoom1": 1
+    },
+    "behavior": "Grid translation, gap, and mark size track the package viewport transform exactly as in the frozen XYFlow fork."
+  },
+  "rootLeaf": {
+    "referenceDarkIdle": {
+      "outerCssPx": {
+        "width": 202,
+        "height": 124
+      },
+      "border": "1px solid rgb(43, 54, 74)",
+      "borderRadiusCssPx": 8,
+      "outerBackgroundColor": "rgb(9, 11, 14)",
+      "innerBackgroundColor": "rgb(16, 20, 27)",
+      "outline": "4px solid transparent",
+      "zIndex": 10
+    },
+    "playgroundDarkIdle": {
+      "outerCssPx": {
+        "width": 202,
+        "height": 124
+      },
+      "headerCssPx": {
+        "width": 184,
+        "height": 22
+      },
+      "border": "1px solid rgb(43, 54, 74)",
+      "borderRadiusCssPx": 8,
+      "outerBackgroundColor": "rgb(9, 11, 14)",
+      "innerBackgroundColor": "rgb(16, 20, 27)",
+      "outline": "4px solid transparent",
+      "zIndex": 10,
+      "title": {
+        "fontSizeCssPx": 11.2,
+        "fontWeight": 700,
+        "lineHeightCssPx": 20,
+        "letterSpacingCssPx": -0.28
+      }
+    },
+    "playgroundDarkSelected": {
+      "outerCssPx": {
+        "width": 202,
+        "height": 124
+      },
+      "outline": "4px solid rgb(29, 78, 216)",
+      "zIndex": 150
+    },
+    "playgroundLightSelected": {
+      "outerCssPx": {
+        "width": 202,
+        "height": 124
+      },
+      "border": "1px solid rgb(255, 255, 255)",
+      "outerBackgroundColor": "rgb(255, 255, 255)",
+      "innerBackgroundColor": "rgb(239, 241, 246)",
+      "outline": "4px solid rgb(37, 99, 235)"
+    }
+  },
+  "group": {
+    "outerCssPx": {
+      "width": 250,
+      "height": 204
+    },
+    "paddingCssPx": {
+      "top": 8,
+      "right": 24,
+      "bottom": 24,
+      "left": 24
+    },
+    "outlineLayer": {
+      "borderRadiusCssPx": 24,
+      "border": "1px solid rgb(43, 54, 74)",
+      "backgroundColor": "rgba(16, 20, 27, 0.5)",
+      "outline": "4px solid transparent"
+    }
+  },
+  "toolbar": {
+    "sharedContainer": {
+      "widthCssPx": 32,
+      "paddingCssPx": {
+        "top": 6,
+        "right": 2,
+        "bottom": 8,
+        "left": 2
+      },
+      "gapCssPx": 4,
+      "borderRadiusCssPx": 6,
+      "darkBorder": "1px solid rgb(26, 33, 45)"
+    },
+    "playgroundStandardControls": {
+      "widthCssPx": 23,
+      "heightCssPx": 23,
+      "iconWidthCssPx": 15,
+      "iconHeightCssPx": 15,
+      "paddingCssPx": 4,
+      "borderRadiusCssPx": 6
+    },
+    "mainAndPlaygroundResetZoom": {
+      "widthCssPx": 26,
+      "heightCssPx": 26,
+      "iconWidthCssPx": 12,
+      "iconHeightCssPx": 12,
+      "paddingCssPx": 5,
+      "boxSizing": "content-box"
+    },
+    "containerHeightNote": "Main is 303 px high because it includes application edge/plugin/minimap groups; the approved playground viewport-only group is 150 px high."
+  },
+  "interactions": {
+    "selection": {
+      "geometryShiftCssPx": {
+        "width": 0,
+        "height": 0
+      },
+      "outlineChange": "transparent -> rgb(29, 78, 216)",
+      "zIndexChange": "10 -> 150"
+    },
+    "fullSurfaceMove": {
+      "requestedPointerDeltaCssPx": {
+        "x": 60,
+        "y": 30
+      },
+      "committedVisualDeltaCssPx": {
+        "x": 51,
+        "y": 21
+      },
+      "sizeBeforeAndAfterCssPx": {
+        "width": 202,
+        "height": 124
+      },
+      "interpretation": "The canonical 15 px layout grid moved x/y from 24/24 to 75/45; the visual delta excludes the original border/coordinate offset."
+    },
+    "controlDragExclusion": {
+      "target": "Lock position and size button",
+      "requestedPointerDeltaCssPx": {
+        "x": 60,
+        "y": 30
+      },
+      "sectionDeltaCssPx": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "resize": {
+      "handleCssPx": {
+        "width": 20,
+        "height": 20
+      },
+      "handleCursor": "se-resize",
+      "handleZIndex": 20,
+      "handlePointerEvents": "auto",
+      "beforeCssPx": {
+        "x": 101,
+        "y": 147,
+        "width": 202,
+        "height": 124
+      },
+      "afterCssPx": {
+        "x": 101,
+        "y": 147,
+        "width": 257,
+        "height": 182
+      },
+      "originDeltaCssPx": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "minimize": {
+      "outerCssPx": {
+        "width": 202,
+        "height": 34
+      },
+      "bodyPresent": false
+    },
+    "zoom": {
+      "initialTransform": "matrix(1, 0, 0, 1, 0, 0)",
+      "afterZoomIn": "matrix(1.2, 0, 0, 1.2, -138.2, -54)",
+      "afterZoomOut": "matrix(1, 0, 0, 1, 0, 0)",
+      "afterReset": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    "fitView": {
+      "transform": "matrix(1, 0, 0, 1, 278, 48)",
+      "visibleSliceSections": 4
+    },
+    "heldDndModes": {
+      "liveAutomation": "The Chrome extension API cannot preserve a keydown across a later pointer command, so no sustained Alt or Mod+Alt package screenshot was synthesized.",
+      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 244-test package suite; focused tests cover feedback layering, symmetric vertical and horizontal pointer thresholds, and placeholder-displaced targets across alternating collision winners; frozen main sustained gestures are in Phase 0.",
+      "developerRecheck": "The developer manually rechecked the corrected cross-parent placeholder path and described it as ‘Much better.’ Explicit acceptance of the complete Phase 1 gate remains required."
+    }
+  },
+  "console": {
+    "playgroundWarningsOrErrors": [],
+    "mainKnownDiagnostics": [
+      "React Router v7 future-flag warning",
+      "React 19 element.ref diagnostics"
+    ]
+  },
+  "developerDecision": "approved after one rejection and corrected interaction recheck",
+  "developerDecisionAt": "2026-08-11T18:23:02Z"
+}

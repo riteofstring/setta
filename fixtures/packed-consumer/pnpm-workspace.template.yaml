@@ -1,0 +1,19 @@
+# The materialized packed consumer uses the same strict pnpm controls as the repository.
+packages:
+  - "."
+
+saveExact: true
+strictPeerDependencies: true
+
+minimumReleaseAge: 43200
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+minimumReleaseAgeExclude:
+  - "@xyflow/react@12.11.5"
+  - "@xyflow/system@0.0.81"
+  - "nanoid@3.3.18"
+trustPolicy: no-downgrade
+trustLockfile: false
+blockExoticSubdeps: true
+
+onlyBuiltDependencies: []

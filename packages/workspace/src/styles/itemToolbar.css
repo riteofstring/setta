@@ -1,0 +1,91 @@
+.setta-workspace-item-toolbar {
+  container-type: inline-size;
+}
+
+.setta-workspace-item-toolbar-label {
+  display: none;
+}
+
+@container (min-width: 300px) {
+  .setta-workspace-item-toolbar-label {
+    display: block;
+  }
+}
+
+.setta-workspace-item-filter-input:focus-visible {
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  .setta-workspace-item-filter-input:focus-visible {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+}
+
+.setta-workspace .gg-math-plus {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 40px;
+}
+
+.setta-workspace .gg-math-plus::after,
+.setta-workspace .gg-math-plus::before {
+  content: "";
+  grid-column: 1/2;
+  grid-row: 1/2;
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 5px;
+  top: 8px;
+}
+
+.setta-workspace .gg-math-plus::after {
+  transform: rotate(90deg);
+}
+
+.setta-workspace .gg-sort-az,
+.setta-workspace .gg-sort-az::after,
+.setta-workspace .gg-sort-az::before {
+  display: block;
+  box-sizing: border-box;
+  height: 2px;
+  border-radius: 4px;
+  background: currentColor;
+}
+
+.setta-workspace .gg-sort-az {
+  position: relative;
+  transform: scale(var(--ggs, 1));
+  width: 8px;
+}
+
+.setta-workspace .gg-sort-az::after,
+.setta-workspace .gg-sort-az::before {
+  content: "";
+  position: absolute;
+}
+
+.setta-workspace .gg-sort-az::before {
+  width: 12px;
+  top: -4px;
+  left: -2px;
+}
+
+.setta-workspace .gg-sort-az::after {
+  width: 4px;
+  top: 4px;
+  left: 2px;
+}

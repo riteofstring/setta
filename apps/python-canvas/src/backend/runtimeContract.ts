@@ -1,0 +1,993 @@
+import {
+  DIAGNOSTIC_SEVERITY_ERROR_V2,
+  DIAGNOSTIC_SEVERITY_INFORMATION_V2,
+  DIAGNOSTIC_SEVERITY_WARNING_V2,
+  DICTIONARY_ENTRY_KIND_LEAF_V2,
+  DICTIONARY_ENTRY_KIND_PARENT_V2,
+  PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2,
+  PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2,
+  PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2,
+  PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1,
+  PROJECT_SNAPSHOT_VERSION_V2,
+  PROVIDER_AVAILABILITY_AVAILABLE_V2,
+  PROVIDER_AVAILABILITY_UNAVAILABLE_V2,
+  PROVIDER_BASEDPYRIGHT_V2,
+  PROVIDER_LIFECYCLE_STATE_FAILED_V2,
+  PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2,
+  PROVIDER_LIFECYCLE_STATE_PENDING_V2,
+  PROVIDER_LIFECYCLE_STATE_READY_V2,
+  type APIErrorCodeV2,
+  type APIErrorV2,
+  type ByteRangeV2,
+  type CallableV2,
+  type CopyProjectClipboardResponseV2,
+  type CompletionItemV2,
+  type CompletionResponseV2,
+  type DiagnosticSeverityV2,
+  type DiagnosticV2,
+  type DictionaryEntryV2,
+  type ErrorResponseV2,
+  type GeneratedCodeV2,
+  type ListV2,
+  type ParameterPassingStyleV2,
+  type ParameterDictionaryV2,
+  type ParameterV2,
+  type ProjectSnapshotV2,
+  type ProjectClipboardPayloadV1,
+  type ProjectV2,
+  type PasteProjectClipboardResponseV2,
+  type ProviderAvailabilityV2,
+  type ProviderLifecycleStateV2,
+  type ProviderStatusV2,
+  type PythonTargetV2,
+} from "./generatedContract";
+import {
+  parseConfigurableParameterUI,
+  parseNestedParameterUI,
+} from "./parameterUIRuntimeContract";
+import {
+  fail,
+  readArray,
+  readBoolean,
+  readClosedRecord,
+  readNonBlankString,
+  readNonNegativeInteger,
+  readNonNegativeIntegerOrNull,
+  readPlainRecord,
+  readPositiveInteger,
+  readString,
+  readText,
+  readTextOrNull,
+  requireExactEnumerableKeys,
+} from "./runtimeContractPrimitives";
+import { isUtf8Boundary, sliceByByteRange, utf8ByteLength } from "./utf8";
+
+export {
+  ProjectSnapshotValidationError,
+  fail,
+  readBoolean,
+  readClosedRecord,
+  readNonBlankString,
+  readPositiveInteger,
+} from "./runtimeContractPrimitives";
+
+export function parseProjectSnapshotV2(value: unknown): ProjectSnapshotV2 {
+  const record = readClosedRecord(value, "snapshot", [
+    "version",
+    "project",
+    "pythonTarget",
+    "callables",
+    "parameterDictionaries",
+    "lists",
+    "topLevelSectionIds",
+    "generatedCode",
+    "diagnostics",
+    "diagnosticsRevision",
+    "providerStatus",
+  ]);
+  const version = readString(record.version, "version");
+  if (version !== PROJECT_SNAPSHOT_VERSION_V2) {
+    fail("version", "is not supported");
+  }
+
+  const project = parseProject(record.project);
+  const pythonTarget = parsePythonTarget(record.pythonTarget);
+  const targetIds = new Set<string>();
+  const sectionIds = new Set<string>();
+  const callables = parseCallables(record.callables, targetIds, sectionIds);
+  const parameterDictionaries = parseParameterDictionaries(
+    record.parameterDictionaries,
+    targetIds,
+    sectionIds,
+  );
+  const lists = parseLists(record.lists, targetIds, sectionIds);
+  if (targetIds.has(project.id)) {
+    fail("project.id", "must be globally unique");
+  }
+  const topLevelSectionIds = parseSectionForest(
+    record.topLevelSectionIds,
+    lists,
+    sectionIds,
+  );
+  const generatedCode = parseGeneratedCode(
+    record.generatedCode,
+    pythonTarget,
+    targetIds,
+  );
+  const diagnostics = parseDiagnostics(
+    record.diagnostics,
+    generatedCode.code,
+    targetIds,
+  );
+  const diagnosticsRevision = readNonNegativeInteger(
+    record.diagnosticsRevision,
+    "diagnosticsRevision",
+  );
+  if (diagnosticsRevision > project.revision) {
+    fail("diagnosticsRevision", "must not exceed project.revision");
+  }
+  if (diagnosticsRevision < project.revision && diagnostics.length !== 0) {
+    fail(
+      "diagnostics",
+      "must be empty while diagnosticsRevision trails project.revision",
+    );
+  }
+
+  return {
+    version: PROJECT_SNAPSHOT_VERSION_V2,
+    project,
+    pythonTarget,
+    callables,
+    parameterDictionaries,
+    lists,
+    topLevelSectionIds,
+    generatedCode,
+    diagnostics,
+    diagnosticsRevision,
+    providerStatus: parseProviderStatus(record.providerStatus),
+  };
+}
+
+export function parseProjectClipboardPayloadV1(
+  value: unknown,
+): ProjectClipboardPayloadV1 {
+  const record = readClosedRecord(value, "clipboard payload", [
+    "version",
+    "rootSectionIds",
+    "callables",
+    "parameterDictionaries",
+    "lists",
+  ]);
+  if (record.version !== PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1) {
+    fail("clipboard payload.version", "is not supported");
+  }
+  const targetIds = new Set<string>();
+  const sectionIds = new Set<string>();
+  const callables = parseCallables(record.callables, targetIds, sectionIds);
+  const parameterDictionaries = parseParameterDictionaries(
+    record.parameterDictionaries,
+    targetIds,
+    sectionIds,
+  );
+  const lists = parseLists(record.lists, targetIds, sectionIds);
+  const rootSectionIds = parseSectionForest(
+    record.rootSectionIds,
+    lists,
+    sectionIds,
+    "rootSectionIds",
+  );
+  if (rootSectionIds.length === 0) {
+    fail("clipboard payload.rootSectionIds", "must include at least one root");
+  }
+  return {
+    callables,
+    lists,
+    parameterDictionaries,
+    rootSectionIds,
+    version: PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1,
+  };
+}
+
+export function parseCopyProjectClipboardResponseV2(
+  value: unknown,
+): CopyProjectClipboardResponseV2 {
+  const record = readClosedRecord(value, "clipboard copy response", [
+    "payload",
+  ]);
+  return { payload: parseProjectClipboardPayloadV1(record.payload) };
+}
+
+export function parsePasteProjectClipboardResponseV2(
+  value: unknown,
+): PasteProjectClipboardResponseV2 {
+  const record = readClosedRecord(value, "clipboard paste response", [
+    "snapshot",
+    "pastedRootSectionIds",
+  ]);
+  const snapshot = parseProjectSnapshotV2(record.snapshot);
+  const knownTopLevelSectionIds = new Set(snapshot.topLevelSectionIds);
+  const seenPastedRootSectionIds = new Set<string>();
+  const pastedRootSectionIds = readArray(
+    record.pastedRootSectionIds,
+    "clipboard paste response.pastedRootSectionIds",
+    (entry, index) => {
+      const field = `clipboard paste response.pastedRootSectionIds[${String(index)}]`;
+      const id = readSectionId(entry, field);
+      if (seenPastedRootSectionIds.has(id)) {
+        fail(field, "must be unique");
+      }
+      if (!knownTopLevelSectionIds.has(id)) {
+        fail(field, "must reference a pasted top-level section");
+      }
+      seenPastedRootSectionIds.add(id);
+      return id;
+    },
+  );
+  if (pastedRootSectionIds.length === 0) {
+    fail(
+      "clipboard paste response.pastedRootSectionIds",
+      "must include at least one root",
+    );
+  }
+  return { pastedRootSectionIds, snapshot };
+}
+
+export function parseErrorResponseV2(value: unknown): ErrorResponseV2 {
+  const response = readClosedRecord(value, "error response", ["error"]);
+  const errorRecord = readPlainRecord(response.error, "error response.error");
+  const code = parseApiErrorCode(errorRecord.code);
+  const message = readNonBlankString(
+    errorRecord.message,
+    "error response.error.message",
+  );
+
+  if (code === "revision_conflict") {
+    requireExactEnumerableKeys(
+      errorRecord,
+      ["code", "message", "expectedRevision", "currentRevision"],
+      "error response.error",
+    );
+    return {
+      error: {
+        code,
+        currentRevision: readPositiveInteger(
+          errorRecord.currentRevision,
+          "error response.error.currentRevision",
+        ),
+        expectedRevision: readPositiveInteger(
+          errorRecord.expectedRevision,
+          "error response.error.expectedRevision",
+        ),
+        message,
+      },
+    };
+  }
+
+  requireExactEnumerableKeys(
+    errorRecord,
+    ["code", "message"],
+    "error response.error",
+  );
+  const error: APIErrorV2 = { code, message };
+  return { error };
+}
+
+export function parseCompletionResponseV2(
+  value: unknown,
+): CompletionResponseV2 {
+  const response = readClosedRecord(value, "completion response", ["items"]);
+  return {
+    items: readArray(
+      response.items,
+      "completion response.items",
+      parseCompletionItem,
+    ),
+  };
+}
+
+function parseProject(value: unknown): ProjectV2 {
+  const record = readClosedRecord(value, "project", ["id", "name", "revision"]);
+  const id = readString(record.id, "project.id");
+  requireStableId("project.id", id);
+  const name = readNonBlankString(record.name, "project.name");
+  if (name !== name.trim()) {
+    fail("project.name", "must not include surrounding whitespace");
+  }
+  return {
+    id,
+    name,
+    revision: readPositiveInteger(record.revision, "project.revision"),
+  };
+}
+
+function parsePythonTarget(value: unknown): PythonTargetV2 {
+  const record = readClosedRecord(value, "pythonTarget", ["prefix", "suffix"]);
+  return {
+    prefix: readText(record.prefix, "pythonTarget.prefix", true),
+    suffix: readText(record.suffix, "pythonTarget.suffix", true),
+  };
+}
+
+function parseCallables(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): CallableV2[] {
+  return readArray(value, "callables", (entry, index) => {
+    const field = `callables[${String(index)}]`;
+    const record = readClosedRecord(entry, field, [
+      "id",
+      "name",
+      "authoredExpression",
+      "parameters",
+    ]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
+    return {
+      id,
+      name,
+      authoredExpression: readText(
+        record.authoredExpression,
+        `${field}.authoredExpression`,
+        true,
+      ),
+      parameters: parseParameters(record.parameters, field, targetIds),
+    };
+  });
+}
+
+function parseParameterDictionaries(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): ParameterDictionaryV2[] {
+  return readArray(value, "parameterDictionaries", (entry, index) => {
+    const field = `parameterDictionaries[${String(index)}]`;
+    const record = readClosedRecord(entry, field, ["id", "name", "entries"]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
+    return {
+      id,
+      name,
+      entries: parseDictionaryEntries(
+        record.entries,
+        `${field}.entries`,
+        targetIds,
+      ),
+    };
+  });
+}
+
+function parseDictionaryEntries(
+  value: unknown,
+  field: string,
+  targetIds: Set<string>,
+): DictionaryEntryV2[] {
+  const siblingNames = new Set<string>();
+  return readArray(value, field, (entry, index) => {
+    const entryField = `${field}[${String(index)}]`;
+    const raw = readPlainRecord(entry, entryField);
+    const kind = readString(raw.kind, `${entryField}.kind`);
+    if (kind === DICTIONARY_ENTRY_KIND_LEAF_V2) {
+      const record = readClosedRecord(entry, entryField, [
+        "kind",
+        "id",
+        "name",
+        "ui",
+        "authoredExpression",
+      ]);
+      const id = readString(record.id, `${entryField}.id`);
+      claimTargetId(targetIds, id, `${entryField}.id`);
+      const name = readDictionaryEntryName(
+        record.name,
+        entryField,
+        siblingNames,
+      );
+      return {
+        kind: DICTIONARY_ENTRY_KIND_LEAF_V2,
+        id,
+        name,
+        ui: parseConfigurableParameterUI(record.ui, `${entryField}.ui`),
+        authoredExpression: readText(
+          record.authoredExpression,
+          `${entryField}.authoredExpression`,
+          true,
+        ),
+      };
+    }
+    if (kind === DICTIONARY_ENTRY_KIND_PARENT_V2) {
+      const record = readClosedRecord(entry, entryField, [
+        "kind",
+        "id",
+        "name",
+        "ui",
+        "children",
+      ]);
+      const id = readString(record.id, `${entryField}.id`);
+      claimTargetId(targetIds, id, `${entryField}.id`);
+      const name = readDictionaryEntryName(
+        record.name,
+        entryField,
+        siblingNames,
+      );
+      return {
+        kind: DICTIONARY_ENTRY_KIND_PARENT_V2,
+        id,
+        name,
+        ui: parseNestedParameterUI(record.ui, `${entryField}.ui`),
+        children: parseDictionaryEntries(
+          record.children,
+          `${entryField}.children`,
+          targetIds,
+        ),
+      };
+    }
+    fail(`${entryField}.kind`, "is not supported");
+  });
+}
+
+function readDictionaryEntryName(
+  value: unknown,
+  field: string,
+  siblingNames: Set<string>,
+): string {
+  const name = readNonBlankString(value, `${field}.name`);
+  if (name !== name.trim()) {
+    fail(`${field}.name`, "must not include surrounding whitespace");
+  }
+  if (siblingNames.has(name)) {
+    fail(`${field}.name`, "must be unique within its dictionary parent");
+  }
+  siblingNames.add(name);
+  return name;
+}
+
+function parseLists(
+  value: unknown,
+  targetIds: Set<string>,
+  sectionIds: Set<string>,
+): ListV2[] {
+  return readArray(value, "lists", (entry, index) => {
+    const field = `lists[${String(index)}]`;
+    const record = readClosedRecord(entry, field, [
+      "id",
+      "name",
+      "childSectionIds",
+    ]);
+    const id = readString(record.id, `${field}.id`);
+    claimTargetId(targetIds, id, `${field}.id`);
+    claimSectionId(sectionIds, id, `${field}.id`);
+    const name = readNonBlankString(record.name, `${field}.name`);
+    if (name !== name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
+    return {
+      id,
+      name,
+      childSectionIds: readArray(
+        record.childSectionIds,
+        `${field}.childSectionIds`,
+        (child, childIndex) =>
+          readSectionId(
+            child,
+            `${field}.childSectionIds[${String(childIndex)}]`,
+          ),
+      ),
+    };
+  });
+}
+
+function parseSectionForest(
+  value: unknown,
+  lists: readonly ListV2[],
+  sectionIds: ReadonlySet<string>,
+  rootField = "topLevelSectionIds",
+): string[] {
+  const topLevelSectionIds = readArray(value, rootField, (entry, index) =>
+    readSectionId(entry, `${rootField}[${String(index)}]`),
+  );
+  const placements = new Set<string>();
+  const claimPlacement = (id: string, field: string): void => {
+    if (!sectionIds.has(id)) {
+      fail(field, "references an unknown section");
+    }
+    if (placements.has(id)) {
+      fail(field, "gives a section multiple parents");
+    }
+    placements.add(id);
+  };
+  topLevelSectionIds.forEach((id, index) => {
+    claimPlacement(id, `${rootField}[${String(index)}]`);
+  });
+
+  const childrenByList = new Map<string, readonly string[]>();
+  for (const list of lists) {
+    childrenByList.set(list.id, list.childSectionIds);
+    list.childSectionIds.forEach((id, index) => {
+      claimPlacement(id, `lists.${list.id}.childSectionIds[${String(index)}]`);
+    });
+  }
+  if (placements.size !== sectionIds.size) {
+    fail(rootField, "must place every section exactly once");
+  }
+
+  const colors = new Map<string, "visiting" | "visited">();
+  const visitList = (listId: string): void => {
+    const color = colors.get(listId);
+    if (color === "visiting") {
+      fail("lists", "contains a section cycle");
+    }
+    if (color === "visited") {
+      return;
+    }
+    colors.set(listId, "visiting");
+    for (const childId of childrenByList.get(listId) ?? []) {
+      if (childrenByList.has(childId)) {
+        visitList(childId);
+      }
+    }
+    colors.set(listId, "visited");
+  };
+  for (const listId of childrenByList.keys()) {
+    visitList(listId);
+  }
+
+  const reachable = new Set<string>();
+  const visit = (sectionId: string): void => {
+    if (reachable.has(sectionId)) {
+      return;
+    }
+    reachable.add(sectionId);
+    for (const childId of childrenByList.get(sectionId) ?? []) {
+      visit(childId);
+    }
+  };
+  topLevelSectionIds.forEach(visit);
+  if (reachable.size !== sectionIds.size) {
+    fail(rootField, "must reach every section");
+  }
+  return topLevelSectionIds;
+}
+
+function parseParameters(
+  value: unknown,
+  callableField: string,
+  targetIds: Set<string>,
+): ParameterV2[] {
+  const context: ParameterParseContext = {
+    callableField,
+    names: new Set<string>(),
+    providerOrdinals: new Set<number>(),
+    targetIds,
+  };
+  return readArray(value, `${callableField}.parameters`, (entry, index) =>
+    parseParameter(entry, index, context),
+  );
+}
+
+type ParameterParseContext = {
+  callableField: string;
+  names: Set<string>;
+  providerOrdinals: Set<number>;
+  targetIds: Set<string>;
+};
+
+type ParsedParameterMetadata = Pick<
+  ParameterV2,
+  | "default"
+  | "nameEditable"
+  | "passingStyle"
+  | "providerOrdinal"
+  | "typeAnnotation"
+>;
+
+function parseParameter(
+  entry: unknown,
+  index: number,
+  context: ParameterParseContext,
+): ParameterV2 {
+  const field = `${context.callableField}.parameters[${String(index)}]`;
+  const record = readClosedRecord(entry, field, [
+    "id",
+    "name",
+    "nameEditable",
+    "passingStyle",
+    "typeAnnotation",
+    "default",
+    "providerOrdinal",
+    "authoredExpression",
+    "ui",
+  ]);
+  const id = readString(record.id, `${field}.id`);
+  claimTargetId(context.targetIds, id, `${field}.id`);
+  const name = readText(record.name, `${field}.name`, true);
+  claimParameterName(context.names, name, field);
+  const metadata = parseParameterMetadata(record, field);
+  validateParameterMetadata(field, name, metadata, context.providerOrdinals);
+  return {
+    id,
+    name,
+    ...metadata,
+    authoredExpression: readText(
+      record.authoredExpression,
+      `${field}.authoredExpression`,
+      true,
+    ),
+    ui: parseConfigurableParameterUI(record.ui, `${field}.ui`),
+  };
+}
+
+function claimParameterName(
+  names: Set<string>,
+  name: string,
+  field: string,
+): void {
+  if (name !== name.trim()) {
+    fail(`${field}.name`, "must not include surrounding whitespace");
+  }
+  if (name === "") {
+    return;
+  }
+  if (names.has(name)) {
+    fail(`${field}.name`, "must be unique within its callable");
+  }
+  names.add(name);
+}
+
+function parseParameterMetadata(
+  record: Record<string, unknown>,
+  field: string,
+): ParsedParameterMetadata {
+  return {
+    default: readTextOrNull(record.default, `${field}.default`),
+    nameEditable: readBoolean(record.nameEditable, `${field}.nameEditable`),
+    passingStyle: parsePassingStyle(
+      record.passingStyle,
+      `${field}.passingStyle`,
+    ),
+    providerOrdinal: readNonNegativeIntegerOrNull(
+      record.providerOrdinal,
+      `${field}.providerOrdinal`,
+    ),
+    typeAnnotation: readTextOrNull(
+      record.typeAnnotation,
+      `${field}.typeAnnotation`,
+    ),
+  };
+}
+
+function validateParameterMetadata(
+  field: string,
+  name: string,
+  metadata: ParsedParameterMetadata,
+  providerOrdinals: Set<number>,
+): void {
+  const isCoherentAppAuthoredMetadata = [
+    metadata.passingStyle === PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2,
+    metadata.typeAnnotation === null,
+    metadata.default === null,
+    metadata.providerOrdinal === null,
+  ].every(Boolean);
+  const isCoherentProviderMetadata = [
+    name !== "",
+    metadata.providerOrdinal !== null,
+  ].every(Boolean);
+  if (metadata.nameEditable) {
+    if (!isCoherentAppAuthoredMetadata) {
+      fail(field, "has incoherent app-authored metadata");
+    }
+    return;
+  }
+  if (!isCoherentProviderMetadata) {
+    fail(field, "has incoherent provider-derived metadata");
+  }
+  claimProviderOrdinal(providerOrdinals, metadata.providerOrdinal, field);
+}
+
+function claimProviderOrdinal(
+  providerOrdinals: Set<number>,
+  providerOrdinal: number | null,
+  field: string,
+): void {
+  if (providerOrdinal === null) {
+    return;
+  }
+  if (providerOrdinals.has(providerOrdinal)) {
+    fail(`${field}.providerOrdinal`, "must be unique within its callable");
+  }
+  providerOrdinals.add(providerOrdinal);
+}
+
+function parseGeneratedCode(
+  value: unknown,
+  target: PythonTargetV2,
+  targetIds: ReadonlySet<string>,
+): GeneratedCodeV2 {
+  const record = readClosedRecord(value, "generatedCode", [
+    "code",
+    "body",
+    "generatedBodyRange",
+    "sourceRangesByTargetId",
+  ]);
+  const code = readNonBlankString(record.code, "generatedCode.code");
+  const body = readNonBlankString(record.body, "generatedCode.body");
+  const generatedBodyRange = parseByteRange(
+    record.generatedBodyRange,
+    "generatedCode.generatedBodyRange",
+    code,
+  );
+  const sourceRangesByTargetId = parseSourceRanges(
+    record.sourceRangesByTargetId,
+    code,
+    targetIds,
+  );
+  const expectedCode = `${target.prefix}\n\n${body}\n\n${target.suffix}`;
+  if (code !== expectedCode) {
+    fail(
+      "generatedCode.code",
+      "does not compose the target and generated body",
+    );
+  }
+  const expectedStart = utf8ByteLength(target.prefix) + 2;
+  const expectedEnd = expectedStart + utf8ByteLength(body);
+  if (
+    generatedBodyRange.start !== expectedStart ||
+    generatedBodyRange.end !== expectedEnd ||
+    sliceByByteRange(code, generatedBodyRange) !== body
+  ) {
+    fail(
+      "generatedCode.generatedBodyRange",
+      "does not match the generated body",
+    );
+  }
+  return { code, body, generatedBodyRange, sourceRangesByTargetId };
+}
+
+function parseSourceRanges(
+  value: unknown,
+  code: string,
+  targetIds: ReadonlySet<string>,
+): Record<string, ByteRangeV2> {
+  const record = readPlainRecord(value, "generatedCode.sourceRangesByTargetId");
+  const result: Record<string, ByteRangeV2> = {};
+  for (const [targetId, range] of Object.entries(record)) {
+    requireStableId("generatedCode.sourceRangesByTargetId key", targetId);
+    if (!targetIds.has(targetId)) {
+      fail(
+        "generatedCode.sourceRangesByTargetId",
+        "references an unknown target",
+      );
+    }
+    result[targetId] = parseByteRange(
+      range,
+      `generatedCode.sourceRangesByTargetId.${targetId}`,
+      code,
+    );
+  }
+  return result;
+}
+
+function parseDiagnostics(
+  value: unknown,
+  code: string,
+  targetIds: ReadonlySet<string>,
+): DiagnosticV2[] {
+  const ids = new Set<string>();
+  return readArray(value, "diagnostics", (entry, index) => {
+    const field = `diagnostics[${String(index)}]`;
+    const record = readClosedRecord(entry, field, [
+      "id",
+      "severity",
+      "message",
+      "start",
+      "end",
+      "targetId",
+    ]);
+    const id = readString(record.id, `${field}.id`);
+    requireStableId(`${field}.id`, id);
+    if (ids.has(id)) {
+      fail(`${field}.id`, "must be unique");
+    }
+    ids.add(id);
+    const byteRange = parseByteRange(
+      { start: record.start, end: record.end },
+      field,
+      code,
+    );
+    const targetId = readStableIdOrNull(record.targetId, `${field}.targetId`);
+    if (targetId !== null && !targetIds.has(targetId)) {
+      fail(`${field}.targetId`, "references an unknown target");
+    }
+    return {
+      id,
+      severity: parseDiagnosticSeverity(record.severity, `${field}.severity`),
+      message: readNonBlankString(record.message, `${field}.message`),
+      start: byteRange.start,
+      end: byteRange.end,
+      targetId,
+    };
+  });
+}
+
+function parseProviderStatus(value: unknown): ProviderStatusV2 {
+  const record = readClosedRecord(value, "providerStatus", [
+    "provider",
+    "status",
+    "state",
+  ]);
+  if (record.provider !== PROVIDER_BASEDPYRIGHT_V2) {
+    fail("providerStatus.provider", "is not supported");
+  }
+  const status = parseProviderAvailability(record.status);
+  const state = parseProviderLifecycleState(record.state);
+  const unavailable =
+    state === PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2 ||
+    state === PROVIDER_LIFECYCLE_STATE_FAILED_V2;
+  if (
+    (unavailable && status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V2) ||
+    (!unavailable && status !== PROVIDER_AVAILABILITY_AVAILABLE_V2)
+  ) {
+    fail("providerStatus", "has an invalid availability/lifecycle combination");
+  }
+  return { provider: PROVIDER_BASEDPYRIGHT_V2, status, state };
+}
+
+function parseCompletionItem(value: unknown, index: number): CompletionItemV2 {
+  const field = `completion response.items[${String(index)}]`;
+  const record = readClosedRecord(value, field, ["label", "insertText"]);
+  return {
+    label: readNonBlankString(record.label, `${field}.label`),
+    insertText: readNonBlankString(record.insertText, `${field}.insertText`),
+  };
+}
+
+function parseByteRange(
+  value: unknown,
+  field: string,
+  code: string,
+): ByteRangeV2 {
+  const record = readClosedRecord(value, field, ["start", "end"]);
+  const start = readNonNegativeInteger(record.start, `${field}.start`);
+  const end = readNonNegativeInteger(record.end, `${field}.end`);
+  if (
+    end < start ||
+    end > utf8ByteLength(code) ||
+    !isUtf8Boundary(code, start) ||
+    !isUtf8Boundary(code, end)
+  ) {
+    fail(field, "must be a UTF-8 byte range in generated code");
+  }
+  return { start, end };
+}
+
+function parsePassingStyle(
+  value: unknown,
+  field: string,
+): ParameterPassingStyleV2 {
+  switch (readString(value, field)) {
+    case PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V2;
+    case PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2:
+      return PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V2;
+    case PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2:
+      return PARAMETER_PASSING_STYLE_KEYWORD_ONLY_V2;
+    case PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2:
+      return PARAMETER_PASSING_STYLE_VARIADIC_POSITIONAL_V2;
+    case PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2:
+      return PARAMETER_PASSING_STYLE_VARIADIC_KEYWORD_V2;
+    default:
+      fail(field, "is not supported");
+  }
+}
+
+function parseDiagnosticSeverity(
+  value: unknown,
+  field: string,
+): DiagnosticSeverityV2 {
+  switch (readString(value, field)) {
+    case DIAGNOSTIC_SEVERITY_ERROR_V2:
+      return DIAGNOSTIC_SEVERITY_ERROR_V2;
+    case DIAGNOSTIC_SEVERITY_WARNING_V2:
+      return DIAGNOSTIC_SEVERITY_WARNING_V2;
+    case DIAGNOSTIC_SEVERITY_INFORMATION_V2:
+      return DIAGNOSTIC_SEVERITY_INFORMATION_V2;
+    default:
+      fail(field, "is not supported");
+  }
+}
+
+function parseProviderAvailability(value: unknown): ProviderAvailabilityV2 {
+  switch (readString(value, "providerStatus.status")) {
+    case PROVIDER_AVAILABILITY_AVAILABLE_V2:
+      return PROVIDER_AVAILABILITY_AVAILABLE_V2;
+    case PROVIDER_AVAILABILITY_UNAVAILABLE_V2:
+      return PROVIDER_AVAILABILITY_UNAVAILABLE_V2;
+    default:
+      fail("providerStatus.status", "is not supported");
+  }
+}
+
+function parseProviderLifecycleState(value: unknown): ProviderLifecycleStateV2 {
+  switch (readString(value, "providerStatus.state")) {
+    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2:
+      return PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V2;
+    case PROVIDER_LIFECYCLE_STATE_PENDING_V2:
+      return PROVIDER_LIFECYCLE_STATE_PENDING_V2;
+    case PROVIDER_LIFECYCLE_STATE_READY_V2:
+      return PROVIDER_LIFECYCLE_STATE_READY_V2;
+    case PROVIDER_LIFECYCLE_STATE_FAILED_V2:
+      return PROVIDER_LIFECYCLE_STATE_FAILED_V2;
+    default:
+      fail("providerStatus.state", "is not supported");
+  }
+}
+
+const apiErrorCodes: ReadonlySet<APIErrorCodeV2> = new Set([
+  "revision_conflict",
+  "validation_failed",
+  "not_found",
+  "invalid_request",
+  "provider_unavailable",
+  "provider_failed",
+  "render_failed",
+  "materialization_failed",
+  "persistence_failed",
+  "method_not_allowed",
+  "internal",
+]);
+
+function parseApiErrorCode(value: unknown): APIErrorCodeV2 {
+  const code = readString(value, "error response.error.code");
+  if (!apiErrorCodes.has(code as APIErrorCodeV2)) {
+    fail("error response.error.code", "is not supported");
+  }
+  return code as APIErrorCodeV2;
+}
+
+function claimTargetId(ids: Set<string>, value: string, field: string): void {
+  requireStableId(field, value);
+  if (ids.has(value)) {
+    fail(field, "must be unique");
+  }
+  ids.add(value);
+}
+
+function claimSectionId(ids: Set<string>, value: string, field: string): void {
+  if (ids.has(value)) {
+    fail(field, "must be unique");
+  }
+  ids.add(value);
+}
+
+function readSectionId(value: unknown, field: string): string {
+  const id = readString(value, field);
+  requireStableId(field, id);
+  return id;
+}
+
+function requireStableId(field: string, value: string): void {
+  if (value.trim() === "" || value !== value.trim() || value.includes("\0")) {
+    fail(field, "must be a nonblank stable ID");
+  }
+}
+
+function readStableIdOrNull(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
+  }
+  const id = readString(value, field);
+  requireStableId(field, id);
+  return id;
+}

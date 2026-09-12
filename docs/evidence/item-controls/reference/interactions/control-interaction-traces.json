@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-12T07:16:00Z",
+  "sourceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+  "viewportCssPx": {
+    "width": 1512,
+    "height": 805
+  },
+  "devicePixelRatio": 2,
+  "traces": [
+    {
+      "id": "text-idle-live-escape",
+      "steps": [
+        "Activate the idle value surface with a pointer click.",
+        "Observe the active element become .cm-content.cm-lineWrapping.",
+        "Type alpha + beta and observe a live two-line value plus the blue value-divider focus treatment.",
+        "Press Escape and observe the highlighted dummy presentation return without moving the section."
+      ],
+      "result": "The value persisted after reload; the value seam receives document changes while persistence remains application-owned.",
+      "screenshots": [
+        "../screenshots/01-controls-idle-dark.png",
+        "../screenshots/02-text-focused-dark.png",
+        "../screenshots/13-text-focused-light.png"
+      ]
+    },
+    {
+      "id": "switch-toggle",
+      "steps": [
+        "Hover the checked switch.",
+        "Click once and observe data-state change from checked to unchecked.",
+        "Reload and observe the unchecked value persist.",
+        "Click once more and observe checked paint plus the 16 px thumb translation."
+      ],
+      "result": "Exactly one visible state transition occurred per click.",
+      "screenshots": [
+        "../screenshots/05-switch-hover-dark.png",
+        "../screenshots/06-switch-off-dark.png",
+        "../screenshots/16-switch-hover-light.png"
+      ]
+    },
+    {
+      "id": "dropdown-open-filter-select",
+      "steps": [
+        "Open the empty pill and observe a portaled list containing Alpha, Beta, and Gamma.",
+        "Type ga and observe only Gamma plus the one-result live status.",
+        "Press ArrowDown and Enter and observe the pill value become Gamma.",
+        "Reset the temporary fixture value after the trace; host validation/persistence is outside the package seam."
+      ],
+      "result": "Open, filtering, keyboard navigation, selection, and close all stayed inside the control boundary and did not move the section.",
+      "screenshots": [
+        "../screenshots/03-dropdown-open-dark.png",
+        "../screenshots/04-dropdown-search-dark.png",
+        "../screenshots/14-dropdown-open-light.png"
+      ]
+    },
+    {
+      "id": "color-open-select",
+      "steps": [
+        "Open the Red trigger and observe Red, Green, and Blue swatches in a separate listbox.",
+        "Select Green.",
+        "Observe the popover close and the trigger update to the Green label and #22c55e paint."
+      ],
+      "result": "The configured-choice path committed one color and preserved the section geometry.",
+      "screenshots": [
+        "../screenshots/07-color-open-dark.png",
+        "../screenshots/15-color-open-light.png"
+      ]
+    },
+    {
+      "id": "name-edit-duplicate-validation",
+      "steps": [
+        "Activate the idle rename_me label.",
+        "Replace it with enabled, which already exists under the same parent.",
+        "Observe red editor text, the focused underline, and the exact duplicate-name error bubble.",
+        "Restore rename_me and press Escape."
+      ],
+      "result": "The duplicate proposal was blocked and the committed name remained rename_me.",
+      "screenshots": [
+        "../screenshots/08-name-duplicate-error-dark.png",
+        "../screenshots/17-name-duplicate-error-light.png"
+      ]
+    },
+    {
+      "id": "disabled-resolution",
+      "steps": [
+        "Inspect the live idle pixels in dark and light.",
+        "Trace resolveParamUIDisabled in frozen ParamUI.tsx through isSelectingParams, frozen state, edit capability, and deployment code-param state.",
+        "Trace isDisabled into TextInputCodeMirror, SwitchInput, ConfiguredDropdownInput, and ConfiguredColorPickerInput.",
+        "Verify the disabled branch removes text activation/cursor affordances and suppresses the param-select focus divider while native controls receive disabled."
+      ],
+      "result": "Disabledness is an interaction contract with no blanket opacity redesign; idle captures are the pixel reference for both appearances.",
+      "screenshots": [
+        "../screenshots/01-controls-idle-dark.png",
+        "../screenshots/12-controls-idle-light.png",
+        "../../../phase0/reference/screenshots/20-nested-param-drag-active-dark.png"
+      ]
+    }
+  ]
+}

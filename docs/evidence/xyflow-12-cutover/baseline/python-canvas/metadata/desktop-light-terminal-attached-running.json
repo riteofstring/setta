@@ -1,0 +1,925 @@
+{
+  "browser": {
+    "protocolVersion": "1.3",
+    "product": "HeadlessChrome/145.0.7632.6",
+    "revision": "@47e20adcc15fc15f01825aa17e570c8f5492ac0f",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+    "jsVersion": "14.5.201.2"
+  },
+  "canonicalSnapshot": {
+    "version": "v2",
+    "project": {
+      "id": "id:5ba8c74a1b33ea7ac979b58487c84839",
+      "name": "Untitled Python Canvas",
+      "revision": 148
+    },
+    "pythonTarget": {
+      "prefix": "import math",
+      "suffix": "state = SettaState()"
+    },
+    "callables": [
+      {
+        "id": "id:f2a197c22ce0b4e245a208fe40a40491",
+        "name": "New callable",
+        "authoredExpression": "math.sqrt",
+        "parameters": [
+          {
+            "id": "id:a249b5758bfbedb303743e11444edf49",
+            "name": "x",
+            "nameEditable": false,
+            "passingStyle": "positional_only",
+            "typeAnnotation": "_SupportsFloatOrIndex",
+            "default": null,
+            "providerOrdinal": 0,
+            "authoredExpression": "3",
+            "ui": {
+              "type": "CodeParam",
+              "configuration": {
+                "disabled": false,
+                "language": "python",
+                "placeholder": null,
+                "singleLine": true,
+                "wrapLines": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "id:eeb29b1f33daab99ef29099b0009917e",
+        "name": "Callable",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:894494c1937adbf028a0e37beabc276e",
+        "name": "New callable 2",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:8fa082b17d1b9d3affb1b13373c78241",
+        "name": "New callable 3",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:c98d31b2ef29468b7fc7285f9a5f1974",
+        "name": "New callable 4",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:75c2feec9169e6526288deb12e7af946",
+        "name": "Callable 2",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:4453b3eb1b386177502996f8505c63a9",
+        "name": "Callable 3",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:545978df276cd520eca879ad49a1b0bd",
+        "name": "Callable 4",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:b91896b866013acfda167899768cfc0e",
+        "name": "Callable 5",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:438afce4b7242acf1e4b146e883abac7",
+        "name": "Callable 6",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:d5084b138936b407538a42363a9e55ca",
+        "name": "Callable 7",
+        "authoredExpression": "",
+        "parameters": []
+      },
+      {
+        "id": "id:2a412ab7b08960b922910c67e8c4bff1",
+        "name": "Callable 8",
+        "authoredExpression": "",
+        "parameters": []
+      }
+    ],
+    "parameterDictionaries": [
+      {
+        "id": "id:1b6c40bc15e50b97ab4bc9bd6d698d98",
+        "name": "New Param Dict",
+        "entries": [
+          {
+            "kind": "leaf",
+            "id": "id:demo-param-dict-radius",
+            "name": "radius",
+            "ui": {
+              "type": "CodeParam",
+              "configuration": {
+                "disabled": false,
+                "language": "python",
+                "placeholder": null,
+                "singleLine": true,
+                "wrapLines": true
+              }
+            },
+            "authoredExpression": "4"
+          }
+        ]
+      },
+      {
+        "id": "id:48cac961fcce0d7283b1c4857f2cd83e",
+        "name": "New Param Dict 2",
+        "entries": []
+      },
+      {
+        "id": "id:bf073e69def002f9c8fb77249b15eb5d",
+        "name": "New Param Dict 3",
+        "entries": []
+      },
+      {
+        "id": "id:0b1aaef3d0c7914cdf5623543b02e59d",
+        "name": "New Param Dict 4",
+        "entries": []
+      }
+    ],
+    "lists": [
+      {
+        "id": "id:9ac2342007fd9cdd1c7cb8114a5cdfa0",
+        "name": "New List of Objects",
+        "childSectionIds": [
+          "id:eeb29b1f33daab99ef29099b0009917e"
+        ]
+      },
+      {
+        "id": "id:cd3d70d16c3dee3238112959efaaee36",
+        "name": "New List of Objects 2",
+        "childSectionIds": [
+          "id:75c2feec9169e6526288deb12e7af946",
+          "id:4453b3eb1b386177502996f8505c63a9",
+          "id:545978df276cd520eca879ad49a1b0bd",
+          "id:b91896b866013acfda167899768cfc0e",
+          "id:438afce4b7242acf1e4b146e883abac7",
+          "id:d5084b138936b407538a42363a9e55ca",
+          "id:2a412ab7b08960b922910c67e8c4bff1"
+        ]
+      }
+    ],
+    "topLevelSectionIds": [
+      "id:f2a197c22ce0b4e245a208fe40a40491",
+      "id:9ac2342007fd9cdd1c7cb8114a5cdfa0",
+      "id:894494c1937adbf028a0e37beabc276e",
+      "id:1b6c40bc15e50b97ab4bc9bd6d698d98",
+      "id:48cac961fcce0d7283b1c4857f2cd83e",
+      "id:bf073e69def002f9c8fb77249b15eb5d",
+      "id:8fa082b17d1b9d3affb1b13373c78241",
+      "id:0b1aaef3d0c7914cdf5623543b02e59d",
+      "id:c98d31b2ef29468b7fc7285f9a5f1974",
+      "id:cd3d70d16c3dee3238112959efaaee36"
+    ],
+    "generatedCode": {
+      "code": "import math\n\nclass SettaState:\n    def __init__(state):\n        state.New_callable__x = 3\n        state.New_callable = math.sqrt(state.New_callable__x)\n        state.New_List_of_Objects__0 = None\n        state.New_List_of_Objects = [state.New_List_of_Objects__0]\n        state.New_callable_2 = None\n        state.New_Param_Dict__radius = 4\n        state.New_Param_Dict = {\"radius\": state.New_Param_Dict__radius}\n        state.New_Param_Dict_2 = {}\n        state.New_Param_Dict_3 = {}\n        state.New_callable_3 = None\n        state.New_Param_Dict_4 = {}\n        state.New_callable_4 = None\n        state.New_List_of_Objects_2__0 = None\n        state.New_List_of_Objects_2__1 = None\n        state.New_List_of_Objects_2__2 = None\n        state.New_List_of_Objects_2__3 = None\n        state.New_List_of_Objects_2__4 = None\n        state.New_List_of_Objects_2__5 = None\n        state.New_List_of_Objects_2__6 = None\n        state.New_List_of_Objects_2 = [\n            state.New_List_of_Objects_2__0,\n            state.New_List_of_Objects_2__1,\n            state.New_List_of_Objects_2__2,\n            state.New_List_of_Objects_2__3,\n            state.New_List_of_Objects_2__4,\n            state.New_List_of_Objects_2__5,\n            state.New_List_of_Objects_2__6,\n        ]\n\nstate = SettaState()",
+      "body": "class SettaState:\n    def __init__(state):\n        state.New_callable__x = 3\n        state.New_callable = math.sqrt(state.New_callable__x)\n        state.New_List_of_Objects__0 = None\n        state.New_List_of_Objects = [state.New_List_of_Objects__0]\n        state.New_callable_2 = None\n        state.New_Param_Dict__radius = 4\n        state.New_Param_Dict = {\"radius\": state.New_Param_Dict__radius}\n        state.New_Param_Dict_2 = {}\n        state.New_Param_Dict_3 = {}\n        state.New_callable_3 = None\n        state.New_Param_Dict_4 = {}\n        state.New_callable_4 = None\n        state.New_List_of_Objects_2__0 = None\n        state.New_List_of_Objects_2__1 = None\n        state.New_List_of_Objects_2__2 = None\n        state.New_List_of_Objects_2__3 = None\n        state.New_List_of_Objects_2__4 = None\n        state.New_List_of_Objects_2__5 = None\n        state.New_List_of_Objects_2__6 = None\n        state.New_List_of_Objects_2 = [\n            state.New_List_of_Objects_2__0,\n            state.New_List_of_Objects_2__1,\n            state.New_List_of_Objects_2__2,\n            state.New_List_of_Objects_2__3,\n            state.New_List_of_Objects_2__4,\n            state.New_List_of_Objects_2__5,\n            state.New_List_of_Objects_2__6,\n        ]",
+      "generatedBodyRange": {
+        "start": 13,
+        "end": 1271
+      },
+      "sourceRangesByTargetId": {
+        "id:a249b5758bfbedb303743e11444edf49": {
+          "start": 88,
+          "end": 89
+        },
+        "id:demo-param-dict-radius": {
+          "start": 338,
+          "end": 339
+        },
+        "id:f2a197c22ce0b4e245a208fe40a40491": {
+          "start": 119,
+          "end": 128
+        }
+      }
+    },
+    "diagnostics": [
+      {
+        "id": "diagnostic:148:0",
+        "severity": "error",
+        "message": "Instance methods should take a \"self\" parameter",
+        "start": 48,
+        "end": 53,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:1",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_callable__x` is required because this class is not decorated with `@final`",
+        "start": 70,
+        "end": 85,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:2",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_callable` is required because this class is not decorated with `@final`",
+        "start": 104,
+        "end": 116,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:3",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects__0` is required because this class is not decorated with `@final`",
+        "start": 166,
+        "end": 188,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:4",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects` is required because this class is not decorated with `@final`",
+        "start": 210,
+        "end": 229,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:5",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_callable_2` is required because this class is not decorated with `@final`",
+        "start": 277,
+        "end": 291,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:6",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_Param_Dict__radius` is required because this class is not decorated with `@final`",
+        "start": 313,
+        "end": 335,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:7",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_Param_Dict` is required because this class is not decorated with `@final`",
+        "start": 354,
+        "end": 368,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:8",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_Param_Dict_2` is required because this class is not decorated with `@final`",
+        "start": 426,
+        "end": 442,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:9",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_Param_Dict_3` is required because this class is not decorated with `@final`",
+        "start": 462,
+        "end": 478,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:10",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_callable_3` is required because this class is not decorated with `@final`",
+        "start": 498,
+        "end": 512,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:11",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_Param_Dict_4` is required because this class is not decorated with `@final`",
+        "start": 534,
+        "end": 550,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:12",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_callable_4` is required because this class is not decorated with `@final`",
+        "start": 570,
+        "end": 584,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:13",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__0` is required because this class is not decorated with `@final`",
+        "start": 606,
+        "end": 630,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:14",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__1` is required because this class is not decorated with `@final`",
+        "start": 652,
+        "end": 676,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:15",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__2` is required because this class is not decorated with `@final`",
+        "start": 698,
+        "end": 722,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:16",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__3` is required because this class is not decorated with `@final`",
+        "start": 744,
+        "end": 768,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:17",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__4` is required because this class is not decorated with `@final`",
+        "start": 790,
+        "end": 814,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:18",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__5` is required because this class is not decorated with `@final`",
+        "start": 836,
+        "end": 860,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:19",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2__6` is required because this class is not decorated with `@final`",
+        "start": 882,
+        "end": 906,
+        "targetId": null
+      },
+      {
+        "id": "diagnostic:148:20",
+        "severity": "warning",
+        "message": "Type annotation for attribute `New_List_of_Objects_2` is required because this class is not decorated with `@final`",
+        "start": 928,
+        "end": 949,
+        "targetId": null
+      }
+    ],
+    "diagnosticsRevision": 148,
+    "providerStatus": {
+      "provider": "basedpyright",
+      "status": "available",
+      "state": "ready"
+    }
+  },
+  "publicState": {
+    "canvas": {
+      "rect": {
+        "bottom": 900,
+        "height": 900,
+        "left": 0,
+        "right": 1440,
+        "top": 0,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "visible": true
+    },
+    "document": {
+      "activeElement": {
+        "ariaLabel": "Terminal input",
+        "dataSectionId": null,
+        "role": null,
+        "tagName": "TEXTAREA"
+      },
+      "colorScheme": "light",
+      "readyState": "complete"
+    },
+    "dragPreview": null,
+    "generatedEditor": {
+      "protectedLineCount": 32,
+      "rect": {
+        "bottom": 601.95458984375,
+        "height": 147.72732543945312,
+        "left": 513.727294921875,
+        "right": 756.1515502929688,
+        "top": 454.2272644042969,
+        "width": 242.42425537109375,
+        "x": 513.727294921875,
+        "y": 454.2272644042969
+      },
+      "scroller": {
+        "clientHeight": 390,
+        "scrollHeight": 627,
+        "scrollTop": 0
+      },
+      "visible": true
+    },
+    "pendingSections": [],
+    "savedViews": null,
+    "sections": [
+      {
+        "active": "false",
+        "ariaLabel": "Generated Python section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:generated-python",
+        "rect": {
+          "bottom": 603.8485107421875,
+          "height": 159.84854125976562,
+          "left": 513.3485107421875,
+          "right": 756.5303344726562,
+          "top": 443.9999694824219,
+          "width": 243.18182373046875,
+          "x": 513.3485107421875,
+          "y": 443.9999694824219
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New callable section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:f2a197c22ce0b4e245a208fe40a40491",
+        "rect": {
+          "bottom": -157.51515197753906,
+          "height": 57.57575988769531,
+          "left": 513.3485107421875,
+          "right": 608.8030395507812,
+          "top": -215.09091186523438,
+          "width": 95.45452880859375,
+          "x": 513.3485107421875,
+          "y": -215.09091186523438
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New List of Objects section with nested sections",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:list:id:9ac2342007fd9cdd1c7cb8114a5cdfa0",
+        "rect": {
+          "bottom": -195.39393615722656,
+          "height": 19.696975708007812,
+          "left": 620.1666870117188,
+          "right": 715.6212158203125,
+          "top": -215.09091186523438,
+          "width": 95.45452880859375,
+          "x": 620.1666870117188,
+          "y": -215.09091186523438
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:eeb29b1f33daab99ef29099b0009917e",
+        "rect": {
+          "bottom": -134.78787231445312,
+          "height": 57.575775146484375,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": -192.3636474609375,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": -192.3636474609375
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New callable 2 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:894494c1937adbf028a0e37beabc276e",
+        "rect": {
+          "bottom": -88.57575988769531,
+          "height": 57.57575988769531,
+          "left": 513.3485107421875,
+          "right": 608.8030395507812,
+          "top": -146.15151977539062,
+          "width": 95.45452880859375,
+          "x": 513.3485107421875,
+          "y": -146.15151977539062
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New Param Dict section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:parameter-dictionary:id:1b6c40bc15e50b97ab4bc9bd6d698d98",
+        "rect": {
+          "bottom": 25.06060791015625,
+          "height": 114.3939437866211,
+          "left": 684.5606079101562,
+          "right": 844.4091186523438,
+          "top": -89.33333587646484,
+          "width": 159.8485107421875,
+          "x": 684.5606079101562,
+          "y": -89.33333587646484
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New Param Dict 2 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:parameter-dictionary:id:48cac961fcce0d7283b1c4857f2cd83e",
+        "rect": {
+          "bottom": 150.81817626953125,
+          "height": 114.39393615722656,
+          "left": 513.3485107421875,
+          "right": 673.197021484375,
+          "top": 36.42424011230469,
+          "width": 159.8485107421875,
+          "x": 513.3485107421875,
+          "y": 36.42424011230469
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New Param Dict 3 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:parameter-dictionary:id:bf073e69def002f9c8fb77249b15eb5d",
+        "rect": {
+          "bottom": 150.81817626953125,
+          "height": 114.39393615722656,
+          "left": 684.5606079101562,
+          "right": 844.4091186523438,
+          "top": 36.42424011230469,
+          "width": 159.8485107421875,
+          "x": 684.5606079101562,
+          "y": 36.42424011230469
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New callable 3 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:8fa082b17d1b9d3affb1b13373c78241",
+        "rect": {
+          "bottom": 49.30303955078125,
+          "height": 57.575775146484375,
+          "left": 513.3485107421875,
+          "right": 608.8030395507812,
+          "top": -8.272735595703125,
+          "width": 95.45452880859375,
+          "x": 513.3485107421875,
+          "y": -8.272735595703125
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New Param Dict 4 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:parameter-dictionary:id:0b1aaef3d0c7914cdf5623543b02e59d",
+        "rect": {
+          "bottom": 276.57574462890625,
+          "height": 114.3939208984375,
+          "left": 684.5606079101562,
+          "right": 844.4091186523438,
+          "top": 162.18182373046875,
+          "width": 159.8485107421875,
+          "x": 684.5606079101562,
+          "y": 162.18182373046875
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New callable 4 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:c98d31b2ef29468b7fc7285f9a5f1974",
+        "rect": {
+          "bottom": 118.242431640625,
+          "height": 57.575775146484375,
+          "left": 513.3485107421875,
+          "right": 608.8030395507812,
+          "top": 60.666656494140625,
+          "width": 95.45452880859375,
+          "x": 513.3485107421875,
+          "y": 60.666656494140625
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "New List of Objects 2 section with nested sections",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:list:id:cd3d70d16c3dee3238112959efaaee36",
+        "rect": {
+          "bottom": -71.15151977539062,
+          "height": 19.69696807861328,
+          "left": 620.1666870117188,
+          "right": 715.6212158203125,
+          "top": -90.8484878540039,
+          "width": 95.45452880859375,
+          "x": 620.1666870117188,
+          "y": -90.8484878540039
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 2 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:75c2feec9169e6526288deb12e7af946",
+        "rect": {
+          "bottom": -10.545455932617188,
+          "height": 57.57575988769531,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": -68.1212158203125,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": -68.1212158203125
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 3 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:4453b3eb1b386177502996f8505c63a9",
+        "rect": {
+          "bottom": 50.06060791015625,
+          "height": 57.57575988769531,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": -7.5151519775390625,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": -7.5151519775390625
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 4 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:545978df276cd520eca879ad49a1b0bd",
+        "rect": {
+          "bottom": 110.66665649414062,
+          "height": 57.57574462890625,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": 53.090911865234375,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": 53.090911865234375
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 5 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:b91896b866013acfda167899768cfc0e",
+        "rect": {
+          "bottom": 171.27273559570312,
+          "height": 57.575775146484375,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": 113.69696044921875,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": 113.69696044921875
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 6 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:438afce4b7242acf1e4b146e883abac7",
+        "rect": {
+          "bottom": 231.8787841796875,
+          "height": 57.575775146484375,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": 174.30300903320312,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": 174.30300903320312
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 7 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:d5084b138936b407538a42363a9e55ca",
+        "rect": {
+          "bottom": 292.4848327636719,
+          "height": 57.57574462890625,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": 234.90908813476562,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": 234.90908813476562
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      },
+      {
+        "active": "false",
+        "ariaLabel": "Callable 8 section",
+        "ariaSelected": null,
+        "dragging": false,
+        "id": "python-canvas:callable:id:2a412ab7b08960b922910c67e8c4bff1",
+        "rect": {
+          "bottom": 353.0909118652344,
+          "height": 57.575775146484375,
+          "left": 626.227294921875,
+          "right": 721.6818237304688,
+          "top": 295.51513671875,
+          "width": 95.45452880859375,
+          "x": 626.227294921875,
+          "y": 295.51513671875
+        },
+        "selected": null,
+        "visible": true,
+        "zIndex": "10"
+      }
+    ],
+    "shell": {
+      "rect": {
+        "bottom": 900,
+        "height": 900,
+        "left": 0,
+        "right": 1440,
+        "top": 0,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "panes": [
+        {
+          "edge": "leading",
+          "rect": {
+            "bottom": 900,
+            "height": 900,
+            "left": 0,
+            "right": 335,
+            "top": 0,
+            "width": 335,
+            "x": 0,
+            "y": 0
+          },
+          "visible": "true"
+        },
+        {
+          "edge": "trailing",
+          "rect": {
+            "bottom": 900,
+            "height": 900,
+            "left": 1400,
+            "right": 1440,
+            "top": 0,
+            "width": 40,
+            "x": 1400,
+            "y": 0
+          },
+          "visible": "false"
+        }
+      ]
+    },
+    "terminal": {
+      "nowheel": false,
+      "pane": {
+        "bottom": 686.802978515625,
+        "height": 83.333251953125,
+        "left": 513.727294921875,
+        "right": 756.1515502929688,
+        "top": 603.4697265625,
+        "width": 242.42425537109375,
+        "x": 513.727294921875,
+        "y": 603.4697265625
+      },
+      "rows": "SETTA_PARITY_TERMINAL_RUNNING ",
+      "toggleLabel": "Hide terminal",
+      "viewport": {
+        "clientHeight": 218,
+        "scrollHeight": 218,
+        "scrollTop": 0
+      }
+    },
+    "viewport": {
+      "devicePixelRatio": 1,
+      "documentHeight": 900,
+      "documentWidth": 1440,
+      "height": 900,
+      "matrix": {
+        "x": 513.349,
+        "y": -215.091,
+        "zoom": 0.378788
+      },
+      "width": 1440
+    },
+    "workspace": {
+      "className": "setta-workspace setta-workspace-shell",
+      "rect": {
+        "bottom": 900,
+        "height": 900,
+        "left": 0,
+        "right": 1440,
+        "top": 0,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "visible": true
+    }
+  },
+  "scenario": {
+    "availability": "capturable",
+    "capture": "terminal-attached-running",
+    "coverage": [
+      "generated-python",
+      "terminal",
+      "terminal-running",
+      "desktop",
+      "light"
+    ],
+    "fixture": "mixed-project",
+    "id": "desktop-light-terminal-attached-running",
+    "state": "attached-running",
+    "theme": "light",
+    "viewport": "desktop"
+  },
+  "viewport": {
+    "deviceScaleFactor": 1,
+    "height": 900,
+    "width": 1440
+  }
+}

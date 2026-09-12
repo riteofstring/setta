@@ -1,0 +1,599 @@
+{
+  "context": {
+    "artifactSha256": {
+      "packageDist": "5cd6184f9ad5aadb66401732eaf9cc68db252a5d47ea8a3b37598b6a43eeeba0",
+      "playgroundDist": "4d4cfbd5bf5bf6cbde6dd284015b43ed8a040cb15029e6e084bd7af0f2712e43"
+    },
+    "baseCommit": "6fe6c007927f868d36734d0cd583ffbc7b752917",
+    "environment": {
+      "architecture": "arm64",
+      "chrome": "Chrome/152.0.7977.42",
+      "cpuCount": 8,
+      "node": "v25.2.1",
+      "platform": "darwin",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+    },
+    "fixture": {
+      "documentSections": 256,
+      "dragTargetId": "performance-drag-target",
+      "passes": 3,
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 696,
+        "mobile": false,
+        "width": 1492
+      },
+      "workspaceExtent": {
+        "height": 2642,
+        "width": 4295
+      }
+    },
+    "profileInputSha256": "f9681b6cb6df30e2c58a8597a42a77531b0758d3e1d530d59fe4634689d712bf",
+    "recordedAt": "2026-08-31T20:54:35.290Z"
+  },
+  "observations": {
+    "drag": [
+      {
+        "activation": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 6.5,
+        "firstMutationAfterDownMs": 13.5,
+        "firstTargetMutationAfterDownMs": 13.5,
+        "frameCount": 113,
+        "initialTargetStyle": "z-index: 19; transform: translate(855px, 210px); pointer-events: all; visibility: visible;",
+        "finalTargetStyle": "z-index: 255; transform: translate(1005px, 285px); pointer-events: all; visibility: visible;",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 18.5,
+        "meanMoveIntervalMs": 16.6,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.4,
+        "pointerUpHandlerMs": 0.2,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 100,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 109,
+          "LayoutDurationMs": 3.9,
+          "RecalcStyleDurationMs": 22.8,
+          "ScriptDurationMs": 218.4,
+          "TaskDurationMs": 416.9
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 8.2,
+        "firstMutationAfterDownMs": 12.9,
+        "firstTargetMutationAfterDownMs": 12.9,
+        "frameCount": 113,
+        "initialTargetStyle": "z-index: 19; transform: translate(855px, 210px); pointer-events: all; visibility: visible;",
+        "finalTargetStyle": "z-index: 255; transform: translate(1005px, 285px); pointer-events: all; visibility: visible;",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 18.8,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.3,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 100,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 109,
+          "LayoutDurationMs": 3.5,
+          "RecalcStyleDurationMs": 19.4,
+          "ScriptDurationMs": 176.5,
+          "TaskDurationMs": 344.3
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 6,
+        "firstMutationAfterDownMs": 9.7,
+        "firstTargetMutationAfterDownMs": 9.7,
+        "frameCount": 113,
+        "initialTargetStyle": "z-index: 19; transform: translate(855px, 210px); pointer-events: all; visibility: visible;",
+        "finalTargetStyle": "z-index: 255; transform: translate(1005px, 285px); pointer-events: all; visibility: visible;",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 18.7,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.1,
+        "pointerUpHandlerMs": 0,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 100,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 110,
+          "LayoutDurationMs": 2.9,
+          "RecalcStyleDurationMs": 17.9,
+          "ScriptDurationMs": 164.6,
+          "TaskDurationMs": 304.3
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      }
+    ],
+    "pan": [
+      {
+        "activation": {
+          "maxGapMs": 33.4,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 9.7,
+        "firstMutationAfterDownMs": 6.1,
+        "firstTargetMutationAfterDownMs": 53.9,
+        "frameCount": 115,
+        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
+        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 29.8,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 33.4,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.2,
+        "pointerUpHandlerMs": 0.2,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 96,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 197,
+          "LayoutDurationMs": 5.6,
+          "RecalcStyleDurationMs": 62.8,
+          "ScriptDurationMs": 344.9,
+          "TaskDurationMs": 1071.4
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 241,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 15
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 4.1,
+        "firstMutationAfterDownMs": 5.7,
+        "firstTargetMutationAfterDownMs": 54.2,
+        "frameCount": 115,
+        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
+        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.1,
+        "maxMoveIntervalMs": 23.1,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.1,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 96,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 197,
+          "LayoutDurationMs": 5.4,
+          "RecalcStyleDurationMs": 63.2,
+          "ScriptDurationMs": 342.1,
+          "TaskDurationMs": 1070.6
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 241,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 15
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      },
+      {
+        "activation": {
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "firstFrameAfterDownMs": 33.3,
+        "firstMutationAfterDownMs": 5.7,
+        "firstTargetMutationAfterDownMs": 55.2,
+        "frameCount": 136,
+        "initialTargetStyle": "transform: translate(0px, 0px) scale(1);",
+        "finalTargetStyle": "transform: translate(180px, 90px) scale(1);",
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "maxMoveIntervalMs": 34,
+        "meanMoveIntervalMs": 20.6,
+        "moveCount": 96,
+        "overall": {
+          "maxGapMs": 33.3,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 0.1,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "targetMutationCount": 96,
+        "cdp": {
+          "LayoutCount": 96,
+          "RecalcStyleCount": 197,
+          "LayoutDurationMs": 5.6,
+          "RecalcStyleDurationMs": 64.2,
+          "ScriptDurationMs": 377.5,
+          "TaskDurationMs": 1174.7
+        },
+        "counts": {
+          "after": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 241,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 15
+          },
+          "before": {
+            "canvas": {
+              "height": 602,
+              "width": 1446
+            },
+            "culledTopLevelNodes": 0,
+            "expectedTopLevelNodes": 256,
+            "mountedOffscreenTopLevelNodes": 232,
+            "mountedTopLevelNodes": 256,
+            "visibleTopLevelNodes": 24
+          }
+        }
+      }
+    ],
+    "render": [
+      {
+        "counts": {
+          "canvas": {
+            "height": 602,
+            "width": 1446
+          },
+          "culledTopLevelNodes": 0,
+          "expectedTopLevelNodes": 256,
+          "mountedOffscreenTopLevelNodes": 232,
+          "mountedTopLevelNodes": 256,
+          "visibleTopLevelNodes": 24
+        },
+        "load": {
+          "domContentLoadedMs": 196.10000002384186,
+          "loadEventEndMs": 196.10000002384186,
+          "longTasks": [
+            {
+              "duration": 78,
+              "startTime": 117.90000003576279
+            },
+            {
+              "duration": 167,
+              "startTime": 196.5
+            }
+          ],
+          "mountedNodeCount": 256,
+          "nodeReadyAtMs": 364.10000002384186,
+          "settledAtMs": 394.60000002384186
+        },
+        "cdp": {
+          "LayoutCount": 5,
+          "RecalcStyleCount": 5,
+          "LayoutDurationMs": 20.5,
+          "RecalcStyleDurationMs": 30.6,
+          "ScriptDurationMs": 220,
+          "TaskDurationMs": 310.8
+        },
+        "pass": 1
+      },
+      {
+        "counts": {
+          "canvas": {
+            "height": 602,
+            "width": 1446
+          },
+          "culledTopLevelNodes": 0,
+          "expectedTopLevelNodes": 256,
+          "mountedOffscreenTopLevelNodes": 232,
+          "mountedTopLevelNodes": 256,
+          "visibleTopLevelNodes": 24
+        },
+        "load": {
+          "domContentLoadedMs": 72.70000004768372,
+          "loadEventEndMs": 72.70000004768372,
+          "longTasks": [
+            {
+              "duration": 132,
+              "startTime": 85.10000002384186
+            }
+          ],
+          "mountedNodeCount": 256,
+          "nodeReadyAtMs": 217.10000002384186,
+          "settledAtMs": 243.60000002384186
+        },
+        "cdp": {
+          "LayoutCount": 5,
+          "RecalcStyleCount": 5,
+          "LayoutDurationMs": 12.3,
+          "RecalcStyleDurationMs": 30,
+          "ScriptDurationMs": 125.8,
+          "TaskDurationMs": 205.2
+        },
+        "pass": 2
+      },
+      {
+        "counts": {
+          "canvas": {
+            "height": 602,
+            "width": 1446
+          },
+          "culledTopLevelNodes": 0,
+          "expectedTopLevelNodes": 256,
+          "mountedOffscreenTopLevelNodes": 232,
+          "mountedTopLevelNodes": 256,
+          "visibleTopLevelNodes": 24
+        },
+        "load": {
+          "domContentLoadedMs": 69.80000001192093,
+          "loadEventEndMs": 69.80000001192093,
+          "longTasks": [
+            {
+              "duration": 133,
+              "startTime": 70
+            }
+          ],
+          "mountedNodeCount": 256,
+          "nodeReadyAtMs": 202.80000001192093,
+          "settledAtMs": 231.60000002384186
+        },
+        "cdp": {
+          "LayoutCount": 5,
+          "RecalcStyleCount": 5,
+          "LayoutDurationMs": 11.9,
+          "RecalcStyleDurationMs": 29.9,
+          "ScriptDurationMs": 128.6,
+          "TaskDurationMs": 191.8
+        },
+        "pass": 3
+      }
+    ],
+    "summary": {
+      "culling": {
+        "culledTopLevelNodes": 0,
+        "mountedOffscreenTopLevelNodes": 232,
+        "mountedTopLevelNodes": 256,
+        "visibleTopLevelNodes": 24
+      },
+      "drag": {
+        "maxActivationFrameGapMs": 16.8,
+        "maxLongTaskMs": 0,
+        "maxSustainedFrameGapMs": 16.8,
+        "medianFirstTargetMutationAfterDownMs": 12.9,
+        "medianScriptDurationMs": 176.5,
+        "medianTaskDurationMs": 344.3
+      },
+      "pan": {
+        "maxActivationFrameGapMs": 33.4,
+        "maxLongTaskMs": 0,
+        "maxSustainedFrameGapMs": 16.8,
+        "medianScriptDurationMs": 344.9,
+        "medianTaskDurationMs": 1071.4
+      },
+      "render": {
+        "maxLongTaskMs": 167,
+        "medianNodeReadyAtMs": 217.1,
+        "medianSettledAtMs": 243.6
+      }
+    }
+  }
+}

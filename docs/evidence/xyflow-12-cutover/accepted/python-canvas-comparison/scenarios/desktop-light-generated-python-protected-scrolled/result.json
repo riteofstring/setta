@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "geometryDiff": "scenarios/desktop-light-generated-python-protected-scrolled/geometry-diff.json",
+    "pixelDiff": "scenarios/desktop-light-generated-python-protected-scrolled/pixel-diff.png",
+    "pixelDiffRecords": "scenarios/desktop-light-generated-python-protected-scrolled/pixel-diff.ndjson"
+  },
+  "baseline": {
+    "metadataSha256": "ece81fd0451209cd517a1ff87e32dbcf16a6a104f1efa7441a7467c5057fd43c",
+    "screenshotSha256": "235ad9e947f43784ede53e37a748e82872ee1a80aa12df225a6edd6e1310b602"
+  },
+  "candidate": {
+    "metadataSha256": "ece81fd0451209cd517a1ff87e32dbcf16a6a104f1efa7441a7467c5057fd43c",
+    "screenshotSha256": "b8918b2a5a9dd78253bc9c6c8a153187d2112dbb8492d65baafd76c83f05a781"
+  },
+  "contract": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true
+  },
+  "geometry": {
+    "differenceCount": 0,
+    "differences": [],
+    "passed": true,
+    "tolerance": 0.25
+  },
+  "id": "desktop-light-generated-python-protected-scrolled",
+  "passed": true,
+  "pixels": {
+    "antialiasPixels": 0,
+    "changedPixels": 18,
+    "dimensionsDiffer": false,
+    "differenceRecordCount": 18,
+    "differenceRecordsFormat": "ndjson",
+    "differenceRecordsSha256": "3d912e634f192474490fa2cba7919f1890fb3e2b784155de0c84e64dd964f464",
+    "edgeRasterComponents": 2,
+    "edgeRasterPixels": 18,
+    "maximumChannelDifference": 23,
+    "meaningfulPixels": 0,
+    "passed": true
+  }
+}

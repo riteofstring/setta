@@ -1,0 +1,3068 @@
+{
+  "capture": {
+    "baselineSourceGuard": null,
+    "builtWorkspace": {
+      "directory": "packages/workspace/dist",
+      "files": [
+        {
+          "path": "packages/workspace/dist/index.js",
+          "sha256": "ea8b6b26549721277e46d09e93b38b36bd212ff98a928cf9234278b0ed72b1a4"
+        },
+        {
+          "path": "packages/workspace/dist/index.js.map",
+          "sha256": "043182d02c45297b0dd82a9313274b2bf47be81337ab33325c245efcfdd88fb5"
+        },
+        {
+          "path": "packages/workspace/dist/styles.css",
+          "sha256": "27d6436bd2a309008202e0f1d346a4cb58caba0422cad615de873b2e8e003d8f"
+        },
+        {
+          "path": "packages/workspace/dist/types/auto-layout/planner.d.ts",
+          "sha256": "9b9f28bff35177d026a04a7eed45c34bf6f7486bee3796c90508453bfd940760"
+        },
+        {
+          "path": "packages/workspace/dist/types/auto-layout/topLevelAutoLayout.d.ts",
+          "sha256": "3fa040de066aa2f80ab310ec9ccf03746b8ce21a4aec66eb0919d16c731d616f"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/ToggleTextSectionDisplayModeButton.d.ts",
+          "sha256": "50201d7f3877d486c3b5a91a48bf5d6920f93801da51a995d29e901da19a7442"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/WorkspaceCodeSectionBody.d.ts",
+          "sha256": "94117ef93054bb13a4b5d83aba4102033d2dbdc748de674d2afd85a3e0ba0da6"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/WorkspaceMarkdown.d.ts",
+          "sha256": "e252868a41b68d9a34efd286018a7e2acfe9042f0188d40ccfdf6ae7257099ae"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/WorkspaceMarkdownCodeBlock.d.ts",
+          "sha256": "837f09fc12a0763ec8bc6d8b93885e109482ebefe5a80109aad7332dbe8675ca"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/WorkspaceSectionEditor.d.ts",
+          "sha256": "3177fe0d8b9c4e678f4a5f7acf4a4b806eff0265f1707a1c77ed13555b13e3d1"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/WorkspaceTextSectionBody.d.ts",
+          "sha256": "69d01e5337074bf8a38213b3601ecf42c4d56211644301ad28a5b6fe8a2f7dda"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/codeSectionActions.d.ts",
+          "sha256": "20c57abf2922760f6eee39c458f88790b28cd04c755f944e41077aafdad433a1"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/codeSectionCompletion.d.ts",
+          "sha256": "253c0481f1ba3fb919d4d2a1168f372f6464be3608cbd459131da9c11112d683"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/codeSectionData.d.ts",
+          "sha256": "1e3675e2b73f8531170122cd9e9478c85559251c0865be6b3a7de8230744c433"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/codeSectionKind.d.ts",
+          "sha256": "7427369e48eca16ce768fe6ee60cacbbef1bc58529516e48e61dcd1e7a38a67d"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/markdownCodeLanguages.d.ts",
+          "sha256": "19cf3594af2d6ff7637966027872f65e5f21eba36347ddefdaf9fe53d6429a66"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/markdownHastReaders.d.ts",
+          "sha256": "9fb91acfece38962d2b36c506b26d37a9a8889e42927e0e0e3e7ac6b9accaef2"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/sectionEditorExtensions.d.ts",
+          "sha256": "27c0bc5fb1af34eace2b7ba30e285782d5853d6e3a0c10bf04e2c7d467284346"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/textSectionActions.d.ts",
+          "sha256": "3b6aab236b8db44ce29fca55db2ccbe3c1a6a3c5ea128bebe35b4298e728fb8b"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/textSectionData.d.ts",
+          "sha256": "03c9ab4693a8427440e952d18933947123c16b1734403d3d5419728e4aa52f07"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/textSectionKind.d.ts",
+          "sha256": "5e3858e94a266048dd295f5163efd93fe79084ffb2646b27c69d442bc984141b"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/textSectionTypography.d.ts",
+          "sha256": "84488b1c579a414208db3c9751e41c0f39fdfa8d3f0c1bf90393279c50ff083e"
+        },
+        {
+          "path": "packages/workspace/dist/types/builtin/useSectionEditorHeight.d.ts",
+          "sha256": "504b5e9320d7b3dcaff65e4a51d973cf6c67363ca04612ca01e4f4d659c52f99"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/FlowRenderer.d.ts",
+          "sha256": "a781e6466059401f5903d3ff79f247daabcb722274b3b188f527470ab4e6203d"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/NodeRenderer.d.ts",
+          "sha256": "07be92f1863a1126f19c249d1059668ae1240f04d42994da6f72ffd6e15a73a4"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/NodesSelection.d.ts",
+          "sha256": "54fd1cfa64d56f87c76b926af324e0c3d32b03c3f930ae311f6b506e1a24c071"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/Pane.d.ts",
+          "sha256": "ef4f5483f24cdef2a8bb61bacfdb095150ee4e462b39482d8eac92b92764fa1b"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/Panel.d.ts",
+          "sha256": "3062fc7fd04fac1dcfd9e3fa101e867ebb862d363f2ea9df54fce90a9f5030c5"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/UserSelection.d.ts",
+          "sha256": "22c4054bd38be4adc46cd583bae9d3164d282dc8bfdd2d4b2f4e41f407f8c8b4"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/Viewport.d.ts",
+          "sha256": "cc8f627d3ee0c7e29dcf9ae54ceae66230a916ed40804d88acf22ab776daeb99"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/WorkspaceBackground.d.ts",
+          "sha256": "0895e94ac4a28db8f8a994062f5812e7ed95d8480fe9b8f4fdaf9a80f73b2e0b"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/WorkspaceCanvas.d.ts",
+          "sha256": "e539394e42810ce00998e46545b5e94a323e7d395f4fc0736a22be7aabc69a0b"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/ZoomPane.d.ts",
+          "sha256": "2febc0784b411ed16dfb5200fae3ed7794e5796f2ff4643e0a471feadafdb254"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/activeSectionController.d.ts",
+          "sha256": "547ad45963d38bac6a1fe48d83bee5b72085be38de97e5ab150dd40c2a17e7b0"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/codeMirrorTooltipParent.d.ts",
+          "sha256": "43a5f8b66889b22962e21aaa37828a64bd25f5b1477ac89830b5aaa5e903f5db"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/documentViewportSync.d.ts",
+          "sha256": "0f7fe57f5fc095d61a0ef61ec3890b63ffabed6c2219b13fc112b8d64e124c58"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/dragItems.d.ts",
+          "sha256": "f81e8cf32fea8a21aab8133933b340f1c1dafdc334ce446287c4b0cf2f02992f"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/fitView.d.ts",
+          "sha256": "aa524fb9c440661cdeec8ab2e6eddbdd2802528713f5cff417bdc6251625554c"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/gestureState.d.ts",
+          "sha256": "0a61250069f164557805e4e92bd2ee1bc6291dcc268a4e3a66ebadede02952ce"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/graph.d.ts",
+          "sha256": "8e465201c63d50dd875a64a05566ad7ef7091677974e0d077e5e86130cff3e89"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/keyActivations.d.ts",
+          "sha256": "c0d2b98fe89d89667060794676ea967c13d2a57870e89beff4b1ec29f8325fc6"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/nodeInternalsActions.d.ts",
+          "sha256": "ec1ddc751da77d2f0f9142dd9e4ada01ca34c317eef25792e0e36471f8d6e8d3"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/options.d.ts",
+          "sha256": "5e5434e2c6f17135d3327143ba762e7bcc202b18ac243777e183a1247b66157a"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/pointerLocation.d.ts",
+          "sha256": "d13fad5a8268a3d59b76a743da1b537686189a6bba8ef27aab1e0309fdf102ca"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/store.d.ts",
+          "sha256": "7a34b7ff64c23f9ba22fd75c9e7d88364afb80bca96b6d6a2f5923b6d9d28929"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/styles.d.ts",
+          "sha256": "23361db7ec18aebfc317c7d2bdb56da2817466808dff2f4e48b9866810dedf47"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/types.d.ts",
+          "sha256": "95a98a125aef4b1a97e83dc2ea502751b6904fc14072f98e4958a13e6336c74f"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/useDrag.d.ts",
+          "sha256": "a54c8befed5c59aca1a2cdb4a0102c54eaf2867408d2e802b09b5f36688c77ab"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/useGetPointerPosition.d.ts",
+          "sha256": "67f035d2cfc63bdee1cea451381e6d830077fe500cbc5c998e0bf3d865596f4a"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/useShouldDisablePointerEvents.d.ts",
+          "sha256": "422d941a9351cfa7c02a924191b7439fac68928d5d3e8b9b2ac94d9c1217d230"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/useUpdateNodePositions.d.ts",
+          "sha256": "15e6877c0546568b2953a37f08addd868b768e460e6cdb90e0f1bcaa9b34ee0d"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/utils.d.ts",
+          "sha256": "d930b18c161f89c0f282b6a65e7eaefd3d8390e447d1bd835d1377592d269589"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/viewportHelpers.d.ts",
+          "sha256": "1c84a048c3833e2d4407e564dc1a940b6ff70a0e406982ef347dd7cd3f3f65b0"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/viewportInsets.d.ts",
+          "sha256": "f7a6e14662ce341dae4b8db34f0f2d61598546eb091f1af073138815c1a8c3fa"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/viewportPosition.d.ts",
+          "sha256": "54f15931ee06c55e7044b0ac2794c229a2e986636d6631b8ae05163fe679526b"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/wrapNode.d.ts",
+          "sha256": "b125ba858be1ad71b2dd22c7889e449026c96457d31ee73c3f80b8d1ff3dd7ff"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/WorkspaceXyflowAdapter.d.ts",
+          "sha256": "706165447f8dcfed5fa76b21c1ec456077b93f3cd513dda7ed37116b76910d5f"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/WorkspaceXyflowNode.d.ts",
+          "sha256": "669600754ff15f92f313612f811a58d766da8469ccdfdf166d7251966e475b3a"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/types.d.ts",
+          "sha256": "6773a18927db5fff51a9adbee299058b615216220c45b3461f6a392db8d3e103"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowChanges.d.ts",
+          "sha256": "0022f0d3ade151f62a5926639de1f12eadeb39946fb65c4b55def7b688d76c68"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowProjection.d.ts",
+          "sha256": "a7e76e7cc6a723c193bf0ff8c12c28a604444d646f4b1699bf1865ef170d7d90"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/xyflow/workspaceXyflowRuntime.d.ts",
+          "sha256": "0b315e4d935416efc8fcc13659384c3a2d197fab45b1de9de03b7f4472f129be"
+        },
+        {
+          "path": "packages/workspace/dist/types/canvas/zoomWheelBehavior.d.ts",
+          "sha256": "b51f436643ffe4969f2f33fbcb5be66bae357e0ba7afa7a7c0cad99ef28b70b2"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/capture.d.ts",
+          "sha256": "2a2aa3b6cd23668340acbcfb277ea81ba1cb6316e3e884946b735f7f87ce539e"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/envelope.d.ts",
+          "sha256": "6879d734895319cff3bd68c33ac2ca1efa415563af984e429f6e96097f879ef0"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/json.d.ts",
+          "sha256": "129c0afdee35ff649847a0d126cb48746232ca550f921626cb6bb3abc8311c4f"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/localPayload.d.ts",
+          "sha256": "3d11f88c09c558e872a0da78706d6b85fe337563dabb30dde995ae798f354194"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/operations.d.ts",
+          "sha256": "ff2fa3ae8e87b48d103860be67551f529339244afb29e03cf2ccd65b9ee47cf4"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/planner.d.ts",
+          "sha256": "432029c31722ae49813bc013726019776e39c01de9757e156656f42fd4ddff49"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/registry.d.ts",
+          "sha256": "e6e44404953bf4afefa19e75e4a8052b230cb2f489f587e054c17bf087cd2bcb"
+        },
+        {
+          "path": "packages/workspace/dist/types/clipboard/types.d.ts",
+          "sha256": "652343283b047a9e227c41de547a10ec41e2a6ca641aa0b347d900dfccb16c08"
+        },
+        {
+          "path": "packages/workspace/dist/types/commands/builtInWorkspaceCommands.d.ts",
+          "sha256": "7595c0e45b07ce7c82b08f7cbcc2d582a49955a3278b0e2ebf5ab793729d160d"
+        },
+        {
+          "path": "packages/workspace/dist/types/commands/workspaceCommandContexts.d.ts",
+          "sha256": "a7ee8742c5fe2a484a702b978ad03f355d4a384303c6a1911c30c8c3212b2020"
+        },
+        {
+          "path": "packages/workspace/dist/types/commands/workspaceCommandRegistry.d.ts",
+          "sha256": "9b24fec12bad54ac6c9dc22ad5abab1f35eeaef069c2ee191050b5dc63915d77"
+        },
+        {
+          "path": "packages/workspace/dist/types/commands/workspaceCommandResolution.d.ts",
+          "sha256": "538597cad4a285ff9992e42fef6225039fffd88b9aa6f6943fd0c12617235717"
+        },
+        {
+          "path": "packages/workspace/dist/types/commands/workspaceCommandTypes.d.ts",
+          "sha256": "b0106fd38577b8e488f09cacc2e9f955a3091bf1877b80ee9b72dcd4199f6e0d"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/WorkspaceMenuCore.d.ts",
+          "sha256": "a8b7d16bb33360dc41a78221604390e73301450779d7270f701e20df13d451c4"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/WorkspaceMenuLayer.d.ts",
+          "sha256": "a900fc90e5d8c99130254c7f26fa7b812ffbe0302e0ae64e8290ce3916be0839"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/WorkspacePaneMenu.d.ts",
+          "sha256": "6b8a1afa20f83564a601edabfb88d6a51162ade1eba73041f39acdeb121b3c9b"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/creationCommandStore.d.ts",
+          "sha256": "e2bdd71e5abef9b0fc01a6970541035954ca3b70d4158b88a81d29fe08c62b86"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/paneMenuKeyboard.d.ts",
+          "sha256": "12e89f7a177fcc186dffd03adc43eb75771dcfe80ef3e7eb60e3ec1e39e72970"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuGeometry.d.ts",
+          "sha256": "625b56b7479e83e6498c8f9742608207509e0e4d878e1892a24b66fa36e9609e"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuInvocation.d.ts",
+          "sha256": "3cfe3ca10eff28950b0848714f243d34085bdc980661485cfbe3840131910f6c"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuOwnership.d.ts",
+          "sha256": "a83937bb1b4d250b87e9a4f28b96cd1648230dc2e77305f438124be4c4e7307e"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuRegistry.d.ts",
+          "sha256": "68bfe1d3c86b3a576e06ab73fd2d68e77d1ec0fb437c4ec6852c391d21a743ae"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuState.d.ts",
+          "sha256": "2d4a05de6bc0ea18a3d94c3e03612518d009f9d7ffd2a0a1597fed9336d9b15c"
+        },
+        {
+          "path": "packages/workspace/dist/types/context-menu/workspaceMenuTypes.d.ts",
+          "sha256": "ffd4a6684de4e38ee8c5526899be22200148fb68932d8bc77acc7d5894f64a8c"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/color/ColorValueControl.d.ts",
+          "sha256": "7ac74b6aed0fa0fb794b2e6c91d8eada085cc9f739b5c541dcc2a3e068b881b4"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/DateTimeValueControl.d.ts",
+          "sha256": "c12e9cc282fc5c32e7029c40c53d602ade73fb69b2c1e0dfa413d565b31704d5"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/calendarGrid.d.ts",
+          "sha256": "6f98fdcdb7122854ec28936e770b514b7c9ab8d95d8b58279b22b39ad38b3a4b"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/calendarKeyboard.d.ts",
+          "sha256": "c21b5cfea13365ba4a86436341a7df54c676c5b564acab1b0fed3536081e9b62"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/calendarSelection.d.ts",
+          "sha256": "8feaa72f697eb3ff5dcd4ac0dfbef24fb9180b8123e4823f1f41a1efe477b992"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/dateTimeTypes.d.ts",
+          "sha256": "c2f7ab50787be9cf92a3d43decaff37664e34c2f7198996b2967f76c58f953da"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/date-time/dateTimeUtils.d.ts",
+          "sha256": "d7c7a9547883a6446ed0fdb8b4b0b212b2e830b0b416f75a4a06fa65f6c596bd"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropdown/DropdownValueControl.d.ts",
+          "sha256": "c728481a29db7c01e76c9bf4f29afcfcaa767018b39ca4be5959b4834499e15d"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropdown/comboboxStateReducer.d.ts",
+          "sha256": "74d80b5a775ebfce60527f7c1d4896001e41e6da02c5634c8e3a8d97fe5a53ed"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropdown/useDropdownCombobox.d.ts",
+          "sha256": "e479d729c476b339a26e3e5e43b4ec652781a7d004114c34597621e05edf7292"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropzone/DropzoneValueControl.d.ts",
+          "sha256": "b9d211d5c2f7839b309159236f680410d78b49cbf6cf72b882e3b0ca4a1cd820"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropzone/dropzonePolicy.d.ts",
+          "sha256": "0bc9671acf2eb1dccbfc0787dd3e29beca860c390ea8a0aa0a04935a6e77c6a6"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/dropzone/dropzoneTypes.d.ts",
+          "sha256": "5e4537783a98460bb5f6975128e40962ce6b67e5cda234d5f05f1800ef34b6f5"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/meta/MetaControl.d.ts",
+          "sha256": "2ea6c13fdccfebf60929a076212a9ed96ed8b32dc4fd27d204d5f2b19c82029e"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/meta/MetaControlTitleStack.d.ts",
+          "sha256": "5f2fe8326b7761d03caf03f6630decd15d806f53883dfe10a7ecc13c0c3d56e2"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/meta/MetaValueControl.d.ts",
+          "sha256": "cb04e440b6db1a6a4bf7e5c6d93bf268ea1dc3904ad3cd7a68aec5ee67cf0686"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/meta/metaControlDefinitions.d.ts",
+          "sha256": "1ea77c6ec25653003c188af5c3e86763230a5df16348bf12412c924c44a95917"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/meta/metaControlTypes.d.ts",
+          "sha256": "4b3023a5564211737690c3345b63387acfc81edad21e20c018e56cc5479cc2dc"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/name/ItemNameEditor.d.ts",
+          "sha256": "08393ce080fb3e04cb5cc5ab69cfe8487cacddafa9078210c2ae185dd5e3c3c8"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/name/ItemNameErrorBubble.d.ts",
+          "sha256": "6d17bb871d950dba4d6e6ad81779b06b9ec3cf305e49dd48a4375d11ca41e47f"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/numeric/numericControlConfig.d.ts",
+          "sha256": "848a1f02f9014acb5a04490c6d41cba9ed0d8191f4de849a89b41ee136350d02"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/password/PasswordValueControl.d.ts",
+          "sha256": "0797249908c1bcc682e5e80b2178c6a7b14c291bbe5010d427b125081cb212e6"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/popover/ControlPopover.d.ts",
+          "sha256": "7ef2c9f7e667c3fcb83d15a7b7ba7ac099e1348060d74f720bf1e53d8a368aa4"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/rotary/RotaryValueControl.d.ts",
+          "sha256": "62e7c2af9d4de492b787b6040d44dda04e39cd6b4097b43a538c0c09e6679363"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/sectionFocus.d.ts",
+          "sha256": "7712007142466620348804e43999abb587a8db67bddd165d0de4f93819b32f7b"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/slider/SliderValueControl.d.ts",
+          "sha256": "d7a601fcfed83eb464dcd96368405942280f14e88299adbba84b9a950abac03a"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/switch/SwitchValueControl.d.ts",
+          "sha256": "42df473e7ab7e0f821661d6b8d44e29c946a1a1b48fb8b1c5d1bb4110c83b256"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/DummyCodeMirror.d.ts",
+          "sha256": "3f6602e57c93404f5cce6cee89db2ca7d63f3bb5b82e6827fe98cee64aadd365"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/TextValueEditor.d.ts",
+          "sha256": "a656d37782312297875ab2651d6d3d80de5edfeb80b27cb4b808c0c6f03cc495"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/highlightedCodeLines.d.ts",
+          "sha256": "0ad3a81c75785df8e5194d73c1a503176e06b533c02a8c8f0f67c317636d7a11"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/onCreateEditor.d.ts",
+          "sha256": "bdc06f4b91cbec32b1e85d3d17e8ea448edf58f627eeaf92697eccec526a4701"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/textValueCompletion.d.ts",
+          "sha256": "9a227b9aafdccc9837fac241e58d58b99d934bc3cdf55ec9a078865957b3325d"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/textValueExtensions.d.ts",
+          "sha256": "b965b66c5347615865adac9a8290b006e8ca65c5a678dab4e2a730ce79997e2f"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/textValueLanguages.d.ts",
+          "sha256": "6c3cf652b3f2c367c341b78dfbbf52df9f1a0dc064c7cf74b0680821d5f85542"
+        },
+        {
+          "path": "packages/workspace/dist/types/controls/text/textValueTheme.d.ts",
+          "sha256": "03b42efc9249504c9c2c2d59a7bab9315829b62b880daa31e251bfd9153892c2"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/DNDSortable.d.ts",
+          "sha256": "b6e0c3bfc416802865b25e4459565b2bbc22274ef06ae04d7b6096ba415aa71d"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/DeferredDndDeactivation.d.ts",
+          "sha256": "3d6ae613dbe6272e6f73cd3a5a0aa62acab8a8d566c71cb9ac17f1e0a7ddd85f"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/DragOperationShapeSync.d.ts",
+          "sha256": "ea2bf8e06a0f8a4eaa4a6bd461e288bdb39e51dbbd0ac5aa539b2f2a80993667"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/DummySection.d.ts",
+          "sha256": "242bc2488a712d03c892054549c9b9255507bc43dbbbd2693d44dff92fdbbd08"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/ItemDndContext.d.ts",
+          "sha256": "f210962ee0b4470e6bd21dc19b1794b3553d5a70d7fd55f5dafa55fde4b4f009"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/SectionDndContext.d.ts",
+          "sha256": "10d1401f18a1a33756d0058ba12f547e377f9ca2ab70a89955c57bc34bad4270"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/DndProviderContext.d.ts",
+          "sha256": "f379255ebd860e0835f80b60e54a09d4be0aad3e42f6fa614224c596318b3d2a"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/DragDropProvider.d.ts",
+          "sha256": "7f5dfcde9919eb15a306bb097872f397c7ed82d26379bf938156dbc5cdbcafd1"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/SortableContext.d.ts",
+          "sha256": "87ff95aa69dfa14cd6536cab457c5ba08030147948b4484e71b5a295b200b23a"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/collision.d.ts",
+          "sha256": "06f9d154d5c9e289124dc72d27e8d21b01fd85fa5db3a95555ba59b70d940305"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/collisionCompare.d.ts",
+          "sha256": "9f753270eb9c68541ef5dcf666988e78a74913e5fdfc32feedefa009cdb04270"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/dragEventMapping.d.ts",
+          "sha256": "94fe0f0db8f5d35ddb2f19346cefcdb11f255c088d7e59435bce070c0adb5629"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/index.d.ts",
+          "sha256": "5ed6e64da7528cf7a9b264e14c290284a15790c262adc7191a16c39b59e8d410"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/rect.d.ts",
+          "sha256": "8e5aa90a8f85f4cca567e7d3624120448167e87b9da07decc23d346c79b5db3d"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/sorting.d.ts",
+          "sha256": "d9d1e1dcb527bb22979990d8fc550f13e5958c50b55a1edaf889f8415f26c3d6"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/types.d.ts",
+          "sha256": "119bea4b920682a260635bb8439d8940a88b3fae10e4730b20ae83e3a3cb2111"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useCollisionDetector.d.ts",
+          "sha256": "8fc5cff69f6c794127fc08aeec1e66fecca11d95ed01afb7abb1adf73ed46480"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useDndMonitor.d.ts",
+          "sha256": "83f0dcaeecd03a7130a753d9196921ffcd95fe7e0fcc2d6b2543f786e2a5f609"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useDraggable.d.ts",
+          "sha256": "439526ea0fbaa388209a2e0a1efc7997dd1e7e69368841e3d6c9989408ca652d"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useDroppable.d.ts",
+          "sha256": "c27c97e63b448d1dde9a00b548b471c5996e054503b17a4f3cfb0ca10627a9b7"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useSortable.d.ts",
+          "sha256": "6ff87fdebf702bc643d0f54ee663a3327650900bcaa85b01a1aa24ff5308647b"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/useSortableModel.d.ts",
+          "sha256": "ac16822fcc98fed5f03acc241ffacc15508ecaeaff07a9edb6c27a9bcd49f7d9"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/adapter/zoom.d.ts",
+          "sha256": "1c559c4228cf1bf206c2e30719a94519e5e2eeb2496510c34671d33624e073cf"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dndChildren.d.ts",
+          "sha256": "0e2f82f7f6c73b58ead1f44b25128090b779346b115dbb436248f93367b138e2"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dndIds.d.ts",
+          "sha256": "3b77171d2251db95b3752f0ef3afafdd8f92e863e5a7d0b23d595959d64903f2"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dndState.d.ts",
+          "sha256": "debdb094ae95451e4b19cdee75acd8fc51ca6ce5ecfb41e20572fbb193715b4a"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dragRectBounds.d.ts",
+          "sha256": "8c2c8ab161ace05ab8ff51e0e88070689f9e4e13a30bb774f1215d87d1054724"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dropTypeDragLayout.d.ts",
+          "sha256": "bf0bea0d11bbc826996206e3ee2b621c7404c154b91262ec76ea9528603ccbbc"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/dropTypes.d.ts",
+          "sha256": "cce448ae0c95ed455f69b5e8330870d097c010d393c5660a3116395be3c91e84"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/itemDndChildren.d.ts",
+          "sha256": "478374a5d3a93a57346b1ea7bc52651a23e4cd1ffe108601f270d8b32b2875e2"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/itemDndState.d.ts",
+          "sha256": "75ec93b2d990d87f6cf89a9004f3c09cca2f1e24057f813cf8ac0ce57b48e2d1"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/layers.d.ts",
+          "sha256": "c7c547815dc9ce510a07fc50830e10e2cfc5e308aefcb4b6c7fe71daf4e6c02b"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/selectionDragHandle.d.ts",
+          "sha256": "29c69b48d34fc7f4d104e1b881b1bebdd341b95a2a5053e8bdbda3374117241d"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/sortingOverState.d.ts",
+          "sha256": "b08eff0832fafa84c24ad0b408e8a0e2707df50328660b48d8b69d48c5eaeefc"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useDNDSensors.d.ts",
+          "sha256": "dce3132ae9533bff73b9599d01445ddc834b52df2dc83596e498d30aebb05353"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useDndUtils.d.ts",
+          "sha256": "0088f48884595974c958176ae3d7a7cccb8c204891c5f4d8dae14bd525f7b312"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useDropType.d.ts",
+          "sha256": "376a4e949a7907e07e86d269e9917aec24dece754cc7d4bd877ed72e74963f1d"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useModifiers.d.ts",
+          "sha256": "223593c3779e1a50374437b2d152f3927a7853e46a9ad9268e2cea2c02c94ca1"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useMoveSection.d.ts",
+          "sha256": "86ad47ce4a2aa68108c6264f689fd6acf134421ed535f813d38a12f1f9dc02d5"
+        },
+        {
+          "path": "packages/workspace/dist/types/dnd/useMoveSectionPlans.d.ts",
+          "sha256": "a5ed8cffe517d96ceddb3f844134d578cf128f1012e3913bf98405fbc1fec769"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/activeSectionPolicy.d.ts",
+          "sha256": "181317db0ad635ea8491db00e271fc50503447045a9d34797fdf304fc5529dcb"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/activeSections.d.ts",
+          "sha256": "ef3baee6e9e3fcf974af220126d4c63044a91faf453cb0e8d71e333f3c65584a"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/appearance.d.ts",
+          "sha256": "576d64881f2858e38458e76506ec94ab20417b23318f1546099faeabd6f5b689"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/arrayUtils.d.ts",
+          "sha256": "2ba4797035affd3d1c58cf467167c92cd7169b00ffa52cc9a0aacb941fd0d347"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/capabilities.d.ts",
+          "sha256": "c1c7a3a5a3b712fd8c5df253fdb80e7ba22aa5a5ddbfc8ae925cf2bfd82842ac"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/documentChangeCallback.d.ts",
+          "sha256": "54709f453dc47dd1bdba0bc78a2269afd6e9ed4d353eae8891b5cec6d404f5a0"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/documentSelectors.d.ts",
+          "sha256": "f8a13c1be8b3fdf17206f95c07d252c50a0ad52a8927c7808563fc292a6e6079"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/groupOverflow.d.ts",
+          "sha256": "3c730879205d9d4215a792ab05475cb931a034f3c3ed30a531acf2dd667cda3a"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/insertWorkspaceSection.d.ts",
+          "sha256": "f28fa91da701c95f461f30a150cdfda3dd14cc8ee61071091cd923bd380e776e"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemAuthoring.d.ts",
+          "sha256": "f5e797d363c9ac9dc4f2295c5f7d684c1a482fc955a74e9f7045049fc9339c2c"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemColumnWidth.d.ts",
+          "sha256": "19368dd71f0801c243858028604c8f0fc19cd470b4a014c038bf075447be3c1c"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemData.d.ts",
+          "sha256": "d2b4776de1393fb42318517459ead45a0f5f1b7ff45f0915a9e3db8189db01bc"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemPresentation.d.ts",
+          "sha256": "68992965a20a7b9904e3c2c2275482e2493136a7590e8fd4989540a48b89732d"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemPresentationMutations.d.ts",
+          "sha256": "43f594e0902ee701bfd6ad32ea36566763fd30b345ef1b2c64c820549ea9009c"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemSelection.d.ts",
+          "sha256": "6002ee940e588b9b67eeb2e83d667219baaa88d600411d5ca13516e6e1f5c86e"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemSelectionMode.d.ts",
+          "sha256": "cba0fe3dcd127263df9aeab741ca7830862a2f5de92e1a0e6713c9410149ed45"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemTree.d.ts",
+          "sha256": "05d1a9646d5028431ccfd0e7dad56c4d1fe8db78221b88afe92737bee6f8778d"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/itemTreeValidation.d.ts",
+          "sha256": "df3001db14f19b27b0726e6608c09ff8fccb4fe7d79d8ef355a22820665501b5"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/loadWorkspaceDocument.d.ts",
+          "sha256": "c68e85b47e3b8cc9454db2a54d083eef8592baefd99bf178477ca0d46d56502d"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/moveItems.d.ts",
+          "sha256": "9afa8532278ff567facafebd19a947a5ae939aac701e497f786db12269d1ab2a"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/moveSections.d.ts",
+          "sha256": "dcfa7c6446fee50e8c4502ecf2d1835a9b1fe8c7bac08cf60a6886d60ee7792b"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/nodeProjection.d.ts",
+          "sha256": "f572cc50fca685b07c8883728b4e44c7cd4416f96c6fbd8f6951c7dc5f24b818"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/savedViewDisplay.d.ts",
+          "sha256": "e36d159d52dd48e6a2b1398b7b82cd135e0d8030915fad503c7b07be93b3c4c2"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionData.d.ts",
+          "sha256": "98cf3cffaba709ccb0da027113c69a7a47b162fee136164e6491b77b42892bb8"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionKindRegistry.d.ts",
+          "sha256": "0d191b75200a96811fcdd48899f9aff24013f0e5ae34c140d7ae04fdfcb3d993"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionMutations.d.ts",
+          "sha256": "5562107818d00f6e6c34e0ce8eeef86140f68a1dfca5675d99424aae419bdd26"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionSelection.d.ts",
+          "sha256": "db87b137de0e6479446336a179d941bab5a0299bd425f76a8e03fb43254900a3"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionSize.d.ts",
+          "sha256": "ee004ed54b76f3430bf10a18d8cbeaa15ba96814c59282bcd1889b02c2533cda"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/sectionZIndices.d.ts",
+          "sha256": "6bd02895d3022753fafa30935e8dd569d14e731c3edbaf69e3a5d3e91861d85c"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/selectAllActions.d.ts",
+          "sha256": "a8431fc080183b0dd36a8f040b7509193176a3c7b78cabf843357959cf230f4e"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/stores.d.ts",
+          "sha256": "458279a8b0c8803d401d17654ab0cf714e6f24a3f5b8f7f8d030185018a51fb8"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/topLevelLayoutPublication.d.ts",
+          "sha256": "5a2b542cbfcab815517d6c33a7758584086a774437763f2a277c7e2d0d019567"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/types.d.ts",
+          "sha256": "181bcb3712ba040d7d31baffa14bbf5f3748fecf76281cc767b2badced6d661a"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/ungroupSections.d.ts",
+          "sha256": "e5b1d7452b2861d9e1efa8161e72003c2124ccad2faa6a1d1958cf3efec635cd"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/useWorkspaceDocumentSnapshot.d.ts",
+          "sha256": "8d0696003b7408ba6b3d5ed2feaf7c06420d4b125130c1e7731eea5ac6750789"
+        },
+        {
+          "path": "packages/workspace/dist/types/document/workspaceSnapshot.d.ts",
+          "sha256": "40458139e364ed6c6d007c209abc94839eb50de2f97f54a186e827237e77f3b9"
+        },
+        {
+          "path": "packages/workspace/dist/types/focus/sectionNavigation.d.ts",
+          "sha256": "ea65e70e4ff0c0cce622469799dff78a7260d75d9de6135924b1d4e3f19c0d72"
+        },
+        {
+          "path": "packages/workspace/dist/types/focus/topLevelSectionOrder.d.ts",
+          "sha256": "ff0d5bfdea92f68fa951da9a0eebab061e6f8718db69014100b26b3dc66fd865"
+        },
+        {
+          "path": "packages/workspace/dist/types/focus/workspaceFocusScopes.d.ts",
+          "sha256": "b0d29a7e38056537a8da01c72cc25a5b9269f86973da8344cc669c8648b73054"
+        },
+        {
+          "path": "packages/workspace/dist/types/history/workspaceHistory.d.ts",
+          "sha256": "5a1decd3b20190ff71891177b5d63c7ea423ba61f5fc122703de758e4a408944"
+        },
+        {
+          "path": "packages/workspace/dist/types/history/workspaceHistoryReplay.d.ts",
+          "sha256": "d25cf7b7b67c5e84a3288430f995b83201c36bab0a78b313094e45c553ae116b"
+        },
+        {
+          "path": "packages/workspace/dist/types/history/workspaceHistoryTypes.d.ts",
+          "sha256": "003c2a8dc6bab5808d47fd5955d278fde5ca85d6ef2f88c1c028c8d5f7c9d2e6"
+        },
+        {
+          "path": "packages/workspace/dist/types/index.d.ts",
+          "sha256": "fe3a66ab3e174ffa7701d84934566ab5c319d0266c563dd27f3feb49a502728f"
+        },
+        {
+          "path": "packages/workspace/dist/types/interaction.d.ts",
+          "sha256": "ce9fc9a63af7a90612999fca3c77722bc3bdcf45317e181819d51d7a038a1c53"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/BuiltInItemRowContent.d.ts",
+          "sha256": "29ea476ef3c581ddbdc65eb9df943ba230ff316b5f9288e51e3c2c6f24510fc7"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/BuiltInItemValueControl.d.ts",
+          "sha256": "d66dab05fcdf3fd7ad4870b3b97771ab741b5197e13dd40b147ab45158f1a88b"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/ItemColumnResizeHandle.d.ts",
+          "sha256": "82b09122a18b2cc10a366e93633d21b33278ba758d86dc80fc2614d07c7e8272"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/ItemDndMonitor.d.ts",
+          "sha256": "e4e2a34774a2a9413454b6c4215827ccd581f53058a28ad0b0fb7c066522f203"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/ItemDragOverlay.d.ts",
+          "sha256": "d0c40896470c5e9bd26be46bda5f7e34ec6dafa72946ab0459cfe1fa1ac73a4d"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/ItemListContext.d.ts",
+          "sha256": "0ea77e59fc0badc164cd8a42f8c4ef67699711ed3ec67ba83b768e0c3fdc6d39"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/ItemRow.d.ts",
+          "sha256": "bfe3ec704c99942b3b9f6e1c23b1eb5c21f99018905f8fbd9d0e56739052d2a2"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemDiagnostics.d.ts",
+          "sha256": "82e019474d88e715df71fd8b38ca44a4107d89f0e27d5bca5456d43a80095644"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemFilterContext.d.ts",
+          "sha256": "4b999ecc8ba3b1a1c31a825cf3cc649b23a3cb40a7c5f74cd11d2ed7987b41ec"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemFilterControls.d.ts",
+          "sha256": "da26cfc0990584e75289f3d10ea5b514cfc8a3049ab19b2d685f32d143e82178"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemLabel.d.ts",
+          "sha256": "a4498436e2516b8bf50a051c815cb5abf3d15686dfd232b5b3790572c60cb573"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemList.d.ts",
+          "sha256": "44a3932f86ac244a6d109cdeeb3e6d46d7282b4bf6de9248baa9e7609f14bc64"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/WorkspaceItemToolbar.d.ts",
+          "sha256": "d5fd912aedb4d5f89e7c2444ee8ece93412f933b3f6f048855184c4d4e8e4db2"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemAuthoringActions.d.ts",
+          "sha256": "ad91b705549d0d170f7f5f056e168c35203fa481e0387fa7b6f13bef6f54096e"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemColumnWidth.d.ts",
+          "sha256": "47e547217554be3ed1c74cb97a15b765b0aa5b537d96a9f00544894b30135dac"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemDiagnostics.d.ts",
+          "sha256": "b388cb92915e64f9f5efa3a4c26a95b44b3a952d84e3ce86e7b7c7e7a92f90ed"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemDndMonitorUtils.d.ts",
+          "sha256": "9d42e24f4356e32a024a0ff1e77590f57e88e016cbbe3d7265a825419cf40132"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemDragHandlers.d.ts",
+          "sha256": "5d99b0fd681e06b5d1269d78dd423db0713391a06544f4ce8989f8a397623587"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemFilterFocusRegistry.d.ts",
+          "sha256": "84e938baf217ab3b96b00d070172a07f17bff07c4b508a0433e9f307e5bfcfad"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemFiltering.d.ts",
+          "sha256": "1e41ed23130aae3fd549b208bfc9613a259e74ea2678b71ecb35b5d018ffcb70"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemHandlerRegistry.d.ts",
+          "sha256": "d835187c7fcedf2d852c761bcae3ab481ca0db2d900b7bffa597ad57cf14efc9"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/itemListRegistry.d.ts",
+          "sha256": "f6a668b87ef2e8292b70e440cc34a3601791cd9a221f50489582cecf88496e93"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/selectedItemMoves.d.ts",
+          "sha256": "9da25ce38fb0bcfc38ac9ae10ea048f929baaa6d9da857d728b98e72e37b40f7"
+        },
+        {
+          "path": "packages/workspace/dist/types/items/useItemColumnWidth.d.ts",
+          "sha256": "bb34829a06d7314b6cc2b81c6665b90476b7ec2706139a6001591eb283ad4257"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/builtInWorkspaceKeyBindings.d.ts",
+          "sha256": "94851770115d8f5bb19d458a59db282ffeb0ff4c5957e208c05c57e7ab97f2ad"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/creationKeyBindings.d.ts",
+          "sha256": "91888f63bf1aa6c82db18951eb8448b1b86ac6f8e7ca3fbf538240e58aa0ce5d"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/editableTarget.d.ts",
+          "sha256": "49c91444cf6ee6655bd3ca29d6692cdb5d228d2a9d007b392c39557694935480"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/reservedWorkspaceGestures.d.ts",
+          "sha256": "f99a41cc61a257b9b738e2798e771736d0fcc0610b47dd4b9623b68ee7bd64bb"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/workspaceChordPolicy.d.ts",
+          "sha256": "d32988f54b8cd6b0129cdd3b703ca228e49093a0842248fd2c41c6c65a172b48"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/workspaceChords.d.ts",
+          "sha256": "ba64a80a2538bf8ac3ee2bdeeb1618063682c4368a09b31d86ad24426a6b3ebb"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/workspaceKeyBindingDispatch.d.ts",
+          "sha256": "bf9dbf53490923d23bed7b651a76607f17e06b9ce21f4108a03679dcd2e05690"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/workspaceKeyBindingRegistry.d.ts",
+          "sha256": "e262be22eaf83a7accee550bfe527504d62da7fb1f9ca7001d7b5cb4ad21be7c"
+        },
+        {
+          "path": "packages/workspace/dist/types/keybindings/workspaceKeyBindingTypes.d.ts",
+          "sha256": "67cd90ddb3fd15c0368d0b19b5d1998b7ff5ae1b964333fc92bd81845511cceb"
+        },
+        {
+          "path": "packages/workspace/dist/types/minimap/MiniMap.d.ts",
+          "sha256": "f7ef7959807b8ed3874066e1f788ef58f5f6bd1716f8860e1d6d6e145bf0f3da"
+        },
+        {
+          "path": "packages/workspace/dist/types/minimap/MiniMapNode.d.ts",
+          "sha256": "797e3f268342a03992e78ecc151de8a86d326f2252dcc6b79c14d8c82e9feb39"
+        },
+        {
+          "path": "packages/workspace/dist/types/minimap/MiniMapNodes.d.ts",
+          "sha256": "1f01d184d3f3b0a8a11e02f5fecf581b54802d26f171473a478cd94b0c42115f"
+        },
+        {
+          "path": "packages/workspace/dist/types/minimap/ResponsiveMiniMap.d.ts",
+          "sha256": "2aebff00617f916370ad7e9be309c24e08a576f163192752002bb3df79a507bc"
+        },
+        {
+          "path": "packages/workspace/dist/types/minimap/types.d.ts",
+          "sha256": "755547be53c897cfcb3751c3ced6c2a11f9ec30b991bd6c3a83eac2277e047d6"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/WorkspaceNavigator.d.ts",
+          "sha256": "c7793946657039ee638da55b27179f78b8f7712b68d1bf762ff4a17a60b3266e"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/workspaceFind.d.ts",
+          "sha256": "fc35606b98b82233032d67128dd51e6343e33a949fbd1f020a35af33270eef13"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/workspaceItemReveal.d.ts",
+          "sha256": "b37706c243ee2c7edf8b23029394bd348303e4704793b68fb8f7ae022b75f1ea"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/workspaceNavigatorState.d.ts",
+          "sha256": "44e80c82e88970ba8c7df1644a6433cc72dc0425fd77557763da6de91b5efc74"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/workspaceNavigatorTypes.d.ts",
+          "sha256": "352f7ec6cec48cf15340846a4052cea03230ac43c9595f91ec0f89cd11781c24"
+        },
+        {
+          "path": "packages/workspace/dist/types/navigator/workspacePalette.d.ts",
+          "sha256": "53223065e61dc9c6b54051fbf91f86ce2a75685cb1f6078397bba5d19dc31ef3"
+        },
+        {
+          "path": "packages/workspace/dist/types/saved-views/editing.d.ts",
+          "sha256": "53196658e1205e44cd570c14974778860549003567017e0f804766434b799d76"
+        },
+        {
+          "path": "packages/workspace/dist/types/saved-views/editingState.d.ts",
+          "sha256": "dea0a22876c5556f396aac3792345dfe55043c602475891b4700a7fb74e0df1b"
+        },
+        {
+          "path": "packages/workspace/dist/types/saved-views/operations.d.ts",
+          "sha256": "4cfd8cc76d39ceeabde922c41e812cd862d174fe7cca0c4ac80255c11513cbd4"
+        },
+        {
+          "path": "packages/workspace/dist/types/saved-views/state.d.ts",
+          "sha256": "a2ba956bd4fd7fcedb255628549ef3209fca6375de66b04cac2627e4c7dc216a"
+        },
+        {
+          "path": "packages/workspace/dist/types/saved-views/types.d.ts",
+          "sha256": "8cf0eeb1fa220a292e1f17dfc09de8b69b32399f4b7a943dafcbdcf6275db26d"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/ContainerCore.d.ts",
+          "sha256": "59c29e37bd3488119ab9193e79b7d29aecf0e9e66b41d3ff9a8fa9151bf996f2"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/ContainerSwitch.d.ts",
+          "sha256": "3d22b785f15d810689ad18e6e0ca63441292fabe5870029eebc95a801c9d37b3"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/ContainerWrappers.d.ts",
+          "sha256": "5e3f329fde40696f6a83fe5b15012f689e74331ffa02bd05270f8e9ebc702269"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/DndSlot.d.ts",
+          "sha256": "f8a8b4462d51cb0ba6c2689e3ebf44548151cfcdf77a056dbb2c90dc05e924e4"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/ManyNestedSections.d.ts",
+          "sha256": "909cb2289bb59daaae445c5105c13cd81335925796eb38d96088383ae0e9101a"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/MetaControlChrome.d.ts",
+          "sha256": "59f137a13c1fe411674c23288f59a1d1a8d5ff0b24ea533b40aaddd6fb8704f3"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/SectionContainer.d.ts",
+          "sha256": "ca79918e2fa5d3364ba27f823b7865c088e3abb5728907284800df0588659d99"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/SectionContainerContent.d.ts",
+          "sha256": "0f68501243197cf69609c78d9fbd8c7d19e57e89ea65016287d61c45812c53cb"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/SectionContainerCore.d.ts",
+          "sha256": "5bccde998e5d7c55716fac68a48fdcda53eded06d8b09213035e48e7104dca56"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/SortableSectionContainer.d.ts",
+          "sha256": "bedbbc6a50f3ce9ab5135a695a51a7ed4a47fbb3792de05991bb1fc1bf826a2a"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/container/TopLevelContainer.d.ts",
+          "sha256": "cf649f53a79b5227db0cc93d8a08635afe285b3a0722bcb853b57270aa57b3cd"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/createSectionAction.d.ts",
+          "sha256": "b20ddb894cec3e4f82d656fac4c0b6aceaa79c9b9d99a5a7e7a96f59dc6afe76"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/emptySpacePlacement.d.ts",
+          "sha256": "996cb3e55319f5cd37d1dd3e4ec2b7c7abecce2348d23c7520e634b4d22856ea"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/groupOverflowAction.d.ts",
+          "sha256": "f322314b8e612def67da66f274e015a0bb43891686272425c79406ae412873d2"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/ChangeOrientationButton.d.ts",
+          "sha256": "b0936b54626896d5f788a301113bf45f96d394d52f109e565c26bff3e907af70"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/DeleteOrHideButton.d.ts",
+          "sha256": "5732bf78cdd7a98a8af232675696409092672acd7dbad966f19d99b1e5b1f232"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/Editable.d.ts",
+          "sha256": "3749e37832be8d624387ca1325319ec48b6c7d013458cf149dca71b7908d6dc5"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/HeaderIcon.d.ts",
+          "sha256": "7be03b7c86a92bc593d476e88b2cd71336b8b42680ee5765bf00c524391f5062"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/LockPositionButton.d.ts",
+          "sha256": "79cf1a3599184774516524fccf3b2f5dd5743644088abcd90c0f2355789bd1e3"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/MenuButton.d.ts",
+          "sha256": "0a1d59d7c492ed1500feea7fc9d533def134414613c38b3ba55f7cc6a3faf228"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/MinimizeButton.d.ts",
+          "sha256": "b6485a4ae9c90275e1c7bce70ddd8a1824ab57c3a357411734a3161aa53f8d61"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/SectionHeader.d.ts",
+          "sha256": "122abda1c42fa6279c08f6f9c16c2f4ba90bb8969e8e39558ec8091d6ab88e31"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/SectionTitle.d.ts",
+          "sha256": "c5c790138f75bb65e02a3141e971005b586936a4c1963fa346bd6c3b6c3d854b"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/header/useEditableOnSubmit.d.ts",
+          "sha256": "7df67e1c5c9da95fc55c98783b67a97f52da9442f84aa3bc46405b01fa5dea48"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/CustomResizable.d.ts",
+          "sha256": "6b1cc1f0356dac479b1a6cb3451a8183188893763a40eb97b9a86d2f79e53d33"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/ResizableWithScale.d.ts",
+          "sha256": "d697e5236e73c278009da30f4e5ea654eead428909e17c60089721f4c3e8d206"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/resizableUtils.d.ts",
+          "sha256": "25622b0cc4da55abaced7a0028cff56cc90764a9217279641ed759f05ef25fa4"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/resizeEvents.d.ts",
+          "sha256": "7da64ab4fda61e24132edef854c8334a3e9ea9c8b2f877a38ac5f1a0f92e9c50"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/sectionSizingBounds.d.ts",
+          "sha256": "3c39c233e6c93bbb39c3bc80ce1e9951148a57850ebc737fb8aad23999fa6ada"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/resize/sizingPolicy.d.ts",
+          "sha256": "48658a1b569ea79d0da116eec2e53f9e1a2810ded6c64f6fe81be69dec855de7"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionChrome.d.ts",
+          "sha256": "d786828549d8ea82c1d6728788f8aac402c2e518bcaaee1173545b2b6ba596a8"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionClick.d.ts",
+          "sha256": "25e04fd13fa75ef113de69d9b947e9894ea835f126fbe3dd3a99f546f46468d5"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionColors.d.ts",
+          "sha256": "3ed5bcaeecab8896335e66635e824dd6976f77ecbade4d6693d3820e298b6ff0"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionDomIds.d.ts",
+          "sha256": "36fa2754d28b2463cdba6a60220eea48b6a11bfc0681825cde9d09a41fdd41d0"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionRefs.d.ts",
+          "sha256": "31e9841bbf6b3d607e2b661f11fcf783259e1ca46b8676d8a0958b8afe50621e"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionSizes.d.ts",
+          "sha256": "f79635d1dd1d6a57366d7bd8ae8d94736d28b0e4dfe3c69789f456b3f61d90d7"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionStyleColors.d.ts",
+          "sha256": "150bfa2c9afe6423db5b49fe79fa94a08e5d5695c6b1d151fcfdc42ce5d9995a"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionStyleVars.d.ts",
+          "sha256": "6735d0f932e766ef093ff62496809abb6d5309587ac3092a96d8553f5d1856cd"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/sectionTagColors.d.ts",
+          "sha256": "e741cccf121a6777d58878b3111192ab25cb4ea1ca0ec494e651980fdb93add6"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/tagColorAction.d.ts",
+          "sha256": "7761d0cf7b729b7a359badfb2d73e195da12ef3040d654943108113b73341006"
+        },
+        {
+          "path": "packages/workspace/dist/types/section/ungroupAction.d.ts",
+          "sha256": "65529cb2c89f9e9082a70041c4a794a7eaaea960c42d9de5184f1c54dcd810c1"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/SectionSizeEditor.d.ts",
+          "sha256": "6880fe33ccb20512866e45437a584310d9e83f7d0d86345fd522028c8f69cbb2"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/SectionTagColorEditor.d.ts",
+          "sha256": "563b3f91b8617cec48e99471c008eca26ce94005d44c8bd1437fea7dbf0d505c"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceInspector.d.ts",
+          "sha256": "388c9cef8ccbcf9574478f983a8b4b66ff16700ea9047071fd7c411c8af6f78b"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceInspectorCommandActions.d.ts",
+          "sha256": "e3228d5b311405906ae9d277194dd9b0502f69d5d8746bdf4e3cfcf4b6bfa5a0"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceItemChoiceConfiguration.d.ts",
+          "sha256": "ab03eecc53e9be2ead58db6493975cb3b4f7d74cde483fc48ff1c3613f7c2287"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceItemConfigurationEditor.d.ts",
+          "sha256": "62a3d685ee0f57fcb624f896aca8db39c504bb6fe38ea5be8590a0c5991bda16"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceItemDateTimeConfiguration.d.ts",
+          "sha256": "1ae6535a8ce38e92f0227d4dc2f20e3a3d3a824922479611805ffdc10eb8e58e"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceItemInspector.d.ts",
+          "sha256": "358f22d11df938faa07b68fcc1f3186ea7f8ed67fa00640d5c790a9af79f8b05"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceOutline.d.ts",
+          "sha256": "53fc7a7305693d2e114f020cc065351def4f5ac52ddc64e10cf9e1819a6a2692"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceOutlineRow.d.ts",
+          "sha256": "2049ba9c798d198d4a29bca1c1c35e951b3c8844eb3fb01ad9184f3b605cba8c"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceParameterConfigurationView.d.ts",
+          "sha256": "f30287a1b66949dfad56b2cb8d3e1daa25d3385026e779df1ae20735dee830d2"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceSavedViewTabs.d.ts",
+          "sha256": "b3bc2b8ba8aa6cb87f9c55cf37e9114a3f0b754ea42401ca6abfca5e811c0d67"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceSavedViewsPane.d.ts",
+          "sha256": "82ad081820ffbe9d2a936838b5c66a1855a68b38ba99b162e7493bdd30113788"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceSavedViewsPaneParts.d.ts",
+          "sha256": "dd2de4a35123b65d44227b3b06953b7a6161fbb01af6889797abe59628b9b7ff"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceShell.d.ts",
+          "sha256": "85e98fac1b7f72be8f473b48cd95385410220f69f72c651dc56d610fddc9daf2"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceShellCenter.d.ts",
+          "sha256": "6e135db887894231a08c264f0892530c09509f852dc3eb69178918c38d1db0ff"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceShellIcons.d.ts",
+          "sha256": "acac2a0042799a68bb9fedc4e7d4462d11bc681cab97f66079f8f26ad2976fe3"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceShellPane.d.ts",
+          "sha256": "a8401eaa3078e8f7d8a9fc7785a4fcf5ce121698295f1c9200187cbc24b7f0b8"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/WorkspaceShellWindowing.d.ts",
+          "sha256": "866eeb1ca7fb868992945805229a77be1973a4c984e014818dda14de8908a1f9"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceInspectorItemDefaults.d.ts",
+          "sha256": "6e06401dc80671224450d96b0dbfee8aeafcf5bde4828bcab20af810b8bf7080"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceInspectorModel.d.ts",
+          "sha256": "33b4f52c2d579fb8291207a6c16088466983f6d3ccbce55b21ee2295112f554e"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceItemConfigurationFields.d.ts",
+          "sha256": "278304cc74dbb243dbd4ef670642329ba8259973c02760f71e62cc735297762c"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceOutlineModel.d.ts",
+          "sha256": "25b772b55ccb53f33f40a221a0467f166c6493dd89a15ccae4437e9af45da061"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceShellLayout.d.ts",
+          "sha256": "56aef328de22ab4abd6cb8970e1dc4325ee20189fc8ffa948cc6852bf53a35a7"
+        },
+        {
+          "path": "packages/workspace/dist/types/shell/workspaceShellTypes.d.ts",
+          "sha256": "ebaec0c4f20e64c3eaba656beb4caf060341a4ecc505143015e592c817103dfe"
+        },
+        {
+          "path": "packages/workspace/dist/types/state/storeUtils.d.ts",
+          "sha256": "0d506e268c8eb6ffe1bc31397ae2e5e756a8a9e4f8fd21a3d810cb91f852ebd7"
+        },
+        {
+          "path": "packages/workspace/dist/types/styles/motion.d.ts",
+          "sha256": "3f81dea0bbff05b12002b074c256cb33260fab6e850fd6654c55bcf93e4444c8"
+        },
+        {
+          "path": "packages/workspace/dist/types/styles/textDirection.d.ts",
+          "sha256": "9bf8c3e673417556ad82270df0a7cddb4e72b9053b17f7bd45e53bb19e259208"
+        },
+        {
+          "path": "packages/workspace/dist/types/styles/workspaceFocusVisibility.d.ts",
+          "sha256": "14cf87ad7c05dd47657237d25a4ead87e738facfdbaef5637194e03ca9663dda"
+        },
+        {
+          "path": "packages/workspace/dist/types/styles/workspaceScope.d.ts",
+          "sha256": "44b05ffc6284f8ae42f08f3e78cd1a0e57c30367b2c8262c0a8cac57b8012b30"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/WorkspaceControls.d.ts",
+          "sha256": "f7f5876e95c1ad46ad20cec77c0d3300e55d00363b1821cb0c8e28de7abfacf6"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/WorkspaceToolbarGroup.d.ts",
+          "sha256": "117e5636d1c16fe9010dc9dcf9fd0531eb5cf0680aaf8ce554152b82bafa6cf0"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/workspaceControlStyles.d.ts",
+          "sha256": "81a76f9585ef994ac299e71c72da3dc0c5f502ccf8cc7f24b1ca3ca559eb67e3"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/workspaceToolbarContributions.d.ts",
+          "sha256": "9186e6ec54a9928d4d49ebb212e6fd0ed54ac8631569a491969f0199362f3bad"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/workspaceToolbarEntries.d.ts",
+          "sha256": "3359d9f195827612559701670535c0ab685c35d142f42f2553ab6e0cb6c71fb8"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/workspaceToolbarRegistry.d.ts",
+          "sha256": "606555d2bd38c486617c3d618720e2ef0f09e6d166f0682743455369aa949163"
+        },
+        {
+          "path": "packages/workspace/dist/types/toolbar/workspaceToolbarTypes.d.ts",
+          "sha256": "5d7f22176aded90c1dc15185f69d32925e53be1c28870b7df486201791169c31"
+        },
+        {
+          "path": "packages/workspace/dist/types/tooltip/WorkspaceTooltip.d.ts",
+          "sha256": "4b209e1abe24060df13acd103eb908e835a04d73a2e9215dd92fdb86ce36d862"
+        },
+        {
+          "path": "packages/workspace/dist/types/useIsScrollable.d.ts",
+          "sha256": "9a7acd79b68c4de82ed569710d7b3725ab1d2973813da508c9a3da50293f4421"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/StandaloneWorkspaceWindowSpaceSurface.d.ts",
+          "sha256": "5622566964e02e273c5dcf20ffdce340af20af70b95273248680ae024d1bca93"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceBottomDock.d.ts",
+          "sha256": "e95e452a06525b7eb50271a2a80732afa7d45ef0b80884f3a7bca65f513ccb50"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceBottomDockManager.d.ts",
+          "sha256": "7e0c91d51eddc91ffbca72ffcbef73566c2cdcefda89469a7013a0dace8ff008"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceBottomDockPanelRow.d.ts",
+          "sha256": "284b6fc100d1a63848fcb503eadc8c18a8dc04688a152c1b5a0d61b2a38758bd"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceBottomDockRecoveryStrip.d.ts",
+          "sha256": "d5ea72a5e86d4a2aaab4ea5ef38c0ff2cc3fc857a459d19cd9672facebfcc2a2"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceSectionWindowPlaceholder.d.ts",
+          "sha256": "ead8a3f84330167b9a8f1581d9dea771e43826044f8dd1c51dd9b60dfd83b5e0"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceSectionWindowSurface.d.ts",
+          "sha256": "232f6b0f2b94de80b2664e7f4aef3beb7c256fbc550834cc56e8119a116d19d5"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceSectionWindowToggleButton.d.ts",
+          "sha256": "791b294cda882b7a5c3a673875050cfd56f72604945eec5026618e1d86b5c637"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowManager.d.ts",
+          "sha256": "3d6b668d69a6dfe387fb0acc419c365fcf6995f6319f6ae3978820da07c83792"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowManagerParts.d.ts",
+          "sha256": "6fbf7dd3aee544bf92fd7380dd139f9cbc9eb6396b0afab2b5cd61c6760bcffa"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowSpacesPane.d.ts",
+          "sha256": "d1437dff384ea10cfbe3f2dd5fffc1a0ce55506b1dc938f815c2405f125d1896"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowSpacesPaneLayout.d.ts",
+          "sha256": "613a5134782fcd18eea2e9278f7ec14773f51b9fceed3422c6528ddb30d59c54"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowSpacesPaneParts.d.ts",
+          "sha256": "b8da10d0c146a4909b18b7b6a8f99890dbc0dcf6230f6c397998561af0df7185"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/WorkspaceWindowSurface.d.ts",
+          "sha256": "da9bb11c171dc761b8494dd29d2974da639c41c255af2ff0bee9bef39b38b6b6"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/standaloneWorkspaceWindowSpaceState.d.ts",
+          "sha256": "34cd57320fcbb858dd2f75684ea8983cf5810e6b4888ef40a9e2c506d53b2163"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/useStandaloneWorkspaceWindowSpaceInteractions.d.ts",
+          "sha256": "d4f498aacaaa3cc9603bb4eb83cc7619917be256b845f620de8c95f1ecf0f1c0"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/useWorkspaceWindowManagerInteractions.d.ts",
+          "sha256": "ecfffa8999cdf17e2bbbf207e3630ae82dd1e7cb596956940cb7f501bee6ca78"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/windowSpaces.d.ts",
+          "sha256": "0dc06482edc3f926e9abd7b293cdf17f94a4f0ea422386dbe1c48690e065492d"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/windowingSnapLayout.d.ts",
+          "sha256": "db43b5cba8ce9fda75dfaf344857be78be241810027bcc010a6fdd4c9216f907"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/windowingState.d.ts",
+          "sha256": "0b7dc9af45e024e90a3e33ad28fd2b97abdbf3b1c0e3a53f211b64d80fbc33f5"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/windowingTypes.d.ts",
+          "sha256": "39882d88082f15346a4b03b899c5d06a633d6da3b43001a4173ee5f71ccbf1a2"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceBottomDockGeometry.d.ts",
+          "sha256": "3d28de2bd63e0c855e81ba049eac17613aa14af58bd086eadb1a35fb59abef58"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceBottomDockInternal.d.ts",
+          "sha256": "31a934212b2c1e1b97fce9e4c5043b2f17a487963fa5efb82093e0a3e304d3f2"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceBottomDockLayout.d.ts",
+          "sha256": "754d96e4ce35b7363124d07b20048365cd728dda9a1a989600abd0954f13bf23"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceSectionWindowing.d.ts",
+          "sha256": "322e68f102e21fe54f36e4115121363f04f6867eac04b7bd60d2a8a7af00c844"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceWindowManagerInteractions.d.ts",
+          "sha256": "5ffbcb0e08fe7f71d4b5f53ac959cb3e94a8d63bf722f75afa20d3dd00725351"
+        },
+        {
+          "path": "packages/workspace/dist/types/windowing/workspaceWindowingContext.d.ts",
+          "sha256": "a7ca709f96bb3f14c62dee5c5e5ee06118648693627248cda91eb7e3845d775e"
+        },
+        {
+          "path": "packages/workspace/dist/types/workspaceHost.d.ts",
+          "sha256": "b124226245baba60d5a27ead5655004cf1bba32baed74d1eda03075cd23fa0f2"
+        },
+        {
+          "path": "packages/workspace/dist/types/workspaceHostContext.d.ts",
+          "sha256": "75bf0bee46c7995b13caf736f4f7eaad3c5211cb1b1473224054df6ad237370d"
+        },
+        {
+          "path": "packages/workspace/dist/types/workspaceHostInternals.d.ts",
+          "sha256": "55e818dbcfb4a766688270ca022af5b3c7df9f11cad86102ed495ac2702268ba"
+        }
+      ]
+    },
+    "chrome": {
+      "binary": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "jsVersion": "15.2.124.8",
+      "product": "Chrome/152.0.7977.42",
+      "revision": "@db8ceb709fe92f3bb010fb982d6300e54de6dc6a",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+    },
+    "captureCommit": "93df97256f7d81a183c05deed1d0b8e4fee6747e",
+    "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
+    "liveResponses": {
+      "document": {
+        "bytes": 516,
+        "contentType": "text/html",
+        "sha256": "21104bc88a9a3e7cd867b16d1ebe7c47d26e47f8ed6e91ff5d7d4d0a868335f6",
+        "status": 200,
+        "url": "http://localhost:5174/"
+      },
+      "javascript": {
+        "bytes": 6726,
+        "contentType": "text/javascript",
+        "sha256": "473ac64a97f8af5aca5a6ec19e53c066afba23aec675d0279be9a29e8717b05b",
+        "status": 200,
+        "url": "http://localhost:5174/src/main.tsx?t=1788156624302"
+      },
+      "stylesheet": {
+        "bytes": 655060,
+        "contentType": "text/javascript",
+        "sha256": "c669ef2936bc4a8d4ccc41999244b81ca210c4b7733f87521335bfbe0ce6ce03",
+        "status": 200,
+        "url": "http://localhost:5174/src/index.css"
+      }
+    },
+    "mode": "baseline",
+    "recordedAt": "2026-08-31T07:01:19.886Z",
+    "runtimeReference": {
+      "acceptedBaseline": {
+        "captureCommit": "0e9c43152882264d518f67e5b0b7b7e5a5b3e2dc",
+        "frozenReferenceCommit": "65f8cafa94c2c4768622ae570f6051332158ddc8",
+        "manifestPath": "docs/evidence/xyflow-12-cutover/baseline/playground/manifest.json",
+        "manifestSha256": "31c3cc3c975d46a43db85cec375f6c45b71cc5212d9e6cee2dbc63f7444f1eda"
+      },
+      "currentSourceDiffPaths": [
+        "packages/workspace/src/canvas/WorkspaceCanvas.test.ts",
+        "packages/workspace/src/canvas/WorkspaceCanvas.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.test.tsx",
+        "packages/workspace/src/canvas/codeMirrorTooltipParent.ts",
+        "packages/workspace/src/canvas/documentViewportSync.test.ts",
+        "packages/workspace/src/canvas/documentViewportSync.ts",
+        "packages/workspace/src/canvas/documentViewportSyncControlled.test.tsx",
+        "packages/workspace/src/canvas/fitView.test.ts",
+        "packages/workspace/src/canvas/fitView.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.test.ts",
+        "packages/workspace/src/canvas/nodeInternalsActions.ts",
+        "packages/workspace/src/canvas/store.ts",
+        "packages/workspace/src/canvas/viewportHelpers.test.ts",
+        "packages/workspace/src/canvas/viewportHelpers.ts",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.test.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowAdapter.tsx",
+        "packages/workspace/src/canvas/xyflow/WorkspaceXyflowNode.tsx",
+        "packages/workspace/src/canvas/xyflow/types.ts",
+        "packages/workspace/src/canvas/xyflow/useWorkspaceXyflowWheelBehavior.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowChanges.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowProjection.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.test.ts",
+        "packages/workspace/src/canvas/xyflow/workspaceXyflowRuntime.ts",
+        "packages/workspace/src/canvas/zoomWheelBehavior.ts",
+        "packages/workspace/src/document/sectionZIndices.ts",
+        "packages/workspace/src/shell/WorkspaceShell.test.tsx"
+      ],
+      "verification": {
+        "builtWorkspace": true,
+        "chrome": true,
+        "liveResponseHashes": true
+      }
+    },
+    "sourceUrl": "http://localhost:5174/",
+    "stabilization": {
+      "documentChangeReadout": "normalized-to-zero",
+      "fontReadiness": "document.fonts.ready",
+      "postActionDelayMs": 250,
+      "settledFrames": 2
+    }
+  },
+  "geometry": {
+    "document": {
+      "devicePixelRatio": 1,
+      "readyState": "complete",
+      "theme": "light",
+      "title": "@setta/workspace playground",
+      "url": "http://localhost:5174/?setta-xyflow-parity-theme=light"
+    },
+    "elements": {
+      "canvas": {
+        "rect": {
+          "bottom": 660,
+          "height": 582,
+          "left": 0,
+          "right": 1492,
+          "top": 78,
+          "width": 1492
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      "flow": {
+        "rect": {
+          "bottom": 660,
+          "height": 582,
+          "left": 0,
+          "right": 1492,
+          "top": 78,
+          "width": 1492
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      "minimap": {
+        "rect": {
+          "bottom": 645,
+          "height": 150,
+          "left": 350,
+          "right": 550,
+          "top": 495,
+          "width": 200
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 335, 0)",
+          "visibility": "visible",
+          "zIndex": "5"
+        }
+      },
+      "shell": {
+        "rect": {
+          "bottom": 696,
+          "height": 618,
+          "left": 0,
+          "right": 1492,
+          "top": 78,
+          "width": 1492
+        },
+        "style": {
+          "display": "grid",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      "viewport": {
+        "rect": {
+          "bottom": 660,
+          "height": 582,
+          "left": 0,
+          "right": 1492,
+          "top": 78,
+          "width": 1492
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "none",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "visibility": "visible",
+          "zIndex": "2"
+        }
+      }
+    },
+    "focus": {
+      "ariaLabel": null,
+      "dataTestId": null,
+      "tagName": "div"
+    },
+    "nodes": [
+      {
+        "id": "idle-leaf",
+        "index": 0,
+        "selected": null,
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 24,
+          "right": 226,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 24, 24)",
+          "visibility": "visible",
+          "zIndex": "0"
+        }
+      },
+      {
+        "id": "locked-leaf",
+        "index": 1,
+        "selected": null,
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 312,
+          "right": 514,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 312, 24)",
+          "visibility": "visible",
+          "zIndex": "1"
+        }
+      },
+      {
+        "id": "styled-leaf",
+        "index": 2,
+        "selected": null,
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 600,
+          "right": 802,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 600, 24)",
+          "visibility": "visible",
+          "zIndex": "20"
+        }
+      },
+      {
+        "id": "root-group",
+        "index": 3,
+        "selected": null,
+        "rect": {
+          "bottom": 654,
+          "height": 360,
+          "left": 24,
+          "right": 544,
+          "top": 294,
+          "width": 520
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 24, 216)",
+          "visibility": "visible",
+          "zIndex": "3"
+        }
+      },
+      {
+        "id": "item-panel",
+        "index": 4,
+        "selected": null,
+        "rect": {
+          "bottom": 646,
+          "height": 352,
+          "left": 600,
+          "right": 1152,
+          "top": 294,
+          "width": 552
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 600, 216)",
+          "visibility": "visible",
+          "zIndex": "4"
+        }
+      },
+      {
+        "id": "meta-dropdown",
+        "index": 5,
+        "selected": null,
+        "rect": {
+          "bottom": 136,
+          "height": 34,
+          "left": 1200,
+          "right": 1402,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1200, 24)",
+          "visibility": "visible",
+          "zIndex": "5"
+        }
+      },
+      {
+        "id": "meta-slider",
+        "index": 6,
+        "selected": null,
+        "rect": {
+          "bottom": 136,
+          "height": 34,
+          "left": 1480,
+          "right": 1682,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1480, 24)",
+          "visibility": "visible",
+          "zIndex": "6"
+        }
+      },
+      {
+        "id": "meta-rotary",
+        "index": 7,
+        "selected": null,
+        "rect": {
+          "bottom": 148,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1760, 24)",
+          "visibility": "visible",
+          "zIndex": "7"
+        }
+      },
+      {
+        "id": "meta-switch",
+        "index": 8,
+        "selected": null,
+        "rect": {
+          "bottom": 148,
+          "height": 46,
+          "left": 2040,
+          "right": 2242,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2040, 24)",
+          "visibility": "visible",
+          "zIndex": "8"
+        }
+      },
+      {
+        "id": "meta-text",
+        "index": 9,
+        "selected": null,
+        "rect": {
+          "bottom": 234,
+          "height": 46,
+          "left": 1200,
+          "right": 1402,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1200, 110)",
+          "visibility": "visible",
+          "zIndex": "9"
+        }
+      },
+      {
+        "id": "meta-date",
+        "index": 10,
+        "selected": null,
+        "rect": {
+          "bottom": 450,
+          "height": 262,
+          "left": 1480,
+          "right": 1682,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1480, 110)",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "id": "meta-time",
+        "index": 11,
+        "selected": null,
+        "rect": {
+          "bottom": 234,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1760, 110)",
+          "visibility": "visible",
+          "zIndex": "11"
+        }
+      },
+      {
+        "id": "meta-textarea",
+        "index": 12,
+        "selected": null,
+        "rect": {
+          "bottom": 288,
+          "height": 100,
+          "left": 2040,
+          "right": 2242,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2040, 110)",
+          "visibility": "visible",
+          "zIndex": "12"
+        }
+      },
+      {
+        "id": "meta-password",
+        "index": 13,
+        "selected": null,
+        "rect": {
+          "bottom": 332,
+          "height": 34,
+          "left": 1200,
+          "right": 1402,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1200, 220)",
+          "visibility": "visible",
+          "zIndex": "13"
+        }
+      },
+      {
+        "id": "meta-color",
+        "index": 14,
+        "selected": null,
+        "rect": {
+          "bottom": 344,
+          "height": 46,
+          "left": 1480,
+          "right": 1682,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1480, 220)",
+          "visibility": "visible",
+          "zIndex": "14"
+        }
+      },
+      {
+        "id": "meta-button",
+        "index": 15,
+        "selected": null,
+        "rect": {
+          "bottom": 344,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 1760, 220)",
+          "visibility": "visible",
+          "zIndex": "15"
+        }
+      },
+      {
+        "id": "meta-dropzone",
+        "index": 16,
+        "selected": null,
+        "rect": {
+          "bottom": 420,
+          "height": 122,
+          "left": 2040,
+          "right": 2282,
+          "top": 298,
+          "width": 242
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2040, 220)",
+          "visibility": "visible",
+          "zIndex": "16"
+        }
+      },
+      {
+        "id": "code-editor",
+        "index": 17,
+        "selected": null,
+        "rect": {
+          "bottom": 293.5,
+          "height": 191.5,
+          "left": 2320,
+          "right": 2822,
+          "top": 102,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2320, 24)",
+          "visibility": "visible",
+          "zIndex": "17"
+        }
+      },
+      {
+        "id": "text-rendered",
+        "index": 18,
+        "selected": null,
+        "rect": {
+          "bottom": 650,
+          "height": 152,
+          "left": 2320,
+          "right": 2822,
+          "top": 498,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2320, 420)",
+          "visibility": "visible",
+          "zIndex": "18"
+        }
+      },
+      {
+        "id": "text-source",
+        "index": 19,
+        "selected": null,
+        "rect": {
+          "bottom": 650,
+          "height": 152,
+          "left": 2860,
+          "right": 3362,
+          "top": 498,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "absolute",
+          "transform": "matrix(1, 0, 0, 1, 2860, 420)",
+          "visibility": "visible",
+          "zIndex": "19"
+        }
+      }
+    ],
+    "panes": [
+      {
+        "pane": "leading",
+        "visible": "true",
+        "width": "335px",
+        "rect": {
+          "bottom": 660,
+          "height": 582,
+          "left": 0,
+          "right": 335,
+          "top": 78,
+          "width": 335
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "position": "absolute",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "30"
+        }
+      },
+      {
+        "pane": "trailing",
+        "visible": "false",
+        "width": "500px",
+        "rect": {
+          "bottom": 660,
+          "height": 582,
+          "left": 1452,
+          "right": 1492,
+          "top": 78,
+          "width": 40
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "position": "absolute",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "30"
+        }
+      }
+    ],
+    "sections": [
+      {
+        "active": "false",
+        "id": "idle-leaf",
+        "index": 0,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 24,
+          "right": 226,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "idle-leaf",
+        "index": 1,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 126,
+          "height": 16,
+          "left": 141,
+          "right": 157,
+          "top": 110,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "locked-leaf",
+        "index": 2,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 312,
+          "right": 514,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "locked-leaf",
+        "index": 3,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 126,
+          "height": 16,
+          "left": 429,
+          "right": 445,
+          "top": 110,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "true",
+        "id": "styled-leaf",
+        "index": 4,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 226,
+          "height": 124,
+          "left": 600,
+          "right": 802,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "150"
+        }
+      },
+      {
+        "active": null,
+        "id": "styled-leaf",
+        "index": 5,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 126,
+          "height": 16,
+          "left": 717,
+          "right": 733,
+          "top": 110,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "nested-leaf",
+        "index": 6,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 482,
+          "height": 124,
+          "left": 48,
+          "right": 250,
+          "top": 358,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "nested-leaf",
+        "index": 7,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 382,
+          "height": 16,
+          "left": 165,
+          "right": 181,
+          "top": 366,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "first-row-leaf",
+        "index": 8,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 726,
+          "height": 124,
+          "left": 96,
+          "right": 298,
+          "top": 602,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "first-row-leaf",
+        "index": 9,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 626,
+          "height": 16,
+          "left": 213,
+          "right": 229,
+          "top": 610,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "second-row-leaf",
+        "index": 10,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 726,
+          "height": 124,
+          "left": 306,
+          "right": 508,
+          "top": 602,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "second-row-leaf",
+        "index": 11,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 626,
+          "height": 16,
+          "left": 423,
+          "right": 439,
+          "top": 610,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "third-row-leaf",
+        "index": 12,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "leaf",
+        "rect": {
+          "bottom": 726,
+          "height": 124,
+          "left": 516,
+          "right": 718,
+          "top": 602,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "third-row-leaf",
+        "index": 13,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 626,
+          "height": 16,
+          "left": 633,
+          "right": 649,
+          "top": 610,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "item-panel",
+        "index": 14,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "item-list",
+        "rect": {
+          "bottom": 646,
+          "height": 352,
+          "left": 600,
+          "right": 1152,
+          "top": 294,
+          "width": 552
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "item-panel",
+        "index": 15,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 318,
+          "height": 16,
+          "left": 1067,
+          "right": 1083,
+          "top": 302,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-dropdown",
+        "index": 16,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 136,
+          "height": 34,
+          "left": 1200,
+          "right": 1402,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-slider",
+        "index": 17,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 136,
+          "height": 34,
+          "left": 1480,
+          "right": 1682,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-rotary",
+        "index": 18,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 148,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-switch",
+        "index": 19,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 148,
+          "height": 46,
+          "left": 2040,
+          "right": 2242,
+          "top": 102,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-text",
+        "index": 20,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 234,
+          "height": 46,
+          "left": 1200,
+          "right": 1402,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-date",
+        "index": 21,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 450,
+          "height": 262,
+          "left": 1480,
+          "right": 1682,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-time",
+        "index": 22,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 234,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-textarea",
+        "index": 23,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 288,
+          "height": 100,
+          "left": 2040,
+          "right": 2242,
+          "top": 188,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-password",
+        "index": 24,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 332,
+          "height": 34,
+          "left": 1200,
+          "right": 1402,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-color",
+        "index": 25,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 344,
+          "height": 46,
+          "left": 1480,
+          "right": 1682,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-button",
+        "index": 26,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 344,
+          "height": 46,
+          "left": 1760,
+          "right": 1962,
+          "top": 298,
+          "width": 202
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "meta-dropzone",
+        "index": 27,
+        "placement": "canvas",
+        "presentation": "meta-control",
+        "type": "meta-control",
+        "rect": {
+          "bottom": 420,
+          "height": 122,
+          "left": 2040,
+          "right": 2282,
+          "top": 298,
+          "width": 242
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": "false",
+        "id": "code-editor",
+        "index": 28,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "setta.code",
+        "rect": {
+          "bottom": 293.5,
+          "height": 191.5,
+          "left": 2320,
+          "right": 2822,
+          "top": 102,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "code-editor",
+        "index": 29,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 126,
+          "height": 16,
+          "left": 2737,
+          "right": 2753,
+          "top": 110,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "text-rendered",
+        "index": 30,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "setta.text",
+        "rect": {
+          "bottom": 650,
+          "height": 152,
+          "left": 2320,
+          "right": 2822,
+          "top": 498,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "text-rendered",
+        "index": 31,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 522,
+          "height": 16,
+          "left": 2737,
+          "right": 2753,
+          "top": 506,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      },
+      {
+        "active": "false",
+        "id": "text-source",
+        "index": 32,
+        "placement": "canvas",
+        "presentation": "section",
+        "type": "setta.text",
+        "rect": {
+          "bottom": 650,
+          "height": 152,
+          "left": 2860,
+          "right": 3362,
+          "top": 498,
+          "width": 502
+        },
+        "style": {
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "relative",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "10"
+        }
+      },
+      {
+        "active": null,
+        "id": "text-source",
+        "index": 33,
+        "placement": "canvas",
+        "presentation": null,
+        "type": null,
+        "rect": {
+          "bottom": 522,
+          "height": 16,
+          "left": 3277,
+          "right": 3293,
+          "top": 506,
+          "width": 16
+        },
+        "style": {
+          "display": "flex",
+          "opacity": "1",
+          "pointerEvents": "all",
+          "position": "static",
+          "transform": "none",
+          "visibility": "visible",
+          "zIndex": "auto"
+        }
+      }
+    ],
+    "selection": [],
+    "windows": []
+  },
+  "interactions": [
+    {
+      "id": "close-reference-note-window",
+      "kind": "click",
+      "modifiers": [],
+      "point": {
+        "x": 475,
+        "y": 158.5
+      },
+      "selector": "[data-workspace-window-id=\"playground-reference-note-window\"] [data-testid=\"workspace-window-close\"]",
+      "phase": "fixture-setup"
+    },
+    {
+      "id": "close-checklist-window",
+      "kind": "click",
+      "modifiers": [],
+      "point": {
+        "x": 919,
+        "y": 244.5
+      },
+      "selector": "[data-workspace-window-id=\"playground-checklist-window\"] [data-testid=\"workspace-window-close\"]",
+      "phase": "fixture-setup"
+    },
+    {
+      "id": "open-section-context-menu",
+      "kind": "context-menu",
+      "modifiers": [],
+      "point": {
+        "x": 624.24,
+        "y": 191.28
+      },
+      "selector": "[data-section-id=\"styled-leaf\"][role=\"group\"]",
+      "phase": "scenario"
+    }
+  ],
+  "scenario": {
+    "catalogVersion": "3",
+    "coverage": [
+      "menus"
+    ],
+    "absentSelectors": [],
+    "invisibleSelectors": [],
+    "visibleSelectors": [],
+    "fixtureId": "playground-document",
+    "id": "section-context-menu-light",
+    "theme": "light",
+    "viewportId": "desktop"
+  },
+  "screenshot": {
+    "dimensions": {
+      "height": 696,
+      "width": 1492
+    },
+    "file": "section-context-menu-light/screenshot.png"
+  },
+  "viewport": {
+    "deviceScaleFactor": 1,
+    "height": 696,
+    "mobile": false,
+    "width": 1492
+  }
+}
