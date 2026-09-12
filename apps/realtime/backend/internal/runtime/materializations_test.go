@@ -52,8 +52,9 @@ func TestLastSuccessfulOutputSurvivesRestartAndFailedRefresh(t *testing.T) {
 	}
 	refresh := receiveInvocation(t, second.worker.started)
 	second.worker.updates <- contracts.RuntimeUpdate{
-		Identity: refresh.Identity,
-		Outputs:  map[string]json.RawMessage{"image": json.RawMessage(`"preview"`)},
+		Identity:       refresh.Identity,
+		UpdateSequence: 1,
+		Outputs:        map[string]json.RawMessage{"image": json.RawMessage(`"preview"`)},
 	}
 	waitForInvocationState(t, second.coordinator, refresh.Identity.InvocationID, "streaming")
 	duringRefresh, _ := second.coordinator.Snapshot()
@@ -193,7 +194,10 @@ func TestStartupEventIgnoresBindingsWithoutAutomaticStartup(t *testing.T) {
 		t.Fatalf("json.Marshal(operation) error = %v", err)
 	}
 	if _, err := runtime.coordinator.Apply(contracts.ApplyRequest{
-		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision, Operations: []json.RawMessage{operation},
+		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision, Operations: []json.RawMessage{
+			json.RawMessage(`{"op":"upsertSection","section":{"id":"interaction-handler","kind":"handler","name":"Interaction","width":320,"height":180,"overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"bindingId":"interaction-only"}},"layout":{"x":860,"y":360,"width":320,"height":180,"zIndex":4}}`),
+			operation,
+		},
 	}); err != nil {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -289,12 +293,67 @@ func TestRemovingDurableRetentionReleasesMaterializedContent(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Apply() error = %v", err)
 	}
+	current, err := runtime.coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	if _, exists := current.Values["result.contentRef"]; exists {
+		t.Fatalf("runtime values = %#v", current.Values)
+	}
+	if _, exists := current.PublishedByBinding["stylize"]; exists {
+		t.Fatalf("published identities = %#v", current.PublishedByBinding)
+	}
 	reader, err := runtime.content.Open(reference)
 	if reader != nil {
 		_ = reader.Close()
 	}
 	if !errors.Is(err, content.ErrNotFound) {
 		t.Fatalf("content.Open() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestMaterializationReplacementDropsOutputsMissingFromCurrentInvocation(t *testing.T) {
+	runtime := openMaterializedRuntime(t, t.TempDir(), true, "manual")
+	t.Cleanup(func() { closeMaterializedRuntime(t, runtime) })
+	projectSnapshot, err := runtime.projects.Snapshot()
+	if err != nil {
+		t.Fatalf("project.Snapshot() error = %v", err)
+	}
+	binding := projectSnapshot.Bindings[0]
+	binding.Outputs["mask"] = contracts.BindingOutput{}
+	operation, err := json.Marshal(contracts.SetBindingOperation{Operation: "setBinding", Binding: binding})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if _, err := runtime.coordinator.Apply(contracts.ApplyRequest{
+		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision, Operations: []json.RawMessage{operation},
+	}); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if _, err := runtime.coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := runtime.coordinator.Snapshot()
+	event := runtimeTestEvent(snapshot.SessionID, "interaction", `{"contentRef":"same"}`)
+	if accepted, err := runtime.coordinator.HandleEvent(event); err != nil || accepted != 1 {
+		t.Fatalf("HandleEvent(first) = %d, %v", accepted, err)
+	}
+	first := receiveInvocation(t, runtime.worker.started)
+	runtime.worker.replyOutputs(first.Identity.InvocationID, map[string]json.RawMessage{
+		"image": json.RawMessage(`"first"`), "mask": json.RawMessage(`"obsolete"`),
+	}, 0)
+	waitForInvocationState(t, runtime.coordinator, first.Identity.InvocationID, "completed")
+	if accepted, err := runtime.coordinator.HandleEvent(event); err != nil || accepted != 1 {
+		t.Fatalf("HandleEvent(second) = %d, %v", accepted, err)
+	}
+	second := receiveInvocation(t, runtime.worker.started)
+	runtime.worker.reply(second.Identity.InvocationID, `"second"`)
+	waitForInvocationState(t, runtime.coordinator, second.Identity.InvocationID, "completed")
+	runtime.coordinator.mu.Lock()
+	outputs := cloneRawMap(runtime.coordinator.materializedOutput[binding.ID])
+	runtime.coordinator.mu.Unlock()
+	if _, exists := outputs["mask"]; exists || string(outputs["image"]) != `"second"` {
+		t.Fatalf("materialized outputs = %#v", outputs)
 	}
 }
 

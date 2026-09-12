@@ -38,7 +38,7 @@ type fakeWorker struct {
 func newFakeWorker() *fakeWorker {
 	return &fakeWorker{
 		updates: make(chan contracts.RuntimeUpdate, 16), started: make(chan contracts.InvokeParams, 128), replies: make(map[string]chan contracts.InvokeResult),
-		reloadResult: contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stylize"}},
+		reloadResult: contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{"stylize"}},
 	}
 }
 
@@ -87,10 +87,21 @@ func (worker *fakeWorker) Close() error {
 }
 
 func (worker *fakeWorker) reply(invocationID string, value string) {
+	worker.replyOutputs(invocationID, map[string]json.RawMessage{"image": json.RawMessage(value)}, 0)
+}
+
+func (worker *fakeWorker) replyOutputs(invocationID string, outputs map[string]json.RawMessage, updateCount uint64) {
 	worker.mu.Lock()
 	channel := worker.replies[invocationID]
 	worker.mu.Unlock()
-	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{"image": json.RawMessage(value)}}
+	channel <- contracts.InvokeResult{Outputs: outputs, UpdateCount: updateCount}
+}
+
+func (worker *fakeWorker) finishWithUpdateCount(invocationID string, updateCount uint64) {
+	worker.mu.Lock()
+	channel := worker.replies[invocationID]
+	worker.mu.Unlock()
+	channel <- contracts.InvokeResult{Outputs: map[string]json.RawMessage{}, UpdateCount: updateCount}
 }
 
 func (worker *fakeWorker) replyError(invocationID string, code string) {
@@ -201,7 +212,7 @@ func TestSuccessfulReturnPublishesFinalBrowserUpdate(t *testing.T) {
 	envelope := receiveRuntimeEnvelope(t, stream, func(envelope contracts.RuntimeEnvelope) bool {
 		return envelope.Type == "update"
 	})
-	if envelope.Update == nil || envelope.Update.Identity != invocation.Identity || string(envelope.Update.Outputs["image"]) != `"final"` {
+	if envelope.Update == nil || envelope.Update.Identity != invocation.Identity || envelope.Update.UpdateSequence != 1 || string(envelope.Update.Outputs["image"]) != `"final"` {
 		t.Fatalf("final update = %#v", envelope.Update)
 	}
 	current, err := coordinator.Snapshot()
@@ -230,7 +241,7 @@ func TestLatestBindingStreamsWhileNewerInvocationIsPending(t *testing.T) {
 	}
 	progress := 0.5
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity: first.Identity, Progress: &progress, Message: "Preview",
+		Identity: first.Identity, UpdateSequence: 1, Progress: &progress, Message: "Preview",
 		Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	current, err := coordinator.Snapshot()
@@ -254,7 +265,7 @@ func TestProgressOnlyUpdateDoesNotAdvancePublishedOutput(t *testing.T) {
 	invocation := startDrawingInvocation(t, coordinator, worker)
 	progress := 0.5
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity: invocation.Identity, Progress: &progress, Message: "Working",
+		Identity: invocation.Identity, UpdateSequence: 1, Progress: &progress, Message: "Working",
 		Outputs: map[string]json.RawMessage{}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	snapshot, err := coordinator.Snapshot()
@@ -288,10 +299,10 @@ func TestOlderParallelOutputCannotReplaceNewerPublishedOutput(t *testing.T) {
 		older, newer = newer, older
 	}
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity: newer.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"new"`)}, Artifacts: []contracts.WorkerArtifact{},
+		Identity: newer.Identity, UpdateSequence: 1, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"new"`)}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity: older.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"old"`)}, Artifacts: []contracts.WorkerArtifact{},
+		Identity: older.Identity, UpdateSequence: 1, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"old"`)}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	current, err := coordinator.Snapshot()
 	if err != nil {
@@ -312,7 +323,7 @@ func TestSubscriptionSnapshotRecoversPublishedOutputIdentity(t *testing.T) {
 	defer coordinator.Close()
 	invocation := startDrawingInvocation(t, coordinator, worker)
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity: invocation.Identity, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"preview"`)}, Artifacts: []contracts.WorkerArtifact{},
+		Identity: invocation.Identity, UpdateSequence: 1, Outputs: map[string]json.RawMessage{"image": json.RawMessage(`"preview"`)}, Artifacts: []contracts.WorkerArtifact{},
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -456,7 +467,7 @@ func TestRuntimeSourceConflictDoesNotWriteOrReload(t *testing.T) {
 func TestRuntimeSourceApplyReturnsSavedDocumentWhenActivationFails(t *testing.T) {
 	for name, configure := range map[string]func(*fakeWorker){
 		"load": func(worker *fakeWorker) {
-			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{}, LoadError: &contracts.StructuredError{Code: "load_error", Message: "invalid syntax"}}
+			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{}, LoadError: &contracts.StructuredError{Code: "load_error", Message: "invalid syntax"}}
 		},
 		"reload": func(worker *fakeWorker) {
 			worker.reloadErr = errors.New("worker launch failed")
@@ -490,7 +501,7 @@ func TestRuntimeSourceApplyReturnsSavedDocumentWhenActivationFails(t *testing.T)
 			}
 			worker.mu.Lock()
 			worker.reloadErr = nil
-			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: 1, RuntimeKind: "python", Handlers: []string{"stylize"}}
+			worker.reloadResult = contracts.InitializeResult{ProtocolVersion: contracts.WorkerProtocolVersion, RuntimeKind: "python", Handlers: []string{"stylize"}}
 			worker.mu.Unlock()
 			current, err := coordinator.RuntimeSource()
 			if err != nil {
@@ -622,9 +633,10 @@ func TestCancellationRejectsLateWorkerUpdates(t *testing.T) {
 		t.Fatalf("Cancel() error = %v", err)
 	}
 	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity:  invocation.Identity,
-		Outputs:   map[string]json.RawMessage{"image": json.RawMessage(`"late"`)},
-		Artifacts: []contracts.WorkerArtifact{},
+		Identity:       invocation.Identity,
+		UpdateSequence: 1,
+		Outputs:        map[string]json.RawMessage{"image": json.RawMessage(`"late"`)},
+		Artifacts:      []contracts.WorkerArtifact{},
 	})
 	worker.replyError(invocation.Identity.InvocationID, "cancelled")
 	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
@@ -638,18 +650,21 @@ func TestCancellationRejectsLateWorkerUpdates(t *testing.T) {
 	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "cancelled")
 }
 
-func TestCompletedInvocationAcceptsBufferedStreamUpdate(t *testing.T) {
+func TestInvocationCompletionWaitsForBufferedStreamUpdate(t *testing.T) {
 	coordinator, worker := testCoordinator(t)
 	defer coordinator.Close()
 	invocation := startDrawingInvocation(t, coordinator, worker)
-	worker.reply(invocation.Identity.InvocationID, `"ordinary"`)
+	worker.finishWithUpdateCount(invocation.Identity.InvocationID, 1)
+	time.Sleep(10 * time.Millisecond)
+	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "running")
+	coordinator.acceptUpdate(contracts.RuntimeUpdate{
+		Identity:       invocation.Identity,
+		UpdateSequence: 1,
+		Outputs:        map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)},
+		Artifacts:      []contracts.WorkerArtifact{},
+	})
 	waitForInvocationInactive(t, coordinator, invocation.Identity.InvocationID)
 	assertInvocationState(t, coordinator, invocation.Identity.InvocationID, "completed")
-	coordinator.acceptUpdate(contracts.RuntimeUpdate{
-		Identity:  invocation.Identity,
-		Outputs:   map[string]json.RawMessage{"image": json.RawMessage(`"streamed"`)},
-		Artifacts: []contracts.WorkerArtifact{},
-	})
 	snapshot, err := coordinator.Snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot() error = %v", err)
@@ -978,7 +993,8 @@ func configureDrawingProject(t *testing.T, projects *project.Store) contracts.Pr
 	updated, err := projects.Apply(contracts.ApplyRequest{ProjectID: snapshot.ID, ExpectedRevision: snapshot.Revision, Operations: []json.RawMessage{
 		json.RawMessage(`{"op":"upsertSection","section":{"id":"drawing","kind":"drawing","name":"Drawing","width":480,"height":320,"overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"scene":{},"width":480,"height":320,"background":"#ffffff"}},"layout":{"x":0,"y":0,"width":480,"height":320,"zIndex":1}}`),
 		json.RawMessage(`{"op":"upsertSection","section":{"id":"result","kind":"output","name":"Result","width":480,"height":320,"overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"value":null}},"layout":{"x":520,"y":0,"width":480,"height":320,"zIndex":2}}`),
-		json.RawMessage(`{"op":"setBinding","binding":{"id":"stylize","trigger":{"sectionId":"drawing","event":"snapshot"},"handler":"stylize","arguments":{"drawing":"$event.contentRef"},"scheduling":{"mode":"latest","debounceMilliseconds":0,"concurrencyGroup":"image","concurrencyLimit":1},"outputs":{"image":{"sectionId":"result","field":"contentRef"}}}}`),
+		json.RawMessage(`{"op":"upsertSection","section":{"id":"stylize-handler","kind":"handler","name":"Stylize","width":320,"height":180,"overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"bindingId":"stylize"}},"layout":{"x":500,"y":360,"width":320,"height":180,"zIndex":3}}`),
+		json.RawMessage(`{"op":"setBinding","binding":{"id":"stylize","trigger":{"kind":"event","sectionId":"drawing","event":"snapshot"},"handler":"stylize","arguments":{"drawing":"$event.contentRef"},"scheduling":{"mode":"latest","debounceMilliseconds":0,"concurrencyGroup":"image","concurrencyLimit":1},"outputs":{"image":{"target":{"sectionId":"result","field":"contentRef"}}}}}`),
 	}})
 	if err != nil {
 		t.Fatalf("project.Apply() error = %v", err)

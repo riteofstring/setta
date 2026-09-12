@@ -56,8 +56,10 @@ type Coordinator struct {
 	sources            *source.Store
 	worker             Worker
 	scheduler          *scheduler.Scheduler
+	pipeline           contracts.CompiledPipeline
 	sessionID          string
 	workerState        string
+	handlers           []string
 	values             map[string]json.RawMessage
 	invocations        map[string]contracts.InvocationStatus
 	bindings           map[string]contracts.Binding
@@ -72,6 +74,8 @@ type Coordinator struct {
 	invocationOutputs  map[string]map[string]json.RawMessage
 	invocationHashes   map[string]string
 	invocationHolds    map[string]bool
+	runs               map[string]*pipelineRun
+	invocationRuns     map[string]string
 	sourceVersion      string
 	active             map[string]struct{}
 	subscribers        map[chan contracts.RuntimeEnvelope]struct{}
@@ -93,7 +97,7 @@ func New(projectRoot string, projects *project.Store, contentStore *content.Stor
 	if err != nil {
 		return nil, err
 	}
-	configured, bindings, err := configuredScheduler(snapshot)
+	configured, bindings, pipeline, err := configuredScheduler(snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +112,15 @@ func New(projectRoot string, projects *project.Store, contentStore *content.Stor
 		return nil, err
 	}
 	coordinator := &Coordinator{
-		projectRoot: projectRoot, projects: projects, content: contentStore, materializations: materializations, sources: sources, worker: worker, scheduler: configured,
-		sessionID: sessionID, workerState: "stopped", values: make(map[string]json.RawMessage),
+		projectRoot: projectRoot, projects: projects, content: contentStore, materializations: materializations, sources: sources, worker: worker, scheduler: configured, pipeline: pipeline,
+		sessionID: sessionID, workerState: "stopped", handlers: []string{}, values: make(map[string]json.RawMessage),
 		invocations: make(map[string]contracts.InvocationStatus), bindings: bindings,
 		invocationBindings: make(map[string]contracts.Binding), sequences: make(map[string]uint64), active: make(map[string]struct{}),
 		publishedByBinding: make(map[string]contracts.InvocationIdentity), retainedByBinding: make(map[string]bool),
 		materializedOutput: make(map[string]map[string]json.RawMessage), materializedRefs: make(map[string][]contracts.ContentReference),
 		materializedHashes: make(map[string]string), startupAttempts: make(map[string]string), invocationOutputs: make(map[string]map[string]json.RawMessage),
 		invocationHashes: make(map[string]string), invocationHolds: make(map[string]bool),
+		runs: make(map[string]*pipelineRun), invocationRuns: make(map[string]string),
 		subscribers: make(map[chan contracts.RuntimeEnvelope]struct{}), updatesDone: make(chan struct{}), logsDone: make(chan struct{}),
 		newSessionID: func() (string, error) { return randomID("session") },
 	}
@@ -145,7 +150,7 @@ func (coordinator *Coordinator) Apply(request contracts.ApplyRequest) (contracts
 	if err != nil {
 		return contracts.Project{}, err
 	}
-	replacement, bindings, err := configuredScheduler(candidate)
+	replacement, bindings, pipeline, err := configuredScheduler(candidate)
 	if err != nil {
 		return contracts.Project{}, err
 	}
@@ -157,11 +162,17 @@ func (coordinator *Coordinator) Apply(request contracts.ApplyRequest) (contracts
 	}
 	reuseScheduler := reflect.DeepEqual(coordinator.bindings, bindings)
 	previous := coordinator.scheduler
+	previousBindings := coordinator.bindings
 	if !reuseScheduler {
+		coordinator.invalidateAllRunsLocked(previous, "project_changed", "The project pipeline changed.")
 		coordinator.scheduler = replacement
 	}
 	coordinator.bindings = bindings
-	discarded := coordinator.dropUnretainedMaterializationsLocked(bindings)
+	coordinator.pipeline = pipeline
+	discarded := coordinator.reconcileBindingStateLocked(previousBindings, bindings)
+	discarded = appendUniqueReferences(discarded, coordinator.dropUnretainedMaterializationsLocked(bindings))
+	discarded = coordinator.unprotectedReferencesLocked(discarded)
+	coordinator.publishSnapshotLocked()
 	coordinator.mu.Unlock()
 	if reuseScheduler {
 		replacement.Close()
@@ -241,7 +252,7 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 	if document, sourceErr := coordinator.sources.Read(projectSnapshot); sourceErr == nil {
 		sourceVersion = document.Version
 	}
-	replacement, bindings, err := configuredScheduler(projectSnapshot)
+	replacement, bindings, pipeline, err := configuredScheduler(projectSnapshot)
 	if err != nil {
 		if failOnPreparationError {
 			err = errors.Join(err, coordinator.failSourceActivationLocked())
@@ -263,10 +274,13 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 		return contracts.InitializeResult{}, ErrClosed
 	}
 	previous := coordinator.scheduler
+	coordinator.invalidateAllRunsLocked(previous, "runtime_reloaded", "The runtime was reloaded.")
 	coordinator.scheduler = replacement
 	coordinator.bindings = bindings
+	coordinator.pipeline = pipeline
 	coordinator.sessionID = sessionID
 	coordinator.workerState = "starting"
+	coordinator.handlers = []string{}
 	discarded := coordinator.resetRuntimeLocked(projectSnapshot, sourceVersion)
 	coordinator.publishSnapshotLocked()
 	coordinator.mu.Unlock()
@@ -278,8 +292,10 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 	coordinator.mu.Lock()
 	if reloadErr != nil || result.LoadError != nil {
 		coordinator.workerState = "failed"
+		coordinator.handlers = []string{}
 	} else {
 		coordinator.workerState = "ready"
+		coordinator.handlers = append([]string(nil), result.Handlers...)
 	}
 	coordinator.publishSnapshotLocked()
 	coordinator.mu.Unlock()
@@ -289,12 +305,24 @@ func (coordinator *Coordinator) reloadLocked(ctx context.Context, projectSnapsho
 func (coordinator *Coordinator) failSourceActivationLocked() error {
 	coordinator.mu.Lock()
 	previous := coordinator.scheduler
+	coordinator.invalidateAllRunsLocked(previous, "source_activation_failed", "Runtime source activation failed.")
+	discarded := coordinator.runtimeReferencesLocked()
 	coordinator.workerState = "failed"
+	coordinator.handlers = []string{}
 	coordinator.invocations = make(map[string]contracts.InvocationStatus)
 	coordinator.invocationBindings = make(map[string]contracts.Binding)
 	coordinator.invocationOutputs = make(map[string]map[string]json.RawMessage)
 	coordinator.invocationHashes = make(map[string]string)
 	coordinator.invocationHolds = make(map[string]bool)
+	coordinator.runs = make(map[string]*pipelineRun)
+	coordinator.invocationRuns = make(map[string]string)
+	protected := coordinator.protectedReferencesLocked()
+	cleanup := []contracts.ContentReference{}
+	for _, reference := range discarded {
+		if !protected[reference.ID] {
+			cleanup = append(cleanup, reference)
+		}
+	}
 	coordinator.sequences = make(map[string]uint64)
 	coordinator.publishedByBinding = make(map[string]contracts.InvocationIdentity)
 	coordinator.active = make(map[string]struct{})
@@ -302,6 +330,7 @@ func (coordinator *Coordinator) failSourceActivationLocked() error {
 	coordinator.mu.Unlock()
 	stopErr := coordinator.worker.Stop()
 	previous.Close()
+	_ = coordinator.content.DeleteReferences(cleanup)
 	return stopErr
 }
 
@@ -319,7 +348,12 @@ func (coordinator *Coordinator) Invoke(ctx context.Context, handler string, requ
 		return contracts.InvokeResult{}, ErrWorkerNotReady
 	}
 	coordinator.sequences["direct"]++
-	identity, err := coordinator.identityLocked("direct", coordinator.sequences["direct"])
+	runID, err := randomID("run")
+	if err != nil {
+		coordinator.mu.Unlock()
+		return contracts.InvokeResult{}, err
+	}
+	identity, err := coordinator.identityLocked(runID, "direct", coordinator.sequences["direct"])
 	coordinator.mu.Unlock()
 	if err != nil {
 		return contracts.InvokeResult{}, err
@@ -336,6 +370,8 @@ func (coordinator *Coordinator) HandleEvent(event contracts.RuntimeEvent) (int, 
 	if err := event.Validate(); err != nil {
 		return 0, err
 	}
+	coordinator.mutations.Lock()
+	defer coordinator.mutations.Unlock()
 	projectSnapshot, err := coordinator.projects.Snapshot()
 	if err != nil {
 		return 0, err
@@ -353,43 +389,15 @@ func (coordinator *Coordinator) HandleEvent(event contracts.RuntimeEvent) (int, 
 		coordinator.mu.Unlock()
 		return 0, ErrWorkerNotReady
 	}
-	matching := matchingBindings(projectSnapshot.Bindings, event)
-	coordinator.mu.Unlock()
-	if len(matching) == 0 {
+	eventKey := contracts.PipelineEvent{SectionID: event.SectionID, Event: event.Event}
+	if len(coordinator.pipeline.EventBindings[eventKey]) == 0 {
+		coordinator.mu.Unlock()
 		return 0, ErrNoBinding
 	}
-	return coordinator.scheduleBindings(projectSnapshot, event, matching)
-}
-
-func matchingBindings(bindings []contracts.Binding, event contracts.RuntimeEvent) []contracts.Binding {
-	matching := make([]contracts.Binding, 0)
-	for _, binding := range bindings {
-		if binding.Trigger.SectionID == event.SectionID && binding.Trigger.Event == event.Event {
-			matching = append(matching, binding)
-		}
-	}
-	return matching
-}
-
-func (coordinator *Coordinator) scheduleBindings(projectSnapshot contracts.Project, event contracts.RuntimeEvent, bindings []contracts.Binding) (int, error) {
-	accepted := 0
-	references := []contracts.ContentReference{}
-	for _, binding := range bindings {
-		owned, scheduled, err := coordinator.scheduleBinding(projectSnapshot, event, binding)
-		references = appendUniqueReferences(references, owned)
-		if err != nil {
-			if errors.Is(err, scheduler.ErrBusy) || errors.Is(err, scheduler.ErrQueueFull) {
-				continue
-			}
-			_ = coordinator.content.DeleteReferences(references)
-			return accepted, err
-		}
-		if scheduled {
-			accepted++
-		}
-	}
-	_ = coordinator.content.DeleteReferences(references)
-	return accepted, nil
+	accepted, consumed, err := coordinator.startPipelineRunLocked(projectSnapshot, event, eventKey)
+	coordinator.mu.Unlock()
+	_ = coordinator.content.DeleteReferences(consumed)
+	return accepted, err
 }
 
 func (coordinator *Coordinator) Cancel(request contracts.RuntimeCancelRequest) error {
@@ -408,188 +416,17 @@ func (coordinator *Coordinator) Cancel(request contracts.RuntimeCancelRequest) e
 	if !exists || status.Identity != request.Identity {
 		return ErrInvocationUnknown
 	}
-	if !coordinator.scheduler.Cancel(request.Identity.InvocationID) {
+	if invocationTerminal(status.State) {
 		return ErrInvocationUnknown
 	}
-	status.State = "cancelled"
-	status.Error = &contracts.StructuredError{Code: "cancelled", Message: "Invocation was cancelled."}
-	coordinator.invocations[request.Identity.InvocationID] = status
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
+	run := coordinator.runs[request.Identity.RunID]
+	if run == nil || run.nodes[request.Identity.BindingID] == nil {
+		return ErrInvocationUnknown
+	}
+	coordinator.invalidateNodeLocked(run, request.Identity.BindingID, "cancelled", "cancelled", "Invocation was cancelled.")
+	coordinator.invalidateDescendantsLocked(run, request.Identity.BindingID, "upstream_cancelled", "An upstream invocation was cancelled.")
+	coordinator.finishRunIfTerminalLocked(run)
 	return nil
-}
-
-func (coordinator *Coordinator) scheduleBinding(projectSnapshot contracts.Project, event contracts.RuntimeEvent, binding contracts.Binding) ([]contracts.ContentReference, bool, error) {
-	coordinator.mu.Lock()
-	identity, arguments, rawReferences, fingerprint, scheduled, err := coordinator.prepareBindingLocked(projectSnapshot, event, binding)
-	coordinator.mu.Unlock()
-	if err != nil {
-		return nil, false, err
-	}
-	if !scheduled {
-		return rawReferences, false, nil
-	}
-	prepared, references, err := coordinator.prepareArguments(arguments, rawReferences, identity.InvocationID)
-	if err != nil {
-		return rawReferences, false, err
-	}
-	coordinator.mu.Lock()
-	if coordinator.closed {
-		coordinator.mu.Unlock()
-		_ = coordinator.content.DeleteReferences(references)
-		return rawReferences, false, ErrClosed
-	}
-	err = coordinator.submitBindingLocked(binding, identity, prepared, references, fingerprint, event.Cause)
-	coordinator.mu.Unlock()
-	if err != nil {
-		_ = coordinator.content.DeleteReferences(references)
-		return rawReferences, false, err
-	}
-	return rawReferences, true, nil
-}
-
-func (coordinator *Coordinator) prepareBindingLocked(projectSnapshot contracts.Project, event contracts.RuntimeEvent, binding contracts.Binding) (contracts.InvocationIdentity, map[string]json.RawMessage, []contracts.ContentReference, string, bool, error) {
-	if event.Cause == "startup" && !supportsAutomaticStartup(binding) {
-		return contracts.InvocationIdentity{}, nil, nil, "", false, nil
-	}
-	arguments, references, err := resolveArguments(projectSnapshot, event.Payload, binding.Arguments)
-	if err != nil {
-		return contracts.InvocationIdentity{}, nil, nil, "", false, err
-	}
-	fingerprint, err := computeFingerprint(coordinator.sourceVersion, binding.Handler, arguments)
-	if err != nil {
-		return contracts.InvocationIdentity{}, nil, references, "", false, err
-	}
-	if event.Cause == "startup" && !coordinator.startupBindingEligibleLocked(binding, fingerprint) {
-		return contracts.InvocationIdentity{}, nil, references, fingerprint, false, nil
-	}
-	coordinator.sequences[binding.ID]++
-	identity, err := coordinator.identityLocked(binding.ID, coordinator.sequences[binding.ID])
-	if err != nil {
-		return contracts.InvocationIdentity{}, nil, references, "", false, err
-	}
-	return identity, arguments, references, fingerprint, true, nil
-}
-
-func (coordinator *Coordinator) submitBindingLocked(binding contracts.Binding, identity contracts.InvocationIdentity, arguments map[string]json.RawMessage, references []contracts.ContentReference, fingerprint string, cause string) error {
-	status := contracts.InvocationStatus{Identity: identity, State: "queued"}
-	coordinator.invocations[identity.InvocationID] = status
-	coordinator.invocationBindings[identity.InvocationID] = binding
-	coordinator.invocationOutputs[identity.InvocationID] = make(map[string]json.RawMessage)
-	coordinator.invocationHashes[identity.InvocationID] = fingerprint
-	coordinator.invocationHolds[identity.InvocationID] = cause == "startup" && coordinator.retainedByBinding[binding.ID]
-	task := scheduler.Task{InvocationID: identity.InvocationID, BindingID: binding.ID, Run: func(ctx context.Context) {
-		coordinator.runInvocation(ctx, binding, identity, arguments, references)
-	}, Drop: func() {
-		_ = coordinator.content.DeleteReferences(references)
-	}}
-	submission, err := coordinator.scheduler.Submit(task)
-	if err != nil {
-		coordinator.rollbackBindingLocked(identity.InvocationID)
-		return err
-	}
-	for _, replacedInvocationID := range submission.ReplacedInvocationIDs {
-		coordinator.supersedeReplacedLocked(replacedInvocationID)
-	}
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-	coordinator.pruneInvocationsLocked(binding.ID)
-	return nil
-}
-
-func (coordinator *Coordinator) supersedeReplacedLocked(invocationID string) {
-	status, exists := coordinator.invocations[invocationID]
-	if !exists || status.State != "queued" {
-		return
-	}
-	status.State = "superseded"
-	coordinator.invocations[invocationID] = status
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-}
-
-func (coordinator *Coordinator) rollbackBindingLocked(invocationID string) {
-	delete(coordinator.invocations, invocationID)
-	delete(coordinator.invocationBindings, invocationID)
-	delete(coordinator.invocationOutputs, invocationID)
-	delete(coordinator.invocationHashes, invocationID)
-	delete(coordinator.invocationHolds, invocationID)
-}
-
-func (coordinator *Coordinator) runInvocation(ctx context.Context, binding contracts.Binding, identity contracts.InvocationIdentity, arguments map[string]json.RawMessage, references []contracts.ContentReference) {
-	defer coordinator.content.DeleteReferences(references)
-	coordinator.mu.Lock()
-	status, exists := coordinator.invocations[identity.InvocationID]
-	if !exists || coordinator.closed {
-		coordinator.mu.Unlock()
-		return
-	}
-	coordinator.active[identity.InvocationID] = struct{}{}
-	status.State = "running"
-	status.Error = nil
-	coordinator.invocations[identity.InvocationID] = status
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-	coordinator.mu.Unlock()
-	result, err := coordinator.worker.Invoke(ctx, contracts.InvokeParams{Identity: identity, Handler: binding.Handler, Arguments: arguments, Content: references})
-	coordinator.mu.Lock()
-	defer coordinator.mu.Unlock()
-	delete(coordinator.active, identity.InvocationID)
-	status, exists = coordinator.invocations[identity.InvocationID]
-	if !exists || coordinator.closed {
-		return
-	}
-	if status.State == "cancelled" {
-		coordinator.pruneInvocationsLocked(binding.ID)
-		return
-	}
-	status, snapshotChanged := coordinator.finishInvocationLocked(binding, identity, status, result, err)
-	coordinator.invocations[identity.InvocationID] = status
-	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
-	if snapshotChanged {
-		coordinator.publishSnapshotLocked()
-	}
-	coordinator.pruneInvocationsLocked(binding.ID)
-}
-
-func (coordinator *Coordinator) finishInvocationLocked(binding contracts.Binding, identity contracts.InvocationIdentity, status contracts.InvocationStatus, result contracts.InvokeResult, err error) (contracts.InvocationStatus, bool) {
-	if err != nil {
-		status.State, status.Error = invocationFailure(err)
-		return status, false
-	}
-	if result.Error != nil {
-		status.State = resultErrorState(result.Error)
-		status.Error = result.Error
-		return status, false
-	}
-	status.State = "completed"
-	return status, coordinator.completeSuccessfulInvocationLocked(binding, identity, result.Outputs)
-}
-
-func (coordinator *Coordinator) completeSuccessfulInvocationLocked(binding contracts.Binding, identity contracts.InvocationIdentity, finalOutputs map[string]json.RawMessage) bool {
-	outputs := cloneRawMap(finalOutputs)
-	published := false
-	if coordinator.invocationHolds[identity.InvocationID] {
-		if len(outputs) > 0 && coordinator.outputApplicableLocked(identity) {
-			coordinator.mergeInvocationOutputsLocked(identity.InvocationID, outputs)
-		}
-		outputs = cloneRawMap(coordinator.invocationOutputs[identity.InvocationID])
-		published = coordinator.applyPublishedOutputsLocked(binding, identity, outputs)
-	} else {
-		published = coordinator.applyPublishedOutputsLocked(binding, identity, outputs)
-		if published {
-			coordinator.mergeInvocationOutputsLocked(identity.InvocationID, outputs)
-		}
-	}
-	if published {
-		update := contracts.BrowserRuntimeUpdate{Identity: identity, Outputs: cloneRawMap(outputs)}
-		coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "update", Update: &update})
-	}
-	if coordinator.publishedByBinding[binding.ID] != identity || len(coordinator.invocationOutputs[identity.InvocationID]) == 0 {
-		return false
-	}
-	coordinator.persistInvocationLocked(binding, identity)
-	if !coordinator.retainedByBinding[binding.ID] {
-		return false
-	}
-	delete(coordinator.retainedByBinding, binding.ID)
-	return true
 }
 
 func invocationFailure(err error) (string, *contracts.StructuredError) {
@@ -625,41 +462,75 @@ func (coordinator *Coordinator) acceptUpdate(update contracts.RuntimeUpdate) {
 	if coordinator.closed || update.Identity.SessionID != coordinator.sessionID {
 		return
 	}
-	binding, exists := coordinator.invocationBindings[update.Identity.InvocationID]
-	if !exists {
-		coordinator.discardArtifactsLocked(update)
-		return
-	}
-	status, accepted := coordinator.updateStatusLocked(update.Identity)
+	target, accepted := coordinator.pipelineUpdateTargetLocked(update)
 	if !accepted {
 		coordinator.discardArtifactsLocked(update)
 		return
 	}
-	if status.State == "running" {
-		status.State = "streaming"
-		coordinator.invocations[update.Identity.InvocationID] = status
-		coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &status})
+	coordinator.applyPipelineUpdateLocked(target, update)
+}
+
+type pipelineUpdateTarget struct {
+	run     *pipelineRun
+	node    *pipelineNode
+	binding contracts.Binding
+	status  contracts.InvocationStatus
+}
+
+func (coordinator *Coordinator) pipelineUpdateTargetLocked(update contracts.RuntimeUpdate) (pipelineUpdateTarget, bool) {
+	run := coordinator.runs[update.Identity.RunID]
+	node := pipelineRunNode(run, update.Identity.BindingID, update.Identity)
+	if node == nil {
+		return pipelineUpdateTarget{}, false
 	}
-	outputs := map[string]json.RawMessage{}
-	if coordinator.outputApplicableLocked(update.Identity) {
-		outputs = cloneRawMap(update.Outputs)
-		coordinator.adoptArtifactsLocked(update, outputs)
-		if len(outputs) > 0 {
-			coordinator.mergeInvocationOutputsLocked(update.Identity.InvocationID, outputs)
-			if coordinator.invocationHolds[update.Identity.InvocationID] {
-				outputs = map[string]json.RawMessage{}
-			} else {
-				coordinator.applyPublishedOutputsLocked(binding, update.Identity, outputs)
-			}
-		}
-	} else {
-		coordinator.discardArtifactsLocked(update)
+	if update.UpdateSequence == 0 || update.UpdateSequence != node.updateSequence+1 {
+		coordinator.rejectPipelineUpdateLocked(run, update.Identity.BindingID)
+		return pipelineUpdateTarget{}, false
 	}
-	update.Outputs = outputs
+	binding, exists := coordinator.invocationBindings[update.Identity.InvocationID]
+	if !exists {
+		return pipelineUpdateTarget{}, false
+	}
+	status, accepted := coordinator.updateStatusLocked(update.Identity)
+	return pipelineUpdateTarget{run: run, node: node, binding: binding, status: status}, accepted
+}
+
+func (coordinator *Coordinator) rejectPipelineUpdateLocked(run *pipelineRun, bindingID string) {
+	coordinator.invalidateNodeLocked(run, bindingID, "failed", "worker_protocol", "Worker update sequence was not contiguous.")
+	coordinator.invalidateDescendantsLocked(run, bindingID, "upstream_failed", "An upstream invocation failed.")
+	coordinator.finishRunIfTerminalLocked(run)
+}
+
+func (coordinator *Coordinator) applyPipelineUpdateLocked(target pipelineUpdateTarget, update contracts.RuntimeUpdate) {
+	if target.status.State == "running" {
+		target.status.State = "streaming"
+		coordinator.invocations[update.Identity.InvocationID] = target.status
+		coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "invocation", Invocation: &target.status})
+	}
+	outputs := cloneRawMap(update.Outputs)
+	coordinator.adoptArtifactsLocked(update, outputs)
+	if len(outputs) > 0 {
+		coordinator.mergeInvocationOutputsLocked(update.Identity.InvocationID, outputs)
+		coordinator.retainOutputReferencesLocked(target.run, outputs)
+	}
+	published := coordinator.publishStreamOutputsLocked(target.binding, update.Identity, outputs)
+	target.node.updateSequence = update.UpdateSequence
+	coordinator.signalNodeLocked(target.node)
+	browserOutputs := map[string]json.RawMessage{}
+	if published {
+		browserOutputs = cloneRawMap(outputs)
+	}
 	browserUpdate := contracts.BrowserRuntimeUpdate{
-		Identity: update.Identity, Progress: update.Progress, Message: update.Message, Outputs: update.Outputs,
+		Identity: update.Identity, UpdateSequence: update.UpdateSequence, Progress: update.Progress, Message: update.Message, Outputs: browserOutputs,
 	}
 	coordinator.publishLocked(contracts.RuntimeEnvelope{Type: "update", Update: &browserUpdate})
+}
+
+func (coordinator *Coordinator) publishStreamOutputsLocked(binding contracts.Binding, identity contracts.InvocationIdentity, outputs map[string]json.RawMessage) bool {
+	if coordinator.invocationHolds[identity.InvocationID] {
+		return false
+	}
+	return coordinator.applyPublishedOutputsLocked(binding, identity, outputs)
 }
 
 func (coordinator *Coordinator) updateStatusLocked(identity contracts.InvocationIdentity) (contracts.InvocationStatus, bool) {
@@ -709,7 +580,7 @@ func (coordinator *Coordinator) discardArtifactsLocked(update contracts.RuntimeU
 }
 
 func updateAcceptingState(state string) bool {
-	return state == "running" || state == "streaming" || state == "completed"
+	return state == "running" || state == "streaming"
 }
 
 func (coordinator *Coordinator) outputApplicableLocked(identity contracts.InvocationIdentity) bool {
@@ -746,13 +617,88 @@ func (coordinator *Coordinator) consumeLogs() {
 }
 
 func (coordinator *Coordinator) applyOutputsLocked(binding contracts.Binding, outputs map[string]json.RawMessage) {
+	displaced := []contracts.ContentReference{}
 	for name, value := range outputs {
-		target, exists := binding.Outputs[name]
-		if !exists {
+		output, exists := binding.Outputs[name]
+		if !exists || output.Target == nil {
 			continue
 		}
-		coordinator.values[target.SectionID+"."+target.Field] = append(json.RawMessage(nil), value...)
+		key := output.Target.SectionID + "." + output.Target.Field
+		if previous, exists := coordinator.values[key]; exists {
+			references, err := contentReferencesInRawMap(map[string]json.RawMessage{key: previous})
+			if err == nil {
+				displaced = appendUniqueReferences(displaced, references)
+			}
+		}
+		coordinator.values[key] = append(json.RawMessage(nil), value...)
 	}
+	protected := coordinator.protectedReferencesLocked()
+	cleanup := []contracts.ContentReference{}
+	for _, reference := range displaced {
+		if !protected[reference.ID] {
+			cleanup = append(cleanup, reference)
+		}
+	}
+	_ = coordinator.content.DeleteReferences(cleanup)
+}
+
+func (coordinator *Coordinator) reconcileBindingStateLocked(previous map[string]contracts.Binding, current map[string]contracts.Binding) []contracts.ContentReference {
+	discarded := []contracts.ContentReference{}
+	for bindingID, previousBinding := range previous {
+		currentBinding, exists := current[bindingID]
+		if exists && reflect.DeepEqual(previousBinding, currentBinding) {
+			continue
+		}
+		delete(coordinator.publishedByBinding, bindingID)
+		for _, target := range bindingOutputTargets(previousBinding) {
+			if coordinator.targetOwnedByOtherBindingLocked(target, bindingID, current) {
+				continue
+			}
+			discarded = appendUniqueReferences(discarded, coordinator.removeRuntimeValueLocked(target))
+		}
+	}
+	return discarded
+}
+
+func bindingOutputTargets(binding contracts.Binding) map[string]string {
+	targets := make(map[string]string)
+	for outputName, output := range binding.Outputs {
+		if output.Target != nil {
+			targets[outputName] = output.Target.SectionID + "." + output.Target.Field
+		}
+	}
+	return targets
+}
+
+func (coordinator *Coordinator) targetOwnedByOtherBindingLocked(target string, excludedBindingID string, bindings map[string]contracts.Binding) bool {
+	for bindingID, binding := range bindings {
+		if bindingID == excludedBindingID {
+			continue
+		}
+		_, published := coordinator.publishedByBinding[bindingID]
+		if !published && !coordinator.retainedByBinding[bindingID] {
+			continue
+		}
+		for _, candidate := range bindingOutputTargets(binding) {
+			if candidate == target {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (coordinator *Coordinator) removeRuntimeValueLocked(target string) []contracts.ContentReference {
+	value, exists := coordinator.values[target]
+	if !exists {
+		return nil
+	}
+	delete(coordinator.values, target)
+	references, err := contentReferencesInRawMap(map[string]json.RawMessage{target: value})
+	if err != nil {
+		return nil
+	}
+	return references
 }
 
 func (coordinator *Coordinator) Snapshot() (contracts.RuntimeSnapshot, error) {
@@ -800,8 +746,9 @@ func (coordinator *Coordinator) Close() error {
 		coordinator.mu.Unlock()
 		return nil
 	}
-	coordinator.closed = true
 	scheduled := coordinator.scheduler
+	coordinator.invalidateAllRunsLocked(scheduled, "runtime_closed", "The runtime was closed.")
+	coordinator.closed = true
 	for channel := range coordinator.subscribers {
 		close(channel)
 	}
@@ -814,12 +761,12 @@ func (coordinator *Coordinator) Close() error {
 	return workerErr
 }
 
-func (coordinator *Coordinator) identityLocked(bindingID string, sequence uint64) (contracts.InvocationIdentity, error) {
+func (coordinator *Coordinator) identityLocked(runID string, bindingID string, sequence uint64) (contracts.InvocationIdentity, error) {
 	invocationID, err := randomID("invocation")
 	if err != nil {
 		return contracts.InvocationIdentity{}, err
 	}
-	return contracts.InvocationIdentity{SessionID: coordinator.sessionID, BindingID: bindingID, InvocationID: invocationID, Sequence: sequence}, nil
+	return contracts.InvocationIdentity{SessionID: coordinator.sessionID, RunID: runID, BindingID: bindingID, InvocationID: invocationID, Sequence: sequence}, nil
 }
 
 func (coordinator *Coordinator) snapshotLocked() contracts.RuntimeSnapshot {
@@ -837,41 +784,65 @@ func (coordinator *Coordinator) snapshotLocked() contracts.RuntimeSnapshot {
 		retainedByBinding[bindingID] = retained
 	}
 	return contracts.RuntimeSnapshot{
-		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Values: values,
+		SessionID: coordinator.sessionID, WorkerState: coordinator.workerState, Handlers: append([]string(nil), coordinator.handlers...), Values: values,
 		Invocations: invocations, PublishedByBinding: publishedByBinding, RetainedByBinding: retainedByBinding,
 	}
 }
 
+type invocationCandidate struct {
+	id       string
+	sequence uint64
+}
+
 func (coordinator *Coordinator) pruneInvocationsLocked(bindingID string) {
-	type candidate struct {
-		id       string
-		sequence uint64
-	}
-	candidates := make([]candidate, 0)
-	for invocationID, status := range coordinator.invocations {
-		if status.Identity.BindingID != bindingID || status.State == "queued" || status.State == "running" || status.State == "streaming" {
-			continue
-		}
-		if _, active := coordinator.active[invocationID]; active {
-			continue
-		}
-		candidates = append(candidates, candidate{id: invocationID, sequence: status.Identity.Sequence})
-	}
-	keep := 4
-	if binding, exists := coordinator.bindings[bindingID]; exists {
-		keep += binding.Scheduling.ConcurrencyLimit
-	}
+	candidates := coordinator.prunableInvocationsLocked(bindingID)
+	keep := coordinator.invocationHistoryLimitLocked(bindingID)
 	if len(candidates) <= keep {
 		return
 	}
 	sort.Slice(candidates, func(left int, right int) bool { return candidates[left].sequence > candidates[right].sequence })
 	for _, expired := range candidates[keep:] {
-		delete(coordinator.invocations, expired.id)
-		delete(coordinator.invocationBindings, expired.id)
-		delete(coordinator.invocationOutputs, expired.id)
-		delete(coordinator.invocationHashes, expired.id)
-		delete(coordinator.invocationHolds, expired.id)
+		coordinator.deleteInvocationLocked(expired.id)
 	}
+}
+
+func (coordinator *Coordinator) prunableInvocationsLocked(bindingID string) []invocationCandidate {
+	candidates := make([]invocationCandidate, 0)
+	for invocationID, status := range coordinator.invocations {
+		if !coordinator.invocationPrunableLocked(bindingID, invocationID, status) {
+			continue
+		}
+		candidates = append(candidates, invocationCandidate{id: invocationID, sequence: status.Identity.Sequence})
+	}
+	return candidates
+}
+
+func (coordinator *Coordinator) invocationPrunableLocked(bindingID string, invocationID string, status contracts.InvocationStatus) bool {
+	if status.Identity.BindingID != bindingID || !invocationTerminal(status.State) {
+		return false
+	}
+	if _, inRun := coordinator.invocationRuns[invocationID]; inRun {
+		return false
+	}
+	_, active := coordinator.active[invocationID]
+	return !active
+}
+
+func (coordinator *Coordinator) invocationHistoryLimitLocked(bindingID string) int {
+	keep := 4
+	if binding, exists := coordinator.bindings[bindingID]; exists {
+		keep += binding.Scheduling.ConcurrencyLimit
+	}
+	return keep
+}
+
+func (coordinator *Coordinator) deleteInvocationLocked(invocationID string) {
+	delete(coordinator.invocations, invocationID)
+	delete(coordinator.invocationBindings, invocationID)
+	delete(coordinator.invocationOutputs, invocationID)
+	delete(coordinator.invocationHashes, invocationID)
+	delete(coordinator.invocationHolds, invocationID)
+	delete(coordinator.invocationRuns, invocationID)
 }
 
 func (coordinator *Coordinator) publishSnapshotLocked() {
@@ -1112,10 +1083,14 @@ func traverse(value any, path []string) (any, error) {
 	return current, nil
 }
 
-func configuredScheduler(project contracts.Project) (*scheduler.Scheduler, map[string]contracts.Binding, error) {
-	configurations := make(map[string]scheduler.Config, len(project.Bindings))
-	bindings := make(map[string]contracts.Binding, len(project.Bindings))
-	for _, binding := range project.Bindings {
+func configuredScheduler(project contracts.Project) (*scheduler.Scheduler, map[string]contracts.Binding, contracts.CompiledPipeline, error) {
+	compiled, err := contracts.CompilePipeline(project)
+	if err != nil {
+		return nil, nil, contracts.CompiledPipeline{}, err
+	}
+	configurations := make(map[string]scheduler.Config, len(compiled.Bindings))
+	bindings := make(map[string]contracts.Binding, len(compiled.Bindings))
+	for _, binding := range compiled.Bindings {
 		configurations[binding.ID] = scheduler.Config{
 			Mode: binding.Scheduling.Mode, DebounceMilliseconds: binding.Scheduling.DebounceMilliseconds,
 			ConcurrencyGroup: binding.Scheduling.ConcurrencyGroup, ConcurrencyLimit: binding.Scheduling.ConcurrencyLimit,
@@ -1123,7 +1098,7 @@ func configuredScheduler(project contracts.Project) (*scheduler.Scheduler, map[s
 		bindings[binding.ID] = binding
 	}
 	configured, err := scheduler.New(configurations)
-	return configured, bindings, err
+	return configured, bindings, compiled, err
 }
 
 func looksLikeContentReference(value map[string]any) bool {

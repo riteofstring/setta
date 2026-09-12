@@ -98,31 +98,84 @@ func normalizeFingerprintValue(value any) (any, error) {
 	}
 }
 
-func (coordinator *Coordinator) startupBindingEligibleLocked(binding contracts.Binding, fingerprint string) bool {
-	policy := binding.Materialization
-	if policy == nil {
-		return false
+func (coordinator *Coordinator) startupBindingSignatureLocked(binding contracts.Binding) string {
+	lineage := make([]contracts.Binding, 0)
+	for _, bindingID := range coordinator.pipeline.TopologicalOrder {
+		if pipelineBindingInfluences(coordinator.pipeline, bindingID, binding.ID) {
+			lineage = append(lineage, coordinator.pipeline.Bindings[bindingID])
+		}
 	}
-	signatureBytes, err := json.Marshal(binding)
+	if len(lineage) == 0 {
+		lineage = append(lineage, binding)
+	}
+	signatureBytes, err := json.Marshal(lineage)
 	if err != nil {
-		return false
+		return ""
 	}
 	signatureDigest := sha256.Sum256(signatureBytes)
-	signature := hex.EncodeToString(signatureDigest[:])
-	if coordinator.startupAttempts[binding.ID] == signature {
-		return false
+	return hex.EncodeToString(signatureDigest[:])
+}
+
+func pipelineBindingInfluences(pipeline contracts.CompiledPipeline, candidateID string, targetID string) bool {
+	if candidateID == targetID {
+		return true
+	}
+	for _, descendantID := range pipeline.DescendantsByBinding[candidateID] {
+		if descendantID == targetID {
+			return true
+		}
+	}
+	return false
+}
+
+func (coordinator *Coordinator) startupAttemptedLocked(binding contracts.Binding) bool {
+	signature := coordinator.startupBindingSignatureLocked(binding)
+	return signature != "" && coordinator.startupAttempts[binding.ID] == signature
+}
+
+func (coordinator *Coordinator) startupActionLocked(binding contracts.Binding, fingerprint string, target bool) startupAction {
+	savedFingerprint, retained := coordinator.materializedHashes[binding.ID]
+	if !target {
+		return startupDependencyAction(savedFingerprint, fingerprint, retained)
+	}
+	policy := binding.Materialization
+	if policy == nil || coordinator.startupAttemptedLocked(binding) {
+		return startupSkip
+	}
+	signature := coordinator.startupBindingSignatureLocked(binding)
+	if signature == "" {
+		return startupSkip
 	}
 	coordinator.startupAttempts[binding.ID] = signature
-	savedFingerprint, exists := coordinator.materializedHashes[binding.ID]
+	return startupTargetAction(*policy, savedFingerprint, fingerprint, retained)
+}
+
+func startupDependencyAction(savedFingerprint string, fingerprint string, retained bool) startupAction {
+	if retained && savedFingerprint == fingerprint {
+		return startupAdopt
+	}
+	return startupRun
+}
+
+func startupTargetAction(policy contracts.MaterializationPolicy, savedFingerprint string, fingerprint string, retained bool) startupAction {
 	switch policy.Startup {
 	case "always":
-		return true
+		return startupRun
 	case "whenStale":
-		return !exists || savedFingerprint != fingerprint
+		if retained && savedFingerprint == fingerprint {
+			return startupAdopt
+		}
+		return startupRun
 	case "ifMissing":
-		return !exists
+		if !retained {
+			return startupRun
+		}
+		if savedFingerprint == fingerprint {
+			return startupAdopt
+		}
+		return startupSkip
 	default:
-		return false
+		return startupSkip
 	}
 }
 
@@ -138,12 +191,18 @@ func (coordinator *Coordinator) resetRuntimeLocked(projectSnapshot contracts.Pro
 	previousOutputs := coordinator.materializedOutput
 	previousReferences := coordinator.materializedRefs
 	previousFingerprints := coordinator.materializedHashes
+	runtimeReferences := coordinator.runtimeReferencesLocked()
+	if valueReferences, err := contentReferencesInRawMap(coordinator.values); err == nil {
+		runtimeReferences = appendUniqueReferences(runtimeReferences, valueReferences)
+	}
 	coordinator.values = make(map[string]json.RawMessage)
 	coordinator.invocations = make(map[string]contracts.InvocationStatus)
 	coordinator.invocationBindings = make(map[string]contracts.Binding)
 	coordinator.invocationOutputs = make(map[string]map[string]json.RawMessage)
 	coordinator.invocationHashes = make(map[string]string)
 	coordinator.invocationHolds = make(map[string]bool)
+	coordinator.runs = make(map[string]*pipelineRun)
+	coordinator.invocationRuns = make(map[string]string)
 	coordinator.sequences = make(map[string]uint64)
 	coordinator.publishedByBinding = make(map[string]contracts.InvocationIdentity)
 	coordinator.retainedByBinding = make(map[string]bool)
@@ -173,7 +232,7 @@ func (coordinator *Coordinator) resetRuntimeLocked(projectSnapshot contracts.Pro
 			carriedReferences[reference.ID] = struct{}{}
 		}
 	}
-	discarded := []contracts.ContentReference{}
+	discarded := append([]contracts.ContentReference(nil), runtimeReferences...)
 	for _, references := range previousReferences {
 		for _, reference := range references {
 			if _, carried := carriedReferences[reference.ID]; !carried {
@@ -181,7 +240,15 @@ func (coordinator *Coordinator) resetRuntimeLocked(projectSnapshot contracts.Pro
 			}
 		}
 	}
-	return discarded
+	return referenceDifference(discarded, retainedReferences(coordinator.materializedRefs))
+}
+
+func retainedReferences(current map[string][]contracts.ContentReference) []contracts.ContentReference {
+	retained := []contracts.ContentReference{}
+	for _, references := range current {
+		retained = appendUniqueReferences(retained, references)
+	}
+	return retained
 }
 
 func (coordinator *Coordinator) dropUnretainedMaterializationsLocked(bindings map[string]contracts.Binding) []contracts.ContentReference {
@@ -294,10 +361,7 @@ func (coordinator *Coordinator) persistInvocationLocked(binding contracts.Bindin
 	if !hasDurableMaterialization(binding) {
 		return
 	}
-	outputs := cloneRawMap(coordinator.materializedOutput[binding.ID])
-	for name, value := range coordinator.invocationOutputs[identity.InvocationID] {
-		outputs[name] = append(json.RawMessage(nil), value...)
-	}
+	outputs := cloneRawMap(coordinator.invocationOutputs[identity.InvocationID])
 	fingerprint := coordinator.invocationHashes[identity.InvocationID]
 	if err := coordinator.materializations.Replace(binding.ID, fingerprint, outputs, coordinator.content); err != nil {
 		coordinator.publishMaterializationErrorLocked(err)
