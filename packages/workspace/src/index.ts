@@ -138,6 +138,7 @@ export type {
   WorkspaceGraphPortSide,
   WorkspaceGraphPortType,
   WorkspaceGraphReconnect,
+  WorkspaceGraphReconnectValidator,
 } from "./graph/types";
 export { registerWorkspaceCommands } from "./commands/workspaceCommandRegistry";
 export type {

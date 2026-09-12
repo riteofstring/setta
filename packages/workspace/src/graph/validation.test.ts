@@ -4,6 +4,7 @@ import type {
   WorkspaceGraphConfiguration,
   WorkspaceGraphConnection,
   WorkspaceGraphPort,
+  WorkspaceGraphReconnect,
 } from "./types";
 import {
   createWorkspaceGraphConnection,
@@ -264,6 +265,42 @@ describe("Workspace graph validation", () => {
     expect(callbackConnection).toEqual(connection);
     expect(callbackConnection).not.toBe(evaluation.connection);
     expect(Object.isFrozen(callbackConnection)).toBe(true);
+  });
+
+  it("uses replacement-aware policy for reconnect candidates", () => {
+    const canConnect = vi.fn(() => false);
+    const canReconnect = vi.fn((_reconnect: WorkspaceGraphReconnect) => true);
+    const snapshot = validateWorkspaceGraphConfiguration(
+      createConfiguration({ canConnect, canReconnect }),
+      sections,
+    );
+    if (!snapshot) {
+      throw new Error("Workspace graph snapshot was not created.");
+    }
+
+    expect(
+      evaluateWorkspaceGraphConnection(
+        snapshot,
+        "source-output",
+        "target-input",
+        "data-edge",
+      ).valid,
+    ).toBe(true);
+    expect(canConnect).not.toHaveBeenCalled();
+    expect(canReconnect).toHaveBeenCalledWith({
+      connection: {
+        family: "data",
+        source: { portId: "source-output", sectionId: "source" },
+        target: { portId: "target-input", sectionId: "target" },
+      },
+      edgeId: "data-edge",
+    });
+    const callbackReconnect = canReconnect.mock.calls[0]?.[0];
+    if (callbackReconnect === undefined) {
+      throw new Error("Workspace graph reconnect policy was not called.");
+    }
+    expect(Object.isFrozen(callbackReconnect)).toBe(true);
+    expect(Object.isFrozen(callbackReconnect.connection)).toBe(true);
   });
 
   it("uses a synchronous host policy for self-connections", () => {

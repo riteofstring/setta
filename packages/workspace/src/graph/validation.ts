@@ -17,6 +17,7 @@ import {
 
 type WorkspaceGraphSnapshot = Readonly<{
   canConnect: WorkspaceGraphConfiguration["canConnect"];
+  canReconnect: WorkspaceGraphConfiguration["canReconnect"];
   edges: ReadonlyArray<WorkspaceGraphEdge>;
   edgesById: ReadonlyMap<string, WorkspaceGraphEdge>;
   onConnect: WorkspaceGraphConfiguration["onConnect"];
@@ -231,6 +232,10 @@ function assertWorkspaceGraphConfigurationShape(
       "Workspace graph configuration canConnect must be a synchronous function.",
     );
   }
+  assertOptionalFunction(
+    configuration.canReconnect,
+    "Workspace graph canReconnect",
+  );
   assertOptionalFunction(configuration.onConnect, "Workspace graph onConnect");
   assertOptionalFunction(
     configuration.onReconnect,
@@ -384,6 +389,7 @@ export function validateWorkspaceGraphConfiguration(
 
   return Object.freeze({
     canConnect: configuration.canConnect,
+    canReconnect: configuration.canReconnect,
     edges: Object.freeze(edges),
     edgesById,
     onConnect: configuration.onConnect,
@@ -401,6 +407,7 @@ export function evaluateWorkspaceGraphConnection(
   snapshot: WorkspaceGraphSnapshot,
   firstPortId: string,
   secondPortId: string,
+  replacingEdgeId?: string,
 ): WorkspaceGraphConnectionEvaluation {
   const first = snapshot.portsById.get(firstPortId);
   const second = snapshot.portsById.get(secondPortId);
@@ -411,9 +418,24 @@ export function evaluateWorkspaceGraphConnection(
   if (!connection) {
     return Object.freeze({ connection: null, valid: false });
   }
-  const valid = snapshot.canConnect(detachWorkspaceGraphConnection(connection));
+  const detachedConnection = detachWorkspaceGraphConnection(connection);
+  const valid =
+    replacingEdgeId !== undefined && snapshot.canReconnect !== undefined
+      ? snapshot.canReconnect(
+          Object.freeze({
+            connection: detachedConnection,
+            edgeId: replacingEdgeId,
+          }),
+        )
+      : snapshot.canConnect(detachedConnection);
   if (typeof valid !== "boolean") {
-    throw new Error("Workspace graph canConnect must return a boolean.");
+    throw new Error(
+      `Workspace graph ${
+        replacingEdgeId !== undefined && snapshot.canReconnect !== undefined
+          ? "canReconnect"
+          : "canConnect"
+      } must return a boolean.`,
+    );
   }
   return Object.freeze({ connection, valid });
 }

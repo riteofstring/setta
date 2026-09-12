@@ -657,11 +657,17 @@ describe("WorkspaceGraphLayer", () => {
 
   it("proposes reconnects through a detached Workspace-native connection", async () => {
     const onReconnect = vi.fn();
+    const canConnect = vi.fn(() => false);
+    const canReconnect = vi.fn(() => true);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={workspace}>
           <GraphLayerHarness
-            configuration={createConfiguration({ onReconnect })}
+            configuration={createConfiguration({
+              canConnect,
+              canReconnect,
+              onReconnect,
+            })}
           />
         </WorkspaceTestProvider>,
       );
@@ -683,6 +689,15 @@ describe("WorkspaceGraphLayer", () => {
     await dispatchPointer(replacement, "pointerup");
 
     expect(onReconnect).toHaveBeenCalledWith({
+      connection: {
+        family: "data",
+        source: { portId: "replacement-source", sectionId: "nested" },
+        target: { portId: "data-target", sectionId: "target" },
+      },
+      edgeId: "data-edge",
+    });
+    expect(canConnect).not.toHaveBeenCalled();
+    expect(canReconnect).toHaveBeenCalledWith({
       connection: {
         family: "data",
         source: { portId: "replacement-source", sectionId: "nested" },

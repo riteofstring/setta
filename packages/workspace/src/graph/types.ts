@@ -67,8 +67,13 @@ export type WorkspaceGraphConnectionValidator = (
   connection: WorkspaceGraphConnection,
 ) => boolean;
 
+export type WorkspaceGraphReconnectValidator = (
+  reconnect: WorkspaceGraphReconnect,
+) => boolean;
+
 export type WorkspaceGraphConfiguration = Readonly<{
   canConnect: WorkspaceGraphConnectionValidator;
+  canReconnect?: WorkspaceGraphReconnectValidator;
   edges: ReadonlyArray<WorkspaceGraphEdge>;
   onConnect?: (connection: WorkspaceGraphConnection) => void;
   onDelete?: (edgeIds: ReadonlyArray<string>) => void;

@@ -101,6 +101,7 @@ function completeWorkspaceGraphGesture(
     snapshot,
     firstPortId,
     portId,
+    gesture.kind === "reconnect" ? gesture.edgeId : undefined,
   );
   if (!result.connection || !result.valid) {
     return;

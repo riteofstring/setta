@@ -34,6 +34,7 @@ function getWorkspaceGraphPortConnectionState(
     graph.snapshot,
     firstPortId,
     port.id,
+    graph.gesture.kind === "reconnect" ? graph.gesture.edgeId : undefined,
   );
   return result.valid ? "valid" : "invalid";
 }
