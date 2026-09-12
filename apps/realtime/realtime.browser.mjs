@@ -1551,6 +1551,7 @@ async function exerciseBrowser(client, origin) {
     `(() => {
       const stage = document.querySelector(".realtime-drawing-stage");
       const canvas = stage?.querySelector(".canvas-container");
+      const drawing = stage?.closest(".realtime-drawing");
       const section = document.querySelector('[data-workspace-section-shell="true"][data-section-id="drawing"]');
       return document.querySelector(".realtime-connection-connected") !== null &&
         document.querySelector(".realtime-app-chrome") === null &&
@@ -1559,8 +1560,10 @@ async function exerciseBrowser(client, origin) {
         section?.querySelector('[data-setta-workspace-section-title-display="true"]') !== null &&
         stage instanceof HTMLElement &&
         canvas instanceof HTMLElement &&
+        drawing instanceof HTMLElement &&
         getComputedStyle(stage).padding === "0px" &&
         getComputedStyle(stage).backgroundColor !== "rgb(255, 255, 255)" &&
+        getComputedStyle(stage).backgroundColor === getComputedStyle(drawing).backgroundColor &&
         getComputedStyle(canvas).borderWidth === "0px" &&
         getComputedStyle(canvas).boxShadow !== "none";
     })()`,
