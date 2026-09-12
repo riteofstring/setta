@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -154,12 +155,19 @@ func (coordinator *Coordinator) Apply(request contracts.ApplyRequest) (contracts
 		replacement.Close()
 		return contracts.Project{}, ErrClosed
 	}
+	reuseScheduler := reflect.DeepEqual(coordinator.bindings, bindings)
 	previous := coordinator.scheduler
-	coordinator.scheduler = replacement
+	if !reuseScheduler {
+		coordinator.scheduler = replacement
+	}
 	coordinator.bindings = bindings
 	discarded := coordinator.dropUnretainedMaterializationsLocked(bindings)
 	coordinator.mu.Unlock()
-	previous.Close()
+	if reuseScheduler {
+		replacement.Close()
+	} else {
+		previous.Close()
+	}
 	_ = coordinator.content.DeleteReferences(discarded)
 	coordinator.reconcileMaterializations(candidate)
 	return candidate, nil

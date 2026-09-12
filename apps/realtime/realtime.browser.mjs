@@ -630,7 +630,9 @@ async function clickSectionButton(client, sectionId, label) {
         ${JSON.stringify(`[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`)},
       );
       const button = Array.from(section?.querySelectorAll("button") ?? []).find(
-        (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)},
+        (candidate) =>
+          candidate.getAttribute("aria-label") === ${JSON.stringify(label)} ||
+          candidate.textContent?.trim() === ${JSON.stringify(label)},
       );
       if (!(button instanceof HTMLButtonElement) || button.disabled) {
         return false;
@@ -2079,6 +2081,12 @@ async function exerciseBrowser(client, origin) {
       (button) => button.textContent?.trim() === "Reload runtime" && !button.disabled,
     )`,
   );
+  await clickButton(client, "Reload runtime");
+  await waitFor(
+    client,
+    "the initially ready Python worker",
+    `document.querySelector('[data-worker-state="ready"]') !== null`,
+  );
   await waitForDrawingResult(client, origin);
   const initializedDrawing = await visibleDrawingResult(client);
   assert.ok(
@@ -2264,11 +2272,9 @@ async function exerciseBrowser(client, origin) {
   await waitFor(
     client,
     "the cooperative cancellation action",
-    `Array.from(document.querySelectorAll("button")).some(
-      (button) => button.textContent?.trim() === "Cancel" && !button.disabled,
-    )`,
+    `document.querySelector('[data-workspace-section-shell="true"][data-section-id="slow-status"] .realtime-status-cancel:not(:disabled)') !== null`,
   );
-  await clickButton(client, "Cancel");
+  await clickSectionButton(client, "slow-status", "Cancel");
   await waitFor(
     client,
     "the visible cancelled outcome",

@@ -143,6 +143,37 @@ func TestStartupEventRunsAtMostOncePerBindingConfiguration(t *testing.T) {
 	}
 }
 
+func TestUnrelatedProjectEditKeepsStartupInvocationRunning(t *testing.T) {
+	runtime := openMaterializedRuntime(t, t.TempDir(), true, "always")
+	t.Cleanup(func() { closeMaterializedRuntime(t, runtime) })
+	if _, err := runtime.coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	snapshot, _ := runtime.coordinator.Snapshot()
+	accepted, err := runtime.coordinator.HandleEvent(runtimeTestEvent(snapshot.SessionID, "startup", `{"contentRef":"same"}`))
+	if err != nil || accepted != 1 {
+		t.Fatalf("HandleEvent() = %d, %v", accepted, err)
+	}
+	invocation := receiveInvocation(t, runtime.worker.started)
+	projectSnapshot, err := runtime.projects.Snapshot()
+	if err != nil {
+		t.Fatalf("project.Snapshot() error = %v", err)
+	}
+	if _, err := runtime.coordinator.Apply(contracts.ApplyRequest{
+		ProjectID:        projectSnapshot.ID,
+		ExpectedRevision: projectSnapshot.Revision,
+		Operations:       []json.RawMessage{json.RawMessage(`{"op":"setName","name":"Edited while initializing"}`)},
+	}); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	runtime.worker.reply(invocation.Identity.InvocationID, `"saved"`)
+	waitForRuntimeValue(t, runtime.coordinator, `"saved"`)
+	completed, _ := runtime.coordinator.Snapshot()
+	if completed.Invocations[invocation.Identity.InvocationID].State != "completed" {
+		t.Fatalf("invocation = %#v", completed.Invocations[invocation.Identity.InvocationID])
+	}
+}
+
 func TestStartupEventIgnoresBindingsWithoutAutomaticStartup(t *testing.T) {
 	runtime := openMaterializedRuntime(t, t.TempDir(), true, "always")
 	t.Cleanup(func() { closeMaterializedRuntime(t, runtime) })
