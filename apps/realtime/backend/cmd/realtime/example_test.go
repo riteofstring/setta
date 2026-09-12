@@ -25,6 +25,7 @@ func TestNeonSketchExampleProcessesDrawing(t *testing.T) {
 	emitExampleDrawing(t, application, reference)
 	assertNeonExampleResult(t, application)
 	assertPillowExampleResult(t, application)
+	assertCombinedExampleResult(t, application)
 }
 
 func openNeonSketchExample(t *testing.T) *localApplication {
@@ -39,7 +40,7 @@ func openNeonSketchExample(t *testing.T) *localApplication {
 	if err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
-	if initialized.LoadError != nil || len(initialized.Handlers) != 2 || initialized.Handlers[0] != "neon_glitch" || initialized.Handlers[1] != "pillow_risograph" {
+	if initialized.LoadError != nil || len(initialized.Handlers) != 3 || initialized.Handlers[0] != "combine" || initialized.Handlers[1] != "neon_glitch" || initialized.Handlers[2] != "pillow_risograph" {
 		t.Fatalf("Reload() = %#v", initialized)
 	}
 	return application
@@ -116,6 +117,24 @@ func assertPillowExampleResult(t *testing.T, application *localApplication) {
 	stroke := color.NRGBAModel.Convert(processed.At(32, 20)).(color.NRGBA)
 	if pillow.MediaType != "image/png" || processed.Bounds() != image.Rect(0, 0, 64, 40) || background != (color.NRGBA{R: 0xff, G: 0xf7, B: 0xed, A: 0xff}) || stroke != (color.NRGBA{R: 0x17, G: 0x25, B: 0x54, A: 0xff}) {
 		t.Fatalf("Pillow artifact bounds = %v, background = %#v, stroke = %#v, reference = %#v", processed.Bounds(), background, stroke, pillow)
+	}
+}
+
+func assertCombinedExampleResult(t *testing.T, application *localApplication) {
+	t.Helper()
+	combined := waitForExampleResult(t, application, "final-result.contentRef")
+	reader, err := application.content.Open(combined)
+	if err != nil {
+		t.Fatalf("content.Open(combined) error = %v", err)
+	}
+	defer reader.Close()
+	artifact, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("io.ReadAll(combined) error = %v", err)
+	}
+	text := string(artifact)
+	if combined.MediaType != "image/svg+xml" || !strings.Contains(text, "Neon + Risograph") || !strings.Contains(text, "data:image/svg+xml;base64,") || !strings.Contains(text, "data:image/png;base64,") {
+		t.Fatalf("combined artifact = %q, reference = %#v", artifact, combined)
 	}
 }
 

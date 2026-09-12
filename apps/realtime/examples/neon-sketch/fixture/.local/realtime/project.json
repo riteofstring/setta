@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "project-neon-sketch",
   "revision": 0,
   "name": "Neon Sketch",
@@ -62,6 +62,70 @@
         "value": null
       }
     },
+    "stylize-handler": {
+      "id": "stylize-handler",
+      "kind": "handler",
+      "name": "Neon glitch",
+      "width": 300,
+      "height": 190,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "bindingId": "stylize-drawing"
+      }
+    },
+    "risograph-handler": {
+      "id": "risograph-handler",
+      "kind": "handler",
+      "name": "Pillow risograph",
+      "width": 300,
+      "height": 190,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "bindingId": "render-risograph"
+      }
+    },
+    "combine-handler": {
+      "id": "combine-handler",
+      "kind": "handler",
+      "name": "Combine results",
+      "width": 300,
+      "height": 190,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "bindingId": "combine-results"
+      }
+    },
+    "final-result": {
+      "id": "final-result",
+      "kind": "output",
+      "name": "Combined result",
+      "width": 520,
+      "height": 310,
+      "overflowMode": false,
+      "positionAndSizeLocked": false,
+      "isHorizontalOrientation": false,
+      "styleColor": null,
+      "tagColor": null,
+      "children": [],
+      "data": {
+        "value": null
+      }
+    },
     "callback": {
       "id": "callback",
       "kind": "code",
@@ -89,15 +153,43 @@
         "zIndex": 1
       },
       "result": {
-        "x": 568,
+        "x": 912,
         "y": 24,
         "width": 520,
         "height": 310,
         "zIndex": 1
       },
       "pillow-result": {
-        "x": 568,
+        "x": 912,
         "y": 358,
+        "width": 520,
+        "height": 310,
+        "zIndex": 1
+      },
+      "stylize-handler": {
+        "x": 568,
+        "y": 24,
+        "width": 300,
+        "height": 190,
+        "zIndex": 1
+      },
+      "risograph-handler": {
+        "x": 568,
+        "y": 244,
+        "width": 300,
+        "height": 190,
+        "zIndex": 1
+      },
+      "combine-handler": {
+        "x": 568,
+        "y": 692,
+        "width": 300,
+        "height": 190,
+        "zIndex": 1
+      },
+      "final-result": {
+        "x": 912,
+        "y": 692,
         "width": 520,
         "height": 310,
         "zIndex": 1
@@ -120,6 +212,7 @@
     {
       "id": "stylize-drawing",
       "trigger": {
+        "kind": "event",
         "sectionId": "drawing",
         "event": "snapshot"
       },
@@ -139,14 +232,17 @@
       },
       "outputs": {
         "image": {
-          "sectionId": "result",
-          "field": "contentRef"
+          "target": {
+            "sectionId": "result",
+            "field": "contentRef"
+          }
         }
       }
     },
     {
       "id": "render-risograph",
       "trigger": {
+        "kind": "event",
         "sectionId": "drawing",
         "event": "snapshot"
       },
@@ -166,8 +262,47 @@
       },
       "outputs": {
         "image": {
-          "sectionId": "pillow-result",
-          "field": "contentRef"
+          "target": {
+            "sectionId": "pillow-result",
+            "field": "contentRef"
+          }
+        }
+      }
+    },
+    {
+      "id": "combine-results",
+      "trigger": {
+        "kind": "join",
+        "mode": "all",
+        "inputs": {
+          "neon": {
+            "bindingId": "stylize-drawing",
+            "output": "image"
+          },
+          "riso": {
+            "bindingId": "render-risograph",
+            "output": "image"
+          }
+        }
+      },
+      "handler": "combine",
+      "arguments": {},
+      "scheduling": {
+        "mode": "latest",
+        "debounceMilliseconds": 0,
+        "concurrencyGroup": "combine-rendering",
+        "concurrencyLimit": 1
+      },
+      "materialization": {
+        "retention": "lastSuccessful",
+        "startup": "whenStale"
+      },
+      "outputs": {
+        "image": {
+          "target": {
+            "sectionId": "final-result",
+            "field": "contentRef"
+          }
         }
       }
     }
