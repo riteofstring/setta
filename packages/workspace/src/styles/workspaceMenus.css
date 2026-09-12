@@ -162,6 +162,11 @@
   color: hsl(220 25% 45%);
 }
 
+.setta-workspace-menu.setta-workspace-dropdown-menu
+  .setta-workspace-menu-label {
+  border-block-end: 0;
+}
+
 .setta-workspace-menu-item {
   position: relative;
   display: flex;
