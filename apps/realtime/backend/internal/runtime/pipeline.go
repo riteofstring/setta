@@ -15,12 +15,19 @@ const pipelineUpdateDrainTimeout = 5 * time.Second
 var errPipelineUpdateProtocol = errors.New("runtime: worker update sequence protocol failed")
 
 type pipelineRun struct {
-	id         string
-	project    contracts.Project
-	event      contracts.RuntimeEvent
-	pipeline   contracts.CompiledPipeline
-	nodes      map[string]*pipelineNode
-	references []contracts.ContentReference
+	id            string
+	project       contracts.Project
+	event         contracts.RuntimeEvent
+	pipeline      contracts.CompiledPipeline
+	nodes         map[string]*pipelineNode
+	references    []contracts.ContentReference
+	startupClaims map[string]startupClaim
+	reserving     bool
+}
+
+type startupClaim struct {
+	signature string
+	activated bool
 }
 
 type pipelineNode struct {
@@ -54,7 +61,7 @@ func (coordinator *Coordinator) startPipelineRunLocked(projectSnapshot contracts
 	}
 	run := &pipelineRun{
 		id: runID, project: projectSnapshot, event: frozen, pipeline: coordinator.pipeline,
-		nodes: make(map[string]*pipelineNode), references: retained,
+		nodes: make(map[string]*pipelineNode), references: retained, startupClaims: make(map[string]startupClaim), reserving: true,
 	}
 	selected, startupTargets := coordinator.selectedBindingsLocked(run, eventKey)
 	if len(selected) == 0 {
@@ -64,9 +71,15 @@ func (coordinator *Coordinator) startPipelineRunLocked(projectSnapshot contracts
 	accepted, err := coordinator.reservePipelineNodesLocked(run, selected, startupTargets)
 	if err != nil {
 		cleanup := coordinator.abortRunLocked(run)
+		if errors.Is(err, scheduler.ErrBusy) {
+			return 0, appendUniqueReferences(consumed, cleanup), nil
+		}
 		return 0, appendUniqueReferences(consumed, cleanup), err
 	}
+	run.reserving = false
+	coordinator.commitActivatedStartupClaimsLocked(run)
 	if len(run.nodes) == 0 {
+		coordinator.releaseStartupClaimsLocked(run)
 		delete(coordinator.runs, run.id)
 		return 0, appendUniqueReferences(consumed, run.references), nil
 	}
@@ -103,9 +116,6 @@ func (coordinator *Coordinator) reservePipelineBindingLocked(run *pipelineRun, b
 		return false, nil
 	}
 	err := coordinator.reserveJoinLocked(run, binding, startupTarget)
-	if errors.Is(err, scheduler.ErrBusy) || errors.Is(err, scheduler.ErrQueueFull) {
-		return false, nil
-	}
 	return false, err
 }
 
@@ -171,16 +181,12 @@ func (coordinator *Coordinator) selectedBindingsLocked(run *pipelineRun, eventKe
 	}
 	for _, bindingID := range run.pipeline.ReachableByEvent[eventKey] {
 		binding := run.pipeline.Bindings[bindingID]
-		if supportsAutomaticStartup(binding) && !coordinator.startupAttemptedLocked(binding) {
-			targets[bindingID] = true
-			coordinator.selectAncestorsLocked(run.pipeline, bindingID, selected)
-		}
-	}
-	for _, rootID := range run.pipeline.EventBindings[eventKey] {
-		if !selected[rootID] {
+		if !supportsAutomaticStartup(binding) || !coordinator.claimStartupBindingLocked(run, binding) {
 			continue
 		}
-		for _, descendantID := range run.pipeline.DescendantsByBinding[rootID] {
+		targets[bindingID] = true
+		coordinator.selectAncestorsLocked(run.pipeline, bindingID, selected)
+		for _, descendantID := range run.pipeline.DescendantsByBinding[bindingID] {
 			selected[descendantID] = true
 		}
 	}
@@ -190,6 +196,46 @@ func (coordinator *Coordinator) selectedBindingsLocked(run *pipelineRun, eventKe
 		}
 	}
 	return selected, targets
+}
+
+func (coordinator *Coordinator) claimStartupBindingLocked(run *pipelineRun, binding contracts.Binding) bool {
+	signature := coordinator.startupBindingSignatureLocked(binding)
+	if signature == "" || coordinator.startupAttempts[binding.ID] == signature {
+		return false
+	}
+	coordinator.startupAttempts[binding.ID] = signature
+	run.startupClaims[binding.ID] = startupClaim{signature: signature}
+	return true
+}
+
+func (coordinator *Coordinator) activateStartupClaimLocked(run *pipelineRun, bindingID string) {
+	claim, exists := run.startupClaims[bindingID]
+	if !exists {
+		return
+	}
+	claim.activated = true
+	if run.reserving {
+		run.startupClaims[bindingID] = claim
+		return
+	}
+	delete(run.startupClaims, bindingID)
+}
+
+func (coordinator *Coordinator) commitActivatedStartupClaimsLocked(run *pipelineRun) {
+	for bindingID, claim := range run.startupClaims {
+		if claim.activated {
+			delete(run.startupClaims, bindingID)
+		}
+	}
+}
+
+func (coordinator *Coordinator) releaseStartupClaimsLocked(run *pipelineRun) {
+	for bindingID, claim := range run.startupClaims {
+		if coordinator.startupAttempts[bindingID] == claim.signature {
+			delete(coordinator.startupAttempts, bindingID)
+		}
+	}
+	run.startupClaims = make(map[string]startupClaim)
 }
 
 func (coordinator *Coordinator) selectAncestorsLocked(pipeline contracts.CompiledPipeline, bindingID string, selected map[string]bool) {
@@ -236,6 +282,9 @@ func (coordinator *Coordinator) pipelineStartupActionLocked(run *pipelineRun, no
 	if run.event.Cause != "startup" {
 		return startupRun
 	}
+	if node.startupTarget {
+		coordinator.activateStartupClaimLocked(run, node.binding.ID)
+	}
 	return coordinator.startupActionLocked(node.binding, node.fingerprint, node.startupTarget)
 }
 
@@ -267,9 +316,6 @@ func (coordinator *Coordinator) queueRootLocked(run *pipelineRun, node *pipeline
 	coordinator.invocationHolds[node.identity.InvocationID] = run.event.Cause == "startup" && coordinator.retainedByBinding[node.binding.ID]
 	if err := coordinator.submitNodeLocked(run, node); err != nil {
 		coordinator.rollbackNodeLocked(run, node)
-		if errors.Is(err, scheduler.ErrBusy) || errors.Is(err, scheduler.ErrQueueFull) {
-			return false, nil
-		}
 		return false, err
 	}
 	return true, nil
@@ -774,6 +820,7 @@ func (coordinator *Coordinator) finishRunIfTerminalLocked(run *pipelineRun) {
 	if !coordinator.pipelineRunTerminalLocked(run) {
 		return
 	}
+	coordinator.releaseStartupClaimsLocked(run)
 	delete(coordinator.runs, run.id)
 	for _, node := range run.nodes {
 		delete(coordinator.invocationRuns, node.identity.InvocationID)
@@ -845,6 +892,7 @@ func (coordinator *Coordinator) abortRunLocked(run *pipelineRun) []contracts.Con
 		coordinator.scheduler.Cancel(node.identity.InvocationID)
 		coordinator.rollbackNodeLocked(run, node)
 	}
+	coordinator.releaseStartupClaimsLocked(run)
 	delete(coordinator.runs, run.id)
 	return append([]contracts.ContentReference(nil), run.references...)
 }

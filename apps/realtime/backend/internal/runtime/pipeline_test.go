@@ -461,6 +461,83 @@ func TestPipelineApplyClearsRemovedTargetPublicationAndContent(t *testing.T) {
 	}
 }
 
+func TestPipelineApplyClearsValuesWhenPublishedBindingsSwapTargets(t *testing.T) {
+	coordinator, worker := testCoordinator(t)
+	defer coordinator.Close()
+	projectSnapshot, err := coordinator.ProjectSnapshot()
+	if err != nil {
+		t.Fatalf("ProjectSnapshot() error = %v", err)
+	}
+	alternate := contracts.Binding{
+		ID: "alternate", Trigger: contracts.BindingTrigger{Kind: "event", SectionID: "drawing", Event: "snapshot"}, Handler: "alternate",
+		Arguments:  map[string]json.RawMessage{"drawing": json.RawMessage(`"$event.contentRef"`)},
+		Scheduling: contracts.SchedulingPolicy{Mode: "parallel", ConcurrencyGroup: "alternate", ConcurrencyLimit: 1},
+		Outputs: map[string]contracts.BindingOutput{"image": {
+			Target: &contracts.BindingOutputTarget{SectionID: "result-two", Field: "contentRef"},
+		}},
+	}
+	if _, err := coordinator.Apply(contracts.ApplyRequest{
+		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision,
+		Operations: []json.RawMessage{
+			json.RawMessage(`{"op":"upsertSection","section":{"id":"result-two","kind":"output","name":"Result Two","width":480,"height":320,"overflowMode":false,"positionAndSizeLocked":false,"isHorizontalOrientation":false,"styleColor":null,"tagColor":null,"children":[],"data":{"value":null}},"layout":{"x":1040,"y":0,"width":480,"height":320,"zIndex":4}}`),
+			handlerSectionOperation(t, "alternate-handler", "Alternate", "alternate", 860, 5),
+			setBindingOperation(t, alternate),
+		},
+	}); err != nil {
+		t.Fatalf("Apply(second binding) error = %v", err)
+	}
+	if _, err := coordinator.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	runtimeSnapshot, _ := coordinator.Snapshot()
+	accepted, err := coordinator.HandleEvent(pipelineRuntimeEvent(runtimeSnapshot.SessionID, "interaction", json.RawMessage(`{"contentRef":"frame"}`)))
+	if err != nil || accepted != 2 {
+		t.Fatalf("HandleEvent() = %d, %v", accepted, err)
+	}
+	invocations := receiveFanInRoots(t, worker)
+	worker.reply(invocations["stylize"].Identity.InvocationID, `"left"`)
+	worker.reply(invocations["alternate"].Identity.InvocationID, `"right"`)
+	waitForInvocationState(t, coordinator, invocations["stylize"].Identity.InvocationID, "completed")
+	waitForInvocationState(t, coordinator, invocations["alternate"].Identity.InvocationID, "completed")
+	published, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot(before target swap) error = %v", err)
+	}
+	for target, expected := range map[string]string{"result.contentRef": `"left"`, "result-two.contentRef": `"right"`} {
+		if string(published.Values[target]) != expected {
+			t.Fatalf("runtime values before target swap = %#v", published.Values)
+		}
+	}
+	projectSnapshot, err = coordinator.ProjectSnapshot()
+	if err != nil {
+		t.Fatalf("ProjectSnapshot(after publication) error = %v", err)
+	}
+	stylize := bindingByID(t, projectSnapshot, "stylize")
+	alternate = bindingByID(t, projectSnapshot, "alternate")
+	stylize.Outputs["image"] = contracts.BindingOutput{Target: &contracts.BindingOutputTarget{SectionID: "result-two", Field: "contentRef"}}
+	alternate.Outputs["image"] = contracts.BindingOutput{Target: &contracts.BindingOutputTarget{SectionID: "result", Field: "contentRef"}}
+	if _, err := coordinator.Apply(contracts.ApplyRequest{
+		ProjectID: projectSnapshot.ID, ExpectedRevision: projectSnapshot.Revision,
+		Operations: []json.RawMessage{setBindingOperation(t, stylize), setBindingOperation(t, alternate)},
+	}); err != nil {
+		t.Fatalf("Apply(target swap) error = %v", err)
+	}
+	current, err := coordinator.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot() error = %v", err)
+	}
+	for _, target := range []string{"result.contentRef", "result-two.contentRef"} {
+		if _, exists := current.Values[target]; exists {
+			t.Fatalf("runtime values after target swap = %#v", current.Values)
+		}
+	}
+	for _, bindingID := range []string{"stylize", "alternate"} {
+		if _, exists := current.PublishedByBinding[bindingID]; exists {
+			t.Fatalf("published identities after target swap = %#v", current.PublishedByBinding)
+		}
+	}
+}
+
 func TestPipelineCloseCancelsRunsAndReclaimsContent(t *testing.T) {
 	coordinator, worker := testCoordinator(t)
 	configureFanInPipeline(t, coordinator, false, "parallel")

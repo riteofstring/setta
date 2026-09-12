@@ -643,21 +643,70 @@ func (coordinator *Coordinator) applyOutputsLocked(binding contracts.Binding, ou
 }
 
 func (coordinator *Coordinator) reconcileBindingStateLocked(previous map[string]contracts.Binding, current map[string]contracts.Binding) []contracts.ContentReference {
-	discarded := []contracts.ContentReference{}
-	for bindingID, previousBinding := range previous {
-		currentBinding, exists := current[bindingID]
-		if exists && reflect.DeepEqual(previousBinding, currentBinding) {
-			continue
-		}
+	changedIDs := changedBindingIDs(previous, current)
+	changed := make(map[string]bool, len(changedIDs))
+	ownership := coordinator.bindingTargetOwnershipLocked(previous)
+	targets := make(map[string]bool)
+	for _, bindingID := range changedIDs {
+		changed[bindingID] = true
 		delete(coordinator.publishedByBinding, bindingID)
-		for _, target := range bindingOutputTargets(previousBinding) {
-			if coordinator.targetOwnedByOtherBindingLocked(target, bindingID, current) {
-				continue
-			}
-			discarded = appendUniqueReferences(discarded, coordinator.removeRuntimeValueLocked(target))
+		for _, target := range bindingOutputTargets(previous[bindingID]) {
+			targets[target] = true
 		}
 	}
+	targetNames := make([]string, 0, len(targets))
+	for target := range targets {
+		targetNames = append(targetNames, target)
+	}
+	sort.Strings(targetNames)
+	discarded := []contracts.ContentReference{}
+	for _, target := range targetNames {
+		if targetHasStableOwner(ownership[target], changed) {
+			continue
+		}
+		discarded = appendUniqueReferences(discarded, coordinator.removeRuntimeValueLocked(target))
+	}
 	return discarded
+}
+
+func changedBindingIDs(previous map[string]contracts.Binding, current map[string]contracts.Binding) []string {
+	changed := []string{}
+	for bindingID, previousBinding := range previous {
+		currentBinding, exists := current[bindingID]
+		if !exists || !reflect.DeepEqual(previousBinding, currentBinding) {
+			changed = append(changed, bindingID)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+func (coordinator *Coordinator) bindingTargetOwnershipLocked(bindings map[string]contracts.Binding) map[string]map[string]bool {
+	ownership := make(map[string]map[string]bool)
+	for bindingID, binding := range bindings {
+		_, published := coordinator.publishedByBinding[bindingID]
+		if !published && !coordinator.retainedByBinding[bindingID] {
+			continue
+		}
+		for _, target := range bindingOutputTargets(binding) {
+			owners := ownership[target]
+			if owners == nil {
+				owners = make(map[string]bool)
+				ownership[target] = owners
+			}
+			owners[bindingID] = true
+		}
+	}
+	return ownership
+}
+
+func targetHasStableOwner(owners map[string]bool, changed map[string]bool) bool {
+	for bindingID := range owners {
+		if !changed[bindingID] {
+			return true
+		}
+	}
+	return false
 }
 
 func bindingOutputTargets(binding contracts.Binding) map[string]string {
@@ -668,24 +717,6 @@ func bindingOutputTargets(binding contracts.Binding) map[string]string {
 		}
 	}
 	return targets
-}
-
-func (coordinator *Coordinator) targetOwnedByOtherBindingLocked(target string, excludedBindingID string, bindings map[string]contracts.Binding) bool {
-	for bindingID, binding := range bindings {
-		if bindingID == excludedBindingID {
-			continue
-		}
-		_, published := coordinator.publishedByBinding[bindingID]
-		if !published && !coordinator.retainedByBinding[bindingID] {
-			continue
-		}
-		for _, candidate := range bindingOutputTargets(binding) {
-			if candidate == target {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (coordinator *Coordinator) removeRuntimeValueLocked(target string) []contracts.ContentReference {

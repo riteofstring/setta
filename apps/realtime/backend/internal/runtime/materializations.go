@@ -128,25 +128,15 @@ func pipelineBindingInfluences(pipeline contracts.CompiledPipeline, candidateID 
 	return false
 }
 
-func (coordinator *Coordinator) startupAttemptedLocked(binding contracts.Binding) bool {
-	signature := coordinator.startupBindingSignatureLocked(binding)
-	return signature != "" && coordinator.startupAttempts[binding.ID] == signature
-}
-
 func (coordinator *Coordinator) startupActionLocked(binding contracts.Binding, fingerprint string, target bool) startupAction {
 	savedFingerprint, retained := coordinator.materializedHashes[binding.ID]
 	if !target {
 		return startupDependencyAction(savedFingerprint, fingerprint, retained)
 	}
 	policy := binding.Materialization
-	if policy == nil || coordinator.startupAttemptedLocked(binding) {
+	if policy == nil {
 		return startupSkip
 	}
-	signature := coordinator.startupBindingSignatureLocked(binding)
-	if signature == "" {
-		return startupSkip
-	}
-	coordinator.startupAttempts[binding.ID] = signature
 	return startupTargetAction(*policy, savedFingerprint, fingerprint, retained)
 }
 
