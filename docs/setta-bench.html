@@ -518,539 +518,890 @@
       }
 
       .app-frame {
+        overflow-x: auto;
+        overflow-y: hidden;
+        border: 1px solid rgb(40 50 68);
+        border-radius: 8px;
+        background: rgb(11 14 19);
+        box-shadow: 0 30px 80px rgb(0 0 0 / 34%);
+      }
+
+      .setta-workspace,
+      .setta-workspace * {
+        box-sizing: border-box;
+      }
+
+      .setta-workspace {
+        color: rgb(182 192 211);
+        font-family:
+          ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol";
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .setta-workspace button {
+        border: 0;
+        font: inherit;
+      }
+
+      .setta-workspace-shell {
+        position: relative;
+        display: grid;
+        width: 100%;
+        min-width: 1080px;
+        height: 560px;
         overflow: hidden;
-        border: 1px solid #303c53;
-        border-radius: 14px;
-        background: #0b1018;
-        box-shadow: var(--shadow);
+        grid-template-columns: 236px minmax(0, 1fr) 272px;
+        grid-template-rows: minmax(0, 1fr) 36px;
+        background: rgb(11 14 19);
+        isolation: isolate;
       }
 
-      .app-bar {
-        min-height: 49px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 0 14px;
-        border-bottom: 1px solid var(--line);
-        background: #0e141e;
-        font-size: 11px;
-      }
-
-      .window-dots {
-        display: flex;
-        gap: 5px;
-      }
-
-      .window-dots span {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #364258;
-      }
-
-      .app-breadcrumb {
+      .setta-workspace-shell-pane-region {
+        position: relative;
+        z-index: 30;
         min-width: 0;
-        flex: 1;
+        min-height: 0;
+        grid-row: 1;
+      }
+
+      .setta-workspace-shell-pane-region[data-workspace-shell-pane-region="leading"] {
+        grid-column: 1;
+      }
+
+      .setta-workspace-shell-pane-region[data-workspace-shell-pane-region="trailing"] {
+        grid-column: 3;
+      }
+
+      .setta-workspace-shell-pane {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        padding-block: 10px;
+        background: rgb(11 14 19);
+        box-shadow:
+          0 4px 6px -1px rgb(0 0 0 / 10%),
+          0 2px 4px -2px rgb(0 0 0 / 10%);
+      }
+
+      .setta-workspace-shell-pane[data-pane="leading"] {
+        padding-inline: 48px 8px;
+        border-inline-end: 1px solid rgb(26 33 45);
+      }
+
+      .setta-workspace-shell-pane[data-pane="trailing"] {
+        padding-inline: 8px 48px;
+        border-inline-start: 1px solid rgb(26 33 45);
+      }
+
+      .setta-workspace-shell-rail {
+        position: absolute;
+        inset-block: 0;
+        z-index: 32;
+        display: flex;
+        width: 40px;
+        min-height: 0;
+        flex-direction: column;
+        align-items: center;
+        padding-block: 8px;
+        background: rgb(11 14 19);
+      }
+
+      .setta-workspace-shell-rail[data-workspace-shell-rail="leading"] {
+        inset-inline-start: 0;
+        border-inline-end: 1px solid rgb(21 26 35);
+      }
+
+      .setta-workspace-shell-rail[data-workspace-shell-rail="trailing"] {
+        inset-inline-end: 0;
+        border-inline-start: 1px solid rgb(21 26 35);
+      }
+
+      .setta-workspace-shell-tablist {
+        display: flex;
+        width: 32px;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .setta-workspace-shell-tab {
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 32px;
+        align-items: center;
+        justify-content: center;
+        color: rgb(65 80 108);
+      }
+
+      .setta-workspace-shell-tab[data-active="true"] {
+        color: rgb(59 130 246);
+      }
+
+      .setta-icon {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.6;
+      }
+
+      .setta-workspace-shell-tab .setta-icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .icon-library {
+        position: absolute;
+        width: 0;
+        height: 0;
         overflow: hidden;
-        color: var(--muted);
+      }
+
+      .setta-workspace-shell-panel {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        overflow: hidden;
+        padding-inline: 6px;
+      }
+
+      .setta-workspace-shell-pane-title {
+        min-width: 0;
+        min-height: 16px;
+        margin: 0 0 4px;
+        overflow: hidden;
+        color: rgb(86 105 143);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
+        letter-spacing: -0.025em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .setta-workspace-shell-pane[data-pane="leading"]
+        .setta-workspace-shell-pane-title {
+        padding-inline-end: 32px;
+      }
+
+      .setta-workspace-shell-pane[data-pane="trailing"]
+        .setta-workspace-shell-pane-title {
+        padding-inline-start: 40px;
+      }
+
+      .setta-workspace-shell-pane-body {
+        min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+      }
+
+      .setta-workspace-shell-full-width-button {
+        position: absolute;
+        inset-block-start: 8px;
+        z-index: 20;
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgb(43 54 74);
+        border-radius: 4px;
+        color: rgb(148 163 184);
+      }
+
+      .setta-workspace-shell-pane[data-pane="leading"]
+        .setta-workspace-shell-full-width-button {
+        inset-inline-end: 8px;
+      }
+
+      .setta-workspace-shell-pane[data-pane="trailing"]
+        .setta-workspace-shell-full-width-button {
+        inset-inline-start: 8px;
+      }
+
+      .setta-workspace-outline {
+        min-width: 0;
+        min-height: 100%;
+        padding-block: 2px;
+        color: rgb(182 192 211);
+        font-size: 12px;
+        line-height: 16px;
+        user-select: none;
+      }
+
+      .setta-workspace-outline-item {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        min-height: 24px;
+        align-items: center;
+      }
+
+      .setta-workspace-outline-row {
+        display: flex;
+        width: 100%;
+        height: 20px;
+        min-width: 0;
+        align-items: center;
+        gap: 4px;
+        margin-inline-start: var(--outline-depth, 0px);
+        padding-inline: 6px 8px;
+        overflow: hidden;
+        border-inline-start: 2px solid var(--outline-color, transparent);
+        border-radius: 4px;
+      }
+
+      .setta-workspace-outline-item[aria-selected="true"]
+        .setta-workspace-outline-row {
+        background: rgb(30 58 138 / 65%);
+        color: rgb(239 246 255);
+      }
+
+      .setta-workspace-outline-disclosure,
+      .setta-workspace-outline-kind-icon,
+      .setta-workspace-outline-state-icon {
+        display: inline-flex;
+        width: 12px;
+        height: 16px;
+        flex: 0 0 12px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .setta-workspace-outline-disclosure .setta-icon,
+      .setta-workspace-outline-kind-icon .setta-icon,
+      .setta-workspace-outline-state-icon .setta-icon {
+        width: 12px;
+        height: 12px;
+      }
+
+      .setta-workspace-outline-label {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .app-breadcrumb strong {
-        color: var(--text);
-        font-weight: 500;
+      .setta-workspace-outline-state-icon {
+        opacity: 0.8;
       }
 
-      .app-view-tabs {
-        display: flex;
-        align-self: stretch;
-      }
-
-      .app-view-tab {
-        display: flex;
-        align-items: center;
-        padding: 0 12px;
-        border-bottom: 2px solid transparent;
-        color: var(--faint);
-      }
-
-      .app-view-tab.active {
-        border-color: var(--blue);
-        color: var(--text);
-      }
-
-      .mock-action {
-        flex: none;
-        padding: 6px 10px;
-        border-radius: 6px;
-        background: var(--blue);
-        color: #fff;
-        font-size: 10px;
-        font-weight: 500;
-      }
-
-      .workspace-shell {
-        min-height: 540px;
-        display: grid;
-        grid-template-columns: 188px minmax(0, 1fr) 226px;
-      }
-
-      .workspace-rail {
+      .setta-workspace-shell-center {
         position: relative;
-        z-index: 2;
-        padding: 16px 14px;
-        background: #0c1119;
-      }
-
-      .workspace-rail.left {
-        border-right: 1px solid var(--line-soft);
-      }
-
-      .workspace-rail.right {
-        border-left: 1px solid var(--line-soft);
-      }
-
-      .rail-label {
+        z-index: 0;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 14px;
-        color: var(--faint);
-        font-size: 9px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        grid-column: 2;
+        grid-row: 1;
+        overflow: hidden;
       }
 
-      .outline-tree {
-        display: grid;
-        gap: 4px;
-      }
-
-      .outline-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 27px;
-        padding: 0 8px;
-        border-radius: 5px;
-        color: #9ba8ba;
-        font-size: 10px;
-      }
-
-      .outline-row.active {
-        background: #1c2c60;
-        color: #eef3ff;
-      }
-
-      .tree-glyph {
-        width: 12px;
-        color: #66758e;
-        font-family: var(--mono);
-      }
-
-      .rail-rule {
-        height: 1px;
-        margin: 16px 0;
-        background: var(--line-soft);
-      }
-
-      .saved-view {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 28px;
-        padding: 0 8px;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .saved-view.active {
-        color: var(--text);
-      }
-
-      .saved-view span:last-child {
-        color: var(--faint);
-        font-family: var(--mono);
-      }
-
-      .experiment-canvas {
+      .setta-workspace-shell-canvas {
         position: relative;
         min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
         overflow: hidden;
-        background-color: #101724;
-        background-image: radial-gradient(#2b3851 0.75px, transparent 0.75px);
+        background-color: hsl(220 27% 15%);
+        background-image: radial-gradient(
+          circle,
+          rgb(65 80 108 / 58%) 0.7px,
+          transparent 0.8px
+        );
         background-size: 16px 16px;
       }
 
-      .canvas-toolbar {
-        position: absolute;
-        z-index: 5;
-        top: 12px;
-        right: 12px;
-        display: flex;
-        gap: 1px;
-        overflow: hidden;
-        border: 1px solid #303c53;
-        border-radius: 7px;
-        background: #0d141f;
-      }
-
-      .canvas-tool {
-        min-width: 27px;
-        padding: 6px;
-        color: #8795ab;
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 9px;
-      }
-
-      .flow-stage {
+      .flow-stage,
+      .flow-wires {
         position: absolute;
         inset: 0;
       }
 
-      .flow-wire {
-        position: absolute;
+      .flow-wires {
         z-index: 0;
-        height: 2px;
-        border-radius: 2px;
-        background: #5976ec;
-        box-shadow: 0 0 8px rgb(93 124 255 / 0.3);
-        transform-origin: left center;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
       }
 
-      .wire-dataset-prompt {
-        top: 157px;
-        left: 22%;
-        width: 18%;
-        transform: rotate(-12deg);
+      .flow-wires path {
+        fill: none;
+        stroke: #b1b1b7;
+        stroke-width: 1.2;
+        vector-effect: non-scaling-stroke;
       }
 
-      .wire-dataset-model {
-        top: 181px;
-        left: 22%;
-        width: 19%;
-        transform: rotate(23deg);
+      .flow-wires path.workflow {
+        stroke: #f59e0b;
+        stroke-width: 2.2;
       }
 
-      .wire-prompt-run {
-        top: 137px;
-        left: 48%;
-        width: 17%;
-        transform: rotate(8deg);
-      }
-
-      .wire-model-run {
-        top: 254px;
-        left: 48%;
-        width: 18%;
-        transform: rotate(-30deg);
-      }
-
-      .wire-run-grader {
-        top: 226px;
-        left: 67%;
-        width: 10%;
-        transform: rotate(63deg);
-        background: var(--amber);
-      }
-
-      .wire-grader-report {
-        top: 344px;
-        left: 73%;
-        width: 14%;
-        transform: rotate(-19deg);
-        background: var(--cyan);
-      }
-
-      .canvas-node {
+      .setta-section-card {
         position: absolute;
         z-index: 1;
         width: 148px;
-        overflow: hidden;
-        border: 1px solid #34415a;
+        min-height: 86px;
+        border: 1px solid hsl(219 26% 23%);
         border-radius: 8px;
-        background: #111824;
-        box-shadow: 0 12px 24px rgb(0 0 0 / 0.2);
+        outline: 4px solid transparent;
+        background: hsl(220 24% 4.5%);
+        color: rgb(182 192 211);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
       }
 
-      .canvas-node.selected {
-        border-color: var(--blue);
-        box-shadow:
-          0 0 0 1px var(--blue),
-          0 12px 24px rgb(0 0 0 / 0.24);
+      .setta-section-card[data-section-active="true"] {
+        z-index: 3;
+        outline-color: rgb(29 78 216);
       }
 
       .node-dataset {
-        top: 112px;
-        left: 5%;
+        top: 122px;
+        left: 3%;
       }
 
       .node-prompt {
-        top: 76px;
-        left: 34%;
+        top: 54px;
+        left: 30%;
       }
 
       .node-model {
-        top: 220px;
-        left: 34%;
+        top: 288px;
+        left: 28%;
       }
 
       .node-run {
-        top: 146px;
-        left: 62%;
+        top: 142px;
+        left: 58%;
       }
 
       .node-grader {
-        top: 293px;
+        top: 348px;
         left: 54%;
       }
 
       .node-report {
-        top: 255px;
-        right: 3%;
+        top: 264px;
+        right: 2%;
       }
 
-      .node-head {
-        min-height: 31px;
+      .setta-section-header {
+        display: flex;
+        min-height: 28px;
+        align-items: center;
+        gap: 4px;
+        padding-inline: 8px;
+      }
+
+      .setta-section-menu {
+        display: inline-flex;
+        width: 14px;
+        height: 14px;
+        flex: 0 0 14px;
+        align-items: center;
+        justify-content: center;
+        color: rgb(117 136 174);
+      }
+
+      .setta-section-menu::before {
+        width: 11px;
+        height: 7px;
+        border-block: 1px solid currentColor;
+        box-shadow: inset 0 3px 0 -2px currentColor;
+        content: "";
+      }
+
+      .setta-section-title {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        color: rgb(150 164 192);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setta-section-card[data-section-active="true"] .setta-section-title {
+        color: rgb(96 165 250);
+      }
+
+      .setta-section-actions {
         display: flex;
         align-items: center;
-        gap: 7px;
-        padding: 0 9px;
-        border-bottom: 1px solid var(--line-soft);
-        color: #dce4f1;
-        font-size: 10px;
-        font-weight: 500;
+        gap: 3px;
+        color: rgb(65 80 108);
       }
 
-      .node-icon {
-        color: var(--faint);
+      .setta-section-action {
+        display: grid;
+        width: 14px;
+        height: 14px;
+        place-items: center;
+        font-size: 11px;
+        line-height: 1;
+      }
+
+      .setta-section-body {
+        padding: 0 10px 8px;
+      }
+
+      .setta-item-row {
+        display: grid;
+        min-height: 24px;
+        grid-template-columns: minmax(0, 1fr) minmax(48px, 44%);
+        align-items: center;
+        column-gap: 10px;
+        border-block-end: 1px solid rgb(40 50 68 / 74%);
+        border-radius: 2px;
+      }
+
+      .setta-item-row:last-child {
+        border-block-end-color: transparent;
+      }
+
+      .setta-item-row[data-selected="true"] {
+        background: rgb(37 99 235 / 48%);
+      }
+
+      .setta-item-key {
+        overflow: hidden;
+        color: rgb(182 192 211);
+        font-size: 11px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setta-item-value {
+        overflow: hidden;
+        color: rgb(147 197 253);
         font-family: var(--mono);
+        font-size: 10px;
+        text-align: end;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      .node-body {
-        padding: 10px;
+      .setta-port {
+        position: absolute;
+        z-index: 4;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        border: 1px solid hsl(219 24% 89%);
+        border-radius: 50%;
+        background: hsl(219 25% 34%);
+        transform: translateY(-50%);
       }
 
-      .node-value,
-      .node-line {
+      .setta-port.in {
+        left: -6px;
+      }
+
+      .setta-port.out {
+        right: -6px;
+      }
+
+      .setta-port.workflow {
+        border-color: #fbbf24;
+        background: #b45309;
+      }
+
+      .react-flow__minimap {
+        position: absolute;
+        z-index: 5;
+        bottom: 14px;
+        left: 14px;
+        width: 118px;
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border: 1px solid rgb(43 54 74 / 55%);
+        background: hsl(220 27% 6% / 72%);
+      }
+
+      .minimap-viewport {
+        position: absolute;
+        inset: 20px 18px 15px 14px;
+        border: 1px solid rgb(117 136 174 / 55%);
+        background: rgb(65 80 108 / 24%);
+      }
+
+      .minimap-node {
+        position: absolute;
+        width: 16px;
+        height: 7px;
+        background: rgb(86 105 143 / 75%);
+      }
+
+      .minimap-node:nth-child(2) {
+        top: 13px;
+        left: 12px;
+      }
+
+      .minimap-node:nth-child(3) {
+        top: 16px;
+        left: 39px;
+      }
+
+      .minimap-node:nth-child(4) {
+        top: 38px;
+        left: 53px;
+      }
+
+      .minimap-node:nth-child(5) {
+        top: 48px;
+        left: 82px;
+      }
+
+      .setta-workspace-shell-controls {
+        position: absolute;
+        inset-block-end: 40px;
+        inset-inline-start: 4px;
+        z-index: 33;
         display: flex;
+        width: 32px;
+        flex-direction: column;
+      }
+
+      .react-flow__controls-button {
+        display: flex;
+        width: 26px;
+        height: 26px;
+        align-items: center;
+        justify-content: center;
+        border-block-end: 1px solid rgb(26 33 45);
+        background: rgb(11 14 19);
+        color: rgb(65 80 108);
+      }
+
+      .react-flow__controls-button:first-child {
+        border-radius: 4px 4px 0 0;
+      }
+
+      .react-flow__controls-button:last-child {
+        border-block-end: 0;
+        border-radius: 0 0 4px 4px;
+      }
+
+      .react-flow__controls-button[data-active="true"] {
+        color: rgb(59 130 246);
+      }
+
+      .react-flow__controls-button .setta-icon {
+        width: 13px;
+        height: 13px;
+      }
+
+      .setta-workspace-inspector {
+        min-width: 0;
+        min-height: 100%;
+        color: rgb(182 192 211);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .setta-workspace-inspector-editor {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 6px 24px;
+      }
+
+      .setta-inspector-identity {
+        display: flex;
+        min-height: 30px;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        font-family: var(--mono);
-        font-size: 9px;
+        border-block-end: 1px solid rgb(26 33 45);
+        color: rgb(150 164 192);
       }
 
-      .node-value {
-        margin-bottom: 7px;
-        color: #c8d1df;
-      }
-
-      .node-value span:last-child {
-        color: #80a2ff;
-      }
-
-      .node-line {
-        padding: 5px 0;
-        border-bottom: 1px solid #1e2736;
-        color: #8b99ae;
-      }
-
-      .node-line:last-child {
-        border-bottom: 0;
-      }
-
-      .node-chip {
-        display: inline-block;
-        padding: 2px 5px;
-        border-radius: 3px;
-        background: #1a2740;
-        color: #9db4ea;
-        font-family: var(--mono);
-        font-size: 8px;
-      }
-
-      .node-progress {
-        height: 3px;
-        margin-top: 9px;
-        overflow: hidden;
-        border-radius: 2px;
-        background: #222d40;
-      }
-
-      .node-progress span {
-        display: block;
-        width: 75%;
-        height: 100%;
-        background: var(--amber);
-      }
-
-      .port {
-        position: absolute;
-        width: 7px;
-        height: 7px;
-        border: 1px solid #87a1ff;
-        border-radius: 50%;
-        background: #17213a;
-      }
-
-      .port.in {
-        top: 50%;
-        left: -4px;
-      }
-
-      .port.out {
-        top: 50%;
-        right: -4px;
-      }
-
-      .inspector-title {
-        margin-bottom: 16px;
-        color: #e3e9f3;
-        font-size: 12px;
+      .setta-inspector-identity strong {
+        color: rgb(182 192 211);
         font-weight: 500;
       }
 
-      .inspector-field {
-        margin-bottom: 14px;
-      }
-
-      .inspector-field label {
-        display: block;
-        margin-bottom: 6px;
-        color: var(--faint);
+      .setta-inspector-identity span {
+        color: rgb(65 80 108);
         font-size: 9px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
 
-      .fake-input {
-        min-height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 8px;
-        border: 1px solid #2a3549;
-        border-radius: 5px;
-        background: #0d131c;
-        color: #bac5d5;
-        font-family: var(--mono);
+      .setta-inspector-group-label {
+        margin: 12px 12px 2px;
+        color: rgb(117 136 174);
         font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
-      .fake-toggle {
-        width: 25px;
-        height: 14px;
-        padding: 2px;
-        border-radius: 8px;
-        background: var(--blue);
+      .setta-workspace-inspector-config-row {
+        display: grid;
+        min-width: 0;
+        min-height: 28px;
+        grid-template-columns: minmax(0, 1fr) minmax(88px, 44%);
+        align-items: center;
+        gap: 4px 10px;
+        padding: 5px 12px;
+        border-radius: 9999px;
       }
 
-      .fake-toggle::after {
+      .setta-workspace-inspector-config-row.emphasis {
+        background: rgb(30 58 138 / 28%);
+      }
+
+      .setta-workspace-inspector-config-label {
+        min-width: 0;
+        overflow: hidden;
+        color: rgb(150 164 192);
+        font-size: 12px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setta-workspace-inspector-config-input,
+      .setta-workspace-inspector-config-readonly {
+        min-width: 0;
+        overflow: hidden;
+        border-block-end: 1px solid rgb(43 54 74);
+        color: rgb(182 192 211);
+        font-family: var(--mono);
+        font-size: 11px;
+        text-align: end;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setta-workspace-inspector-config-readonly {
+        border-block-end-color: transparent;
+        color: rgb(150 164 192);
+      }
+
+      .setta-toggle {
+        position: relative;
+        width: 34px;
+        height: 16px;
+        justify-self: end;
+        border-radius: 9999px;
+        background: rgb(65 80 108);
+      }
+
+      .setta-toggle::after {
+        position: absolute;
+        top: 3px;
+        left: 3px;
         width: 10px;
         height: 10px;
-        display: block;
-        margin-left: auto;
         border-radius: 50%;
-        background: #fff;
+        background: rgb(150 164 192);
         content: "";
       }
 
-      .monitor-shell {
-        min-height: 540px;
-        display: grid;
-        grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.7fr);
-        background: #0c1119;
+      .setta-toggle.on {
+        background: rgb(37 99 235);
       }
 
-      .ledger {
-        min-width: 0;
-        padding: 20px;
-        border-right: 1px solid var(--line-soft);
+      .setta-toggle.on::after {
+        left: 21px;
+        background: white;
       }
 
-      .ledger-head,
-      .compare-toolbar {
+      .setta-workspace-inspector-config-action {
         display: flex;
+        min-height: 28px;
         align-items: center;
         justify-content: space-between;
-        gap: 18px;
-        margin-bottom: 18px;
+        gap: 8px;
+        margin-block: 4px;
+        padding: 2px 12px;
+        border-radius: 12px;
+        background: rgb(26 33 45);
+        color: rgb(100 116 139);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
       }
 
-      .ledger-title {
-        margin-bottom: 3px;
-        font-size: 15px;
-        font-weight: 500;
+      .setta-workspace-window-manager {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        min-width: 0;
+        min-height: 0;
+        padding: 18px;
+        pointer-events: none;
       }
 
-      .ledger-subtitle {
-        color: var(--faint);
+      .setta-workspace-window-surface {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgb(40 50 68);
+        border-radius: 8px;
+        background: rgb(15 23 42);
+        color: rgb(226 232 240);
+        box-shadow: 0 2px 10px rgb(0 0 0 / 22%);
+        pointer-events: auto;
+      }
+
+      .setta-workspace-window-surface-header {
+        display: flex;
+        min-width: 0;
+        min-height: 32px;
+        flex: 0 0 32px;
+        align-items: center;
+        gap: 4px;
+        padding-inline: 8px;
+        border-block-end: 1px solid rgb(40 50 68);
+      }
+
+      .setta-workspace-window-surface-title {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.0125em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setta-workspace-window-surface-actions {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        margin-inline-start: auto;
+      }
+
+      .setta-workspace-window-surface-action {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        margin-inline-end: 4px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        color: rgb(148 163 184);
         font-size: 10px;
       }
 
-      .ledger-summary {
+      .setta-workspace-window-surface-body {
         display: flex;
-        gap: 18px;
-        font-family: var(--mono);
+        min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .run-window-summary {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 7px 10px;
+        border-block-end: 1px solid rgb(40 50 68);
+      }
+
+      .run-window-summary strong,
+      .run-window-summary span {
+        display: block;
+      }
+
+      .run-window-summary strong {
+        color: rgb(203 213 225);
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .run-window-summary span {
+        color: rgb(86 105 143);
         font-size: 9px;
       }
 
-      .ledger-summary span {
-        color: var(--faint);
+      .run-window-counts {
+        display: flex;
+        gap: 12px;
+        color: rgb(117 136 174);
+        font-family: var(--mono);
+        font-size: 9px;
+        white-space: nowrap;
       }
 
-      .ledger-summary strong {
-        color: #dce4ef;
+      .run-window-counts b {
+        color: rgb(203 213 225);
         font-weight: 500;
       }
 
-      .table-wrap {
-        overflow-x: auto;
-        border: 1px solid var(--line-soft);
-        border-radius: 8px;
+      .run-table-wrap {
+        min-width: 0;
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
       }
 
       .run-table {
         width: 100%;
-        min-width: 680px;
+        min-width: 540px;
         border-collapse: collapse;
-        font-size: 10px;
+        font-size: 9px;
       }
 
       .run-table th,
       .run-table td {
-        padding: 11px 12px;
-        border-bottom: 1px solid var(--line-soft);
-        text-align: left;
+        height: 35px;
+        padding: 6px 8px;
+        border-block-end: 1px solid rgb(40 50 68 / 78%);
+        text-align: start;
         white-space: nowrap;
       }
 
       .run-table th {
-        background: #101720;
-        color: var(--faint);
-        font-weight: 500;
-        letter-spacing: 0.06em;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: rgb(15 18 25);
+        color: rgb(86 105 143);
+        font-weight: 600;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
       }
 
       .run-table td {
-        color: #aeb9ca;
+        color: rgb(182 192 211);
       }
 
-      .run-table tr:last-child td {
-        border-bottom: 0;
-      }
-
-      .run-table tr.selected td {
-        background: #152249;
-        color: #e8edfa;
+      .run-table tr[aria-selected="true"] td {
+        background: rgb(30 58 138 / 65%);
+        color: rgb(239 246 255);
       }
 
       .table-id {
-        color: #8ba7ff;
+        color: rgb(147 197 253);
         font-family: var(--mono);
       }
 
@@ -1058,7 +1409,7 @@
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        color: var(--green);
+        color: #77d994;
       }
 
       .status-label::before {
@@ -1070,144 +1421,38 @@
       }
 
       .status-label.running {
-        color: var(--amber);
+        color: #f59e0b;
       }
 
       .status-label.failed {
-        color: var(--red);
+        color: #f07c86;
       }
 
-      .ledger-detail {
-        padding: 20px;
-        background: #0d131d;
-      }
-
-      .detail-label {
-        margin: 18px 0 8px;
-        color: var(--faint);
-        font-size: 8px;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-      }
-
-      .metric-pair {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-      }
-
-      .metric-box {
-        padding: 10px;
-        border: 1px solid var(--line-soft);
-        border-radius: 6px;
-        background: #111925;
-      }
-
-      .metric-box strong,
-      .metric-box span {
-        display: block;
-      }
-
-      .metric-box strong {
-        color: #e5ebf4;
-        font-family: var(--mono);
-        font-size: 14px;
-        font-weight: 500;
-      }
-
-      .metric-box span {
-        color: var(--faint);
-        font-size: 9px;
-      }
-
-      .log-lines {
-        padding: 10px;
-        border: 1px solid var(--line-soft);
-        border-radius: 6px;
-        background: #080d14;
-        color: #7f90aa;
-        font-family: var(--mono);
-        font-size: 9px;
-        line-height: 1.8;
-      }
-
-      .log-lines em {
-        color: var(--green);
-        font-style: normal;
-      }
-
-      .compare-shell {
-        min-height: 540px;
-        padding: 20px;
-        background: #0c1119;
-      }
-
-      .compare-toolbar {
-        margin-bottom: 14px;
-      }
-
-      .compare-selection {
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .compare-selection strong {
-        color: var(--text);
-        font-weight: 500;
-      }
-
-      .comparison-grid {
+      .comparison-manager {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
-      .comparison-window {
-        overflow: hidden;
-        border: 1px solid #303c53;
-        border-radius: 9px;
-        background: #111823;
-        box-shadow: 0 16px 28px rgb(0 0 0 / 0.18);
-      }
-
-      .comparison-window.winner {
-        border-color: #397d72;
-      }
-
-      .comparison-head {
-        min-height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 0 12px;
-        border-bottom: 1px solid var(--line-soft);
-        background: #141c28;
-        font-size: 10px;
-        font-weight: 500;
-      }
-
-      .recommended {
-        color: var(--green);
-        font-family: var(--mono);
-        font-size: 8px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+      .comparison-window-body {
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
       }
 
       .comparison-metrics {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        border-bottom: 1px solid var(--line-soft);
+        border-block-end: 1px solid rgb(40 50 68);
       }
 
       .comparison-metric {
-        padding: 12px;
-        border-right: 1px solid var(--line-soft);
+        padding: 8px;
+        border-inline-end: 1px solid rgb(40 50 68);
       }
 
       .comparison-metric:last-child {
-        border-right: 0;
+        border-inline-end: 0;
       }
 
       .comparison-metric strong,
@@ -1216,85 +1461,136 @@
       }
 
       .comparison-metric strong {
+        color: rgb(226 232 240);
         font-family: var(--mono);
-        font-size: 13px;
+        font-size: 11px;
         font-weight: 500;
       }
 
       .comparison-metric span {
-        color: var(--faint);
-        font-size: 9px;
+        color: rgb(86 105 143);
+        font-size: 8px;
       }
 
       .case-review {
-        padding: 14px;
+        padding: 8px;
       }
 
       .case-review-head {
         display: flex;
+        min-height: 24px;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 12px;
-        color: var(--muted);
+        gap: 8px;
+        color: rgb(150 164 192);
         font-size: 9px;
       }
 
       .case-result {
-        margin-bottom: 8px;
-        padding: 10px;
-        border: 1px solid var(--line-soft);
-        border-radius: 6px;
-        background: #0d141e;
-      }
-
-      .case-result:last-child {
-        margin-bottom: 0;
-      }
-
-      .case-result span,
-      .case-result code {
-        display: block;
+        display: grid;
+        min-height: 28px;
+        grid-template-columns: 42% minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        border-block-end: 1px solid rgb(40 50 68);
       }
 
       .case-result span {
-        margin-bottom: 4px;
-        color: var(--faint);
+        color: rgb(117 136 174);
         font-size: 9px;
-        text-transform: uppercase;
       }
 
       .case-result code {
-        color: #c5cfdd;
+        overflow: hidden;
+        color: rgb(203 213 225);
         font-family: var(--mono);
-        font-size: 10px;
+        font-size: 9px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .case-result code.bad {
-        color: var(--red);
+        color: #f07c86;
       }
 
-      .case-result code.good {
-        color: var(--green);
+      .case-result code.good,
+      .recommended {
+        color: #77d994;
       }
 
-      .decision-strip {
+      .recommended {
+        font-family: var(--mono);
+        font-size: 8px;
+        text-transform: uppercase;
+      }
+
+      .setta-log-lines {
+        margin: 8px 12px;
+        padding-inline-start: 8px;
+        border-inline-start: 2px solid rgb(43 54 74);
+        color: rgb(117 136 174);
+        font-family: var(--mono);
+        font-size: 9px;
+        line-height: 18px;
+      }
+
+      .setta-log-lines em {
+        color: #77d994;
+        font-style: normal;
+      }
+
+      .setta-workspace-saved-view-tabs {
+        position: relative;
+        z-index: 40;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 18px;
-        margin-top: 12px;
-        padding: 13px 15px;
-        border: 1px solid #2f534d;
-        border-radius: 8px;
-        background: #10201f;
-        color: #b7d9d2;
-        font-size: 10px;
+        height: 36px;
+        min-height: 36px;
+        align-items: flex-end;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        overflow: hidden;
+        border-block-start: 1px solid rgb(30 41 59);
+        background: rgb(11 14 19);
       }
 
-      .decision-strip strong {
-        color: #e6f4f1;
-        font-weight: 500;
+      .setta-workspace-saved-view-tabs-list {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        align-items: flex-end;
+        gap: 4px;
+        padding-inline: 8px;
+      }
+
+      .setta-workspace-saved-view-tab {
+        display: inline-flex;
+        width: min(200px, 35vw);
+        min-width: 96px;
+        height: 30px;
+        flex: 0 1 200px;
+        align-items: center;
+        border: 1px solid rgb(51 65 85);
+        border-block-end: 0;
+        border-radius: 6px 6px 0 0;
+        background: rgb(15 23 42);
+        padding-inline: 12px;
+        color: rgb(203 213 225);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: start;
+      }
+
+      .setta-workspace-saved-view-tab[aria-selected="true"] {
+        border-color: rgb(100 116 139);
+        background: rgb(30 41 59);
+        color: rgb(248 250 252);
+        box-shadow: 0 2px 14px rgb(0 0 0 / 60%);
+      }
+
+      .setta-workspace-saved-view-tab:focus-visible {
+        outline: 2px solid rgb(37 99 235);
+        outline-offset: -2px;
       }
 
       .architecture-grid {
@@ -1461,23 +1757,6 @@
           grid-template-columns: repeat(2, 1fr);
         }
 
-        .workspace-shell {
-          grid-template-columns: 150px minmax(0, 1fr);
-        }
-
-        .workspace-rail.right {
-          display: none;
-        }
-
-        .monitor-shell {
-          grid-template-columns: 1fr;
-        }
-
-        .ledger {
-          border-right: 0;
-          border-bottom: 1px solid var(--line-soft);
-        }
-
         .architecture-grid {
           grid-template-columns: 1fr;
         }
@@ -1521,57 +1800,13 @@
           margin-bottom: 24px;
         }
 
-        .scene-intro,
-        .ledger-head,
-        .compare-toolbar,
-        .decision-strip {
+        .scene-intro {
           align-items: flex-start;
           flex-direction: column;
         }
 
         .scene-caption {
           display: none;
-        }
-
-        .app-view-tabs {
-          display: none;
-        }
-
-        .workspace-shell {
-          min-height: 0;
-          grid-template-columns: 1fr;
-        }
-
-        .workspace-rail.left {
-          display: none;
-        }
-
-        .experiment-canvas {
-          min-height: 690px;
-        }
-
-        .flow-stage {
-          position: relative;
-          inset: auto;
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          padding: 64px 14px 18px;
-        }
-
-        .canvas-node {
-          position: relative;
-          inset: auto;
-          width: auto;
-        }
-
-        .flow-wire,
-        .port {
-          display: none;
-        }
-
-        .comparison-grid {
-          grid-template-columns: 1fr;
         }
 
         .footer-inner {
@@ -1599,45 +1834,15 @@
           padding: 0 8px;
         }
 
-        .app-bar {
-          gap: 8px;
-        }
-
-        .window-dots {
-          display: none;
-        }
-
-        .flow-stage {
-          grid-template-columns: 1fr;
-        }
-
-        .experiment-canvas {
-          min-height: 930px;
-        }
-
-        .ledger,
-        .ledger-detail,
-        .compare-shell {
-          padding: 14px;
-        }
-
-        .ledger-summary {
-          flex-wrap: wrap;
-          gap: 8px 14px;
-        }
-
-        .comparison-metrics,
         .hero-run-foot {
           grid-template-columns: 1fr;
         }
 
-        .comparison-metric,
         .hero-stat {
           border-right: 0;
           border-bottom: 1px solid var(--line-soft);
         }
 
-        .comparison-metric:last-child,
         .hero-stat:last-child {
           border-bottom: 0;
         }
@@ -1651,6 +1856,75 @@
     </style>
   </head>
   <body>
+    <svg class="icon-library" aria-hidden="true">
+      <symbol id="icon-outline" viewBox="0 0 24 24">
+        <path d="M8 6h13M8 12h13M8 18h13" />
+        <path d="M3 6h.01M3 12h.01M3 18h.01" />
+      </symbol>
+      <symbol id="icon-panel" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 3v18M12 8h6M12 12h6M12 16h4" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </symbol>
+      <symbol id="icon-layers" viewBox="0 0 24 24">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+      </symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24">
+        <path d="M4 6h7M15 6h5M4 12h2M10 12h10M4 18h10M18 18h2" />
+        <circle cx="13" cy="6" r="2" />
+        <circle cx="8" cy="12" r="2" />
+        <circle cx="16" cy="18" r="2" />
+      </symbol>
+      <symbol id="icon-table" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 9h18M8 9v11M15 9v11" />
+      </symbol>
+      <symbol id="icon-compare" viewBox="0 0 24 24">
+        <path d="M8 3 4 7l4 4M4 7h13a3 3 0 0 1 3 3v1" />
+        <path d="m16 21 4-4-4-4M20 17H7a3 3 0 0 1-3-3v-1" />
+      </symbol>
+      <symbol id="icon-document" viewBox="0 0 24 24">
+        <path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <circle cx="6" cy="6" r="1" />
+        <circle cx="12" cy="6" r="1" />
+        <circle cx="18" cy="6" r="1" />
+        <circle cx="6" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="18" cy="12" r="1" />
+        <circle cx="6" cy="18" r="1" />
+        <circle cx="12" cy="18" r="1" />
+        <circle cx="18" cy="18" r="1" />
+      </symbol>
+      <symbol id="icon-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+        <path d="M9 3v15M15 6v15" />
+      </symbol>
+      <symbol id="icon-fit" viewBox="0 0 24 24">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-minus" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path d="m8 5 11 7-11 7V5Z" />
+      </symbol>
+    </svg>
     <header class="site-header">
       <div class="page-shell header-inner">
         <a class="brand" href="#top" aria-label="Setta Bench home">
@@ -1845,223 +2119,639 @@
               <div>
                 <h3>Build view</h3>
                 <p>
-                  The canvas explains experiment structure. Dense cases and runs
-                  stay in dedicated collections instead of becoming hundreds of
-                  nodes.
+                  Bench composes an experiment with the same sections, graph
+                  ports, Outline, Inspector, controls, and saved views used by
+                  Setta Workspace.
                 </p>
               </div>
               <div class="scene-caption">
-                Illustrative Workspace composition
+                Current Workspace components · dark theme
               </div>
             </div>
 
             <div class="app-frame">
-              <div class="app-bar">
-                <div class="window-dots" aria-hidden="true">
-                  <span></span><span></span><span></span>
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace mockup showing a Bench experiment"
+              >
+                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-outline"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-panel"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-check"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Outline
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #60a5fa"
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                >
+                                  <svg class="setta-icon">
+                                    <use href="#icon-chevron"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-layers"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Ticket triage benchmark
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-table"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Support-250
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-document"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Prompt v4
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-layers"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Model candidates
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-play"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Run set
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #f59e0b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Exact-match grader
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-document"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Review report
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div class="setta-workspace-shell-center">
+                    <div
+                      class="setta-workspace-shell-canvas"
+                      aria-label="Experiment graph"
+                    >
+                      <div class="flow-stage">
+                        <svg
+                          class="flow-wires"
+                          viewBox="0 0 672 524"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <path d="M168 165 C190 165 185 104 202 104" />
+                          <path d="M168 172 C184 172 174 335 188 335" />
+                          <path d="M350 104 C383 104 368 187 390 187" />
+                          <path d="M336 335 C370 335 359 198 390 198" />
+                          <path
+                            class="workflow"
+                            d="M538 190 C561 220 348 302 365 353"
+                          />
+                          <path d="M513 391 C548 391 511 311 526 311" />
+                        </svg>
+
+                        <article
+                          class="setta-section-card node-dataset"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port out"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">Support-250</span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">cases</span>
+                              <span class="setta-item-value">250</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">version</span>
+                              <span class="setta-item-value">v7</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-prompt"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port in"></span>
+                          <span class="setta-port out"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">Prompt v4</span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">concise</span>
+                              <span class="setta-item-value">active</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">explanatory</span>
+                              <span class="setta-item-value">active</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-model"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port in"></span>
+                          <span class="setta-port out"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">
+                              Model candidates
+                            </span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">Baseline</span>
+                              <span class="setta-item-value">v3</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">Candidate B</span>
+                              <span class="setta-item-value">v4</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-run"
+                          data-section-active="true"
+                        >
+                          <span class="setta-port in"></span>
+                          <span class="setta-port out workflow"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">Run set</span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row" data-selected="true">
+                              <span class="setta-item-key">matrix</span>
+                              <span class="setta-item-value">2 × 2</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">concurrency</span>
+                              <span class="setta-item-value">2</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-grader"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port in workflow"></span>
+                          <span class="setta-port out"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">
+                              Exact-match grader
+                            </span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">metric</span>
+                              <span class="setta-item-value">accuracy</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">minimum</span>
+                              <span class="setta-item-value">90%</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-report"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port in"></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title">
+                              Review report
+                            </span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-section-body">
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">metrics</span>
+                              <span class="setta-item-value">3</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">case slices</span>
+                              <span class="setta-item-value">4</span>
+                            </div>
+                          </div>
+                        </article>
+
+                        <div class="react-flow__minimap" aria-hidden="true">
+                          <span class="minimap-node"></span>
+                          <span class="minimap-node"></span>
+                          <span class="minimap-node"></span>
+                          <span class="minimap-node"></span>
+                          <span class="minimap-node"></span>
+                          <span class="minimap-viewport"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-sliders"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-check"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-document"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Inspector
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>Run set</strong><span>section</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Configuration
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Matrix
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-input"
+                                >
+                                  active variants
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Concurrency
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-input"
+                                >
+                                  2 runs
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Stop on failure
+                                </span>
+                                <span class="setta-toggle"></span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Resolved launch
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Runs
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  4
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Case executions
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  1,000
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Revision
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  18
+                                </span>
+                              </div>
+                              <span
+                                class="setta-workspace-inspector-config-action"
+                              >
+                                <span>Preview run set</span><span>↗</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-plus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-minus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-fit"></use>
+                      </svg>
+                    </span>
+                    <span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                    >
+                      <svg class="setta-icon">
+                        <use href="#icon-grid"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-search"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-map"></use>
+                      </svg>
+                    </span>
+                  </div>
+
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Bench saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="true"
+                        data-setta-scene="build"
+                      >
+                        Build
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="monitor"
+                      >
+                        Monitor
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="compare"
+                      >
+                        Review
+                      </button>
+                    </div>
+                  </nav>
                 </div>
-                <div class="app-breadcrumb">
-                  <strong>Ticket triage benchmark</strong> / experiment
-                </div>
-                <div class="app-view-tabs" aria-hidden="true">
-                  <span class="app-view-tab active">Build</span>
-                  <span class="app-view-tab">Monitor</span>
-                  <span class="app-view-tab">Review</span>
-                </div>
-                <span class="mock-action">Preview run set</span>
-              </div>
-              <div class="workspace-shell">
-                <aside
-                  class="workspace-rail left"
-                  aria-label="Illustrative experiment outline"
-                >
-                  <div class="rail-label">
-                    <span>Outline</span><span>⌘ P</span>
-                  </div>
-                  <div class="outline-tree">
-                    <div class="outline-row">
-                      <span class="tree-glyph">◇</span> Support-250
-                    </div>
-                    <div class="outline-row">
-                      <span class="tree-glyph">T</span> Prompt v4
-                    </div>
-                    <div class="outline-row">
-                      <span class="tree-glyph">◫</span> Model candidates
-                    </div>
-                    <div class="outline-row active">
-                      <span class="tree-glyph">▶</span> Run set
-                    </div>
-                    <div class="outline-row">
-                      <span class="tree-glyph">✓</span> Exact-match grader
-                    </div>
-                    <div class="outline-row">
-                      <span class="tree-glyph">▤</span> Review report
-                    </div>
-                  </div>
-                  <div class="rail-rule"></div>
-                  <div class="rail-label">
-                    <span>Saved views</span><span>3</span>
-                  </div>
-                  <div class="saved-view active">
-                    <span>Build</span><span>01</span>
-                  </div>
-                  <div class="saved-view">
-                    <span>Monitor</span><span>02</span>
-                  </div>
-                  <div class="saved-view">
-                    <span>Review</span><span>03</span>
-                  </div>
-                </aside>
-
-                <div
-                  class="experiment-canvas"
-                  aria-label="Illustrative experiment graph"
-                >
-                  <div class="canvas-toolbar" aria-hidden="true">
-                    <span class="canvas-tool">+</span
-                    ><span class="canvas-tool">−</span
-                    ><span class="canvas-tool">fit</span>
-                  </div>
-                  <div class="flow-stage">
-                    <span class="flow-wire wire-dataset-prompt"></span>
-                    <span class="flow-wire wire-dataset-model"></span>
-                    <span class="flow-wire wire-prompt-run"></span>
-                    <span class="flow-wire wire-model-run"></span>
-                    <span class="flow-wire wire-run-grader"></span>
-                    <span class="flow-wire wire-grader-report"></span>
-
-                    <article class="canvas-node node-dataset">
-                      <span class="port out"></span>
-                      <div class="node-head">
-                        <span class="node-icon">◇</span> Support-250
-                      </div>
-                      <div class="node-body">
-                        <div class="node-value">
-                          <span>cases</span><span>250</span>
-                        </div>
-                        <div class="node-value">
-                          <span>labels</span><span>8</span>
-                        </div>
-                        <span class="node-chip">dataset · v7</span>
-                      </div>
-                    </article>
-
-                    <article class="canvas-node node-prompt">
-                      <span class="port in"></span
-                      ><span class="port out"></span>
-                      <div class="node-head">
-                        <span class="node-icon">T</span> Prompt v4
-                      </div>
-                      <div class="node-body">
-                        <div class="node-line">
-                          <span>concise</span><span>active</span>
-                        </div>
-                        <div class="node-line">
-                          <span>explanatory</span><span>active</span>
-                        </div>
-                      </div>
-                    </article>
-
-                    <article class="canvas-node node-model">
-                      <span class="port in"></span
-                      ><span class="port out"></span>
-                      <div class="node-head">
-                        <span class="node-icon">◫</span> Model candidates
-                      </div>
-                      <div class="node-body">
-                        <div class="node-line">
-                          <span>Baseline</span><span>v3</span>
-                        </div>
-                        <div class="node-line">
-                          <span>Candidate B</span><span>v4</span>
-                        </div>
-                      </div>
-                    </article>
-
-                    <article class="canvas-node node-run selected">
-                      <span class="port in"></span
-                      ><span class="port out"></span>
-                      <div class="node-head">
-                        <span class="node-icon">▶</span> Run set
-                      </div>
-                      <div class="node-body">
-                        <div class="node-value">
-                          <span>matrix</span><span>2 × 2</span>
-                        </div>
-                        <div class="node-value">
-                          <span>concurrency</span><span>2</span>
-                        </div>
-                        <div class="node-progress"><span></span></div>
-                      </div>
-                    </article>
-
-                    <article class="canvas-node node-grader">
-                      <span class="port in"></span
-                      ><span class="port out"></span>
-                      <div class="node-head">
-                        <span class="node-icon">✓</span> Exact-match grader
-                      </div>
-                      <div class="node-body">
-                        <div class="node-value">
-                          <span>primary</span><span>accuracy</span>
-                        </div>
-                        <div class="node-value">
-                          <span>minimum</span><span>90%</span>
-                        </div>
-                      </div>
-                    </article>
-
-                    <article class="canvas-node node-report">
-                      <span class="port in"></span>
-                      <div class="node-head">
-                        <span class="node-icon">▤</span> Review report
-                      </div>
-                      <div class="node-body">
-                        <div class="node-line">
-                          <span>metrics</span><span>3</span>
-                        </div>
-                        <div class="node-line">
-                          <span>case slices</span><span>4</span>
-                        </div>
-                      </div>
-                    </article>
-                  </div>
-                </div>
-
-                <aside
-                  class="workspace-rail right"
-                  aria-label="Illustrative run set inspector"
-                >
-                  <div class="rail-label">
-                    <span>Inspector</span><span>Run set</span>
-                  </div>
-                  <div class="inspector-title">Run set</div>
-                  <div class="inspector-field">
-                    <label>Matrix</label>
-                    <div class="fake-input">
-                      <span>All active variants</span><span>⌄</span>
-                    </div>
-                  </div>
-                  <div class="inspector-field">
-                    <label>Concurrency</label>
-                    <div class="fake-input">
-                      <span>2 runs</span><span>− &nbsp; +</span>
-                    </div>
-                  </div>
-                  <div class="inspector-field">
-                    <label>Stop on failure</label>
-                    <div class="fake-input">
-                      <span>Continue run set</span
-                      ><span class="fake-toggle"></span>
-                    </div>
-                  </div>
-                  <div class="inspector-field">
-                    <label>Resolved launch</label>
-                    <div class="fake-input">
-                      <span>4 runs · 1,000 cases</span>
-                    </div>
-                  </div>
-                </aside>
               </div>
             </div>
           </section>
@@ -2077,134 +2767,509 @@
               <div>
                 <h3>Monitor view</h3>
                 <p>
-                  The ledger is a dense, queryable surface. Canvas layout never
-                  determines run identity, status, or history.
+                  A Bench run ledger lives in a managed Workspace window while
+                  the shell keeps navigation, selection, provenance, and live
+                  status in their standard homes.
                 </p>
               </div>
-              <div class="scene-caption">Durable runs, live progress</div>
+              <div class="scene-caption">
+                Shell + managed window · current dark theme
+              </div>
             </div>
 
             <div class="app-frame">
-              <div class="app-bar">
-                <div class="window-dots" aria-hidden="true">
-                  <span></span><span></span><span></span>
-                </div>
-                <div class="app-breadcrumb">
-                  <strong>Ticket triage benchmark</strong> / runs
-                </div>
-                <div class="app-view-tabs" aria-hidden="true">
-                  <span class="app-view-tab">Build</span>
-                  <span class="app-view-tab active">Monitor</span>
-                  <span class="app-view-tab">Review</span>
-                </div>
-                <span class="mock-action">Cancel run set</span>
-              </div>
-              <div class="monitor-shell">
-                <div class="ledger">
-                  <div class="ledger-head">
-                    <div>
-                      <div class="ledger-title">Run set 0421</div>
-                      <div class="ledger-subtitle">
-                        Frozen from experiment revision 18 · commit 7ac2e91
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace mockup showing live Bench runs"
+              >
+                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-outline"></use>
+                            </svg>
+                          </span>
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-table"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-check"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">Runs</h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #60a5fa"
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                >
+                                  <svg class="setta-icon">
+                                    <use href="#icon-chevron"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-layers"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Run set 0421
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  4/6
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  BR-0421-04
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #f59e0b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-play"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  BR-0421-03
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  184/250
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  BR-0421-02
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #ef4444;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  BR-0421-01
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div class="setta-workspace-shell-center">
+                    <div class="setta-workspace-shell-canvas">
+                      <div class="setta-workspace-window-manager">
+                        <article class="setta-workspace-window-surface">
+                          <header class="setta-workspace-window-surface-header">
+                            <svg class="setta-icon" aria-hidden="true">
+                              <use href="#icon-table"></use>
+                            </svg>
+                            <span class="setta-workspace-window-surface-title">
+                              Run set 0421
+                            </span>
+                            <span
+                              class="setta-workspace-window-surface-actions"
+                              aria-hidden="true"
+                            >
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                −
+                              </span>
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                ×
+                              </span>
+                            </span>
+                          </header>
+                          <div class="setta-workspace-window-surface-body">
+                            <div class="run-window-summary">
+                              <div>
+                                <strong>Ticket triage benchmark</strong>
+                                <span>
+                                  experiment rev 18 · source 7ac2e91 ·
+                                  Support-250 v7
+                                </span>
+                              </div>
+                              <div class="run-window-counts">
+                                <span><b>4</b> complete</span>
+                                <span><b>1</b> running</span>
+                                <span><b>1</b> failed</span>
+                              </div>
+                            </div>
+                            <div class="run-table-wrap">
+                              <table class="run-table">
+                                <thead>
+                                  <tr>
+                                    <th>Run</th>
+                                    <th>Candidate</th>
+                                    <th>Prompt</th>
+                                    <th>Status</th>
+                                    <th>Accuracy</th>
+                                    <th>Cost</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr aria-selected="true">
+                                    <td class="table-id">BR-0421-04</td>
+                                    <td>Candidate B</td>
+                                    <td>concise</td>
+                                    <td>
+                                      <span class="status-label">Complete</span>
+                                    </td>
+                                    <td>91.8%</td>
+                                    <td>$0.78</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">BR-0421-03</td>
+                                    <td>Candidate B</td>
+                                    <td>explanatory</td>
+                                    <td>
+                                      <span class="status-label running">
+                                        Running
+                                      </span>
+                                    </td>
+                                    <td>—</td>
+                                    <td>$0.61</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">BR-0421-02</td>
+                                    <td>Baseline</td>
+                                    <td>concise</td>
+                                    <td>
+                                      <span class="status-label">Complete</span>
+                                    </td>
+                                    <td>88.4%</td>
+                                    <td>$0.73</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">BR-0421-01</td>
+                                    <td>Baseline</td>
+                                    <td>explanatory</td>
+                                    <td>
+                                      <span class="status-label failed">
+                                        Failed
+                                      </span>
+                                    </td>
+                                    <td>—</td>
+                                    <td>$0.29</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </article>
                       </div>
                     </div>
-                    <div class="ledger-summary">
-                      <span><strong>4</strong> complete</span>
-                      <span><strong>1</strong> running</span>
-                      <span><strong>1</strong> failed</span>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-sliders"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-check"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-document"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Inspector
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>BR-0421-04</strong><span>run</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Result
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Accuracy
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  91.8%
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  P95 latency
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  1.8s
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Cost
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  $0.78
+                                </span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Provenance
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Experiment
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  rev 18
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Source
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  7ac2e91
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Case set
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  Support-250 v7
+                                </span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Latest activity
+                              </div>
+                              <div class="setta-log-lines">
+                                <div>250 case results adopted</div>
+                                <div>3 metrics finalized</div>
+                                <div><em>run completed successfully</em></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-plus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-minus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-fit"></use>
+                      </svg>
+                    </span>
+                    <span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                    >
+                      <svg class="setta-icon">
+                        <use href="#icon-grid"></use>
+                      </svg>
+                    </span>
+                  </div>
+
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Bench saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="build"
+                      >
+                        Build
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="true"
+                        data-setta-scene="monitor"
+                      >
+                        Monitor
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="compare"
+                      >
+                        Review
+                      </button>
                     </div>
-                  </div>
-                  <div class="table-wrap">
-                    <table class="run-table">
-                      <thead>
-                        <tr>
-                          <th>Run</th>
-                          <th>Candidate</th>
-                          <th>Prompt mode</th>
-                          <th>Status</th>
-                          <th>Accuracy</th>
-                          <th>Cost</th>
-                          <th>Duration</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr class="selected">
-                          <td class="table-id">BR-0421-04</td>
-                          <td>Candidate B</td>
-                          <td>concise</td>
-                          <td><span class="status-label">Complete</span></td>
-                          <td>91.8%</td>
-                          <td>$0.78</td>
-                          <td>03:42</td>
-                        </tr>
-                        <tr>
-                          <td class="table-id">BR-0421-03</td>
-                          <td>Candidate B</td>
-                          <td>explanatory</td>
-                          <td>
-                            <span class="status-label running">Running</span>
-                          </td>
-                          <td>—</td>
-                          <td>$0.61</td>
-                          <td>02:58</td>
-                        </tr>
-                        <tr>
-                          <td class="table-id">BR-0421-02</td>
-                          <td>Baseline</td>
-                          <td>concise</td>
-                          <td><span class="status-label">Complete</span></td>
-                          <td>88.4%</td>
-                          <td>$0.73</td>
-                          <td>03:21</td>
-                        </tr>
-                        <tr>
-                          <td class="table-id">BR-0421-01</td>
-                          <td>Baseline</td>
-                          <td>explanatory</td>
-                          <td>
-                            <span class="status-label failed">Failed</span>
-                          </td>
-                          <td>—</td>
-                          <td>$0.29</td>
-                          <td>01:16</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  </nav>
                 </div>
-                <aside
-                  class="ledger-detail"
-                  aria-label="Illustrative selected run details"
-                >
-                  <div class="rail-label">
-                    <span>Run details</span><span>immutable</span>
-                  </div>
-                  <div class="inspector-title">BR-0421-04</div>
-                  <div class="metric-pair">
-                    <div class="metric-box">
-                      <strong>91.8%</strong><span>accuracy</span>
-                    </div>
-                    <div class="metric-box">
-                      <strong>1.8s</strong><span>p95 latency</span>
-                    </div>
-                  </div>
-                  <div class="detail-label">Provenance</div>
-                  <div class="fake-input">
-                    <span>experiment</span><span>rev 18</span>
-                  </div>
-                  <div class="fake-input">
-                    <span>source</span><span>7ac2e91</span>
-                  </div>
-                  <div class="fake-input">
-                    <span>case set</span><span>Support-250 v7</span>
-                  </div>
-                  <div class="detail-label">Latest activity</div>
-                  <div class="log-lines">
-                    <div>250 case results adopted</div>
-                    <div>3 metrics finalized</div>
-                    <div><em>run completed successfully</em></div>
-                  </div>
-                </aside>
               </div>
             </div>
           </section>
@@ -2220,120 +3285,507 @@
               <div>
                 <h3>Compare view</h3>
                 <p>
-                  A reviewer sees aligned evidence and representative
-                  disagreements, not merely one winning scalar.
+                  Review uses two real managed-window shapes over the Workspace
+                  canvas, with comparison selection in the leading pane and the
+                  decision record in Inspector.
                 </p>
               </div>
-              <div class="scene-caption">Saved comparison arrangement</div>
+              <div class="scene-caption">
+                Shell + paired windows · current dark theme
+              </div>
             </div>
 
             <div class="app-frame">
-              <div class="app-bar">
-                <div class="window-dots" aria-hidden="true">
-                  <span></span><span></span><span></span>
-                </div>
-                <div class="app-breadcrumb">
-                  <strong>Ticket triage benchmark</strong> / comparison
-                </div>
-                <div class="app-view-tabs" aria-hidden="true">
-                  <span class="app-view-tab">Build</span>
-                  <span class="app-view-tab">Monitor</span>
-                  <span class="app-view-tab active">Review</span>
-                </div>
-                <span class="mock-action">Promote baseline</span>
-              </div>
-              <div class="compare-shell">
-                <div class="compare-toolbar">
-                  <div class="compare-selection">
-                    Comparing <strong>BR-0421-02</strong> with
-                    <strong>BR-0421-04</strong>
-                  </div>
-                  <div class="run-id">CASE SLICE · DISAGREEMENTS</div>
-                </div>
-                <div class="comparison-grid">
-                  <article class="comparison-window">
-                    <div class="comparison-head">
-                      <span>Baseline · Prompt v3</span><span>BR-0421-02</span>
-                    </div>
-                    <div class="comparison-metrics">
-                      <div class="comparison-metric">
-                        <strong>88.4%</strong><span>accuracy</span>
-                      </div>
-                      <div class="comparison-metric">
-                        <strong>1.5s</strong><span>p95 latency</span>
-                      </div>
-                      <div class="comparison-metric">
-                        <strong>$0.73</strong><span>cost</span>
-                      </div>
-                    </div>
-                    <div class="case-review">
-                      <div class="case-review-head">
-                        <span>Case 184 · subscription refund</span
-                        ><span>failed</span>
-                      </div>
-                      <div class="case-result">
-                        <span>Expected label</span>
-                        <code>billing_refund</code>
-                      </div>
-                      <div class="case-result">
-                        <span>Model output</span>
-                        <code class="bad">account_help</code>
-                      </div>
-                      <div class="case-result">
-                        <span>Grader finding</span>
-                        <code
-                          >Missed explicit refund intent after
-                          cancellation.</code
-                        >
-                      </div>
-                    </div>
-                  </article>
-
-                  <article class="comparison-window winner">
-                    <div class="comparison-head">
-                      <span>Candidate B · Prompt v4</span
-                      ><span class="recommended">recommended</span>
-                    </div>
-                    <div class="comparison-metrics">
-                      <div class="comparison-metric">
-                        <strong>91.8%</strong><span>accuracy</span>
-                      </div>
-                      <div class="comparison-metric">
-                        <strong>1.8s</strong><span>p95 latency</span>
-                      </div>
-                      <div class="comparison-metric">
-                        <strong>$0.78</strong><span>cost</span>
-                      </div>
-                    </div>
-                    <div class="case-review">
-                      <div class="case-review-head">
-                        <span>Case 184 · subscription refund</span
-                        ><span>passed</span>
-                      </div>
-                      <div class="case-result">
-                        <span>Expected label</span>
-                        <code>billing_refund</code>
-                      </div>
-                      <div class="case-result">
-                        <span>Model output</span>
-                        <code class="good">billing_refund</code>
-                      </div>
-                      <div class="case-result">
-                        <span>Grader finding</span>
-                        <code
-                          >Correctly prioritizes the requested financial
-                          action.</code
-                        >
-                      </div>
-                    </div>
-                  </article>
-                </div>
-                <div class="decision-strip">
-                  <span
-                    ><strong>Decision evidence:</strong> +3.4 accuracy points
-                    for +$0.05 and +0.3s p95 latency.</span
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace mockup comparing two Bench runs"
+              >
+                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
                   >
-                  <span class="run-id">12 DISAGREEMENTS REVIEWED</span>
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-outline"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-table"></use>
+                            </svg>
+                          </span>
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-compare"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Comparisons
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #3b82f6"
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                >
+                                  <svg class="setta-icon">
+                                    <use href="#icon-chevron"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-compare"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Baseline vs Candidate B
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-document"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  All cases
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  250
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #f59e0b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-search"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Disagreements
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  12
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Regressions
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  3
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div class="setta-workspace-shell-center">
+                    <div class="setta-workspace-shell-canvas">
+                      <div
+                        class="setta-workspace-window-manager comparison-manager"
+                      >
+                        <article class="setta-workspace-window-surface">
+                          <header class="setta-workspace-window-surface-header">
+                            <svg class="setta-icon" aria-hidden="true">
+                              <use href="#icon-document"></use>
+                            </svg>
+                            <span class="setta-workspace-window-surface-title">
+                              Baseline · Prompt v3
+                            </span>
+                            <span
+                              class="setta-workspace-window-surface-actions"
+                              aria-hidden="true"
+                            >
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                −
+                              </span>
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                ×
+                              </span>
+                            </span>
+                          </header>
+                          <div class="comparison-window-body">
+                            <div class="comparison-metrics">
+                              <div class="comparison-metric">
+                                <strong>88.4%</strong><span>accuracy</span>
+                              </div>
+                              <div class="comparison-metric">
+                                <strong>1.5s</strong><span>p95 latency</span>
+                              </div>
+                              <div class="comparison-metric">
+                                <strong>$0.73</strong><span>cost</span>
+                              </div>
+                            </div>
+                            <div class="case-review">
+                              <div class="case-review-head">
+                                <span>Case 184 · subscription refund</span>
+                                <span class="status-label failed">Failed</span>
+                              </div>
+                              <div class="case-result">
+                                <span>Expected label</span>
+                                <code>billing_refund</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Model output</span>
+                                <code class="bad">account_help</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Grader finding</span>
+                                <code>Missed explicit refund intent</code>
+                              </div>
+                              <div class="case-review-head">
+                                <span>Case 211 · duplicate charge</span>
+                                <span class="status-label failed">Failed</span>
+                              </div>
+                              <div class="case-result">
+                                <span>Model output</span>
+                                <code class="bad">technical_issue</code>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article class="setta-workspace-window-surface">
+                          <header class="setta-workspace-window-surface-header">
+                            <svg class="setta-icon" aria-hidden="true">
+                              <use href="#icon-document"></use>
+                            </svg>
+                            <span class="setta-workspace-window-surface-title">
+                              Candidate B · Prompt v4
+                            </span>
+                            <span class="recommended">recommended</span>
+                            <span
+                              class="setta-workspace-window-surface-actions"
+                              aria-hidden="true"
+                            >
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                −
+                              </span>
+                              <span
+                                class="setta-workspace-window-surface-action"
+                              >
+                                ×
+                              </span>
+                            </span>
+                          </header>
+                          <div class="comparison-window-body">
+                            <div class="comparison-metrics">
+                              <div class="comparison-metric">
+                                <strong>91.8%</strong><span>accuracy</span>
+                              </div>
+                              <div class="comparison-metric">
+                                <strong>1.8s</strong><span>p95 latency</span>
+                              </div>
+                              <div class="comparison-metric">
+                                <strong>$0.78</strong><span>cost</span>
+                              </div>
+                            </div>
+                            <div class="case-review">
+                              <div class="case-review-head">
+                                <span>Case 184 · subscription refund</span>
+                                <span class="status-label">Passed</span>
+                              </div>
+                              <div class="case-result">
+                                <span>Expected label</span>
+                                <code>billing_refund</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Model output</span>
+                                <code class="good">billing_refund</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Grader finding</span>
+                                <code>Correct financial action</code>
+                              </div>
+                              <div class="case-review-head">
+                                <span>Case 211 · duplicate charge</span>
+                                <span class="status-label">Passed</span>
+                              </div>
+                              <div class="case-result">
+                                <span>Model output</span>
+                                <code class="good">billing_dispute</code>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                          >
+                            <svg class="setta-icon">
+                              <use href="#icon-sliders"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-check"></use>
+                            </svg>
+                          </span>
+                          <span class="setta-workspace-shell-tab">
+                            <svg class="setta-icon">
+                              <use href="#icon-document"></use>
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-fit"></use>
+                        </svg>
+                      </span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Inspector
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>Candidate B</strong>
+                                <span>comparison</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Decision evidence
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Accuracy
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  +3.4 pts
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Cost
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  +$0.05
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  P95 latency
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  +0.3s
+                                </span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Review
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Disagreements
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  12 / 12
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Baseline ready
+                                </span>
+                                <span class="setta-toggle on"></span>
+                              </div>
+                              <span
+                                class="setta-workspace-inspector-config-action"
+                              >
+                                <span>Promote baseline</span><span>↗</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-plus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-minus"></use>
+                      </svg>
+                    </span>
+                    <span class="react-flow__controls-button">
+                      <svg class="setta-icon">
+                        <use href="#icon-fit"></use>
+                      </svg>
+                    </span>
+                    <span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                    >
+                      <svg class="setta-icon">
+                        <use href="#icon-grid"></use>
+                      </svg>
+                    </span>
+                  </div>
+
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Bench saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="build"
+                      >
+                        Build
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="false"
+                        data-setta-scene="monitor"
+                      >
+                        Monitor
+                      </button>
+                      <button
+                        class="setta-workspace-saved-view-tab"
+                        type="button"
+                        aria-selected="true"
+                        data-setta-scene="compare"
+                      >
+                        Review
+                      </button>
+                    </div>
+                  </nav>
                 </div>
               </div>
             </div>
@@ -2520,6 +3972,20 @@
             if (nextIndex !== null) {
               event.preventDefault();
               selectTab(tabs[nextIndex], true);
+            }
+          });
+        }
+
+        for (const savedViewTab of document.querySelectorAll(
+          "[data-setta-scene]",
+        )) {
+          savedViewTab.addEventListener("click", () => {
+            const scene = savedViewTab.getAttribute("data-setta-scene");
+            const destination = scene
+              ? document.getElementById(`tab-${scene}`)
+              : null;
+            if (destination) {
+              selectTab(destination, false);
             }
           });
         }
