@@ -781,7 +781,8 @@
               <p>
                 One compact decision section keeps the options and human actions
                 together. Rich source sections expose the underlying change and
-                run data; edges show where each artifact informs the decision.
+                run data. Selecting an evidence-backed factor reveals its source
+                and cited lines.
               </p>
             </div>
           </div>
@@ -872,6 +873,7 @@
                 data-region="canvas"
                 class="canvas-stage review-choice-stage"
                 data-choice="b"
+                data-evidence-factor="mismatch"
               >
                 <svg
                   class="setta-workspace-graph-layer"
@@ -879,23 +881,29 @@
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
-                  <g class="review-choice-edge">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M207 390 C207 358 395 358 395 333"
-                    />
-                  </g>
-                  <g class="review-choice-edge">
+                  <g
+                    class="review-choice-edge"
+                    data-choice-evidence-edge="mismatch"
+                    data-active="true"
+                  >
                     <path
                       class="setta-workspace-graph-edge-path"
                       d="M530 390 C530 360 568 360 568 333"
                     />
+                  </g>
+                  <g
+                    class="review-choice-edge"
+                    data-choice-evidence-edge="rollback"
+                  >
                     <path
                       class="setta-workspace-graph-edge-path"
                       d="M670 390 C670 350 943 358 943 333"
                     />
                   </g>
-                  <g class="review-choice-edge">
+                  <g
+                    class="review-choice-edge"
+                    data-choice-evidence-edge="consumers"
+                  >
                     <path
                       class="setta-workspace-graph-edge-path"
                       d="M932 390 C932 376 693 376 693 333"
@@ -909,22 +917,21 @@
                 >
                   <span
                     class="review-choice-factor-port"
-                    style="--factor-left: 15.3%"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    class="review-choice-factor-port"
                     style="--factor-left: 39.2%"
+                    data-choice-factor-port="mismatch"
+                    data-active="true"
                     aria-hidden="true"
                   ></span>
                   <span
                     class="review-choice-factor-port"
                     style="--factor-left: 56.6%"
+                    data-choice-factor-port="consumers"
                     aria-hidden="true"
                   ></span>
                   <span
                     class="review-choice-factor-port"
                     style="--factor-left: 91.3%"
+                    data-choice-factor-port="rollback"
                     aria-hidden="true"
                   ></span>
                   <div class="setta-section-header">
@@ -943,10 +950,41 @@
                       <thead>
                         <tr>
                           <th scope="col">Option</th>
-                          <th scope="col"><strong>Mismatch</strong></th>
-                          <th scope="col"><strong>v2 consumers</strong></th>
+                          <th
+                            scope="col"
+                            data-factor-column="mismatch"
+                            data-evidence-active="true"
+                          >
+                            <button
+                              type="button"
+                              class="review-choice-factor-button"
+                              data-choice-factor="mismatch"
+                              aria-pressed="true"
+                            >
+                              <strong>Mismatch</strong>
+                            </button>
+                          </th>
+                          <th scope="col" data-factor-column="consumers">
+                            <button
+                              type="button"
+                              class="review-choice-factor-button"
+                              data-choice-factor="consumers"
+                              aria-pressed="false"
+                            >
+                              <strong>v2 consumers</strong>
+                            </button>
+                          </th>
                           <th scope="col"><strong>Rollout</strong></th>
-                          <th scope="col"><strong>Rollback</strong></th>
+                          <th scope="col" data-factor-column="rollback">
+                            <button
+                              type="button"
+                              class="review-choice-factor-button"
+                              data-choice-factor="rollback"
+                              aria-pressed="false"
+                            >
+                              <strong>Rollback</strong>
+                            </button>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1094,10 +1132,6 @@
                 <article
                   class="setta-section-card review-choice-evidence-node review-choice-schema-node"
                 >
-                  <span
-                    class="review-choice-evidence-port"
-                    aria-hidden="true"
-                  ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
                       ><svg class="setta-icon">
@@ -1137,15 +1171,20 @@
 
                 <article
                   class="setta-section-card review-choice-evidence-node review-choice-shadow-node"
+                  data-evidence-for="mismatch rollback"
+                  data-evidence-active="true"
                 >
                   <span
                     class="review-choice-evidence-port"
                     style="--evidence-port-left: 29%"
+                    data-choice-evidence-port="mismatch"
+                    data-active="true"
                     aria-hidden="true"
                   ></span>
                   <span
                     class="review-choice-evidence-port"
                     style="--evidence-port-left: 69%"
+                    data-choice-evidence-port="rollback"
                     aria-hidden="true"
                   ></span>
                   <div class="setta-section-header">
@@ -1173,17 +1212,27 @@
                       <span>2</span
                       ><code><b>"events_seen"</b>: <i>1248932</i>,</code>
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="mismatch"
+                      data-cited="true"
+                    >
                       <span>3</span
                       ><code><b>"mismatch_rate"</b>: <i>0.0002</i>,</code>
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="rollback"
+                    >
                       <span>4</span
                       ><code
                         ><b>"rollback_rehearsal"</b>: <em>"passed"</em>,</code
                       >
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="rollback"
+                    >
                       <span>5</span
                       ><code><b>"error_threshold"</b>: <i>0.005</i></code>
                     </div>
@@ -1195,10 +1244,12 @@
 
                 <article
                   class="setta-section-card review-choice-evidence-node review-choice-consumer-node"
+                  data-evidence-for="consumers"
                 >
                   <span
                     class="review-choice-evidence-port"
                     style="--evidence-port-left: 26%"
+                    data-choice-evidence-port="consumers"
                     aria-hidden="true"
                   ></span>
                   <div class="setta-section-header">
@@ -1225,13 +1276,22 @@
                     <div class="review-code-line">
                       <span>2</span><code><b>"compatible"</b>: <i>18</i>,</code>
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="consumers"
+                    >
                       <span>3</span><code><b>"requires_v2"</b>: [</code>
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="consumers"
+                    >
                       <span>4</span><code><em>"invoice-indexer"</em>,</code>
                     </div>
-                    <div class="review-code-line" data-cited="true">
+                    <div
+                      class="review-code-line"
+                      data-citation-factor="consumers"
+                    >
                       <span>5</span><code><em>"warehouse-export"</em></code>
                     </div>
                     <div class="review-code-line">
@@ -2400,6 +2460,78 @@
                   });
                 });
               renderChoice(choiceStage.dataset.choice || "b");
+
+              const renderEvidenceFactor = (factor) => {
+                choiceStage.dataset.evidenceFactor = factor;
+                choiceStage
+                  .querySelectorAll("[data-choice-factor]")
+                  .forEach((button) => {
+                    button.setAttribute(
+                      "aria-pressed",
+                      String(button.dataset.choiceFactor === factor),
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-factor-column]")
+                  .forEach((column) => {
+                    column.toggleAttribute(
+                      "data-evidence-active",
+                      column.dataset.factorColumn === factor,
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-choice-evidence-edge]")
+                  .forEach((edge) => {
+                    edge.toggleAttribute(
+                      "data-active",
+                      edge.dataset.choiceEvidenceEdge === factor,
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-choice-factor-port]")
+                  .forEach((port) => {
+                    port.toggleAttribute(
+                      "data-active",
+                      port.dataset.choiceFactorPort === factor,
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-choice-evidence-port]")
+                  .forEach((port) => {
+                    port.toggleAttribute(
+                      "data-active",
+                      port.dataset.choiceEvidencePort === factor,
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-evidence-for]")
+                  .forEach((section) => {
+                    const factors = section.dataset.evidenceFor.split(/\s+/);
+                    section.toggleAttribute(
+                      "data-evidence-active",
+                      factors.includes(factor),
+                    );
+                  });
+                choiceStage
+                  .querySelectorAll("[data-citation-factor]")
+                  .forEach((line) => {
+                    line.toggleAttribute(
+                      "data-cited",
+                      line.dataset.citationFactor === factor,
+                    );
+                  });
+              };
+
+              choiceStage
+                .querySelectorAll("[data-choice-factor]")
+                .forEach((button) => {
+                  button.addEventListener("click", () => {
+                    renderEvidenceFactor(button.dataset.choiceFactor);
+                  });
+                });
+              renderEvidenceFactor(
+                choiceStage.dataset.evidenceFactor || "mismatch",
+              );
 
               const choiceActions = choiceStage.querySelector(
                 "[data-choice-actions]",
