@@ -219,9 +219,8 @@
               <div class="showcase-number">App 01 · Workflow 01</div>
               <h2>Review · Completion</h2>
               <p>
-                Every claim stays visible. Evidence uses the workspace’s normal
-                minimize controls; assessments and presence report only recorded
-                activity.
+                Every claim stays visible. Evidence expands when selected;
+                assessments and presence report only recorded activity.
               </p>
             </div>
           </div>
@@ -349,11 +348,7 @@
                   <g class="review-edge review-edge--support">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M748 431 C776 431 792 399 820 399"
-                    />
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M748 431 C776 431 792 462 820 462"
+                      d="M748 431 C772 431 796 431 820 431"
                     />
                   </g>
                   <g class="review-edge review-edge--context">
@@ -377,7 +372,7 @@
                 <div
                   class="stage-label review-lane-label review-lane-label--three"
                 >
-                  R-206
+                  R-206 · submitted
                 </div>
 
                 <article
@@ -646,55 +641,15 @@
                   </div>
                 </article>
 
-                <article
-                  class="setta-section-card review-minimized-evidence review-evidence-test-node"
-                  data-minimized="true"
+                <div
+                  class="review-collapsed-evidence"
+                  aria-label="Two evidence sections collapsed"
                 >
-                  <span
-                    class="setta-workspace-graph-port left"
-                    style="--port-color: #77d994"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title"
-                      >inventory.test.json</span
-                    >
-                    <span class="setta-section-kind">18 passed</span>
-                    <span class="setta-section-actions">
-                      <span
-                        class="setta-section-action"
-                        aria-label="Expand test evidence"
-                        ><svg class="setta-icon">
-                          <use href="#icon-fit"></use></svg
-                      ></span>
-                    </span>
-                  </div>
-                </article>
-
-                <article
-                  class="setta-section-card review-minimized-evidence review-evidence-diff-node"
-                  data-minimized="true"
-                >
-                  <span
-                    class="setta-workspace-graph-port left"
-                    style="--port-color: #77d994"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title"
-                      >internal/inventory/reserve.go</span
-                    >
-                    <span class="setta-section-kind">+31 −8</span>
-                    <span class="setta-section-actions">
-                      <span
-                        class="setta-section-action"
-                        aria-label="Expand diff evidence"
-                        ><svg class="setta-icon">
-                          <use href="#icon-fit"></use></svg
-                      ></span>
-                    </span>
-                  </div>
-                </article>
+                  <svg class="setta-icon" aria-hidden="true">
+                    <use href="#icon-document"></use>
+                  </svg>
+                  <strong>2</strong>
+                </div>
 
                 <article
                   class="setta-section-card request-node request-node--tertiary"
@@ -728,17 +683,26 @@
                   <div
                     class="section-body review-compact-claim-list review-compact-claim-list--open"
                   >
-                    <div class="review-compact-claim-row">
+                    <div
+                      class="review-compact-claim-row"
+                      data-state="submitted"
+                    >
                       <span class="review-claim-dot" aria-hidden="true"></span>
                       <strong>Retry transport failures</strong>
+                      <span>submitted</span>
                     </div>
-                    <div class="review-compact-claim-row">
+                    <div
+                      class="review-compact-claim-row"
+                      data-state="submitted"
+                    >
                       <span class="review-claim-dot" aria-hidden="true"></span>
                       <strong>Stop after 3 attempts</strong>
+                      <span>submitted</span>
                     </div>
-                    <div class="review-compact-claim-row">
+                    <div class="review-compact-claim-row" data-state="draft">
                       <span class="review-claim-dot" aria-hidden="true"></span>
                       <strong>Backoff curve</strong>
+                      <span>draft</span>
                     </div>
                   </div>
                 </article>
