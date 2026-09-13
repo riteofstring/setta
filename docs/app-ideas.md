@@ -87,85 +87,121 @@ contract, persistence boundary, and failure semantics.
 Each score is out of five. A higher **Simplicity** score means a smaller, easier-to-bound first
 version.
 
-| Direction                        | Leverage | Simplicity | Agentic value | Novelty | Decision                    |
-| -------------------------------- | -------: | ---------: | ------------: | ------: | --------------------------- |
-| Setta Witness                    |        5 |          4 |             5 |       4 | Build first                 |
-| Setta Context Pack               |        5 |          4 |             5 |       4 | Build second or alongside   |
-| Setta Curator                    |        4 |          5 |             5 |       3 | Strong small prototype      |
-| Setta Permit                     |        5 |          3 |             5 |       4 | Explore after interchange   |
-| Agent Context and Replay Bench   |        5 |          2 |             5 |       4 | Defer                       |
-| Agent Intervention               |        4 |          2 |             4 |       3 | Keep as a future capability |
-| Multi-format general Claim Audit |        5 |          2 |             5 |       4 | Fold into Witness           |
-| Generic evaluation dashboard     |        4 |          2 |             4 |       1 | Do not build                |
-| Generic visual runbook           |        4 |          1 |             2 |       1 | Do not build                |
-| Broad investigation workspace    |        5 |          1 |             3 |       2 | Do not build                |
-| Generic MCP inspector            |        3 |          4 |             4 |       1 | Do not build as an app      |
+| Product boundary                    | Leverage | Simplicity | Agentic value | Novelty | Decision                  |
+| ----------------------------------- | -------: | ---------: | ------------: | ------: | ------------------------- |
+| Setta Review                        |        5 |          4 |             5 |       4 | Build first               |
+| Setta Context Pack                  |        5 |          4 |             5 |       4 | Build second or alongside |
+| Independent Setta Permit            |        5 |          2 |             5 |       4 | Do not split yet          |
+| Agent Context and Replay Bench      |        5 |          2 |             5 |       4 | Defer                     |
+| Multi-format general evidence audit |        5 |          2 |             5 |       3 | Defer generalization      |
+| Generic evaluation dashboard        |        4 |          2 |             4 |       1 | Do not build              |
+| Generic visual runbook              |        4 |          1 |             2 |       1 | Do not build              |
+| Broad investigation workspace       |        5 |          1 |             3 |       2 | Do not build              |
+| Generic MCP inspector               |        3 |          4 |             4 |       1 | Do not build as an app    |
 
-## Recommended flagship: Setta Witness
+The recommended portfolio contains **two applications**, not four. Setta Review owns immutable
+requests and review responses. Setta Context Pack owns authored, revisable context bundles. They
+share provenance and portable-file conventions, but their mutation rules and durable records are
+different.
 
-[Open the Setta Witness visual mockup](setta-product-mockups.html#witness).
+| Boundary         | Setta Review                            | Setta Context Pack                 |
+| ---------------- | --------------------------------------- | ---------------------------------- |
+| Canonical record | Frozen request plus separate response   | Authored, versioned context bundle |
+| Primary action   | Decide without rewriting the submission | Add, remove, and scope sources     |
+| Main output      | Review Response                         | Materialized bundle and manifest   |
+| Typical moment   | A producer needs judgment or authority  | A consumer needs bounded context   |
 
-Setta Witness should be an **evidence-backed completion and handoff reviewer**. Its recurring
-question is:
+## Recommended flagship: Setta Review
 
-> What does this producer claim it completed, what exact evidence supports those claims, and what
-> should the next person, agent, or application receive?
+Open the [Completion](setta-product-mockups.html#review-completion),
+[Question](setta-product-mockups.html#review-question),
+[Candidate](setta-product-mockups.html#review-candidate), or
+[Permission](setta-product-mockups.html#review-permission) review mockup.
 
-A producer can be an AI agent, a Setta application, a script, or a person. It creates a portable
-completion packet containing a requested outcome, completion claims, evidence references,
-artifacts, unresolved work, and provenance. Witness resolves those references, presents each claim
-beside its evidence, and records a review without rewriting the producer's record.
+Setta Review should be a **visual review and response app for work prepared by agents, applications,
+scripts, or people**. Its recurring question is:
+
+> What is being claimed, asked, or proposed; what material supports it; and what structured
+> decision should return to the producer?
+
+The producer creates an immutable review request containing a requested decision, typed subjects,
+evidence or context references, artifacts, and provenance. Review resolves the material, presents
+the appropriate Workspace view, and records a response without silently rewriting the request.
+Codex, Claude Code, OpenCode, or any other producer can submit and consume the same ordinary files.
 
 ### Durable concepts
 
-- A **completion packet** is an immutable statement of what one producer is handing off.
-- A **claim** is a bounded assertion such as “implemented the requested behavior,” “this check
-  passed,” or “this artifact is the final output.”
-- An **evidence reference** points to an exact Git hunk, text or log range, tool result, local file,
+- A **review request** is an immutable description of what the producer wants reviewed.
+- A **review type** defines bounded subject and decision semantics. Types are built into the app;
+  the first version is not a generic form or plug-in builder.
+- A **subject** is the claim, question, option, candidate, or capability being considered.
+- An **evidence reference** points to an exact Git hunk, text or log range, JSON result, local file,
   or content-addressed artifact.
-- A **review decision** marks a claim supported, contradicted, unproven, or intentionally accepted
-  with a qualification.
-- A **continuation packet** combines the original request, accepted evidence, unresolved claims,
-  and a concise next-work description for another consumer.
+- A **review response** records decisions, qualifications, rationale, selected artifacts, unresolved
+  items, and provenance without mutating the submitted request.
+- A **continuation packet** is an optional response presentation for the next person, agent, or
+  application.
+
+### Typed review workflows
+
+#### Completion review
+
+Completion review presents bounded completion claims beside exact evidence and marks each claim
+supported, contradicted, unproven, or qualified. Its response can become a continuation packet for
+the next consumer.
+
+#### Question and proposal review
+
+A producer can ask a bounded question or submit a proposal with options, a recommendation,
+evidence, risks, and an expected response shape. The reviewer can answer, select, approve, request
+revision, or reject. The external producer owns its session and decides how to continue after
+reading the response packet; Review never resumes an agent.
+
+#### Candidate review
+
+Managed windows provide synchronized comparison of images, text, JSON, or other admitted
+artifacts. The response records a selection, ranking, rejection, or qualification and can include
+the chosen artifacts.
+
+#### Permission review
+
+Permission review compares a submitted tool catalog or proposed policy with normalized traces and
+lets a reviewer allow, narrow, or deny capabilities. The response is advisory unless an external
+consumer explicitly validates and enforces it.
 
 ### Why Workspace matters
 
-- Claims and real evidence remain visible together instead of becoming labels on abstract nodes.
-- Evidence edges show which claims depend on which files, logs, results, and artifacts.
-- Selecting a claim can frame and apply attention to every cited section.
-- Managed windows can place a diff, log, artifact, and claim review side by side.
-- Saved views can provide Summary, Evidence, and Handoff presentations over the same packet.
-- A standalone surface can show one review decision without exposing the entire workspace.
-- Inspector controls can record a small decision and qualification without creating a form-heavy
-  workflow.
+- Real subjects, evidence, and options remain visible together instead of becoming abstract task
+  labels.
+- Typed edges show which evidence supports a claim, which option a risk affects, or which calls
+  motivate a permission.
+- Attention and framing bring every source for the selected subject into view.
+- Managed windows make candidate, diff, log, artifact, and proposal comparison a first-class
+  interaction.
+- Saved views can provide Request, Evidence, Compare, and Response presentations over one record.
+- Inspector controls can record a small decision without turning the product into a form builder.
 
-### Existing Setta leverage
-
-Historical agent-run events, tool calls, Git status and diff views, file previews, attachments,
-approval cards, artifacts, and AI Follow provide reference implementations for most of the visible
-ingredients. Current Workspace attention, managed windows, Window Spaces, text and code sections,
-and strict host ownership provide the presentation foundation.
+Historical questions, approval cards, agent-run events, tool calls, Git views, previews,
+attachments, artifacts, and AI Follow provide reference behavior. Current Workspace attention,
+managed windows, Window Spaces, standalone surfaces, and typed controls provide the presentation
+foundation.
 
 ### Bounded first version
 
-1. Open one completion packet and an optional local Git worktree.
-2. Resolve evidence references to Git hunks, UTF-8 text or log ranges, JSON tool results, and local
-   file artifacts.
-3. Review each claim as supported, contradicted, unproven, or qualified.
-4. Export a review record and continuation packet in an open, documented format.
+1. Open one review request and an optional local Git worktree.
+2. Support two built-in types: completion review and choice review. Choice review covers bounded
+   questions, proposals, and candidate sets with type-specific presentations.
+3. Resolve Git hunks, UTF-8 text or log ranges, JSON results, and local file artifacts.
+4. Export a versioned review response and optional continuation packet.
 
-The first version does not run an agent, edit source, execute tests, commit or push Git changes,
-contact CI providers, authenticate remote services, or infer whether a claim is true. Agents may
-prepare claims and evidence automatically; the app exists to make the remaining judgment fast and
-inspectable.
+The first version does not run or resume an agent, edit source, execute tests, invoke tools, commit
+or push Git changes, contact providers, authenticate remote services, or infer whether a claim is
+true. Permission review should follow only after the common request and response contracts work in
+real handoffs.
 
-Witness is the useful constrained form of Claim Audit. Additional evidence types should be added
-only when they can provide stable, exact anchors. General PDF, spreadsheet, image-region, web, and
-semantic citation systems are not part of the first product.
+## Second application: Setta Context Pack
 
-## Second direction: Setta Context Pack
-
-[Open the Setta Context Pack visual mockup](setta-product-mockups.html#context-pack).
+[Open the Setta Context Pack Build mockup](setta-product-mockups.html#context-pack-build).
 
 Setta Context Pack should create and inspect **portable, exact context bundles**. Its recurring
 question is:
@@ -211,61 +247,16 @@ Context Pack is a prerequisite-shaped product for a later replay bench. It prove
 materialization and arbitrary-app handoff before Setta assumes responsibility for running or
 comparing agents.
 
-## Small visual product: Setta Curator
+## Possible future third application: Setta Permit
 
-[Open the Setta Curator visual mockup](setta-product-mockups.html#curator).
+Permission review belongs in Setta Review while it accepts a frozen proposal and emits one response.
+Permit becomes a separate product only if it owns durable reusable policies, policy revisions,
+schema validation, compatibility reporting, and consumer-specific export adapters. That lifecycle
+would be policy authoring rather than proposal review.
 
-Setta Curator should be a **candidate artifact review and selection app**. Its recurring question is:
-
-> Which candidate should continue downstream, and what useful judgment explains that choice?
-
-An agent or application writes a manifest and a set of candidate artifacts. Curator presents them
-in synchronized managed windows, lets a reviewer select, reject, rank, or briefly qualify them, and
-exports the chosen artifacts with a machine-readable decision.
-
-Historical artifacts, attachments, universal previews, run metadata, and file browsing provide the
-content foundation. Managed windows and Window Spaces make side-by-side inspection a core product
-interaction rather than incidental layout.
-
-The first version supports one candidate set containing bounded images, UTF-8 text, or JSON. It
-does not generate candidates, manage a long-lived asset library, edit media, infer a winner, or
-provide collaboration. A producer can populate the complete input without UI work, while a person
-can contribute taste or domain judgment quickly. The selected artifact and decision manifest are
-ordinary files that any downstream tool can consume.
-
-Curator is the smallest proposed application and the best choice when implementation risk and a
-visually enjoyable experience matter more than exercising the complete historical agent stack.
-
-## Focused policy product: Setta Permit
-
-[Open the Setta Permit visual mockup](setta-product-mockups.html#permit).
-
-Setta Permit should be a **trace-derived tool-permission workbench**. Its recurring question is:
-
-> Which capabilities did this work actually require, which risky capabilities remain exposed, and
-> what portable policy should govern the next run?
-
-Permit imports a tool catalog, one or more normalized tool-call traces, and an optional existing
-policy. It distinguishes available, observed, attempted, and denied operations; presents argument
-and resource scopes; and lets a reviewer export a smaller approved policy.
-
-### Durable concepts
-
-- A **tool catalog snapshot** records names, schemas, metadata, and source identities.
-- An **observed use** records the exact tool, arguments, result class, and originating trace.
-- A **policy decision** allows, denies, or narrows one capability with a reason.
-- A **portable policy** is a provider-neutral record with optional adapters for particular agents.
-
-Historical MCP discovery, tool metadata, profiles, allowlists, agent-run tool calls, previews, and
-approval surfaces provide unusually strong leverage. Workspace attention can connect a policy row
-to representative calls and affected resources.
-
-The first version imports catalogs and traces but does not invoke tools, start MCP servers, store
-credentials, execute agents, or claim to sandbox a process. Its main design risk is expressing
-resource and argument constraints without pretending that every agent runtime can enforce them.
-Catalogs and traces must cross the boundary as ordinary files; optional adapters are offline
-translators, not runtime drivers. Permit should follow the portable packet work in Witness and
-Context Pack rather than define a second incompatible interchange system.
+Do not pre-emptively split it. First import catalogs and traces as ordinary files and prove the
+permission-review workflow. A later split must still avoid invoking tools, starting MCP servers,
+storing credentials, executing agents, or claiming to sandbox a process.
 
 ## Deferred directions
 
@@ -276,26 +267,22 @@ Freezing materialized context, normalizing different agent runtimes, replaying t
 event streams, capturing artifacts, and explaining environmental differences together form an
 execution platform.
 
-A future agent Bench should consume Context Pack bundles, Witness completion packets, and a proven
-portable run envelope. It should not invent all three contracts inside its first release.
+A future agent Bench should consume Context Pack bundles, Review responses, and a proven portable
+run envelope. It should not invent all three contracts inside its first release.
 
 ### Agent Intervention
 
-Intervention is valuable at a real authority boundary, but generic continuation is harder than
-presenting an approval card. The host must own a paused run, authorization, decision persistence,
-tool execution, and a durable provider-specific or provider-neutral resume token.
-
-Keep Intervention as a Workspace presentation capability once an actual application exposes that
-pause-and-resume contract. Do not create a standalone app or add an agent runtime merely to produce
-approval requests for it.
+A bounded question or approval request belongs in Setta Review. Generic intervention does not:
+continuation requires an external host to own a paused run, authorization, tool execution, and a
+durable resume token. Review emits a response packet and never claims to resume the producer.
 
 ### General Claim Audit
 
 Verifying arbitrary reports against PDFs, spreadsheet rows, log lines, text ranges, image regions,
 web pages, and tool results requires several unrelated ingestion and stable-anchoring systems.
-Witness retains the valuable core—claims, exact evidence, review decisions, and handoff—while
-limiting the evidence types. Generalize only after real packets repeatedly require another
-well-defined anchor type.
+Completion review retains the valuable core—claims, exact evidence, decisions, and handoff—while
+limiting the evidence types. Generalize only after real packets repeatedly require another stable
+anchor type.
 
 ## Directions not worth implementing
 
@@ -306,7 +293,7 @@ well-defined anchor type.
 - **Broad investigation workspace:** ingestion, OCR, indexing, retrieval, entity resolution,
   collaboration, and publishing turn it into a large knowledge platform.
 - **Generic MCP inspector:** discovery and invocation are useful features, but they do not create a
-  durable product record. Permit's reviewed policy is the stronger boundary.
+  durable product record. A reviewed permission response is the stronger boundary.
 - **Generic agent builder:** visual agent graphs and provider configuration are established
   categories and would pull Setta back toward a universal application.
 
@@ -332,14 +319,16 @@ than imports from another app's frontend or backend internals.
 
 ## Suggested order
 
-1. Define the smallest open completion, evidence-reference, review, and continuation envelopes for
-   Witness.
-2. Build one complete Witness flow around a real agent or application handoff.
-3. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
-4. Prototype Curator when a visually rich, low-risk sibling app is desirable.
-5. Explore Permit using exported tool traces and consumer-specific policy adapters.
-6. Reconsider Bench only after context, evidence, artifacts, and run records already move cleanly
-   between independent producers and consumers.
+1. Define the smallest open Review Request, evidence-reference, Review Response, and continuation
+   envelopes.
+2. Build completion review around a real agent or application handoff.
+3. Add choice review with question, proposal, and candidate presentations without introducing a
+   generic review-type plug-in system.
+4. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
+5. Explore permission review using exported catalogs and traces.
+6. Split Permit only if durable policy authoring and adapter compatibility become recurring work.
+7. Reconsider Bench only after context, evidence, artifacts, and review records already move
+   cleanly between independent producers and consumers.
 
 ## Product guardrail
 

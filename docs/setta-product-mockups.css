@@ -2270,90 +2270,114 @@ h1 {
   text-decoration: none;
 }
 
-.witness-stage .request-node {
+.review-completion-stage .request-node {
   top: 42px;
   left: 34px;
   width: 270px;
 }
 
-.witness-stage .claims-node {
+.review-completion-stage .claims-node {
   top: 194px;
   left: 352px;
   width: 330px;
 }
 
-.witness-stage .diff-node {
+.review-completion-stage .diff-node {
   top: 36px;
   left: 742px;
   width: 252px;
 }
 
-.witness-stage .log-node {
+.review-completion-stage .log-node {
   top: 248px;
   left: 742px;
   width: 252px;
 }
 
-.witness-stage .artifact-node {
+.review-completion-stage .artifact-node {
   top: 404px;
   left: 62px;
   width: 242px;
 }
 
-.context-stage .task-node {
+.review-question-stage .question-node {
+  top: 42px;
+  left: 36px;
+  width: 270px;
+}
+
+.review-question-stage .options-node {
+  top: 194px;
+  left: 348px;
+  width: 330px;
+}
+
+.review-question-stage .question-evidence-node {
+  top: 42px;
+  left: 742px;
+  width: 252px;
+}
+
+.review-question-stage .response-node {
+  top: 310px;
+  left: 742px;
+  width: 252px;
+}
+
+.context-pack-stage .task-node {
   top: 202px;
   left: 32px;
   width: 250px;
 }
 
-.context-stage .source-one-node {
+.context-pack-stage .source-one-node {
   top: 34px;
   left: 366px;
   width: 292px;
 }
 
-.context-stage .source-two-node {
+.context-pack-stage .source-two-node {
   top: 220px;
   left: 366px;
   width: 292px;
 }
 
-.context-stage .source-three-node {
+.context-pack-stage .source-three-node {
   top: 416px;
   left: 366px;
   width: 292px;
 }
 
-.context-stage .bundle-node {
+.context-pack-stage .bundle-node {
   top: 180px;
   left: 756px;
   width: 244px;
 }
 
-.curator-stage .curator-window-manager {
+.review-candidate-stage .candidate-window-manager {
   inset: 24px 20px 18px;
   padding: 0;
 }
 
-.permit-stage .profile-node {
+.review-permission-stage .profile-node {
   top: 210px;
   left: 34px;
   width: 250px;
 }
 
-.permit-stage .catalog-node {
+.review-permission-stage .catalog-node {
   top: 40px;
   left: 370px;
   width: 300px;
 }
 
-.permit-stage .observed-node {
+.review-permission-stage .observed-node {
   top: 352px;
   left: 370px;
   width: 300px;
 }
 
-.permit-stage .policy-node {
+.review-permission-stage .policy-node {
   top: 185px;
   left: 758px;
   width: 242px;
