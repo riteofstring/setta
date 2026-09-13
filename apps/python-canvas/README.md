@@ -68,24 +68,6 @@ Generated Python runs locally and unsandboxed with your user permissions. AI cli
 `schema`, apply the smallest intended mutation, confirm the returned snapshot, and use bounded
 `run` for noninteractive execution.
 
-### Export a callable to Bench
-
-With the source project open, freeze one callable revision into a new public candidate bundle:
-
-```sh
-setta python-canvas export-bench \
-  --project "$PWD/.local/python-canvas/project.json" \
-  --callable 'callable:thumbnail' \
-  --output "$PWD/thumbnail-bench-candidate"
-```
-
-The output directory is created exclusively and contains the generated Python program, a small
-Bench protocol adapter, source identity, revision, callable ID, and deep link. Setta resolves the
-same nearest project `.venv` or launcher interpreter used by Canvas. Installed imports remain that
-environment's responsibility, so the bundle is frozen Canvas source rather than a hermetic
-dependency archive. Import the directory from Bench's Launch pane. Later Python Canvas edits do
-not change the accepted Bench copy.
-
 ## Source-checkout development
 
 Contributors can build and run the same private, same-origin server boundary with:

@@ -32,14 +32,14 @@ class WheelInspectionTests(unittest.TestCase):
         self.assertEqual(inspection.target, ("darwin", "arm64"))
         self.assertEqual(
             tuple(app.app_id for app in inspection.apps),
-            ("bench", "python-canvas", "realtime"),
+            ("python-canvas", "realtime"),
         )
         self.assertEqual(
-            inspection.apps[2].native_member, "setta/_runtime/bin/realtime"
+            inspection.apps[1].native_member, "setta/_runtime/bin/realtime"
         )
         self.assertIn(
             "setta/_runtime/realtime/web/index.html",
-            inspection.apps[2].web_members,
+            inspection.apps[1].web_members,
         )
 
     def test_rejects_a_source_tree_path_even_when_recorded(self) -> None:
@@ -57,7 +57,6 @@ class WheelInspectionTests(unittest.TestCase):
                 Path(temporary_directory),
                 extra_entries={
                     "setta/apps/__init__.py": b"",
-                    "setta/apps/bench.py": b"",
                     "setta/apps/python_canvas.py": b"",
                     "setta/apps/realtime.py": b"",
                 },
@@ -316,59 +315,6 @@ class PublicContractValidationTests(unittest.TestCase):
             ],
         )
 
-    def test_bench_readiness_web_root_and_identity_are_exact(self) -> None:
-        project = "/tmp/bench-project"
-        origin = "http://127.0.0.1:43123"
-        readiness: dict[str, object] = {
-            "schemaVersion": "setta-open/v1",
-            "appId": "bench",
-            "projectPath": project,
-            "url": origin,
-        }
-        self.assertEqual(
-            acceptance.assert_bench_open_readiness(readiness, project), origin
-        )
-        responses = [
-            models.HTTPResult(
-                url=origin + "/",
-                status=200,
-                content_type="text/html",
-                body=b'<script src="/assets/app.js"></script>',
-            ),
-            models.HTTPResult(
-                url=origin + "/assets/app.js",
-                status=200,
-                content_type="text/javascript",
-                body=b"export {};",
-            ),
-            models.HTTPResult(
-                url=origin + "/api/v1/runtime/session",
-                status=200,
-                content_type="application/json",
-                body=json.dumps(
-                    {
-                        "schemaVersion": "bench-session/v1",
-                        "appId": "bench",
-                        "projectPath": project,
-                        "instanceNonce": "x" * 32,
-                    }
-                ).encode(),
-            ),
-        ]
-        with mock.patch.object(
-            acceptance, "http_get", side_effect=responses
-        ) as request:
-            nonce = acceptance.assert_bench_web_and_identity(origin, project)
-        self.assertEqual(nonce, "x" * 32)
-        self.assertEqual(
-            [call.args[0] for call in request.call_args_list],
-            [
-                origin + "/",
-                origin + "/assets/app.js",
-                origin + "/api/v1/runtime/session",
-            ],
-        )
-
     def test_realtime_invoke_uses_the_installed_cli_and_reaps_its_input(
         self,
     ) -> None:
@@ -559,7 +505,6 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 mock.patch.object(
                     acceptance, "assert_realtime_offline_schema"
                 ) as realtime_schema,
-                mock.patch.object(acceptance, "exercise_bench_server") as bench_live,
                 mock.patch.object(acceptance, "exercise_live_server") as canvas_live,
                 mock.patch.object(
                     acceptance, "exercise_realtime_server"
@@ -570,9 +515,6 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 )
         canvas_schema.assert_called_once()
         realtime_schema.assert_called_once()
-        bench_live.assert_called_once_with(
-            Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
-        )
         canvas_live.assert_called_once()
         realtime_live.assert_called_once_with(
             Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
@@ -901,14 +843,8 @@ def _write_wheel(
 ) -> Path:
     wheel = directory / "setta-1.2.3-py3-none-macosx_13_0_arm64.whl"
     runtime = {
-        "bin/bench": (b"native-server", True),
         "bin/python-canvas": (b"native-server", True),
         "bin/realtime": (b"native-server", True),
-        "bench/web/assets/app-abc.js": (b"console.log('bench')", False),
-        "bench/web/index.html": (
-            b"<script src='/assets/app-abc.js'></script>",
-            False,
-        ),
         "python-canvas/web/assets/app-abc.js": (b"console.log('setta')", False),
         "python-canvas/web/index.html": (
             b"<script src='/assets/app-abc.js'></script>",
@@ -930,11 +866,6 @@ def _write_wheel(
     ]
     manifest = {
         "apps": [
-            {
-                "id": "bench",
-                "nativeServer": "bin/bench",
-                "webRoot": "bench/web",
-            },
             {
                 "id": "python-canvas",
                 "nativeServer": "bin/python-canvas",

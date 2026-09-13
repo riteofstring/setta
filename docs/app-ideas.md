@@ -2,14 +2,12 @@
 
 ## Purpose
 
-Setta currently has three applications built on `@setta/workspace`:
+Setta currently has two applications built on `@setta/workspace`:
 
 - Python Canvas turns Python callables, parameters, lists, generated code, diagnostics, and local
   execution into a durable visual project.
 - Realtime connects authored interfaces to ordinary Python handlers and presents live pipelines,
   streamed results, retained outputs, and artifacts.
-- Setta Bench compares code-backed candidates against the same repeatable cases and retains
-  inspectable runs, checks, and artifacts.
 
 This document collects ideas for additional applications that could reuse the Workspace UI while
 remaining focused products. It is an ideas document, not an implementation plan.
@@ -52,28 +50,31 @@ If an idea is fundamentally inputs flowing through Python handlers to outputs, i
 Realtime example or starter project. A separate app becomes worthwhile when users need a different
 history, lifecycle, collaboration model, or source of truth.
 
-## Implemented sibling: Setta Bench
+## Recommended flagship: Setta Bench
 
-Setta Bench is a focused local comparison workbench. Users define one bounded case set, a few
-explicit command candidates, and shared checks; launch one run per candidate; inspect durable
-progress and artifacts; and compare the same case from two terminal runs.
+Setta Bench would be an experiment and evaluation workbench. Users would combine datasets,
+prompts or configurations, scripts, models, and evaluation criteria; run individual trials or
+sweeps; inspect progress; compare results; and fork or replay a promising run.
 
-The central product is a small visible run ledger rather than a transient collection of outputs.
-A run retains its frozen inputs, source revision, status, timing, bounded logs, observations,
-artifacts, and errors. Users can compare, review, and rerun it; search, branching, sweeps, and a
-general lineage model stay outside the application.
+The central product would be a visible run ledger rather than a transient collection of outputs.
+A useful run would retain its inputs, source revision, environment, status, timing, logs, metrics,
+artifacts, errors, and lineage. Users should be able to search, compare, replay, fork, and cite runs
+as part of normal work.
 
 Bench fits Workspace particularly well:
 
-- section cards and data edges make the comparison definition legible;
-- saved-view tabs provide distinct Build, Runs, and Compare perspectives;
-- managed windows support side-by-side artifact comparison;
-- native panes and Inspector keep launch, run, case, and review detail in the Workspace shell; and
-- diagnostics make an invalid comparison visible before it launches.
+- typed controls can make trial configuration approachable;
+- data and workflow edges can make evaluation flow legible;
+- saved views can provide distinct Build, Monitor, and Review perspectives;
+- floating windows and Window Spaces can support side-by-side result comparison;
+- text and code surfaces can hold prompts, rubrics, scripts, and reports;
+- diagnostics can make invalid or incomplete trials visible in context;
+- result surfaces can present tables, charts, images, logs, and other artifacts.
 
-The first use case compares two CPU-only image-thumbnail strategies across ten product images.
-The data model and process protocol remain neutral enough for other code-based comparisons without
-adding machine-learning concepts, hosted providers, or a dashboard framework.
+An AI evaluation harness is the strongest initial use case: combine a dataset, prompt, model
+configuration, and grader, then compare quality, cost, latency, failures, and representative
+outputs across runs. Bench should nevertheless remain general enough for parameter studies, data
+experiments, benchmarks, and other reproducible local jobs.
 
 This idea recombines some of the most coherent parts of the old Setta: parameter sweeps, variants,
 prompts, spreadsheets, charts, artifacts, and `AgentRun` history. The old product strategy also

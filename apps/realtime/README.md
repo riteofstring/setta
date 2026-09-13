@@ -29,9 +29,8 @@ pnpm realtime:playground
 On its first run, this repository-local command installs the frozen workspace dependencies, builds
 Workspace and Realtime, installs a complete wheel into the repository-owned local Setta
 environment, and opens Signal Bloom Press. Later runs fingerprint the relevant source, lock,
-platform, and toolchain inputs and reuse that validated install when nothing changed. A cache miss
-rebuilds Realtime and Workspace while reusing unchanged installed sibling-app assets after the
-first complete build.
+platform, and toolchain inputs and reuse that validated install when nothing changed. A cache miss rebuilds
+Realtime and Workspace while reusing installed Python Canvas assets after the first complete build.
 It does not use `uv tool run`'s cached same-version environment. Before launch it seeds
 `tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
 working project is absent. Later launches preserve drawings and applied callback edits in the

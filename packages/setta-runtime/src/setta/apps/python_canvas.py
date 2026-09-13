@@ -52,7 +52,7 @@ class PythonCanvasAdapter:
             return self._open(remaining, context)
         if command == "session":
             return self._session(remaining, context)
-        if command in {"snapshot", "apply", "run", "export-bench"}:
+        if command in {"snapshot", "apply", "run"}:
             return self._live_command(command, remaining, context)
         raise UnknownCommandError(
             f"Unknown Python Canvas command {command!r}.", {"appId": APP_ID}
@@ -225,11 +225,6 @@ class PythonCanvasAdapter:
             command,
             "--url",
             selector,
-            *(
-                ("--python", str(context.launcher_python))
-                if command == "export-bench"
-                else ()
-            ),
             *parsed.forwarded_without({"--project", "--url"}),
         ]
         return self._invoke_native(forwarded, context)
@@ -299,8 +294,7 @@ class PythonCanvasAdapter:
     @staticmethod
     def _write_help(context: CommandContext) -> None:
         context.stdout.write(
-            "Usage: setta python-canvas "
-            "{schema|open|session|snapshot|apply|run|export-bench} ...\n"
+            "Usage: setta python-canvas {schema|open|session|snapshot|apply|run} ...\n"
         )
 
     @staticmethod
@@ -324,12 +318,6 @@ class PythonCanvasAdapter:
                 "Usage: setta python-canvas run (--project PATH | --url URL) "
                 "[--wait-diagnostics] [--diagnostics-timeout DURATION] "
                 "[--run-timeout DURATION] [--pretty]\n"
-            ),
-            "export-bench": (
-                "Usage: setta python-canvas export-bench "
-                "(--project PATH | --url URL) --callable ID --output PATH "
-                "[--name NAME] [--deep-link URL] "
-                "[--diagnostics-timeout DURATION]\n"
             ),
         }
         context.stdout.write(usage[command])
@@ -421,31 +409,17 @@ def _is_help(arguments: Sequence[str]) -> bool:
 def _parse_live_command(command: str, arguments: Sequence[str]) -> _ParsedOptions:
     value_flags: set[str] = {"--project", "--url"}
     boolean_flags = {"--pretty", "--wait-diagnostics"}
-    if command == "export-bench":
-        value_flags.update(
-            {
-                "--callable",
-                "--output",
-                "--name",
-                "--deep-link",
-                "--diagnostics-timeout",
-            }
-        )
-        boolean_flags = set()
     if command == "apply":
         value_flags.add("--file")
     if command == "run":
         value_flags.update({"--diagnostics-timeout", "--run-timeout"})
-    if command in {"snapshot", "apply"}:
+    else:
         value_flags.add("--timeout")
     parsed = _parse_options(
         arguments, value_flags=value_flags, boolean_flags=boolean_flags
     )
     if command == "apply":
         _required_value(parsed, "--file", "apply requires --file PATH|-.")
-    if command == "export-bench":
-        _required_value(parsed, "--callable", "export-bench requires --callable ID.")
-        _required_value(parsed, "--output", "export-bench requires --output PATH.")
     return parsed
 
 

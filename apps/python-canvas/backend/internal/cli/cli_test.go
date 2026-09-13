@@ -65,7 +65,7 @@ func assertOperationSchemas(t *testing.T, operations []operationSchema) {
 
 func assertCommandSchemas(t *testing.T, commands []commandSchema) {
 	t.Helper()
-	want := []string{"schema", "open", "session.inspect", "snapshot", "apply", "run", "export-bench"}
+	want := []string{"schema", "open", "session.inspect", "snapshot", "apply", "run"}
 	if len(commands) != len(want) {
 		t.Fatalf("schema command count = %d, want %d", len(commands), len(want))
 	}
@@ -74,7 +74,7 @@ func assertCommandSchemas(t *testing.T, commands []commandSchema) {
 		if command.Name != name || command.Usage == "" || command.Summary == "" || command.Result == "" {
 			t.Fatalf("schema command %d = %#v", index, command)
 		}
-		if (name == "snapshot" || name == "apply" || name == "run" || name == "export-bench") && len(command.Selectors) != 2 {
+		if (name == "snapshot" || name == "apply" || name == "run") && len(command.Selectors) != 2 {
 			t.Fatalf("schema command %q selectors = %#v", name, command.Selectors)
 		}
 		if name == "run" {

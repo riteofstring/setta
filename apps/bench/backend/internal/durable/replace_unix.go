@@ -1,9 +1,0 @@
-//go:build !windows
-
-package durable
-
-import "os"
-
-func replaceFile(source string, destination string) error {
-	return os.Rename(source, destination)
-}

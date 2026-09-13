@@ -52,14 +52,6 @@
         "module": "realtime-frontend"
       },
       {
-        "path": "docs/design/bench-backend.md",
-        "module": "bench-backend"
-      },
-      {
-        "path": "docs/design/bench-frontend.md",
-        "module": "bench-frontend"
-      },
-      {
         "path": "docs/design/setta-runtime.md",
         "module": "setta-runtime"
       },
@@ -144,36 +136,6 @@
           ],
           "timeoutSeconds": 300
         }
-      },
-      {
-        "name": "bench-contracts",
-        "outputs": [
-          "apps/bench/backend/internal/contracts/testdata/project-v1.schema.json",
-          "apps/bench/backend/internal/contracts/testdata/snapshot-v1.schema.json",
-          "apps/bench/backend/internal/contracts/testdata/protocol-v1.schema.json",
-          "apps/bench/src/backend/generatedContract.ts",
-          "apps/bench/src/backend/generatedValidators.js",
-          "apps/bench/src/backend/generatedValidators.d.ts"
-        ],
-        "inputs": [
-          "apps/bench/backend/cmd/generate-contract/*.go",
-          "apps/bench/backend/internal/contracts/*.go",
-          "apps/bench/scripts/compile-validators.mjs"
-        ],
-        "generate": {
-          "argv": [
-            "pnpm",
-            "--filter",
-            "@setta/bench",
-            "run",
-            "contract:generate"
-          ],
-          "timeoutSeconds": 300
-        },
-        "verify": {
-          "argv": ["pnpm", "--filter", "@setta/bench", "run", "contract:check"],
-          "timeoutSeconds": 300
-        }
       }
     ]
   },
@@ -185,10 +147,6 @@
       "apps/realtime/src/backend/generatedContract.ts",
       "apps/realtime/src/backend/generatedValidators.js",
       "apps/realtime/src/backend/generatedValidators.d.ts",
-      "apps/bench/backend/internal/contracts/testdata/*.schema.json",
-      "apps/bench/src/backend/generatedContract.ts",
-      "apps/bench/src/backend/generatedValidators.js",
-      "apps/bench/src/backend/generatedValidators.d.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"
     ],
@@ -203,12 +161,6 @@
       "apps/realtime/examples/neon-sketch/app.py",
       "apps/realtime/src/main.tsx",
       "apps/realtime/vitest.setup.ts",
-      "apps/bench/backend/cmd/bench/main.go",
-      "apps/bench/backend/cmd/generate-contract/main.go",
-      "apps/bench/examples/product-thumbnails/candidate/main.go",
-      "apps/bench/src/main.tsx",
-      "apps/bench/vitest.setup.ts",
-      "apps/bench/scripts/browser-test.mjs",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -231,11 +183,6 @@
       "apps/realtime/vitest.config.ts",
       "apps/realtime/vitest.setup.ts",
       "apps/realtime/scripts/**",
-      "apps/bench/vite.config.ts",
-      "apps/bench/vitest.config.ts",
-      "apps/bench/vitest.setup.ts",
-      "apps/bench/scripts/**",
-      "apps/bench/examples/**",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -284,15 +231,6 @@
       "dependsOn": ["workspace", "realtime-backend"]
     },
     {
-      "name": "bench-backend",
-      "paths": ["apps/bench/backend/**", "apps/bench/examples/**"]
-    },
-    {
-      "name": "bench-frontend",
-      "paths": ["apps/bench/*", "apps/bench/scripts/**", "apps/bench/src/**"],
-      "dependsOn": ["workspace", "bench-backend"]
-    },
-    {
       "name": "setta-runtime",
       "paths": [
         "packages/setta-runtime/**",
@@ -304,9 +242,7 @@
         "python-canvas-backend",
         "python-canvas-frontend",
         "realtime-backend",
-        "realtime-frontend",
-        "bench-backend",
-        "bench-frontend"
+        "realtime-frontend"
       ]
     }
   ],
@@ -370,23 +306,6 @@
       "timeoutSeconds": 900
     },
     {
-      "name": "bench-backend-build",
-      "provides": ["build"],
-      "argv": ["go", "build", "./..."],
-      "cwd": "apps/bench/backend",
-      "modules": ["bench-backend"],
-      "runOn": ["build"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "bench-frontend-build",
-      "provides": ["build"],
-      "argv": ["pnpm", "--filter", "@setta/bench", "run", "build"],
-      "modules": ["bench-frontend"],
-      "runOn": ["build"],
-      "timeoutSeconds": 900
-    },
-    {
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
@@ -408,15 +327,6 @@
       "argv": ["go", "mod", "tidy", "-diff"],
       "cwd": "apps/realtime/backend",
       "modules": ["realtime-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "bench-go-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["go", "mod", "tidy", "-diff"],
-      "cwd": "apps/bench/backend",
-      "modules": ["bench-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -443,9 +353,6 @@
       "apps/realtime/backend/**/*_test.go",
       "apps/realtime/src/**/*.test.ts",
       "apps/realtime/src/**/*.test.tsx",
-      "apps/bench/backend/**/*_test.go",
-      "apps/bench/src/**/*.test.ts",
-      "apps/bench/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -498,19 +405,6 @@
         ],
         "module": "realtime-frontend",
         "focusedSuite": "realtime-frontend-focused"
-      },
-      {
-        "paths": ["apps/bench/backend/**/*_test.go"],
-        "module": "bench-backend",
-        "focusedSuite": "bench-backend-focused"
-      },
-      {
-        "paths": [
-          "apps/bench/src/**/*.test.ts",
-          "apps/bench/src/**/*.test.tsx"
-        ],
-        "module": "bench-frontend",
-        "focusedSuite": "bench-frontend-focused"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -619,32 +513,6 @@
         "timeoutSeconds": 600
       },
       {
-        "name": "bench-backend-focused",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["bench-backend"],
-        "paths": ["apps/bench/backend/**/*_test.go"],
-        "argv": ["go", "test", "./..."],
-        "cwd": "apps/bench/backend",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 300
-      },
-      {
-        "name": "bench-frontend-focused",
-        "kind": "component",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["bench-frontend"],
-        "paths": [
-          "apps/bench/src/**/*.test.ts",
-          "apps/bench/src/**/*.test.tsx"
-        ],
-        "argv": ["pnpm", "--filter", "@setta/bench", "run", "test"],
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 600
-      },
-      {
         "name": "realtime-contract-drift",
         "kind": "contract",
         "scope": "repository",
@@ -662,21 +530,6 @@
           "run",
           "contract:check"
         ],
-        "runOn": ["recommended", "full"],
-        "timeoutSeconds": 300
-      },
-      {
-        "name": "bench-contract-drift",
-        "kind": "contract",
-        "scope": "repository",
-        "cost": "quick",
-        "paths": [
-          "apps/bench/backend/internal/contracts/**",
-          "apps/bench/src/backend/**",
-          "apps/bench/scripts/compile-validators.mjs",
-          "apps/bench/package.json"
-        ],
-        "argv": ["pnpm", "--filter", "@setta/bench", "run", "contract:check"],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
       },
@@ -770,20 +623,6 @@
         "timeoutSeconds": 600
       },
       {
-        "name": "bench-browser",
-        "kind": "browser",
-        "scope": "repository",
-        "cost": "standard",
-        "paths": [
-          "apps/bench/**",
-          "scripts/lib/cdp-client.mjs",
-          "scripts/lib/headless-chrome.mjs"
-        ],
-        "argv": ["pnpm", "--filter", "@setta/bench", "run", "browser:test"],
-        "runOn": ["recommended", "full"],
-        "timeoutSeconds": 600
-      },
-      {
         "name": "packed-consumer-contract",
         "kind": "contract",
         "scope": "repository",
@@ -831,11 +670,6 @@
         "name": "realtime-go",
         "versionFile": "apps/realtime/backend/.go-version",
         "source": "go-toolchain"
-      },
-      {
-        "name": "bench-go",
-        "versionFile": "apps/bench/backend/.go-version",
-        "source": "go-toolchain"
       }
     ],
     "releaseAgeAssessments": [
@@ -877,6 +711,32 @@
         "owner": "workspace",
         "reviewed": "2026-08-30",
         "expires": "2026-09-24"
+      },
+      {
+        "id": "go-1-26-6-security-fix",
+        "ecosystem": "artifact",
+        "package": "go",
+        "version": "1.26.6",
+        "scope": "apps/python-canvas/backend/.go-version",
+        "category": "security-fix",
+        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
+        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
+        "owner": "python-canvas-backend",
+        "reviewed": "2026-08-26",
+        "expires": "2026-09-12"
+      },
+      {
+        "id": "realtime-go-1-26-6-security-fix",
+        "ecosystem": "artifact",
+        "package": "realtime-go",
+        "version": "1.26.6",
+        "scope": "apps/realtime/backend/.go-version",
+        "category": "security-fix",
+        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
+        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
+        "owner": "realtime-backend",
+        "reviewed": "2026-09-07",
+        "expires": "2026-09-12"
       }
     ],
     "vulnerabilityAssessments": [
