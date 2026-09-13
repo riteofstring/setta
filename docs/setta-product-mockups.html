@@ -779,9 +779,9 @@
               <div class="showcase-number">App 01 · Workflow 02</div>
               <h2>Review · Choice</h2>
               <p>
-                A producer submits a bounded choice with evidence. The same
-                facts are compared across every option; selecting one updates
-                the portable response without hiding the alternatives.
+                One decision surface keeps the options, tradeoffs, terms, and
+                human actions together. Source artifacts remain inspectable
+                without turning the review into a graph.
               </p>
             </div>
           </div>
@@ -790,7 +790,6 @@
             <setta-workspace
               heading="Setta Review · schema v3 rollout"
               meta="Review R-118"
-              action="Export response"
               inspector-title="Details"
               inspector-open="false"
             >
@@ -817,22 +816,10 @@
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-outline"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label">Choice</span>
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #ad8cff"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
                           <use href="#icon-grid"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Tradeoffs</span
+                        >Choice review</span
                       >
                     </div>
                   </div>
@@ -864,20 +851,6 @@
                       >
                     </div>
                   </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #77d994"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-check"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Response</span
-                      >
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -886,300 +859,174 @@
                 class="canvas-stage review-choice-stage"
                 data-choice="b"
               >
-                <svg
-                  class="setta-workspace-graph-layer"
-                  viewBox="0 0 1290 638"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <g class="review-edge review-edge--context">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M382 267 C406 267 406 267 430 267"
-                    />
-                  </g>
-                  <g class="review-edge review-edge--context">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M950 267 C974 267 974 267 998 267"
-                    />
-                  </g>
-                </svg>
-
                 <article
-                  class="setta-section-card choice-node"
+                  class="setta-section-card choice-review-node"
                   data-section-active="true"
                 >
-                  <span
-                    class="setta-workspace-graph-port right"
-                    style="--port-top: 50%"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-outline"></use></svg></span
-                    ><span class="setta-section-title">Choice</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="review-choice-prompt">
-                      <strong>How should event schema v3 ship?</strong>
-                    </div>
-                    <div class="review-choice-options">
-                      <button
-                        type="button"
-                        class="review-choice-option"
-                        data-choice-option="a"
-                        aria-pressed="false"
-                      >
-                        <span class="review-choice-radio" aria-hidden="true"
-                          ><svg class="setta-icon">
-                            <use href="#icon-check"></use></svg
-                        ></span>
-                        <span>
-                          <strong>A · Immediate cutover</strong>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        class="review-choice-option"
-                        data-choice-option="b"
-                        data-selected="true"
-                        aria-pressed="true"
-                      >
-                        <span class="review-choice-radio" aria-hidden="true"
-                          ><svg class="setta-icon">
-                            <use href="#icon-check"></use></svg
-                        ></span>
-                        <span>
-                          <strong>B · Seven-day dual read</strong>
-                          <small>Producer recommendation</small>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        class="review-choice-option"
-                        data-choice-option="c"
-                        aria-pressed="false"
-                      >
-                        <span class="review-choice-radio" aria-hidden="true"
-                          ><svg class="setta-icon">
-                            <use href="#icon-check"></use></svg
-                        ></span>
-                        <span>
-                          <strong>C · Remain on v2</strong>
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </article>
-
-                <article class="setta-section-card tradeoff-node">
-                  <span
-                    class="setta-workspace-graph-port left"
-                    style="--port-top: 50%; --port-color: #ad8cff"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    style="--port-top: 50%; --port-color: #ad8cff"
-                  ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
                       ><svg class="setta-icon">
                         <use href="#icon-grid"></use></svg></span
-                    ><span class="setta-section-title">Tradeoffs</span>
-                    <span class="setta-section-actions">
-                      <span
-                        class="setta-section-action"
-                        aria-label="Open comparison"
-                        ><svg class="setta-icon">
-                          <use href="#icon-fit"></use></svg
-                      ></span>
-                    </span>
+                    ><span class="setta-section-title">Choice review</span>
                   </div>
-                  <div class="section-body review-tradeoff-wrap">
+                  <div class="section-body review-choice-surface">
+                    <div class="review-choice-question">
+                      <strong>How should event schema v3 ship?</strong>
+                    </div>
                     <table
-                      class="review-tradeoff-table"
-                      aria-label="Consequences of each rollout option"
+                      class="review-choice-matrix"
+                      aria-label="Rollout choices and tradeoffs"
                     >
                       <thead>
                         <tr>
-                          <th scope="col">Factor</th>
-                          <th scope="col" data-choice-column="a">
-                            <strong>A</strong><span>Immediate</span>
+                          <th scope="col">Option</th>
+                          <th scope="col">
+                            <strong>Mismatch</strong>
+                            <span class="review-choice-source"
+                              >shadow-read.json</span
+                            >
                           </th>
-                          <th
-                            scope="col"
-                            data-choice-column="b"
-                            data-selected="true"
-                          >
-                            <strong>B</strong><span>Dual read</span>
+                          <th scope="col">
+                            <strong>v2 consumers</strong>
+                            <span class="review-choice-source"
+                              >consumers.json</span
+                            >
                           </th>
-                          <th scope="col" data-choice-column="c">
-                            <strong>C</strong><span>Stay v2</span>
+                          <th scope="col">
+                            <strong>Rollout</strong>
+                            <span class="review-choice-source"
+                              >submitted option</span
+                            >
+                          </th>
+                          <th scope="col">
+                            <strong>Rollback</strong>
+                            <span class="review-choice-source"
+                              >shadow-read.json</span
+                            >
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr>
+                        <tr data-choice-row="a">
                           <th scope="row">
-                            <strong>Mismatch exposure</strong>
-                            <span class="review-tradeoff-source"
-                              >shadow-read.json<svg
-                                class="setta-icon"
+                            <button
+                              type="button"
+                              class="review-choice-row-control"
+                              data-choice-option="a"
+                              aria-pressed="false"
+                            >
+                              <span
+                                class="review-choice-radio"
                                 aria-hidden="true"
-                              >
-                                <use href="#icon-fit"></use></svg
-                            ></span>
+                                ><svg class="setta-icon">
+                                  <use href="#icon-check"></use></svg
+                              ></span>
+                              <span>
+                                <strong>A · Immediate cutover</strong>
+                              </span>
+                            </button>
                           </th>
-                          <td data-choice-column="a" data-tone="risk">
+                          <td data-tone="risk">
                             <strong>0.02%</strong><span>exposed</span>
                           </td>
-                          <td
-                            data-choice-column="b"
-                            data-selected="true"
-                            data-tone="support"
-                          >
-                            <strong>0.02%</strong><span>shadowed</span>
-                          </td>
-                          <td data-choice-column="c" data-tone="neutral">
-                            <strong>None</strong>
-                          </td>
-                        </tr>
-                        <tr>
-                          <th scope="row">
-                            <strong>v2-only consumers</strong>
-                            <span class="review-tradeoff-source"
-                              >consumers.json<svg
-                                class="setta-icon"
-                                aria-hidden="true"
-                              >
-                                <use href="#icon-fit"></use></svg
-                            ></span>
-                          </th>
-                          <td data-choice-column="a" data-tone="risk">
+                          <td data-tone="risk">
                             <strong>2 incompatible</strong>
                           </td>
-                          <td
-                            data-choice-column="b"
-                            data-selected="true"
-                            data-tone="support"
-                          >
+                          <td data-tone="support"><strong>Now</strong></td>
+                          <td data-tone="support">
+                            <strong>Rehearsed</strong>
+                          </td>
+                        </tr>
+                        <tr data-choice-row="b" data-selected="true">
+                          <th scope="row">
+                            <button
+                              type="button"
+                              class="review-choice-row-control"
+                              data-choice-option="b"
+                              data-selected="true"
+                              aria-pressed="true"
+                            >
+                              <span
+                                class="review-choice-radio"
+                                aria-hidden="true"
+                                ><svg class="setta-icon">
+                                  <use href="#icon-check"></use></svg
+                              ></span>
+                              <span>
+                                <strong>B · Seven-day dual read</strong>
+                                <small>Producer recommendation</small>
+                              </span>
+                            </button>
+                          </th>
+                          <td data-tone="support">
+                            <strong>0.02%</strong><span>shadowed</span>
+                          </td>
+                          <td data-tone="support">
                             <strong>2 remain online</strong>
                           </td>
-                          <td data-choice-column="c" data-tone="neutral">
+                          <td data-tone="tradeoff"><strong>7 days</strong></td>
+                          <td data-tone="support">
+                            <strong>Rehearsed</strong>
+                          </td>
+                        </tr>
+                        <tr data-choice-row="c">
+                          <th scope="row">
+                            <button
+                              type="button"
+                              class="review-choice-row-control"
+                              data-choice-option="c"
+                              aria-pressed="false"
+                            >
+                              <span
+                                class="review-choice-radio"
+                                aria-hidden="true"
+                                ><svg class="setta-icon">
+                                  <use href="#icon-check"></use></svg
+                              ></span>
+                              <span>
+                                <strong>C · Remain on v2</strong>
+                              </span>
+                            </button>
+                          </th>
+                          <td data-tone="neutral"><strong>None</strong></td>
+                          <td data-tone="neutral">
                             <strong>Unchanged</strong>
                           </td>
-                        </tr>
-                        <tr>
-                          <th scope="row">
-                            <strong>v3 rollout</strong>
-                            <span class="review-tradeoff-source"
-                              >Choice<svg class="setta-icon" aria-hidden="true">
-                                <use href="#icon-outline"></use></svg
-                            ></span>
-                          </th>
-                          <td data-choice-column="a" data-tone="support">
-                            <strong>Now</strong>
-                          </td>
-                          <td
-                            data-choice-column="b"
-                            data-selected="true"
-                            data-tone="tradeoff"
-                          >
-                            <strong>7 days</strong>
-                          </td>
-                          <td data-choice-column="c" data-tone="risk">
+                          <td data-tone="risk">
                             <strong>Not scheduled</strong>
                           </td>
-                        </tr>
-                        <tr>
-                          <th scope="row">
-                            <strong>Rollback</strong>
-                            <span class="review-tradeoff-source"
-                              >shadow-read.json<svg
-                                class="setta-icon"
-                                aria-hidden="true"
-                              >
-                                <use href="#icon-fit"></use></svg
-                            ></span>
-                          </th>
-                          <td data-choice-column="a" data-tone="support">
-                            <strong>Rehearsed</strong>
-                          </td>
-                          <td
-                            data-choice-column="b"
-                            data-selected="true"
-                            data-tone="support"
-                          >
-                            <strong>Rehearsed</strong>
-                          </td>
-                          <td data-choice-column="c" data-tone="neutral">
+                          <td data-tone="neutral">
                             <strong>Not needed</strong>
                           </td>
                         </tr>
                       </tbody>
                     </table>
-                  </div>
-                </article>
-
-                <article
-                  class="setta-section-card choice-response-node"
-                  aria-live="polite"
-                >
-                  <span
-                    class="setta-workspace-graph-port left"
-                    style="--port-top: 50%; --port-color: #77d994"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-check"></use></svg></span
-                    ><span class="setta-section-title">Response</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="review-response-choice">
-                      <svg class="setta-icon" aria-hidden="true">
-                        <use href="#icon-check"></use>
-                      </svg>
-                      <span>
-                        <strong data-choice-response
-                          >B · Seven-day dual read</strong
-                        >
-                      </span>
-                    </div>
-                    <div class="review-response-conditions">
-                      <div>
-                        <span data-choice-condition-label="primary"
-                          >Compatibility window</span
-                        >
-                        <strong data-choice-condition-value="primary"
-                          >7 days</strong
-                        >
+                    <div class="review-choice-footer">
+                      <div class="review-choice-terms" aria-live="polite">
+                        <div>
+                          <span data-choice-condition-label="primary"
+                            >Compatibility window</span
+                          >
+                          <strong data-choice-condition-value="primary"
+                            >7 days</strong
+                          >
+                        </div>
+                        <div>
+                          <span data-choice-condition-label="secondary"
+                            >Rollback threshold</span
+                          >
+                          <strong data-choice-condition-value="secondary"
+                            >0.5% errors</strong
+                          >
+                        </div>
                       </div>
-                      <div>
-                        <span data-choice-condition-label="secondary"
-                          >Rollback threshold</span
-                        >
-                        <strong data-choice-condition-value="secondary"
-                          >0.5% errors</strong
-                        >
+                      <div class="review-inline-actions review-choice-actions">
+                        <span data-action="primary">Confirm choice</span>
+                        <span>Request revision</span>
                       </div>
-                    </div>
-                    <div
-                      class="review-inline-actions review-choice-response-actions"
-                    >
-                      <span data-action="primary">Confirm choice</span>
-                      <span>Request revision</span>
                     </div>
                   </div>
                 </article>
-
-                <div class="react-flow__minimap" aria-hidden="true">
-                  <div class="minimap-viewport"></div>
-                  <span class="minimap-node"></span
-                  ><span class="minimap-node"></span
-                  ><span class="minimap-node"></span>
-                </div>
               </div>
 
               <div data-region="inspector"></div>
@@ -2235,6 +2082,9 @@
             const inspectorOpen =
               this.getAttribute("inspector-open") !== "false";
             const canvasClasses = canvas.className;
+            const hasMinimap = Boolean(
+              canvas.querySelector(".react-flow__minimap"),
+            );
             const shellClasses = [
               "setta-workspace-shell",
               inspectorOpen ? "" : "setta-workspace-shell--inspector-closed",
@@ -2253,6 +2103,10 @@
               ? `<nav class="setta-workspace-saved-view-tabs" aria-label="Saved views">
                   <div class="setta-workspace-saved-view-tabs-list" role="tablist">${tabs}</div>
                 </nav>`
+              : "";
+            const action = this.getAttribute("action");
+            const primaryAction = action
+              ? `<span class="workspace-primary-action">${icon("spark")}${action}</span>`
               : "";
 
             this.classList.add("setta-workspace");
@@ -2278,7 +2132,7 @@
                   <div class="workspace-topbar">
                     <div class="workspace-topbar-summary"><strong>${this.getAttribute("heading")}</strong><span>${this.getAttribute("meta")}</span></div>
                     ${chips}
-                    <span class="workspace-primary-action">${icon("spark")}${this.getAttribute("action")}</span>
+                    ${primaryAction}
                   </div>
                   <div class="setta-workspace-shell-canvas"><div class="${canvasClasses}">${canvas.innerHTML}</div></div>
                 </section>
@@ -2297,7 +2151,7 @@
                   <span class="react-flow__controls-button">${icon("plus")}</span>
                   <span class="react-flow__controls-button">${icon("minus")}</span>
                   <span class="react-flow__controls-button">${icon("fit")}</span>
-                  <span class="react-flow__controls-button" data-active="true">${icon("map")}</span>
+                  <span class="react-flow__controls-button"${hasMinimap ? ' data-active="true"' : ""}>${icon("map")}</span>
                 </div>
                 ${savedViews}
               </div>`;
@@ -2306,21 +2160,18 @@
             if (choiceStage) {
               const choiceStates = {
                 a: {
-                  response: "A · Immediate cutover",
                   conditions: [
                     ["Cutover", "Immediately"],
                     ["Known conflict", "2 v2 consumers"],
                   ],
                 },
                 b: {
-                  response: "B · Seven-day dual read",
                   conditions: [
                     ["Compatibility window", "7 days"],
                     ["Rollback threshold", "0.5% errors"],
                   ],
                 },
                 c: {
-                  response: "C · Remain on v2",
                   conditions: [
                     ["Active schema", "v2"],
                     ["v3 rollout", "Not scheduled"],
@@ -2339,16 +2190,13 @@
                     option.setAttribute("aria-pressed", String(selected));
                   });
                 choiceStage
-                  .querySelectorAll("[data-choice-column]")
-                  .forEach((cell) => {
-                    cell.toggleAttribute(
+                  .querySelectorAll("[data-choice-row]")
+                  .forEach((row) => {
+                    row.toggleAttribute(
                       "data-selected",
-                      cell.dataset.choiceColumn === choice,
+                      row.dataset.choiceRow === choice,
                     );
                   });
-                choiceStage.querySelector(
-                  "[data-choice-response]",
-                ).textContent = state.response;
                 conditionNames.forEach((name, index) => {
                   choiceStage.querySelector(
                     `[data-choice-condition-label="${name}"]`,
