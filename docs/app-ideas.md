@@ -1,4 +1,4 @@
-# Setta Workspace App Ideas
+# Setta Workspace Product Directions
 
 ## Purpose
 
@@ -9,133 +9,213 @@ Setta currently has two applications built on `@setta/workspace`:
 - Realtime connects authored interfaces to ordinary Python handlers and presents live pipelines,
   streamed results, retained outputs, and artifacts.
 
-This document collects ideas for additional applications that could reuse the Workspace UI while
-remaining focused products. It is an ideas document, not an implementation plan.
+This document identifies the next product direction by balancing implementation effort, user
+reward, novelty, and relevance to modern agentic work. It is an ideas document, not an
+implementation plan.
 
-## Historical inspiration
+## Selection standard
 
-The local `main` branch at commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864` represented a much
-broader version of Setta. It included several clusters of functionality that can inspire smaller,
-more coherent applications:
+A new standalone application must do more than arrange visual nodes. It should satisfy all of the
+following:
 
-- parameter sweeps, variants, persisted agent runs, artifacts, and run metadata;
-- prompt and chat sections, project chat, scoped agentic edges, and AI-follow behavior;
-- state-machine workflows, gates, signals, and workflow run controls;
-- builder-facing and operator-facing views, tabbed views, and saved window arrangements;
-- JSON, YAML, and TOML source sections backed by real files;
-- a file browser with universal previews and spreadsheet editing;
-- Git status, diffs, commit history, graph views, and worktree summaries;
-- task boards, spreadsheets, charts, images, drawing, browser, terminal, and text surfaces;
-- meta controls that presented one approachable control over several lower-level values.
+1. **Reuse expensive Setta capabilities.** The product should combine several existing strengths
+   from Workspace or the historical `main` application instead of rebuilding commodity
+   infrastructure.
+2. **Own a distinct durable concept.** Its source of truth and lifecycle must differ from a Python
+   project or a live handler graph.
+3. **Become more valuable as agents improve.** The product should help people inspect, compare,
+   constrain, or verify increasingly capable agents rather than encode work an agent can plan more
+   flexibly itself.
+4. **Have a defensible interaction advantage.** Removing Workspace's sections, context edges,
+   saved views, attention, Inspector, or managed windows should materially weaken the product.
+5. **Admit a bounded first version.** The useful loop must not require a distributed scheduler,
+   secret vault, crawler, vector database, evaluator marketplace, or general workflow engine.
 
-The useful lesson is not to recreate that universal application. The old feature set contains
-several strong vertical products that can now be separated and given clearer identities.
+The practical ranking is:
 
-## When an idea should become its own app
+`existing leverage + recurring value + agentic relevance + differentiation - infrastructure burden - correctness burden`
 
-A standalone application should own a distinct durable concept, not merely arrange Workspace
-sections differently.
+Popularity alone is not evidence of value. A crowded category receives a strong penalty unless
+Setta supports a substantially different recurring job.
 
-| Application        | Durable concept                                   |
-| ------------------ | ------------------------------------------------- |
-| Python Canvas      | A Python project                                  |
-| Realtime           | A live handler graph and its materialized outputs |
-| Setta Bench        | Experiments and runs                              |
-| Setta Runbook      | Executions and approvals                          |
-| Investigation Desk | Sources, claims, annotations, and findings        |
+## Historical leverage
 
-If an idea is fundamentally inputs flowing through Python handlers to outputs, it is probably a
-Realtime example or starter project. A separate app becomes worthwhile when users need a different
-history, lifecycle, collaboration model, or source of truth.
+The local `main` branch at commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864` contained several
+coherent capability clusters worth recovering selectively:
+
+- agent profiles, model and engine selection, MCP tool allowlists, and scoped agentic edges;
+- persisted agent-run inputs, outputs, events, tool calls, cost, status, branching, and run chains;
+- AI Follow, which connected agent activity back to the sections it referenced;
+- parameter sweeps, variants, run plans, logs, metrics, artifacts, and detached execution;
+- project and section chats, questions, tool previews, and approval requests;
+- Git status, diffs, history, and worktree summaries;
+- file browsing, universal previews, spreadsheets, text, code, images, charts, and attachments;
+- saved canvas views, standalone section surfaces, floating windows, and Window Spaces.
+
+The goal is not to reconstruct the former universal application. A focused product should select a
+small combination whose value compounds.
+
+## Portfolio decision
+
+| Direction                      | Product boundary                     | Effort      | Reward | Novelty     | Decision              |
+| ------------------------------ | ------------------------------------ | ----------- | ------ | ----------- | --------------------- |
+| Agent Context and Replay Bench | Experiments and immutable agent runs | Medium      | High   | Medium-high | Build first           |
+| Agent Intervention             | Cross-app review and resume state    | Medium      | High   | Medium-high | Add as a capability   |
+| Claim Audit                    | Claims, citations, and review state  | Medium-high | Medium | Medium-high | Prototype after Bench |
+| Generic evaluation dashboard   | Metrics and leaderboards             | High        | Medium | Low         | Do not build          |
+| Generic visual runbook         | Workflow definitions and executions  | Very high   | Medium | Low         | Do not build          |
+| Broad investigation workspace  | General research corpus              | Very high   | Medium | Low-medium  | Do not build          |
+| Generic MCP inspector          | Tool discovery and invocation        | Low         | Medium | Low         | Keep as a feature     |
+
+Effort is relative to capabilities already present in Setta. Novelty describes the proposed Setta
+workflow, not whether individual ingredients exist elsewhere.
 
 ## Recommended flagship: Setta Bench
 
-Setta Bench would be an experiment and evaluation workbench. Users would combine datasets,
-prompts or configurations, scripts, models, and evaluation criteria; run individual trials or
-sweeps; inspect progress; compare results; and fork or replay a promising run.
+[Open the Setta Bench visual walkthrough](setta-bench.html).
 
-The central product would be a visible run ledger rather than a transient collection of outputs.
-A useful run would retain its inputs, source revision, environment, status, timing, logs, metrics,
-artifacts, errors, and lineage. Users should be able to search, compare, replay, fork, and cite runs
-as part of normal work.
+Setta Bench should be an **agent context and counterfactual replay lab**, not a general experiment
+platform. Its recurring question is:
 
-Bench fits Workspace particularly well:
+> Why did this agent behave differently, and can I reproduce the difference?
 
-- typed controls can make trial configuration approachable;
-- data and workflow edges can make evaluation flow legible;
-- saved views can provide distinct Build, Monitor, and Review perspectives;
-- floating windows and Window Spaces can support side-by-side result comparison;
-- text and code surfaces can hold prompts, rubrics, scripts, and reports;
-- diagnostics can make invalid or incomplete trials visible in context;
-- result surfaces can present tables, charts, images, logs, and other artifacts.
+A user starts from a real task or previous agent run, freezes the exact task, context, profile,
+model, tool permissions, and source revisions, changes one controlled variable, and replays it.
+Bench then aligns the two event streams, tool calls, outputs, costs, timings, failures, and artifacts
+so the user can record a decision with evidence.
 
-An AI evaluation harness is the strongest initial use case: combine a dataset, prompt, model
-configuration, and grader, then compare quality, cost, latency, failures, and representative
-outputs across runs. Bench should nevertheless remain general enough for parameter studies, data
-experiments, benchmarks, and other reproducible local jobs.
+### Durable concepts
 
-This idea recombines some of the most coherent parts of the old Setta: parameter sweeps, variants,
-prompts, spreadsheets, charts, artifacts, and `AgentRun` history. The old product strategy also
-identified a first-class run ledger and an AI evaluation harness as especially promising.
+- A **case** is one task and its expected constraints, not merely a prompt string.
+- A **context snapshot** records exactly which section content and source revisions the agent could
+  see and how each context edge was materialized.
+- An **agent configuration** records engine, model, profile, permissions, tools, and run parameters.
+- An **agent run** is immutable evidence: input snapshot, streamed events, tool calls and results,
+  output, usage, cost, timing, errors, artifacts, and lineage.
+- A **comparison decision** records what changed, representative differences, and why one behavior
+  was accepted.
 
-## Setta Runbook
+### Why Workspace matters
 
-Setta Runbook would be a visual operations and human-in-the-loop workflow application. A runbook
-could combine commands, checks, decisions, approvals, retries, logs, and produced artifacts. Users
-would start a run, see exactly where it is waiting or failing, approve sensitive transitions, and
-retain a complete record of what happened.
+- Text, code, structured-item, and application-specific sections hold real task and context
+  material rather than labels for abstract nodes.
+- Agentic edges make context inclusion and materialization visible and editable.
+- Typed controls expose model, profile, permissions, tools, and replay variables without requiring
+  configuration files.
+- Diagnostics mark missing context, invalid tools, stale sources, or incomparable runs in place.
+- AI Follow and multi-section attention connect a selected agent event to the material it used.
+- Saved views provide Configure, Trace, and Compare perspectives over the same document.
+- Managed windows and Window Spaces support synchronized trace and result comparison.
+- Standalone section surfaces can present one case, run, or decision without inventing another UI
+  system.
 
-Builder views could expose the complete workflow, while operator views could show only the current
-step, relevant controls, status, instructions, approvals, and results. This makes the saved-view
-and standalone-surface capabilities part of the product rather than optional layout features.
+### Existing Setta leverage
 
-The inspiration is the old state-machine graph, gate nodes, structured signals, workflow runs,
-operator-facing view modes, terminal surfaces, backend logs, and artifacts. The focused product
-story would be operational runbooks and approvals rather than generic visual programming.
+The historical application already implemented most of the expensive ingredients: agent profiles,
+managed and external agents, MCP discovery and calls, tool allowlists, conversation branches,
+persisted agent events, cost and status, run chains, RunPlan variants, artifacts, and AI Follow.
+Bench should recover only the subset required for reproducible comparison.
 
-## Investigation Desk
+### Bounded first version
 
-Investigation Desk would be a local-first research and evidence workspace. Users could collect
-PDFs, images, spreadsheets, logs, web captures, and notes; place related material together;
-connect sources to claims; annotate evidence; assemble timelines; and compare findings in saved
-layouts.
+1. Select one existing agent run or author one task case.
+2. Freeze its context, profile, model, tool allowlist, and source revisions.
+3. Fork the run with exactly one declared change.
+4. Replay both configurations locally.
+5. Compare aligned output, tool calls, events, usage, and artifacts.
+6. Save a short decision and the two immutable run identities.
 
-Scoped assistants could summarize selected sources, extract entities, identify contradictions, or
-draft a report without receiving unrelated material. A dedicated review view could present the
-final claims and their supporting sources without exposing the entire working canvas.
+The first version has no optimizer, distributed workers, hosted evaluator marketplace, arbitrary
+workflow graph, synthetic dataset generator, or generic observability dashboard. Fixed checks may
+score explicit outcomes, but the product center is explainable behavioral difference.
 
-The old file browser, universal preview, artifact system, text and media sections, spreadsheets,
-charts, browser surfaces, agentic edges, saved views, and Window Spaces all contribute to this
-concept. It is one of the most naturally spatial and visually distinctive uses of Workspace.
+## Cross-app capability: Agent Intervention
 
-## Ideas that fit Realtime better
+[Open the Agent Intervention visual walkthrough](agent-intervention.html).
 
-Several appealing experiences do not initially need separate applications. They naturally match
-Realtime's input-to-handler-to-output model and would be better explored as polished examples or
-starter projects:
+Agent Intervention should begin as a Workspace capability used by Python Canvas and Bench, not as a
+standalone runbook application. Its recurring question is:
 
-- a creative media studio for drawings, prompts, image treatments, compositing, and variant
-  comparison;
-- a dashboard for local models, simulations, sensors, devices, or other continuously updating
-  processes.
+> What is this agent asking to do, what would it affect, and how should it continue?
 
-These examples can still exercise rich Workspace capabilities. They simply do not need a new
-product boundary until they require their own durable history or domain-specific lifecycle.
+An intervention binds one paused agent run to an exact proposed tool call or mutation, its
+arguments, relevant context, affected files or resources, risk annotations, and the eventual human
+decision. A reviewer may approve, reject, or narrow the request, add a note, and resume the same
+run. The decision remains part of the run record.
+
+Workspace contributes an intervention queue pane, multi-section attention for affected material,
+a focused standalone decision surface, typed Inspector controls, and a managed run window after
+resume. The host application owns the paused run, authorization, decision persistence, tool
+execution, and continuation.
+
+The historical application already streamed external-agent questions, approval requests, tool
+previews and results, persisted agent events, and exposed Git diffs and worktree state. The new work
+is a coherent review model and presentation, not a workflow runtime.
+
+Agent Intervention explicitly excludes authored runbooks, generic DAGs, schedules, retries,
+credentials, remote workers, and infrastructure orchestration. It should become a standalone app
+only if users develop a durable cross-project review queue and collaboration lifecycle that cannot
+belong to the originating application.
+
+## Constrained prototype: Claim Audit
+
+[Open the Claim Audit visual walkthrough](claim-audit.html).
+
+Claim Audit should verify an agent-produced report against already available local evidence. It is
+not a general research, note-taking, or knowledge-graph application. Its recurring question is:
+
+> Which claims in this output are supported by exact source material, contradicted, or still
+> unverified?
+
+A claim owns its quoted report text, status, reviewer decision, and citations. Each citation resolves
+to an exact location in a source already present in the workspace, such as PDF pages, spreadsheet
+rows, log lines, text ranges, images, or tool results. Agents may suggest claims and citations;
+people accept, qualify, reject, or leave them unresolved.
+
+Workspace makes source material and claims simultaneously inspectable through real content
+sections, data and agentic edges, multi-section attention, saved views, managed windows, and Window
+Spaces. Historical file browsing, universal previews, spreadsheets, attachments, agentic context,
+and AI Follow provide the expensive starting pieces.
+
+The prototype accepts existing local sources and one existing report. It excludes crawling, OCR,
+web research, embeddings, general retrieval, entity resolution, collaborative knowledge graphs,
+and automatic truth scores. Claim Audit may begin as a Bench review workflow; it should become a
+standalone app only if claims and citations prove to be a durable source of truth across many runs.
+
+## Rejected directions
+
+### Generic visual runbook
+
+Static workflow authoring is crowded, and production-grade execution requires disproportionate
+work in scheduling, idempotency, credentials, retries, recovery, concurrency, and audit. Agents can
+also plan many non-sensitive steps dynamically. Setta should expose human intervention at real
+authority boundaries rather than build another workflow engine.
+
+### Broad investigation workspace
+
+A general research canvas quickly expands into ingestion, OCR, indexing, retrieval, entity
+resolution, synchronization, collaboration, and publishing. Many mature note, canvas, and AI
+research products already occupy that space. Exact claim auditing is the smaller and more agentic
+job.
+
+### Generic agent builder or evaluation dashboard
+
+Visual agent graphs, prompt playgrounds, trace dashboards, and metric leaderboards are established
+categories. Setta's opportunity is not another box-and-arrow builder or trace viewer. It is the
+combination of editable context, exact run snapshots, counterfactual replay, spatial attention, and
+human decisions.
 
 ## Suggested order
 
-1. **Setta Bench** is the strongest third flagship. It adds a genuinely new product center—a run
-   ledger with comparison and reproducibility—while exercising most of Workspace's distinctive
-   surfaces.
-2. **Setta Runbook** is a natural next step once durable runs exist, extending them with workflow
-   state, approvals, and operator presentation.
-3. **Investigation Desk** is a strong exploratory direction if a more spatial,
-   knowledge-oriented product is desirable.
+1. Build the smallest complete Setta Bench loop around one real agent task and one-variable replay.
+2. Add Agent Intervention to Bench or Python Canvas when a real run pauses for a consequential
+   action.
+3. Prototype Claim Audit on a Bench-produced report and existing local sources.
+4. Promote either capability into another standalone app only after its own durable history and
+   recurring workflow are demonstrated.
 
 ## Product guardrail
 
-The old Setta demonstrated that Workspace can host an enormous number of capabilities. Future apps
-should use that flexibility to make focused products rather than to rebuild one application that
-contains everything. Each app should have a clear user, a recognizable recurring job, and a
-durable source of truth. Shared UI primitives can remain broad; the applications built from them
-should remain opinionated.
+Canvas nodes are a representation, not a product thesis. New products should center durable task,
+run, context, decision, claim, and citation records. The canvas is valuable when it keeps real
+content and relationships inspectable; it is not valuable merely because boxes can be connected.
