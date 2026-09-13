@@ -1,0 +1,2210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A visual product proposal for Investigation Desk, built on Setta Workspace for sources, claims, annotations, timelines, contradictions, and reviewable findings."
+    />
+    <title>Investigation Desk — Evidence workspace walkthrough</title>
+    <link rel="stylesheet" href="setta-bench.css" />
+    <link rel="stylesheet" href="setta-app-mockups.css" />
+  </head>
+  <body class="investigation-page">
+    <svg class="icon-library" aria-hidden="true">
+      <symbol id="icon-outline" viewBox="0 0 24 24">
+        <path d="M8 6h13M8 12h13M8 18h13" />
+        <path d="M3 6h.01M3 12h.01M3 18h.01" />
+      </symbol>
+      <symbol id="icon-panel" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 3v18M12 8h6M12 12h6M12 16h4" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </symbol>
+      <symbol id="icon-layers" viewBox="0 0 24 24">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+      </symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24">
+        <path d="M4 6h7M15 6h5M4 12h2M10 12h10M4 18h10M18 18h2" />
+        <circle cx="13" cy="6" r="2" />
+        <circle cx="8" cy="12" r="2" />
+        <circle cx="16" cy="18" r="2" />
+      </symbol>
+      <symbol id="icon-document" viewBox="0 0 24 24">
+        <path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6" />
+      </symbol>
+      <symbol id="icon-claim" viewBox="0 0 24 24">
+        <path d="M4 7h9M4 12h16M4 17h11" />
+        <circle cx="18" cy="7" r="2" />
+      </symbol>
+      <symbol id="icon-timeline" viewBox="0 0 24 24">
+        <path d="M6 3v18M6 7h10M6 12h6M6 17h12" />
+        <circle cx="6" cy="7" r="2" />
+        <circle cx="6" cy="12" r="2" />
+        <circle cx="6" cy="17" r="2" />
+      </symbol>
+      <symbol id="icon-review" viewBox="0 0 24 24">
+        <rect x="4" y="3" width="16" height="18" rx="2" />
+        <path d="m8 9 2 2 4-4M8 15h8" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <circle cx="6" cy="6" r="1" />
+        <circle cx="12" cy="6" r="1" />
+        <circle cx="18" cy="6" r="1" />
+        <circle cx="6" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="18" cy="12" r="1" />
+        <circle cx="6" cy="18" r="1" />
+        <circle cx="12" cy="18" r="1" />
+        <circle cx="18" cy="18" r="1" />
+      </symbol>
+      <symbol id="icon-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+        <path d="M9 3v15M15 6v15" />
+      </symbol>
+      <symbol id="icon-fit" viewBox="0 0 24 24">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-minus" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="icon-spark" viewBox="0 0 24 24">
+        <path
+          d="m12 3 1.4 4.1 4.1 1.4-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Z"
+        />
+        <path
+          d="m18 14 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z"
+        />
+      </symbol>
+    </svg>
+
+    <header class="site-header">
+      <div class="page-shell header-inner">
+        <a class="brand" href="#top" aria-label="Investigation Desk home">
+          <span class="brand-mark" aria-hidden="true"
+            ><span></span><span></span><span></span><span></span
+          ></span>
+          Investigation Desk
+        </a>
+        <nav class="site-nav" aria-label="Page navigation">
+          <a href="#workflow">Workflow</a>
+          <a href="#mockups">Product views</a>
+          <a href="#boundaries">Scope</a>
+          <a href="app-ideas.md">App ideas</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="page-shell hero" aria-labelledby="hero-title">
+        <div>
+          <div class="eyebrow">
+            Product proposal · source-grounded reasoning
+          </div>
+          <h1 id="hero-title">
+            Turn conflicting material into claims you can defend.
+          </h1>
+          <p class="hero-lede">
+            Investigation Desk keeps files, excerpts, claims, contradictions,
+            and timelines visibly connected. Agents work within explicit source
+            scope; reviewers retain judgment.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#mockups">Explore the product</a
+            ><a class="secondary-link" href="#boundaries">See the boundaries</a>
+          </div>
+        </div>
+
+        <div
+          class="hero-run-card"
+          aria-label="Harbor gateway outage investigation summary"
+        >
+          <div class="hero-run-head">
+            <div class="hero-run-title">
+              <span class="live-dot"></span> Harbor gateway outage
+            </div>
+            <div class="run-id">CASE ID-0027</div>
+          </div>
+          <div class="hero-run-body">
+            <div class="run-row">
+              <div>
+                <div class="run-name">Source collection</div>
+                <div class="run-meta">18 originals · PDF, YAML, CSV, email</div>
+              </div>
+              <div class="run-status">indexed</div>
+            </div>
+            <div class="run-row">
+              <div>
+                <div class="run-name">Normalized timeline</div>
+                <div class="run-meta">23 events · four source clocks</div>
+              </div>
+              <div class="run-status">aligned</div>
+            </div>
+            <div class="run-row">
+              <div>
+                <div class="run-name">Material contradictions</div>
+                <div class="run-meta">C-04 timing · C-07 vendor impact</div>
+              </div>
+              <div class="run-status warning">review</div>
+            </div>
+          </div>
+          <div class="hero-run-foot">
+            <div class="hero-stat">
+              <strong>18</strong><span>real sources</span>
+            </div>
+            <div class="hero-stat">
+              <strong>7</strong><span>reviewed claims</span>
+            </div>
+            <div class="hero-stat">
+              <strong>31</strong><span>exact citations</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="workflow"
+        class="page-shell section-block"
+        aria-labelledby="workflow-title"
+      >
+        <div class="section-kicker">The investigation loop</div>
+        <h2 id="workflow-title" class="section-heading">
+          Preserve the source. Expose the reasoning. Review the finding.
+        </h2>
+        <p class="section-copy">
+          The desk never turns a folder into an unexplained answer. Original
+          material remains addressable, every claim names its support and
+          challenges, and accepted findings retain exact citations.
+        </p>
+        <div
+          class="workflow-layers"
+          aria-label="Sources, scoped synthesis, and reviewed findings"
+        >
+          <article class="workflow-layer">
+            <div class="workflow-layer-label">Collected · addressable</div>
+            <strong>Source sections</strong>
+            <div class="workflow-layer-items">
+              <span>original bytes</span><span>exact excerpts</span
+              ><span>source metadata</span>
+            </div>
+          </article>
+          <div class="workflow-launch-step">
+            <svg class="setta-icon" aria-hidden="true">
+              <use href="#icon-spark"></use></svg
+            ><strong>Synthesize in scope</strong><span>cite or abstain</span>
+          </div>
+          <article class="workflow-layer generated-layer">
+            <div class="workflow-layer-label">Reviewed · defensible</div>
+            <strong>Claims and findings</strong>
+            <div class="workflow-layer-items">
+              <span>support</span><span>contradictions</span
+              ><span>qualifiers</span><span>citations</span>
+            </div>
+          </article>
+        </div>
+        <div class="loop-grid">
+          <article class="loop-step">
+            <div class="loop-number">01 / DESK</div>
+            <h3>Connect evidence to claims</h3>
+            <div class="loop-equation">
+              <span>source</span> → <span>claim</span> + <span>note</span>
+            </div>
+            <p>
+              Data edges preserve provenance. Agentic edges describe scope,
+              never invisible authority to rewrite source material.
+            </p>
+          </article>
+          <article class="loop-step">
+            <div class="loop-number">02 / TIMELINE</div>
+            <h3>Normalize without erasing</h3>
+            <div class="loop-equation">
+              <span>clock</span> + <span>event</span> → <span>citation</span>
+            </div>
+            <p>
+              A timeline section aligns events while retaining every source
+              timestamp and confidence judgment.
+            </p>
+          </article>
+          <article class="loop-step">
+            <div class="loop-number">03 / REVIEW</div>
+            <h3>Publish accepted reasoning</h3>
+            <div class="loop-equation">
+              <span>finding</span> + <span>support</span> + <span>limits</span>
+            </div>
+            <p>
+              A managed Workspace window assembles the brief beside the claims a
+              reviewer accepts, qualifies, or rejects.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="mockups" class="mockup-area">
+        <div class="page-shell section-block">
+          <div class="section-kicker">Product walkthrough</div>
+          <h2 class="section-heading">
+            Three saved views over one evidence workspace.
+          </h2>
+          <p class="section-copy">
+            Desk, Timeline, and Review load the same WorkspaceDocument.
+            Investigation Desk registers source, claim, annotation, and timeline
+            kinds; Workspace supplies the common shell and interaction model.
+          </p>
+
+          <div
+            class="graph-grammar"
+            aria-label="Investigation Desk section roles"
+          >
+            <article>
+              <span class="graph-grammar-index">SOURCE</span
+              ><strong>The preserved material</strong>
+              <p>
+                Original identity, extracted text, locators, and source metadata
+                stay together.
+              </p>
+              <code>investigation.source</code>
+            </article>
+            <article>
+              <span class="graph-grammar-index">CLAIM</span
+              ><strong>The reviewable assertion</strong>
+              <p>
+                Support, contradiction, confidence, status, and reviewer
+                decision remain explicit.
+              </p>
+              <code>investigation.claim</code>
+            </article>
+            <article>
+              <span class="graph-grammar-index">ANNOTATION + TIMELINE</span
+              ><strong>The visible reasoning tools</strong>
+              <p>
+                Notes and normalized events refer back to sources and claims
+                through Workspace data edges.
+              </p>
+              <code>registered section kinds</code>
+            </article>
+          </div>
+
+          <input
+            class="scene-toggle"
+            id="scene-toggle-desk"
+            name="investigation-view"
+            type="radio"
+            aria-label="Show Desk view"
+            checked
+          />
+          <input
+            class="scene-toggle"
+            id="scene-toggle-timeline"
+            name="investigation-view"
+            type="radio"
+            aria-label="Show Timeline view"
+          />
+          <input
+            class="scene-toggle"
+            id="scene-toggle-review"
+            name="investigation-view"
+            type="radio"
+            aria-label="Show Review view"
+          />
+          <div class="scene-tabs" aria-label="Investigation Desk product views">
+            <label class="scene-tab" id="tab-desk" for="scene-toggle-desk"
+              >Desk</label
+            ><label
+              class="scene-tab"
+              id="tab-timeline"
+              for="scene-toggle-timeline"
+              >Timeline</label
+            ><label class="scene-tab" id="tab-review" for="scene-toggle-review"
+              >Review</label
+            >
+          </div>
+
+          <section
+            class="scene-panel"
+            id="scene-desk"
+            aria-labelledby="tab-desk"
+          >
+            <div class="scene-intro">
+              <div>
+                <h3>Desk view</h3>
+                <p>
+                  Source sections feed claims through standard Workspace data
+                  edges. The selected claim exposes typed investigation controls
+                  in the Inspector.
+                </p>
+              </div>
+              <div class="scene-caption">Workspace shell · evidence graph</div>
+            </div>
+            <div class="app-frame">
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace showing sources connected to claims"
+              >
+                <div
+                  class="setta-workspace-shell investigation-desk-shell"
+                  data-saved-view-tabs="true"
+                >
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-outline"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-review"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Outline
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #60a5fa"
+                              >
+                                <span class="setta-workspace-outline-disclosure"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-chevron"></use></svg></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-layers"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Harbor gateway outage</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span class="setta-workspace-outline-disclosure"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-chevron"></use></svg></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-document"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Sources</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >18</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-document"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >change-042.yaml</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >Y</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-document"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >gateway-logs.csv</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >C</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-document"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >incident-report.pdf</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >P</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span class="setta-workspace-outline-disclosure"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-chevron"></use></svg></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Claims</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >7</span
+                                >
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >C-04 · deployment timing</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >!</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >C-07 · vendor impact</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >?</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+
+                  <div class="setta-workspace-shell-center">
+                    <div class="bench-launch-toolbar">
+                      <div class="bench-launch-summary">
+                        <strong>Harbor gateway outage</strong
+                        ><span
+                          >18 sources · 7 claims · 2 material contradictions ·
+                          local case</span
+                        >
+                      </div>
+                      <span class="bench-launch-setting"
+                        >source scope: 18 / 18</span
+                      ><span class="bench-run-button"
+                        ><svg class="setta-icon" aria-hidden="true">
+                          <use href="#icon-spark"></use></svg
+                        >Synthesize selection</span
+                      >
+                    </div>
+                    <div
+                      class="setta-workspace-shell-canvas"
+                      aria-label="Evidence graph connecting three sources to two claims and an annotation"
+                    >
+                      <div class="app-flow-stage investigation-desk-stage">
+                        <div class="app-flow-label label-sources">
+                          Source material ·
+                          <span>preserved and addressable</span>
+                        </div>
+                        <div class="app-flow-label label-claims">
+                          Claims · <span>supported, challenged, reviewed</span>
+                        </div>
+                        <div class="app-flow-label label-review">
+                          Human annotation
+                        </div>
+                        <svg
+                          class="setta-workspace-graph-layer"
+                          viewBox="0 0 1030 592"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data setta-workspace-graph-edge--selected"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M273 135 C345 135 355 175 430 175"
+                            />
+                          </g>
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M273 315 C350 315 352 194 430 194"
+                            />
+                          </g>
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M273 315 C350 315 352 415 430 415"
+                            />
+                          </g>
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M400 498 C414 498 416 434 430 434"
+                            />
+                          </g>
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--agentic"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M710 194 C752 194 750 283 790 283"
+                            />
+                          </g>
+                        </svg>
+
+                        <article
+                          class="setta-section-card node-source-change"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--right setta-workspace-graph-port--data"
+                            style="top: 73px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >change-042.yaml</span
+                            ><span class="setta-section-kind">Source</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="source-preview">
+                              deployed_at: <mark>09:14:06Z</mark><br />service:
+                              gateway<br />revision: 7c14d2a
+                            </div>
+                            <div class="domain-section-rows">
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">locator</span
+                                ><span class="setta-item-value">lines 4–8</span>
+                              </div>
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">integrity</span
+                                ><span class="domain-state">verified</span>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-source-logs"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--right setta-workspace-graph-port--data"
+                            style="top: 70px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >gateway-logs.csv</span
+                            ><span class="setta-section-kind">Source</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="source-preview">
+                              09:12:41Z, latency_p95, <mark>842</mark
+                              ><br />09:13:08Z, upstream_5xx, 0.19<br />09:14:09Z,
+                              revision, 7c14d2a
+                            </div>
+                            <div class="domain-section-rows">
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">locator</span
+                                ><span class="setta-item-value"
+                                  >rows 881–905</span
+                                >
+                              </div>
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">clock</span
+                                ><span class="setta-item-value">UTC</span>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-source-report"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--right setta-workspace-graph-port--data"
+                            style="top: 70px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >incident-report.pdf</span
+                            ><span class="setta-section-kind">Source</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="source-preview">
+                              “The rollout began after the<br />first customer
+                              impact alert at<br /><mark>09:12 UTC</mark>.”
+                            </div>
+                            <div class="domain-section-rows">
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">locator</span
+                                ><span class="setta-item-value">page 3 ¶2</span>
+                              </div>
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">author</span
+                                ><span class="setta-item-value"
+                                  >incident lead</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-claim-timing"
+                          data-section-active="true"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--left setta-workspace-graph-port--data"
+                            style="top: 70px"
+                            ><span
+                              class="setta-workspace-graph-port-dot"
+                            ></span></span
+                          ><span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--right setta-workspace-graph-port--agentic setta-workspace-graph-port--source"
+                            style="top: 89px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >C-04 · deployment timing</span
+                            ><span class="setta-section-kind">Claim</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="claim-text">
+                              Customer impact began before revision 7c14d2a
+                              reached the gateway fleet.
+                            </div>
+                            <div class="claim-support">
+                              <span>2 support · 1 challenge</span
+                              ><strong class="issue">contradicted</strong>
+                            </div>
+                            <div class="setta-section-summary">
+                              <span>confidence 0.78</span
+                              ><span>needs review</span>
+                            </div>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-claim-impact"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--left setta-workspace-graph-port--data"
+                            style="top: 70px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >C-07 · vendor impact</span
+                            ><span class="setta-section-kind">Claim</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="claim-text">
+                              The upstream vendor amplified the outage but did
+                              not initiate it.
+                            </div>
+                            <div class="claim-support">
+                              <span>3 support · 0 challenge</span
+                              ><strong>supported</strong>
+                            </div>
+                            <div class="setta-section-summary">
+                              <span>confidence 0.86</span><span>qualified</span>
+                            </div>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-annotation"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--left setta-workspace-graph-port--agentic setta-workspace-graph-port--target"
+                            style="top: 59px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >Reviewer note</span
+                            ><span class="setta-section-kind">Annotation</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="annotation-body">
+                            Separate “rollout began” from “revision reached
+                            gateway.” Ask the agent to compare the
+                            deploy-controller clock.
+                          </div>
+                          <div class="setta-section-summary">
+                            <span>m.chen · unresolved</span>
+                          </div>
+                        </article>
+                        <div class="react-flow__minimap" aria-hidden="true">
+                          <span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-viewport"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-sliders"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-review"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Inspector
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>C-04 · deployment timing</strong
+                                ><span>Claim</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Review state
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Status</span
+                                ><span
+                                  class="setta-workspace-inspector-config-input"
+                                  >contradicted</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Confidence</span
+                                ><span
+                                  class="setta-workspace-inspector-config-input"
+                                  >0.78</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Owner</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >m.chen</span
+                                >
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Evidence
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Supporting</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >2 excerpts</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Challenging</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >1 excerpt</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Annotations</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >1 open</span
+                                >
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Agent scope
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Selected sources</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >3</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Cite only</span
+                                ><span class="setta-toggle on"></span>
+                              </div>
+                              <div class="setta-binding-note">
+                                The agentic edge scopes one requested
+                                comparison. It does not convert an agent result
+                                into an accepted claim.
+                              </div>
+                              <span
+                                class="setta-workspace-inspector-primary-action"
+                                >Compare source clocks</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-plus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-minus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-fit"></use></svg></span
+                    ><span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-grid"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-search"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon"><use href="#icon-map"></use></svg
+                    ></span>
+                  </div>
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Investigation saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-desk"
+                        role="tab"
+                        aria-selected="true"
+                        >Desk</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-timeline"
+                        role="tab"
+                        aria-selected="false"
+                        >Timeline</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-review"
+                        role="tab"
+                        aria-selected="false"
+                        >Review</label
+                      >
+                    </div>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="scene-panel"
+            id="scene-timeline"
+            aria-labelledby="tab-timeline"
+          >
+            <div class="scene-intro">
+              <div>
+                <h3>Timeline view</h3>
+                <p>
+                  A registered Timeline section normalizes events while source
+                  timestamps remain visible. Claims connect to the events they
+                  rely on through Workspace data edges.
+                </p>
+              </div>
+              <div class="scene-caption">
+                Workspace shell · registered section kind
+              </div>
+            </div>
+            <div class="app-frame">
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace showing an investigation timeline"
+              >
+                <div
+                  class="setta-workspace-shell investigation-timeline-shell"
+                  data-saved-view-tabs="true"
+                >
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-outline"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-timeline"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Outline
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #60a5fa"
+                              >
+                                <span class="setta-workspace-outline-disclosure"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-chevron"></use></svg></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-layers"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Harbor gateway outage</span
+                                >
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-timeline"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Normalized incident timeline</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >23</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use
+                                      href="#icon-document"
+                                    ></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >gateway-logs.csv</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >C-04 · deployment timing</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div class="setta-workspace-shell-center">
+                    <div class="bench-launch-toolbar">
+                      <div class="bench-launch-summary">
+                        <strong>Normalized incident timeline</strong
+                        ><span
+                          >23 events · UTC display · original clocks
+                          retained</span
+                        >
+                      </div>
+                      <span class="bench-launch-setting">08:54–10:16 UTC</span
+                      ><span class="bench-run-button"
+                        ><svg class="setta-icon">
+                          <use href="#icon-spark"></use></svg
+                        >Suggest events</span
+                      >
+                    </div>
+                    <div class="setta-workspace-shell-canvas">
+                      <div class="app-flow-stage investigation-timeline-stage">
+                        <svg
+                          class="setta-workspace-graph-layer"
+                          viewBox="0 0 1030 592"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M755 143 C720 143 720 190 685 190"
+                            />
+                          </g>
+                          <g
+                            class="setta-workspace-graph-edge setta-workspace-graph-edge--data setta-workspace-graph-edge--selected"
+                          >
+                            <path
+                              class="setta-workspace-graph-edge-path"
+                              d="M685 386 C720 386 720 420 755 420"
+                            />
+                          </g>
+                        </svg>
+                        <article
+                          class="setta-section-card node-timeline"
+                          data-section-active="true"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--right setta-workspace-graph-port--data"
+                            style="top: 150px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >Normalized incident timeline</span
+                            ><span class="setta-section-kind">Timeline</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="case-set-toolbar">
+                            <span class="case-set-view-active">UTC</span
+                            ><span>All 18 sources</span
+                            ><span>Confidence ≥ 0.6</span
+                            ><span class="case-set-raw-action">23 events</span>
+                          </div>
+                          <div class="timeline-scale">
+                            <div class="timeline-event">
+                              <span>09:11:58</span
+                              ><strong>Gateway p95 first exceeds 500 ms</strong
+                              ><code>logs:881</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:12:41</span
+                              ><strong
+                                >First sustained upstream error burst</strong
+                              ><code>logs:889</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:13:52</span
+                              ><strong
+                                >Deployment controller starts rollout</strong
+                              ><code>controller:1432</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:14:06</span
+                              ><strong
+                                >Revision recorded in change manifest</strong
+                              ><code>change:4–8</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:14:09</span
+                              ><strong>Gateway reports revision 7c14d2a</strong
+                              ><code>logs:905</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:18:44</span
+                              ><strong
+                                >Vendor circuit breaker begins opening</strong
+                              ><code>vendor:77</code>
+                            </div>
+                            <div class="timeline-event">
+                              <span>09:31:12</span
+                              ><strong
+                                >Traffic shifted to secondary upstream</strong
+                              ><code>chat:214</code>
+                            </div>
+                          </div>
+                          <div class="setta-section-summary">
+                            <span>4 source clocks</span
+                            ><span>2 inferred events</span
+                            ><span>original timestamps retained</span>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-timeline-source"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--left setta-workspace-graph-port--data"
+                            style="top: 69px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >gateway-logs.csv</span
+                            ><span class="setta-section-kind">Source</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="source-preview">
+                              source clock: UTC<br />offset: <mark>+0 ms</mark
+                              ><br />events accepted: 9
+                            </div>
+                            <div class="domain-section-rows">
+                              <div class="setta-item-row">
+                                <span class="setta-item-key">integrity</span
+                                ><span class="domain-state">verified</span>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                        <article
+                          class="setta-section-card node-timeline-claim"
+                          data-workspace-section-shell="true"
+                        >
+                          <span
+                            class="setta-workspace-graph-port-safe-zone setta-workspace-graph-port-safe-zone--left setta-workspace-graph-port--data"
+                            style="top: 70px"
+                            ><span class="setta-workspace-graph-port-dot"></span
+                          ></span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span
+                            ><span class="setta-section-title"
+                              >C-04 · deployment timing</span
+                            ><span class="setta-section-kind">Claim</span
+                            ><span class="setta-section-actions"
+                              ><span class="setta-section-action">⌑</span
+                              ><span class="setta-section-action">−</span
+                              ><span class="setta-section-action">×</span></span
+                            >
+                          </header>
+                          <div class="domain-section-body">
+                            <div class="claim-text">
+                              Impact preceded rollout by at least 71 seconds.
+                            </div>
+                            <div class="claim-support">
+                              <span>events 01–04</span
+                              ><strong>supported</strong>
+                            </div>
+                            <div class="setta-section-summary">
+                              <span>revised from contradicted</span>
+                            </div>
+                          </div>
+                        </article>
+                        <div class="react-flow__minimap" aria-hidden="true">
+                          <span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-node"></span
+                          ><span class="minimap-viewport"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-sliders"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-claim"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Timeline event
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>Deployment starts</strong
+                                ><span>Event</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Normalized
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >UTC</span
+                                ><span
+                                  class="setta-workspace-inspector-config-input"
+                                  >09:13:52</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Confidence</span
+                                ><span
+                                  class="setta-workspace-inspector-config-input"
+                                  >0.97</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Method</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >exact timestamp</span
+                                >
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Original source
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Source</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >deploy-controller</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Locator</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >line 1432</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Source time</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >02:13:52 PDT</span
+                                >
+                              </div>
+                              <div class="setta-binding-note">
+                                Normalization adds display metadata. It never
+                                overwrites the cited source timestamp.
+                              </div>
+                              <span
+                                class="setta-workspace-inspector-primary-action"
+                                >Open exact source</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-plus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-minus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-fit"></use></svg></span
+                    ><span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-grid"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-search"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon"><use href="#icon-map"></use></svg
+                    ></span>
+                  </div>
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Investigation saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-desk"
+                        role="tab"
+                        aria-selected="false"
+                        >Desk</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-timeline"
+                        role="tab"
+                        aria-selected="true"
+                        >Timeline</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-review"
+                        role="tab"
+                        aria-selected="false"
+                        >Review</label
+                      >
+                    </div>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="scene-panel"
+            id="scene-review"
+            aria-labelledby="tab-review"
+          >
+            <div class="scene-intro">
+              <div>
+                <h3>Review view</h3>
+                <p>
+                  A Workspace-managed window composes the brief beside accepted
+                  and qualified claims. Review state remains app-owned and
+                  citations keep source locators intact.
+                </p>
+              </div>
+              <div class="scene-caption">
+                Workspace shell · managed review window
+              </div>
+            </div>
+            <div class="app-frame">
+              <div
+                class="setta-workspace setta-workspace-dark"
+                aria-label="Setta Workspace showing an investigation review brief"
+              >
+                <div
+                  class="setta-workspace-shell investigation-review-shell"
+                  data-saved-view-tabs="true"
+                >
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="leading"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="leading"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="leading"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-outline"></use></svg></span
+                          ><span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-review"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">
+                          Findings
+                        </h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-outline">
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="--outline-color: #60a5fa"
+                              >
+                                <span class="setta-workspace-outline-disclosure"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-chevron"></use></svg></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-review"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Review draft 4</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >7</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #77d994;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-check"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >F-01 · initial trigger</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >✓</span
+                                >
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #3b82f6;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >F-02 · rollout timing</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >✓</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #f59e0b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-claim"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >F-03 · vendor impact</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >?</span
+                                >
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span
+                                ><span class="setta-workspace-outline-kind-icon"
+                                  ><svg class="setta-icon">
+                                    <use href="#icon-review"></use></svg></span
+                                ><span class="setta-workspace-outline-label"
+                                  >Limitations</span
+                                ><span
+                                  class="setta-workspace-outline-state-icon"
+                                  >2</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div class="setta-workspace-shell-center">
+                    <div class="bench-launch-toolbar">
+                      <div class="bench-launch-summary">
+                        <strong>Harbor gateway outage · review draft 4</strong
+                        ><span
+                          >7 findings · 31 citations · 2 qualifications ·
+                          reviewer m.chen</span
+                        >
+                      </div>
+                      <span class="toolbar-status waiting"
+                        >review in progress</span
+                      ><span class="bench-launch-setting"
+                        >autosaved locally</span
+                      >
+                    </div>
+                    <div class="setta-workspace-shell-canvas">
+                      <div
+                        class="setta-workspace-window-manager review-window-manager"
+                      >
+                        <section class="setta-workspace-window-surface">
+                          <header class="setta-workspace-window-surface-header">
+                            <span class="setta-workspace-window-surface-title"
+                              >Incident findings · review draft 4</span
+                            ><span class="comparison-side-label"
+                              >31 EXACT CITATIONS</span
+                            ><span
+                              class="setta-workspace-window-surface-actions"
+                              ><span
+                                class="setta-workspace-window-surface-action"
+                                >−</span
+                              ><span
+                                class="setta-workspace-window-surface-action"
+                                >□</span
+                              ><span
+                                class="setta-workspace-window-surface-action"
+                                >×</span
+                              ></span
+                            >
+                          </header>
+                          <div class="setta-workspace-window-surface-body">
+                            <div class="review-window-body">
+                              <article class="review-brief">
+                                <h5>Harbor gateway outage</h5>
+                                <p>
+                                  The first sustained customer-impact signal
+                                  preceded the gateway rollout by at least 71
+                                  seconds.<sup>[S-08:881–889]</sup> The deploy
+                                  controller began rollout at 09:13:52 UTC, and
+                                  revision 7c14d2a first appeared in gateway
+                                  telemetry at 09:14:09 UTC.<sup
+                                    >[S-11:1432] [S-02:4–8] [S-08:905]</sup
+                                  >
+                                </p>
+                                <p>
+                                  The rollout therefore did not initiate the
+                                  incident. It did, however, overlap the
+                                  rising-error interval and complicated recovery
+                                  by changing connection-pool behavior while
+                                  upstream failures were increasing.<sup
+                                    >[S-08:905–974] [S-14:77–104]</sup
+                                  >
+                                </p>
+                                <p>
+                                  The vendor outage amplified impact after
+                                  09:18:44 UTC, but available evidence does not
+                                  establish that it caused the initial latency
+                                  event.<sup>[S-14:77] [C-07]</sup> This finding
+                                  remains qualified because vendor-side request
+                                  traces are incomplete for 09:10–09:16 UTC.
+                                </p>
+                                <p>
+                                  Recommended follow-up: obtain the missing
+                                  vendor traces, preserve deploy-controller
+                                  clock calibration, and move the gateway
+                                  rollback threshold into the release runbook.
+                                </p>
+                              </article>
+                              <aside class="review-findings">
+                                <div class="review-finding">
+                                  <strong>F-01 · Initial trigger</strong
+                                  ><span class="domain-state"
+                                    >accepted · 6 citations</span
+                                  >
+                                </div>
+                                <div class="review-finding">
+                                  <strong>F-02 · Rollout timing</strong
+                                  ><span class="domain-state"
+                                    >accepted · 9 citations</span
+                                  >
+                                </div>
+                                <div class="review-finding">
+                                  <strong>F-03 · Vendor impact</strong
+                                  ><span class="domain-state waiting"
+                                    >qualified · 7 citations</span
+                                  >
+                                </div>
+                                <div class="review-finding">
+                                  <strong>F-04 · Recovery delay</strong
+                                  ><span class="domain-state"
+                                    >accepted · 5 citations</span
+                                  >
+                                </div>
+                                <div class="review-finding">
+                                  <strong>Limitations</strong
+                                  ><span>2 disclosed gaps</span>
+                                </div>
+                              </aside>
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="setta-workspace-shell-pane-region"
+                    data-workspace-shell-pane-region="trailing"
+                  >
+                    <aside
+                      class="setta-workspace-shell-pane"
+                      data-pane="trailing"
+                    >
+                      <div
+                        class="setta-workspace-shell-rail"
+                        data-workspace-shell-rail="trailing"
+                        aria-hidden="true"
+                      >
+                        <div class="setta-workspace-shell-tablist">
+                          <span
+                            class="setta-workspace-shell-tab"
+                            data-active="true"
+                            ><svg class="setta-icon">
+                              <use href="#icon-review"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-claim"></use></svg></span
+                          ><span class="setta-workspace-shell-tab"
+                            ><svg class="setta-icon">
+                              <use href="#icon-document"></use></svg
+                          ></span>
+                        </div>
+                      </div>
+                      <span
+                        class="setta-workspace-shell-full-width-button"
+                        aria-hidden="true"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                      <div class="setta-workspace-shell-panel">
+                        <h4 class="setta-workspace-shell-pane-title">Review</h4>
+                        <div class="setta-workspace-shell-pane-body">
+                          <div class="setta-workspace-inspector">
+                            <div class="setta-workspace-inspector-editor">
+                              <div class="setta-inspector-identity">
+                                <strong>F-02 · rollout timing</strong
+                                ><span>Accepted</span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Decision
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Status</span
+                                ><span
+                                  class="setta-workspace-inspector-config-input"
+                                  >accepted</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Reviewer</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >m.chen</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Reviewed</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >14 Sep 19:04</span
+                                >
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Grounding
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Claims</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >C-04, C-05</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Citations</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >9 exact</span
+                                >
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Open challenges</span
+                                ><span
+                                  class="setta-workspace-inspector-config-readonly"
+                                  >0</span
+                                >
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Publication
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                  >Include limits</span
+                                ><span class="setta-toggle on"></span>
+                              </div>
+                              <div class="setta-binding-note">
+                                Publishing freezes the reviewed finding and its
+                                accepted source locators. Original sections
+                                remain unchanged.
+                              </div>
+                              <span
+                                class="setta-workspace-inspector-primary-action"
+                                >Accept review draft</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                  <div
+                    class="setta-workspace-shell-controls"
+                    aria-hidden="true"
+                  >
+                    <span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-plus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-minus"></use></svg></span
+                    ><span class="react-flow__controls-button"
+                      ><svg class="setta-icon">
+                        <use href="#icon-fit"></use></svg></span
+                    ><span
+                      class="react-flow__controls-button"
+                      data-active="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-grid"></use></svg
+                    ></span>
+                  </div>
+                  <nav
+                    class="setta-workspace-saved-view-tabs"
+                    aria-label="Investigation saved views"
+                  >
+                    <div class="setta-workspace-saved-view-tabs-list">
+                      <label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-desk"
+                        role="tab"
+                        aria-selected="false"
+                        >Desk</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-timeline"
+                        role="tab"
+                        aria-selected="false"
+                        >Timeline</label
+                      ><label
+                        class="setta-workspace-saved-view-tab"
+                        for="scene-toggle-review"
+                        role="tab"
+                        aria-selected="true"
+                        >Review</label
+                      >
+                    </div>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="workspace-contract">
+            One WorkspaceHost · one serializable WorkspaceDocument · four
+            registered investigation section kinds · Workspace data and agentic
+            edge families · three saved views
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="boundaries"
+        class="page-shell section-block"
+        aria-labelledby="boundaries-title"
+      >
+        <div class="section-kicker">Deliberately bounded</div>
+        <h2 id="boundaries-title" class="section-heading">
+          A source-grounded reasoning surface, not an autonomous truth machine.
+        </h2>
+        <p class="section-copy">
+          Investigation Desk helps people and agents organize evidence, test
+          claims, and preserve review decisions. It does not silently promote
+          generated prose into accepted findings.
+        </p>
+        <div class="architecture-grid">
+          <article class="architecture-column">
+            <div class="architecture-label">Workspace owns</div>
+            <h3>The shared composition model.</h3>
+            <p>
+              Document control, section frames, graph presentation, panes,
+              selection, Inspector, saved views, controls, and managed windows.
+            </p>
+            <div class="architecture-list">
+              <div class="architecture-item">
+                One controlled WorkspaceDocument
+              </div>
+              <div class="architecture-item">
+                Data and agentic edge presentation
+              </div>
+              <div class="architecture-item">
+                Saved layout, camera, and visibility
+              </div>
+              <div class="architecture-item">Managed review windows</div>
+            </div>
+          </article>
+          <article class="architecture-column center">
+            <div class="architecture-label">Investigation Desk owns</div>
+            <h3>The evidence lifecycle.</h3>
+            <p>
+              Source integrity, locators, claim status, normalized events,
+              annotations, reviewer decisions, and publishable finding state.
+            </p>
+            <div class="architecture-list">
+              <div class="architecture-item">
+                Source, claim, annotation, and timeline kinds
+              </div>
+              <div class="architecture-item">
+                Citations that resolve to exact material
+              </div>
+              <div class="architecture-item">
+                Support and contradiction semantics
+              </div>
+              <div class="architecture-item">
+                Human acceptance and qualification
+              </div>
+            </div>
+          </article>
+          <article class="architecture-column">
+            <div class="architecture-label">Outside the app</div>
+            <h3>Collection and judgment stay explicit.</h3>
+            <p>
+              Connectors may bring material in, and agents may suggest
+              structure, but the app does not impersonate a records system or
+              reviewer.
+            </p>
+            <div class="architecture-list">
+              <div class="architecture-item">No web-scale crawler</div>
+              <div class="architecture-item">No hidden source rewriting</div>
+              <div class="architecture-item">No automatic truth score</div>
+              <div class="architecture-item">No publication without review</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page-shell closing" aria-labelledby="closing-title">
+        <h2 id="closing-title">
+          The reasoning stays inspectable because the sources stay in view.
+        </h2>
+        <p>
+          Investigation Desk extends Workspace with evidence-aware sections and
+          review state while preserving Setta’s established shell, graph, and
+          interaction language.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-link" href="#mockups">Review the mockups</a
+          ><a class="secondary-link" href="app-ideas.md"
+            >Return to the app ideas</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-shell footer-inner">
+        <span
+          >Investigation Desk · source-grounded reasoning on Setta
+          Workspace</span
+        ><span class="footer-links"
+          ><a href="#mockups">Product views</a
+          ><a href="app-ideas.md">App ideas</a></span
+        >
+      </div>
+    </footer>
+  </body>
+</html>
