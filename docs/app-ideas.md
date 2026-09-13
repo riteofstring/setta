@@ -17,6 +17,11 @@ judgment easier for people to understand.
 This document evaluates possible next applications. It is an ideas document, not an implementation
 plan.
 
+Setta is not an AI agent harness. A person can use Codex, Claude Code, OpenCode, another agent, a
+script, or another application outside Setta and exchange ordinary files through the same
+documented CLI boundary. None of the recommended apps should own a model session, supervise an
+agent loop, proxy tool calls, or require a particular provider SDK.
+
 ## Selection standard
 
 A new standalone application should satisfy all of the following:
@@ -98,6 +103,8 @@ version.
 
 ## Recommended flagship: Setta Witness
 
+[Open the Setta Witness visual mockup](setta-product-mockups.html#witness).
+
 Setta Witness should be an **evidence-backed completion and handoff reviewer**. Its recurring
 question is:
 
@@ -158,6 +165,8 @@ semantic citation systems are not part of the first product.
 
 ## Second direction: Setta Context Pack
 
+[Open the Setta Context Pack visual mockup](setta-product-mockups.html#context-pack).
+
 Setta Context Pack should create and inspect **portable, exact context bundles**. Its recurring
 question is:
 
@@ -204,6 +213,8 @@ comparing agents.
 
 ## Small visual product: Setta Curator
 
+[Open the Setta Curator visual mockup](setta-product-mockups.html#curator).
+
 Setta Curator should be a **candidate artifact review and selection app**. Its recurring question is:
 
 > Which candidate should continue downstream, and what useful judgment explains that choice?
@@ -226,6 +237,8 @@ Curator is the smallest proposed application and the best choice when implementa
 visually enjoyable experience matter more than exercising the complete historical agent stack.
 
 ## Focused policy product: Setta Permit
+
+[Open the Setta Permit visual mockup](setta-product-mockups.html#permit).
 
 Setta Permit should be a **trace-derived tool-permission workbench**. Its recurring question is:
 
@@ -250,8 +263,9 @@ to representative calls and affected resources.
 The first version imports catalogs and traces but does not invoke tools, start MCP servers, store
 credentials, execute agents, or claim to sandbox a process. Its main design risk is expressing
 resource and argument constraints without pretending that every agent runtime can enforce them.
-Permit should follow the portable packet work in Witness and Context Pack rather than define a
-second incompatible interchange system.
+Catalogs and traces must cross the boundary as ordinary files; optional adapters are offline
+translators, not runtime drivers. Permit should follow the portable packet work in Witness and
+Context Pack rather than define a second incompatible interchange system.
 
 ## Deferred directions
 
@@ -261,11 +275,6 @@ Agent replay remains a strong long-term direction, but it is not a simple first 
 Freezing materialized context, normalizing different agent runtimes, replaying them safely, aligning
 event streams, capturing artifacts, and explaining environmental differences together form an
 execution platform.
-
-The current ideas document previously described Bench as agent-context counterfactual replay, while
-the existing `docs/plans/setta-bench.md` describes a domain-neutral comparison of repeatable local
-code executions. Those have different durable concepts and should not share an implementation
-until one is explicitly selected.
 
 A future agent Bench should consume Context Pack bundles, Witness completion packets, and a proven
 portable run envelope. It should not invent all three contracts inside its first release.
@@ -312,6 +321,8 @@ Realtime:
 - versioned manifests with relative paths, explicit media types, hashes, and optional Git
   revisions;
 - no requirement for a model provider merely to create, inspect, or consume the durable record;
+- the producing agent remains outside Setta's process boundary and keeps ownership of its session,
+  tools, credentials, and execution loop;
 - exported bundles that remain useful without Setta installed; and
 - deep links as optional conveniences rather than the only way to resolve content.
 
@@ -326,7 +337,7 @@ than imports from another app's frontend or backend internals.
 2. Build one complete Witness flow around a real agent or application handoff.
 3. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
 4. Prototype Curator when a visually rich, low-risk sibling app is desirable.
-5. Explore Permit using real tool traces and enforcement capabilities.
+5. Explore Permit using exported tool traces and consumer-specific policy adapters.
 6. Reconsider Bench only after context, evidence, artifacts, and run records already move cleanly
    between independent producers and consumers.
 
@@ -337,3 +348,7 @@ automatically a product thesis. A new application should own one durable record 
 prepare and other software can consume. Its interface should concentrate human attention on the
 small amount of visual comparison, judgment, taste, or authority that remains valuable after the
 mechanical work is automated.
+
+If an app requires Setta to select a model, maintain an agent conversation, route tool calls, or
+resume provider-specific execution, it has crossed the boundary into an agent harness and should
+be redesigned around file import and export instead.
