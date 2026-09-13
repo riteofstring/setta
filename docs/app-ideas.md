@@ -9,213 +9,331 @@ Setta currently has two applications built on `@setta/workspace`:
 - Realtime connects authored interfaces to ordinary Python handlers and presents live pipelines,
   streamed results, retained outputs, and artifacts.
 
-This document identifies the next product direction by balancing implementation effort, user
-reward, novelty, and relevance to modern agentic work. It is an ideas document, not an
-implementation plan.
+Both applications expose strict machine-readable CLI boundaries as well as visual interfaces. That
+combination is central to future products: agents should be able to prepare, inspect, and hand off
+work without reproducing human UI gestures, while the UI should make relationships, evidence, and
+judgment easier for people to understand.
+
+This document evaluates possible next applications. It is an ideas document, not an implementation
+plan.
 
 ## Selection standard
 
-A new standalone application must do more than arrange visual nodes. It should satisfy all of the
-following:
+A new standalone application should satisfy all of the following:
 
-1. **Reuse expensive Setta capabilities.** The product should combine several existing strengths
-   from Workspace or the historical `main` application instead of rebuilding commodity
-   infrastructure.
-2. **Own a distinct durable concept.** Its source of truth and lifecycle must differ from a Python
-   project or a live handler graph.
-3. **Become more valuable as agents improve.** The product should help people inspect, compare,
-   constrain, or verify increasingly capable agents rather than encode work an agent can plan more
-   flexibly itself.
-4. **Have a defensible interaction advantage.** Removing Workspace's sections, context edges,
-   saved views, attention, Inspector, or managed windows should materially weaken the product.
-5. **Admit a bounded first version.** The useful loop must not require a distributed scheduler,
-   secret vault, crawler, vector database, evaluator marketplace, or general workflow engine.
+1. **Reuse dormant Setta strengths.** It should recover a small, coherent subset of capabilities
+   from historical `main` or use Workspace capabilities that neither current application exercises.
+2. **Own one durable concept.** Its source of truth and lifecycle must differ from a Python project
+   or a live handler graph.
+3. **Remain deliberately small.** A useful first version must not require a general agent runtime,
+   workflow engine, distributed scheduler, secret vault, crawler, vector database, or collaboration
+   platform.
+4. **Work naturally with agents.** Agents and arbitrary applications should be able to create its
+   inputs and consume its outputs through documented files and CLI contracts.
+5. **Reserve human effort for judgment.** The app should automate collection and bookkeeping while
+   making comparison, review, taste, or authority decisions pleasant and legible.
+6. **Have a differentiated interaction.** Removing Workspace's real content, relationships,
+   attention, Inspector, managed windows, or saved presentations should materially weaken it.
+7. **Avoid commodity categories.** A familiar ingredient is acceptable, but the recurring job and
+   durable record should not amount to another generic dashboard, chat client, file browser, or
+   node editor.
 
 The practical ranking is:
 
-`existing leverage + recurring value + agentic relevance + differentiation - infrastructure burden - correctness burden`
+`unused leverage + portability + recurring value + differentiation - integration burden - correctness burden`
 
-Popularity alone is not evidence of value. A crowded category receives a strong penalty unless
-Setta supports a substantially different recurring job.
-
-## Historical leverage
+## Capability landscape
 
 The local `main` branch at commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864` contained several
-coherent capability clusters worth recovering selectively:
+coherent capability clusters that the current applications do not use:
 
-- agent profiles, model and engine selection, MCP tool allowlists, and scoped agentic edges;
+- agent profiles, engine selection, MCP tool allowlists, scoped agentic edges, and agent-context
+  extraction;
 - persisted agent-run inputs, outputs, events, tool calls, cost, status, branching, and run chains;
-- AI Follow, which connected agent activity back to the sections it referenced;
-- parameter sweeps, variants, run plans, logs, metrics, artifacts, and detached execution;
+- AI Follow, which connected active tool arguments back to referenced sections;
 - project and section chats, questions, tool previews, and approval requests;
-- Git status, diffs, history, and worktree summaries;
-- file browsing, universal previews, spreadsheets, text, code, images, charts, and attachments;
-- saved canvas views, standalone section surfaces, floating windows, and Window Spaces.
+- parameter sweeps, variants, run plans, logs, metrics, and detached execution;
+- Git status, diffs, history, commit details, and worktree summaries;
+- file browsing, universal previews, spreadsheets, text, code, images, charts, and attachments; and
+- artifact storage, imports, downloads, and provenance-related metadata.
 
-The goal is not to reconstruct the former universal application. A focused product should select a
-small combination whose value compounds.
+The current branch also contains Workspace capabilities that are available but not yet used by
+Python Canvas or Realtime as product features:
 
-## Portfolio decision
+- multi-section attention and programmatic framing;
+- managed floating, docked, minimized, and maximized windows;
+- named Window Spaces and standalone Window Space surfaces;
+- standalone section and subtree surfaces;
+- the global Find and command-palette navigator; and
+- local or delegated structural history.
 
-| Direction                      | Product boundary                     | Effort      | Reward | Novelty     | Decision              |
-| ------------------------------ | ------------------------------------ | ----------- | ------ | ----------- | --------------------- |
-| Agent Context and Replay Bench | Experiments and immutable agent runs | Medium      | High   | Medium-high | Build first           |
-| Agent Intervention             | Cross-app review and resume state    | Medium      | High   | Medium-high | Add as a capability   |
-| Claim Audit                    | Claims, citations, and review state  | Medium-high | Medium | Medium-high | Prototype after Bench |
-| Generic evaluation dashboard   | Metrics and leaderboards             | High        | Medium | Low         | Do not build          |
-| Generic visual runbook         | Workflow definitions and executions  | Very high   | Medium | Low         | Do not build          |
-| Broad investigation workspace  | General research corpus              | Very high   | Medium | Low-medium  | Do not build          |
-| Generic MCP inspector          | Tool discovery and invocation        | Low         | Medium | Low         | Keep as a feature     |
+Python Canvas already demonstrates generated code, diagnostics, terminals, typed controls, saved
+views, and revision-bound agent-friendly mutations. Realtime already demonstrates controlled
+graphs, live events, bounded scheduling, streaming results, retained artifacts, drawing, and direct
+invocation. A new application should not merely recombine those same behaviors under another name.
 
-Effort is relative to capabilities already present in Setta. Novelty describes the proposed Setta
-workflow, not whether individual ingredients exist elsewhere.
+Historical code is evidence and a behavioral reference, not a drop-in product platform. The old
+agent, run, Git, file, and preview systems were integrated with a much broader application model.
+Recovering a narrow capability can reduce discovery risk, but a new app still needs its own small
+contract, persistence boundary, and failure semantics.
 
-## Recommended flagship: Setta Bench
+## Portfolio assessment
 
-[Open the Setta Bench visual walkthrough](setta-bench.html).
+Each score is out of five. A higher **Simplicity** score means a smaller, easier-to-bound first
+version.
 
-Setta Bench should be an **agent context and counterfactual replay lab**, not a general experiment
-platform. Its recurring question is:
+| Direction                        | Leverage | Simplicity | Agentic value | Novelty | Decision                    |
+| -------------------------------- | -------: | ---------: | ------------: | ------: | --------------------------- |
+| Setta Witness                    |        5 |          4 |             5 |       4 | Build first                 |
+| Setta Context Pack               |        5 |          4 |             5 |       4 | Build second or alongside   |
+| Setta Curator                    |        4 |          5 |             5 |       3 | Strong small prototype      |
+| Setta Permit                     |        5 |          3 |             5 |       4 | Explore after interchange   |
+| Agent Context and Replay Bench   |        5 |          2 |             5 |       4 | Defer                       |
+| Agent Intervention               |        4 |          2 |             4 |       3 | Keep as a future capability |
+| Multi-format general Claim Audit |        5 |          2 |             5 |       4 | Fold into Witness           |
+| Generic evaluation dashboard     |        4 |          2 |             4 |       1 | Do not build                |
+| Generic visual runbook           |        4 |          1 |             2 |       1 | Do not build                |
+| Broad investigation workspace    |        5 |          1 |             3 |       2 | Do not build                |
+| Generic MCP inspector            |        3 |          4 |             4 |       1 | Do not build as an app      |
 
-> Why did this agent behave differently, and can I reproduce the difference?
+## Recommended flagship: Setta Witness
 
-A user starts from a real task or previous agent run, freezes the exact task, context, profile,
-model, tool permissions, and source revisions, changes one controlled variable, and replays it.
-Bench then aligns the two event streams, tool calls, outputs, costs, timings, failures, and artifacts
-so the user can record a decision with evidence.
+Setta Witness should be an **evidence-backed completion and handoff reviewer**. Its recurring
+question is:
+
+> What does this producer claim it completed, what exact evidence supports those claims, and what
+> should the next person, agent, or application receive?
+
+A producer can be an AI agent, a Setta application, a script, or a person. It creates a portable
+completion packet containing a requested outcome, completion claims, evidence references,
+artifacts, unresolved work, and provenance. Witness resolves those references, presents each claim
+beside its evidence, and records a review without rewriting the producer's record.
 
 ### Durable concepts
 
-- A **case** is one task and its expected constraints, not merely a prompt string.
-- A **context snapshot** records exactly which section content and source revisions the agent could
-  see and how each context edge was materialized.
-- An **agent configuration** records engine, model, profile, permissions, tools, and run parameters.
-- An **agent run** is immutable evidence: input snapshot, streamed events, tool calls and results,
-  output, usage, cost, timing, errors, artifacts, and lineage.
-- A **comparison decision** records what changed, representative differences, and why one behavior
-  was accepted.
+- A **completion packet** is an immutable statement of what one producer is handing off.
+- A **claim** is a bounded assertion such as “implemented the requested behavior,” “this check
+  passed,” or “this artifact is the final output.”
+- An **evidence reference** points to an exact Git hunk, text or log range, tool result, local file,
+  or content-addressed artifact.
+- A **review decision** marks a claim supported, contradicted, unproven, or intentionally accepted
+  with a qualification.
+- A **continuation packet** combines the original request, accepted evidence, unresolved claims,
+  and a concise next-work description for another consumer.
 
 ### Why Workspace matters
 
-- Text, code, structured-item, and application-specific sections hold real task and context
-  material rather than labels for abstract nodes.
-- Agentic edges make context inclusion and materialization visible and editable.
-- Typed controls expose model, profile, permissions, tools, and replay variables without requiring
-  configuration files.
-- Diagnostics mark missing context, invalid tools, stale sources, or incomparable runs in place.
-- AI Follow and multi-section attention connect a selected agent event to the material it used.
-- Saved views provide Configure, Trace, and Compare perspectives over the same document.
-- Managed windows and Window Spaces support synchronized trace and result comparison.
-- Standalone section surfaces can present one case, run, or decision without inventing another UI
-  system.
+- Claims and real evidence remain visible together instead of becoming labels on abstract nodes.
+- Evidence edges show which claims depend on which files, logs, results, and artifacts.
+- Selecting a claim can frame and apply attention to every cited section.
+- Managed windows can place a diff, log, artifact, and claim review side by side.
+- Saved views can provide Summary, Evidence, and Handoff presentations over the same packet.
+- A standalone surface can show one review decision without exposing the entire workspace.
+- Inspector controls can record a small decision and qualification without creating a form-heavy
+  workflow.
 
 ### Existing Setta leverage
 
-The historical application already implemented most of the expensive ingredients: agent profiles,
-managed and external agents, MCP discovery and calls, tool allowlists, conversation branches,
-persisted agent events, cost and status, run chains, RunPlan variants, artifacts, and AI Follow.
-Bench should recover only the subset required for reproducible comparison.
+Historical agent-run events, tool calls, Git status and diff views, file previews, attachments,
+approval cards, artifacts, and AI Follow provide reference implementations for most of the visible
+ingredients. Current Workspace attention, managed windows, Window Spaces, text and code sections,
+and strict host ownership provide the presentation foundation.
 
 ### Bounded first version
 
-1. Select one existing agent run or author one task case.
-2. Freeze its context, profile, model, tool allowlist, and source revisions.
-3. Fork the run with exactly one declared change.
-4. Replay both configurations locally.
-5. Compare aligned output, tool calls, events, usage, and artifacts.
-6. Save a short decision and the two immutable run identities.
+1. Open one completion packet and an optional local Git worktree.
+2. Resolve evidence references to Git hunks, UTF-8 text or log ranges, JSON tool results, and local
+   file artifacts.
+3. Review each claim as supported, contradicted, unproven, or qualified.
+4. Export a review record and continuation packet in an open, documented format.
 
-The first version has no optimizer, distributed workers, hosted evaluator marketplace, arbitrary
-workflow graph, synthetic dataset generator, or generic observability dashboard. Fixed checks may
-score explicit outcomes, but the product center is explainable behavioral difference.
+The first version does not run an agent, edit source, execute tests, commit or push Git changes,
+contact CI providers, authenticate remote services, or infer whether a claim is true. Agents may
+prepare claims and evidence automatically; the app exists to make the remaining judgment fast and
+inspectable.
 
-## Cross-app capability: Agent Intervention
+Witness is the useful constrained form of Claim Audit. Additional evidence types should be added
+only when they can provide stable, exact anchors. General PDF, spreadsheet, image-region, web, and
+semantic citation systems are not part of the first product.
 
-[Open the Agent Intervention visual walkthrough](agent-intervention.html).
+## Second direction: Setta Context Pack
 
-Agent Intervention should begin as a Workspace capability used by Python Canvas and Bench, not as a
-standalone runbook application. Its recurring question is:
+Setta Context Pack should create and inspect **portable, exact context bundles**. Its recurring
+question is:
 
-> What is this agent asking to do, what would it affect, and how should it continue?
+> What information will the next agent or application receive, where did it come from, and can the
+> bundle be handed off without this app?
 
-An intervention binds one paused agent run to an exact proposed tool call or mutation, its
-arguments, relevant context, affected files or resources, risk annotations, and the eventual human
-decision. A reviewer may approve, reject, or narrow the request, add a note, and resume the same
-run. The decision remains part of the run record.
+An agent or person starts with one task and selects local files, exact text ranges, Git revisions or
+diffs, artifacts, and tool-policy references. Context Pack records provenance and materializes a
+self-contained bundle that another agent or ordinary program can consume.
 
-Workspace contributes an intervention queue pane, multi-section attention for affected material,
-a focused standalone decision surface, typed Inspector controls, and a managed run window after
-resume. The host application owns the paused run, authorization, decision persistence, tool
-execution, and continuation.
+### Durable concepts
 
-The historical application already streamed external-agent questions, approval requests, tool
-previews and results, persisted agent events, and exposed Git diffs and worktree state. The new work
-is a coherent review model and presentation, not a workflow runtime.
+- A **task** states the requested outcome and constraints.
+- A **source reference** identifies exact content by path and revision, range, or content hash.
+- A **context relationship** states why a source is included and which task or other source it
+  supports.
+- A **materialized bundle** contains a manifest plus portable content, rather than links into
+  private application state.
+- A **bundle revision** records an intentional change to included context without mutating an
+  already handed-off revision.
 
-Agent Intervention explicitly excludes authored runbooks, generic DAGs, schedules, retries,
-credentials, remote workers, and infrastructure orchestration. It should become a standalone app
-only if users develop a durable cross-project review queue and collaboration lifecycle that cannot
-belong to the originating application.
+### Existing Setta leverage
 
-## Constrained prototype: Claim Audit
+Historical file browsing, universal previews, Git reads, attachments, context edges, profiles, and
+tool allowlists provide the main ingredients. Workspace graph families, attention, saved views,
+standalone surfaces, and typed controls can expose inclusion and provenance without inventing a new
+canvas system.
 
-[Open the Claim Audit visual walkthrough](claim-audit.html).
+### Bounded first version
 
-Claim Audit should verify an agent-produced report against already available local evidence. It is
-not a general research, note-taking, or knowledge-graph application. Its recurring question is:
+1. Create one task or import it through the CLI.
+2. Add local UTF-8 files, exact ranges, Git diffs, and admitted file artifacts.
+3. Inspect included content, provenance, duplication, missing sources, and bundle size.
+4. Export a directory containing a versioned JSON manifest, a readable Markdown summary, and
+   materialized content using relative paths and hashes.
 
-> Which claims in this output are supported by exact source material, contradicted, or still
-> unverified?
+The first version has no chat, model execution, embeddings, semantic retrieval, crawling, OCR,
+automatic summarization, or provider-specific prompt assembly. It packages context; it does not
+decide how a consumer should reason about it.
 
-A claim owns its quoted report text, status, reviewer decision, and citations. Each citation resolves
-to an exact location in a source already present in the workspace, such as PDF pages, spreadsheet
-rows, log lines, text ranges, images, or tool results. Agents may suggest claims and citations;
-people accept, qualify, reject, or leave them unresolved.
+Context Pack is a prerequisite-shaped product for a later replay bench. It proves exact context
+materialization and arbitrary-app handoff before Setta assumes responsibility for running or
+comparing agents.
 
-Workspace makes source material and claims simultaneously inspectable through real content
-sections, data and agentic edges, multi-section attention, saved views, managed windows, and Window
-Spaces. Historical file browsing, universal previews, spreadsheets, attachments, agentic context,
-and AI Follow provide the expensive starting pieces.
+## Small visual product: Setta Curator
 
-The prototype accepts existing local sources and one existing report. It excludes crawling, OCR,
-web research, embeddings, general retrieval, entity resolution, collaborative knowledge graphs,
-and automatic truth scores. Claim Audit may begin as a Bench review workflow; it should become a
-standalone app only if claims and citations prove to be a durable source of truth across many runs.
+Setta Curator should be a **candidate artifact review and selection app**. Its recurring question is:
 
-## Rejected directions
+> Which candidate should continue downstream, and what useful judgment explains that choice?
 
-### Generic visual runbook
+An agent or application writes a manifest and a set of candidate artifacts. Curator presents them
+in synchronized managed windows, lets a reviewer select, reject, rank, or briefly qualify them, and
+exports the chosen artifacts with a machine-readable decision.
 
-Static workflow authoring is crowded, and production-grade execution requires disproportionate
-work in scheduling, idempotency, credentials, retries, recovery, concurrency, and audit. Agents can
-also plan many non-sensitive steps dynamically. Setta should expose human intervention at real
-authority boundaries rather than build another workflow engine.
+Historical artifacts, attachments, universal previews, run metadata, and file browsing provide the
+content foundation. Managed windows and Window Spaces make side-by-side inspection a core product
+interaction rather than incidental layout.
 
-### Broad investigation workspace
+The first version supports one candidate set containing bounded images, UTF-8 text, or JSON. It
+does not generate candidates, manage a long-lived asset library, edit media, infer a winner, or
+provide collaboration. A producer can populate the complete input without UI work, while a person
+can contribute taste or domain judgment quickly. The selected artifact and decision manifest are
+ordinary files that any downstream tool can consume.
 
-A general research canvas quickly expands into ingestion, OCR, indexing, retrieval, entity
-resolution, synchronization, collaboration, and publishing. Many mature note, canvas, and AI
-research products already occupy that space. Exact claim auditing is the smaller and more agentic
-job.
+Curator is the smallest proposed application and the best choice when implementation risk and a
+visually enjoyable experience matter more than exercising the complete historical agent stack.
 
-### Generic agent builder or evaluation dashboard
+## Focused policy product: Setta Permit
 
-Visual agent graphs, prompt playgrounds, trace dashboards, and metric leaderboards are established
-categories. Setta's opportunity is not another box-and-arrow builder or trace viewer. It is the
-combination of editable context, exact run snapshots, counterfactual replay, spatial attention, and
-human decisions.
+Setta Permit should be a **trace-derived tool-permission workbench**. Its recurring question is:
+
+> Which capabilities did this work actually require, which risky capabilities remain exposed, and
+> what portable policy should govern the next run?
+
+Permit imports a tool catalog, one or more normalized tool-call traces, and an optional existing
+policy. It distinguishes available, observed, attempted, and denied operations; presents argument
+and resource scopes; and lets a reviewer export a smaller approved policy.
+
+### Durable concepts
+
+- A **tool catalog snapshot** records names, schemas, metadata, and source identities.
+- An **observed use** records the exact tool, arguments, result class, and originating trace.
+- A **policy decision** allows, denies, or narrows one capability with a reason.
+- A **portable policy** is a provider-neutral record with optional adapters for particular agents.
+
+Historical MCP discovery, tool metadata, profiles, allowlists, agent-run tool calls, previews, and
+approval surfaces provide unusually strong leverage. Workspace attention can connect a policy row
+to representative calls and affected resources.
+
+The first version imports catalogs and traces but does not invoke tools, start MCP servers, store
+credentials, execute agents, or claim to sandbox a process. Its main design risk is expressing
+resource and argument constraints without pretending that every agent runtime can enforce them.
+Permit should follow the portable packet work in Witness and Context Pack rather than define a
+second incompatible interchange system.
+
+## Deferred directions
+
+### Agent Context and Replay Bench
+
+Agent replay remains a strong long-term direction, but it is not a simple first application.
+Freezing materialized context, normalizing different agent runtimes, replaying them safely, aligning
+event streams, capturing artifacts, and explaining environmental differences together form an
+execution platform.
+
+The current ideas document previously described Bench as agent-context counterfactual replay, while
+the existing `docs/plans/setta-bench.md` describes a domain-neutral comparison of repeatable local
+code executions. Those have different durable concepts and should not share an implementation
+until one is explicitly selected.
+
+A future agent Bench should consume Context Pack bundles, Witness completion packets, and a proven
+portable run envelope. It should not invent all three contracts inside its first release.
+
+### Agent Intervention
+
+Intervention is valuable at a real authority boundary, but generic continuation is harder than
+presenting an approval card. The host must own a paused run, authorization, decision persistence,
+tool execution, and a durable provider-specific or provider-neutral resume token.
+
+Keep Intervention as a Workspace presentation capability once an actual application exposes that
+pause-and-resume contract. Do not create a standalone app or add an agent runtime merely to produce
+approval requests for it.
+
+### General Claim Audit
+
+Verifying arbitrary reports against PDFs, spreadsheet rows, log lines, text ranges, image regions,
+web pages, and tool results requires several unrelated ingestion and stable-anchoring systems.
+Witness retains the valuable core—claims, exact evidence, review decisions, and handoff—while
+limiting the evidence types. Generalize only after real packets repeatedly require another
+well-defined anchor type.
+
+## Directions not worth implementing
+
+- **Generic evaluation dashboard:** prompt playgrounds, trace dashboards, metrics, and leaderboards
+  are crowded, while reliable evaluation infrastructure is expensive.
+- **Generic visual runbook:** scheduling, credentials, retries, recovery, idempotency, and audit
+  dominate the implementation, and agents can plan many low-risk steps dynamically.
+- **Broad investigation workspace:** ingestion, OCR, indexing, retrieval, entity resolution,
+  collaboration, and publishing turn it into a large knowledge platform.
+- **Generic MCP inspector:** discovery and invocation are useful features, but they do not create a
+  durable product record. Permit's reviewed policy is the stronger boundary.
+- **Generic agent builder:** visual agent graphs and provider configuration are established
+  categories and would pull Setta back toward a universal application.
+
+## Cross-application contract
+
+Every selected app should preserve the interoperability pattern established by Python Canvas and
+Realtime:
+
+- an offline command that describes its complete input, mutation, and output schemas;
+- machine-readable snapshot and revision-bound mutation commands;
+- deterministic stdout, stderr, and exit semantics;
+- versioned manifests with relative paths, explicit media types, hashes, and optional Git
+  revisions;
+- no requirement for a model provider merely to create, inspect, or consume the durable record;
+- exported bundles that remain useful without Setta installed; and
+- deep links as optional conveniences rather than the only way to resolve content.
+
+Shared framing and content-reference conventions are useful, but each app should retain its own
+small canonical model. Cross-app handoff should happen through admitted, documented bundles rather
+than imports from another app's frontend or backend internals.
 
 ## Suggested order
 
-1. Build the smallest complete Setta Bench loop around one real agent task and one-variable replay.
-2. Add Agent Intervention to Bench or Python Canvas when a real run pauses for a consequential
-   action.
-3. Prototype Claim Audit on a Bench-produced report and existing local sources.
-4. Promote either capability into another standalone app only after its own durable history and
-   recurring workflow are demonstrated.
+1. Define the smallest open completion, evidence-reference, review, and continuation envelopes for
+   Witness.
+2. Build one complete Witness flow around a real agent or application handoff.
+3. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
+4. Prototype Curator when a visually rich, low-risk sibling app is desirable.
+5. Explore Permit using real tool traces and enforcement capabilities.
+6. Reconsider Bench only after context, evidence, artifacts, and run records already move cleanly
+   between independent producers and consumers.
 
 ## Product guardrail
 
-Canvas nodes are a representation, not a product thesis. New products should center durable task,
-run, context, decision, claim, and citation records. The canvas is valuable when it keeps real
-content and relationships inspectable; it is not valuable merely because boxes can be connected.
+Canvas nodes are a representation, not a product thesis. Agent execution is also a capability, not
+automatically a product thesis. A new application should own one durable record that agents can
+prepare and other software can consume. Its interface should concentrate human attention on the
+small amount of visual comparison, judgment, taste, or authority that remains valuable after the
+mechanical work is automated.
