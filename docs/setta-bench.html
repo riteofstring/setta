@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A visual walkthrough of Setta Bench, a focused local app for comparing a few code-backed candidates against the same cases."
+      content="A visual walkthrough of Setta Bench using a realistic vendor-record matching experiment with code-backed candidates, bounded parameter plans, checks, runs, and comparison."
     />
-    <title>Setta Bench — Visual product walkthrough</title>
+    <title>Setta Bench — Scalable experiment walkthrough</title>
     <link rel="stylesheet" href="setta-bench.css" />
   </head>
   <body>
@@ -100,17 +100,18 @@
     <main id="top">
       <section class="page-shell hero" aria-labelledby="hero-title">
         <div>
-          <div class="eyebrow">Focused Setta example</div>
-          <h1 id="hero-title">Compare code without building a platform.</h1>
+          <div class="eyebrow">Expanded product proposal · CPU only</div>
+          <h1 id="hero-title">
+            Choose a record-matching strategy with evidence.
+          </h1>
           <p class="hero-lede">
-            Setta Bench runs a few implementations against the same cases, keeps
-            the results, and makes their differences easy to review.
+            Three readable implementations, ten resolved parameter variants, and
+            ninety-six labeled vendor pairs become one reviewable decision—not
+            hundreds of canvas nodes.
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#mockups">Explore the product</a>
-            <a class="secondary-link" href="design/bench-frontend.md"
-              >Read the frontend design</a
-            >
+            <a class="secondary-link" href="#boundaries">See the boundaries</a>
           </div>
         </div>
 
@@ -120,37 +121,50 @@
         >
           <div class="hero-run-head">
             <div class="hero-run-title">
-              <span class="live-dot"></span> Product thumbnail strategies
+              <span class="live-dot"></span> Vendor record reconciliation
             </div>
             <div class="run-id">LAUNCH 0042</div>
           </div>
           <div class="hero-run-body">
             <div class="run-row">
               <div>
-                <div class="run-name">Contain</div>
+                <div class="run-name">
+                  Weighted tokens · t .80 · address .35
+                </div>
                 <div class="run-meta">
-                  10 colorful PNGs · preserve full image
+                  94.8% accuracy · 2.1% false positives · 18 ms p95
                 </div>
               </div>
-              <div class="run-status">complete</div>
+              <div class="run-status">preferred</div>
             </div>
             <div class="run-row">
               <div>
-                <div class="run-name">Cover</div>
-                <div class="run-meta">10 colorful PNGs · crop to fill</div>
+                <div class="run-name">Character trigrams · n 3 · t .70</div>
+                <div class="run-meta">
+                  92.7% accuracy · 4.2% false positives · 23 ms p95
+                </div>
               </div>
-              <div class="run-status">complete</div>
+              <div class="run-status warning">1 gate failed</div>
+            </div>
+            <div class="run-row">
+              <div>
+                <div class="run-name">Normalized exact · fixed baseline</div>
+                <div class="run-meta">
+                  72.9% accuracy · 0% false positives · 9 ms p95
+                </div>
+              </div>
+              <div class="run-status warning">1 gate failed</div>
             </div>
           </div>
           <div class="hero-run-foot">
             <div class="hero-stat">
-              <strong>20 / 20</strong><span>cases executed</span>
+              <strong>10</strong><span>resolved runs</span>
             </div>
             <div class="hero-stat">
-              <strong>1.8 KB</strong><span>median size gap</span>
+              <strong>960</strong><span>case executions</span>
             </div>
             <div class="hero-stat">
-              <strong>2 / 2</strong><span>runs complete</span>
+              <strong>96</strong><span>aligned comparisons</span>
             </div>
           </div>
         </div>
@@ -163,12 +177,12 @@
       >
         <div class="section-kicker">The operating loop</div>
         <h2 id="workflow-title" class="section-heading">
-          One project becomes two runs and twenty case executions.
+          Five authored sections expand into 960 executions—not 960 nodes.
         </h2>
         <p class="section-copy">
-          The canvas stores only the experiment definition. Running it is an
-          action, and the resulting evidence lives in Runs and Compare rather
-          than becoming more canvas sections.
+          The graph stays proportional to the concepts a person authors. Bench
+          resolves candidate parameter plans only when a launch is frozen, then
+          keeps the resulting evidence in Runs and Compare.
         </p>
 
         <div
@@ -179,25 +193,25 @@
             <div class="workflow-layer-label">Authored · Build</div>
             <strong>Experiment definition</strong>
             <div class="workflow-layer-items">
-              <span>1 JSON input section</span>
-              <span>2 source candidates</span>
-              <span>1 parameter check section</span>
+              <span>1 JSON case set · 96 labeled pairs</span>
+              <span>3 candidate code sections · 10 variants</span>
+              <span>1 check set · contract + 3 aggregate gates</span>
             </div>
           </article>
           <div class="workflow-launch-step">
             <svg class="setta-icon" aria-hidden="true">
               <use href="#icon-play"></use>
             </svg>
-            <strong>Run comparison</strong>
-            <span>freeze revision 0</span>
+            <strong>Run experiment</strong>
+            <span>freeze revision 7</span>
           </div>
           <article class="workflow-layer generated-layer">
             <div class="workflow-layer-label">Generated · Runs</div>
             <strong>Immutable evidence</strong>
             <div class="workflow-layer-items">
-              <span>2 runs</span>
-              <span>20 case results</span>
-              <span>20 artifacts</span>
+              <span>10 resolved runs</span>
+              <span>960 case results</span>
+              <span>2 accepted configurations</span>
             </div>
           </article>
         </div>
@@ -206,13 +220,15 @@
           <article class="loop-step">
             <div class="loop-number">01 / BUILD</div>
             <div class="loop-accent"></div>
-            <h3>Describe the comparison</h3>
+            <h3>Author concepts, not trials</h3>
             <div class="loop-equation">
-              <span>10 JSON inputs</span><b>→</b><span>2 candidates</span>
+              <span>96 labeled pairs</span><b>→</b
+              ><span>3 code candidates</span>
             </div>
             <p>
-              A case edge means “run every case with this candidate.” A check
-              edge means “apply this same check set to every output.”
+              A candidate is one implementation. Its typed parameters can be
+              fixed or declare a bounded value plan, producing ten launch
+              variants without duplicating source sections.
             </p>
           </article>
           <article class="loop-step">
@@ -220,29 +236,31 @@
             <div class="loop-accent"></div>
             <h3>Expand the matrix</h3>
             <div class="execution-math">
-              <span><strong>10</strong> inputs</span>
+              <span><strong>96</strong> cases</span>
               <b>×</b>
-              <span><strong>2</strong> candidates</span>
+              <span><strong>10</strong> variants</span>
               <b>=</b>
-              <span><strong>20</strong> executions</span>
+              <span><strong>960</strong> executions</span>
             </div>
             <p>
-              One launch creates one immutable run per candidate. With
-              concurrency two, at most two case processes run at once.
+              One launch creates one immutable run per resolved variant. The
+              exact parameter values are frozen with each run; concurrency four
+              bounds local CPU use.
             </p>
           </article>
           <article class="loop-step">
             <div class="loop-number">03 / REVIEW</div>
             <div class="loop-accent"></div>
-            <h3>Align the same case</h3>
+            <h3>Review the useful frontier</h3>
             <div class="review-pair" aria-hidden="true">
-              <span class="review-thumb contain-thumb"></span>
-              <span class="review-versus">sunset-bottle</span>
-              <span class="review-thumb cover-thumb"></span>
+              <span class="review-decision wrong">false</span>
+              <span class="review-versus">vendor-042</span>
+              <span class="review-decision right">true</span>
             </div>
             <p>
-              Compare finds the matching case ID in two completed runs, then
-              places their artifacts, measurements, and findings side by side.
+              Filter ten runs by aggregate gates, select two viable
+              configurations, then inspect their JSON decisions and reasons
+              aligned by stable case ID.
             </p>
           </article>
         </div>
@@ -250,50 +268,69 @@
         <figure class="case-trace">
           <figcaption>
             <span class="case-trace-kicker">One case, end to end</span>
-            <strong>What happens to <code>sunset-bottle</code></strong>
+            <strong>What happens to <code>vendor-042</code></strong>
           </figcaption>
           <div class="case-trace-grid">
             <div class="trace-node trace-source">
-              <span class="trace-node-kind">JSON input</span>
-              <strong>sunset-bottle</strong>
-              <code>{ "path": "inputs/product-01.png" }</code>
+              <span class="trace-node-kind">Case from JSON section</span>
+              <strong>Northwind Industrial ↔ Northwind Ind. LLC</strong>
+              <code>expected.sameCompany = true · tag: legal-suffix</code>
             </div>
             <div class="trace-branches">
               <div class="trace-run">
                 <div>
-                  <span class="trace-node-kind">Run BN-0042-01</span>
-                  <strong>Contain</strong>
-                  <code>ImageOps.contain(image, size)</code>
+                  <span class="trace-node-kind">Run BN-0042-01 · fixed</span>
+                  <strong>Normalized exact</strong>
+                  <code>sameCompany=false · score .61</code>
                 </div>
-                <div class="trace-output">
-                  <span class="trace-thumbnail contain-thumb"></span>
-                  <span><b>6.8 KB</b><small>30 ms</small></span>
+                <div class="trace-decision failing">
+                  <b>incorrect</b><small>legal suffix remains</small>
                 </div>
               </div>
               <div class="trace-run">
                 <div>
-                  <span class="trace-node-kind">Run BN-0042-02</span>
-                  <strong>Cover</strong>
-                  <code>ImageOps.fit(image, size)</code>
+                  <span class="trace-node-kind"
+                    >Run BN-0042-05 · t .80 / a .35</span
+                  >
+                  <strong>Weighted tokens</strong>
+                  <code>sameCompany=true · score .91</code>
                 </div>
-                <div class="trace-output">
-                  <span class="trace-thumbnail cover-thumb"></span>
-                  <span><b>7.3 KB</b><small>35 ms</small></span>
+                <div class="trace-decision">
+                  <b>correct</b><small>name .94 · address .86</small>
+                </div>
+              </div>
+              <div class="trace-run">
+                <div>
+                  <span class="trace-node-kind"
+                    >Run BN-0042-09 · n 3 / t .70</span
+                  >
+                  <strong>Character trigrams</strong>
+                  <code>sameCompany=true · score .84</code>
+                </div>
+                <div class="trace-decision">
+                  <b>correct</b><small>shared trigrams 31 / 37</small>
                 </div>
               </div>
             </div>
             <div class="trace-node trace-checks">
-              <span class="trace-node-kind">Same checks for both</span>
-              <strong>Thumbnail checks</strong>
-              <span class="trace-finding"><b>✓</b> 512 × 512</span>
-              <span class="trace-finding"><b>✓</b> no more than 160 KB</span>
+              <span class="trace-node-kind"
+                >Same check set for every result</span
+              >
+              <strong>Match quality</strong>
+              <span class="trace-finding"><b>✓</b> output contract valid</span>
+              <span class="trace-finding"
+                ><b>✓</b> weighted tokens matches label</span
+              >
+              <span class="trace-finding failing"
+                ><b>×</b> exact baseline misses label</span
+              >
             </div>
           </div>
           <div class="case-trace-note">
-            Contain and Cover are visible source-backed candidates with the same
-            <code>size = 512</code> parameter. They independently receive the
-            same JSON object; Bench records both outputs and aligns them by
-            <code>caseId</code> in Compare.
+            The graph binds the case set to three implementations once. At
+            launch, Bench resolves their <code>1 + 6 + 3</code> parameter
+            variants, records every decision, and applies one visible check set
+            to all 960 results.
           </div>
         </figure>
       </section>
@@ -301,11 +338,43 @@
       <section id="mockups" class="mockup-area">
         <div class="page-shell section-block">
           <div class="section-kicker">Product walkthrough</div>
-          <h2 class="section-heading">Three views over one small project.</h2>
+          <h2 class="section-heading">
+            Three views over one production-shaped experiment.
+          </h2>
           <p class="section-copy">
             Build, Runs, and Compare reuse the real Workspace shell, panes,
-            section cards, managed windows, Inspector, and saved-view tabs.
+            section cards, code editors, parameter controls, managed windows,
+            Inspector, and saved-view tabs.
           </p>
+
+          <div class="graph-grammar" aria-label="Setta Bench graph grammar">
+            <article>
+              <span class="graph-grammar-index">01 · CASE SET</span>
+              <strong>What should be tried?</strong>
+              <p>Visible JSON owns named inputs, expected answers, and tags.</p>
+              <code>emits input + expected</code>
+            </article>
+            <article>
+              <span class="graph-grammar-index">02 · CANDIDATE</span>
+              <strong>What code should run?</strong>
+              <p>One source implementation owns fixed or bounded parameters.</p>
+              <code>input → result × variants</code>
+            </article>
+            <article>
+              <span class="graph-grammar-index">03 · CHECK SET</span>
+              <strong>What counts as acceptable?</strong>
+              <p>Visible rules join results with withheld expected answers.</p>
+              <code>result + expected → findings</code>
+            </article>
+            <article class="edge-grammar">
+              <span class="graph-grammar-index">EDGE · DATA BINDING</span>
+              <strong>Which data flows where?</strong>
+              <p>
+                One saved edge binds whole collections, not one trial or step.
+              </p>
+              <code>7 edges stay 7 at runtime</code>
+            </article>
+          </div>
 
           <input
             class="scene-toggle"
@@ -354,10 +423,10 @@
               <div>
                 <h3>Build view</h3>
                 <p>
-                  Inputs are editable JSON code. Each candidate shows its
-                  runnable source and native parameter controls. Shared checks
-                  are another parameter section, so the complete experiment is
-                  visible before anything runs.
+                  Five authored sections stay visible: labeled JSON cases, three
+                  readable implementations with bounded parameter plans, and one
+                  check set defining both per-case contracts and aggregate
+                  acceptance gates.
                 </p>
               </div>
               <div class="scene-caption">
@@ -370,7 +439,10 @@
                 class="setta-workspace setta-workspace-dark"
                 aria-label="Setta Workspace mockup showing a Bench experiment"
               >
-                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                <div
+                  class="setta-workspace-shell bench-build-shell"
+                  data-saved-view-tabs="true"
+                >
                   <div
                     class="setta-workspace-shell-pane-region"
                     data-workspace-shell-pane-region="leading"
@@ -437,7 +509,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Product thumbnail strategies
+                                  Vendor record reconciliation
                                 </span>
                               </div>
                             </div>
@@ -458,14 +530,16 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Catalog inputs
+                                  Labeled vendor pairs
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  96
                                 </span>
                               </div>
                             </div>
-                            <div
-                              class="setta-workspace-outline-item"
-                              aria-selected="true"
-                            >
+                            <div class="setta-workspace-outline-item">
                               <div
                                 class="setta-workspace-outline-row"
                                 style="
@@ -482,7 +556,41 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Contain
+                                  Normalized exact
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  1×
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              class="setta-workspace-outline-item"
+                              aria-selected="true"
+                            >
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-document"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Weighted tokens
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  6×
                                 </span>
                               </div>
                             </div>
@@ -503,7 +611,12 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Cover
+                                  Character trigrams
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  3×
                                 </span>
                               </div>
                             </div>
@@ -524,7 +637,12 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Thumbnail checks
+                                  Match quality
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  4
                                 </span>
                               </div>
                             </div>
@@ -538,9 +656,14 @@
                     <div class="bench-launch-toolbar">
                       <div class="bench-launch-summary">
                         <strong>Ready to run</strong>
-                        <span>10 inputs × 2 candidates = 20 executions</span>
+                        <span
+                          >96 cases × (1 Exact + 6 Token + 3 N-gram variants) =
+                          960 executions</span
+                        >
                       </div>
-                      <span class="bench-launch-setting">Concurrency 2</span>
+                      <span class="bench-launch-setting"
+                        >10 immutable runs · concurrency 4</span
+                      >
                       <label
                         class="bench-run-button"
                         for="scene-toggle-runs"
@@ -549,37 +672,71 @@
                         <svg class="setta-icon" aria-hidden="true">
                           <use href="#icon-play"></use>
                         </svg>
-                        Run comparison
+                        Run experiment
                       </label>
                     </div>
                     <div
                       class="setta-workspace-shell-canvas"
-                      aria-label="Experiment graph with JSON inputs, two source-backed candidates, and one parameterized check section"
+                      aria-label="Experiment graph with one JSON case set, three source-backed candidates, and one source-backed check set"
                     >
                       <div class="flow-stage build-flow-stage">
+                        <div class="flow-stage-label stage-cases">
+                          <strong>1 · CASE SET</strong>
+                          <span
+                            >what to try · inputs, expected answers, tags</span
+                          >
+                        </div>
+                        <div class="flow-stage-label stage-candidates">
+                          <strong>2 · CANDIDATES</strong>
+                          <span
+                            >what code runs · one implementation per
+                            section</span
+                          >
+                        </div>
+                        <div class="flow-stage-label stage-checks">
+                          <strong>3 · CHECK SET</strong>
+                          <span
+                            >what counts · contracts and aggregate gates</span
+                          >
+                        </div>
                         <svg
                           class="flow-wires"
-                          viewBox="0 0 672 472"
+                          viewBox="0 0 772 802"
                           preserveAspectRatio="none"
                           aria-hidden="true"
                         >
-                          <path d="M336 146 C336 168 165 168 165 190" />
-                          <path d="M336 146 C336 168 507 168 507 190" />
-                          <path d="M165 301 C165 344 336 344 336 387" />
-                          <path d="M507 301 C507 344 336 344 336 387" />
+                          <path d="M386 203 C386 242 134 242 134 280" />
+                          <path d="M386 203 C386 242 386 242 386 280" />
+                          <path d="M386 203 C386 242 638 242 638 280" />
+                          <path d="M134 489 C134 530 386 530 386 570" />
+                          <path d="M386 489 C386 530 386 530 386 570" />
+                          <path d="M638 489 C638 530 386 530 386 570" />
+                          <path
+                            class="expected-wire"
+                            d="M618 125 C742 125 742 677 618 677"
+                          />
                         </svg>
 
                         <span class="flow-edge-label edge-cases-a">
-                          10 JSON inputs
+                          input · 96 × 1
                         </span>
                         <span class="flow-edge-label edge-cases-b">
-                          10 JSON inputs
+                          input · 96 × 6
+                        </span>
+                        <span class="flow-edge-label edge-cases-c">
+                          input · 96 × 3
                         </span>
                         <span class="flow-edge-label edge-checks-a">
-                          10 image results
+                          96 decisions
                         </span>
                         <span class="flow-edge-label edge-checks-b">
-                          10 image results
+                          576 decisions
+                        </span>
+                        <span class="flow-edge-label edge-checks-c">
+                          288 decisions
+                        </span>
+                        <span class="flow-edge-label edge-expected">
+                          expected · 96 labels
                         </span>
 
                         <article
@@ -587,12 +744,15 @@
                           data-section-active="false"
                         >
                           <span class="setta-port bottom"></span>
+                          <span class="setta-port right"></span>
+                          <span class="setta-port-caption bottom">input</span>
+                          <span class="setta-port-caption right">expected</span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
                             <span class="setta-section-title"
-                              >Catalog inputs</span
+                              >Labeled vendor pairs</span
                             >
-                            <span class="setta-section-kind">JSON</span>
+                            <span class="setta-section-kind">Case set</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
@@ -610,40 +770,64 @@
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">2</span>
                               <code
-                                >{ <b>"id"</b>: <em>"sunset-bottle"</em>,
-                                <b>"input"</b>: { <b>"path"</b>:
-                                <em>"inputs/product-01.png"</em> },</code
+                                >{ <b>"id"</b>: <em>"vendor-042"</em>,
+                                <b>"tags"</b>: [<em>"legal-suffix"</em>],</code
                               >
                             </div>
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">3</span>
                               <code
-                                >&nbsp; <b>"expected"</b>: { <b>"width"</b>:
-                                <strong>512</strong>, <b>"height"</b>:
-                                <strong>512</strong> } },</code
+                                >&nbsp; <b>"input"</b>: { <b>"left"</b>: {
+                                <b>"name"</b>: <em>"Northwind Industrial"</em>,
+                                <b>"city"</b>: <em>"Portland"</em> },</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">4</span>
+                              <code
+                                >&nbsp;&nbsp; <b>"right"</b>: { <b>"name"</b>:
+                                <em>"Northwind Ind. LLC"</em>, <b>"city"</b>:
+                                <em>"Portland"</em> } },</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">5</span>
+                              <code
+                                >&nbsp; <b>"expected"</b>: {
+                                <b>"sameCompany"</b>: <strong>true</strong> }
+                                },</code
                               >
                             </div>
                             <div class="setta-code-line setta-code-fold">
                               <span class="setta-code-line-number">⋮</span>
-                              <code>9 more named inputs</code>
+                              <code>95 more labeled pairs across 6 groups</code>
                             </div>
                             <div class="setta-code-line">
-                              <span class="setta-code-line-number">12</span>
+                              <span class="setta-code-line-number">98</span>
                               <code>]</code>
                             </div>
+                          </div>
+                          <div class="setta-section-summary">
+                            <span>96 cases</span>
+                            <span>48 match / 48 non-match</span>
+                            <span>6 scenario tags</span>
                           </div>
                         </article>
 
                         <article
                           class="setta-section-card node-candidate-a setta-candidate-section"
-                          data-section-active="true"
+                          data-section-active="false"
                         >
                           <span class="setta-port top"></span>
                           <span class="setta-port bottom"></span>
+                          <span class="setta-port-caption top">case</span>
+                          <span class="setta-port-caption bottom">result</span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title">Contain</span>
-                            <span class="setta-section-kind">Python</span>
+                            <span class="setta-section-title"
+                              >Normalized exact</span
+                            >
+                            <span class="setta-section-kind">Candidate</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
@@ -653,43 +837,68 @@
                           <div class="setta-code-editor candidate-code-editor">
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">1</span>
-                              <code
-                                ><b>def</b> <i>thumbnail</i>(case, size):</code
-                              >
+                              <code><b>def</b> <i>match</i>(case):</code>
                             </div>
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">2</span>
                               <code
-                                >&nbsp; image =
-                                Image.open(case[<em>"path"</em>])</code
+                                >&nbsp; left =
+                                normalize(case[<em>"left"</em>])</code
                               >
                             </div>
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">3</span>
                               <code
-                                >&nbsp; <b>return</b> ImageOps.contain(image,
-                                (size, size))</code
+                                >&nbsp; right =
+                                normalize(case[<em>"right"</em>])</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">4</span>
+                              <code
+                                >&nbsp; <b>return</b> decision(left == right,
+                                score=1.0)</code
                               >
                             </div>
                           </div>
                           <div class="setta-candidate-parameters">
                             <div class="setta-item-row">
-                              <span class="setta-item-key">size</span>
-                              <span class="setta-item-control">512</span>
+                              <span class="setta-item-key">plan</span>
+                              <span class="setta-item-control fixed"
+                                >Fixed</span
+                              >
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">normalizer</span>
+                              <span class="setta-item-control"
+                                >ascii + trim</span
+                              >
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">threshold</span>
+                              <span class="setta-item-control">1.00</span>
+                            </div>
+                            <div class="setta-item-row parameter-total">
+                              <span class="setta-item-key">resolves to</span>
+                              <span class="setta-item-value">1 run</span>
                             </div>
                           </div>
                         </article>
 
                         <article
                           class="setta-section-card node-candidate-b setta-candidate-section"
-                          data-section-active="false"
+                          data-section-active="true"
                         >
                           <span class="setta-port top"></span>
                           <span class="setta-port bottom"></span>
+                          <span class="setta-port-caption top">case</span>
+                          <span class="setta-port-caption bottom">result</span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title">Cover</span>
-                            <span class="setta-section-kind">Python</span>
+                            <span class="setta-section-title"
+                              >Weighted tokens</span
+                            >
+                            <span class="setta-section-kind">Candidate</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
@@ -700,70 +909,214 @@
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">1</span>
                               <code
-                                ><b>def</b> <i>thumbnail</i>(case, size):</code
+                                ><b>def</b> <i>match</i>(case, threshold,
+                                address_weight):</code
                               >
                             </div>
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">2</span>
                               <code
-                                >&nbsp; image =
-                                Image.open(case[<em>"path"</em>])</code
+                                >&nbsp; name =
+                                token_score(case[<em>"left"</em>],
+                                case[<em>"right"</em>])</code
                               >
                             </div>
                             <div class="setta-code-line">
                               <span class="setta-code-line-number">3</span>
                               <code
-                                >&nbsp; <b>return</b> ImageOps.fit(image, (size,
-                                size))</code
+                                >&nbsp; score = blend(name,
+                                address_weight)</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">4</span>
+                              <code
+                                >&nbsp; <b>return</b> decision(score &gt;=
+                                threshold, score)</code
                               >
                             </div>
                           </div>
                           <div class="setta-candidate-parameters">
                             <div class="setta-item-row">
-                              <span class="setta-item-key">size</span>
-                              <span class="setta-item-control">512</span>
+                              <span class="setta-item-key">plan</span>
+                              <span class="setta-item-control sweep">Grid</span>
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">threshold</span>
+                              <span class="setta-item-control"
+                                >[.72, .80, .88]</span
+                              >
+                            </div>
+                            <div class="setta-item-row">
+                              <span class="setta-item-key">address weight</span>
+                              <span class="setta-item-control">[.35, .50]</span>
+                            </div>
+                            <div class="setta-item-row parameter-total">
+                              <span class="setta-item-key">resolves to</span>
+                              <span class="setta-item-value"
+                                >3 × 2 = 6 runs</span
+                              >
                             </div>
                           </div>
                         </article>
 
                         <article
-                          class="setta-section-card node-evaluator setta-parameter-section"
+                          class="setta-section-card node-candidate-c setta-candidate-section"
                           data-section-active="false"
                         >
                           <span class="setta-port top"></span>
+                          <span class="setta-port bottom"></span>
+                          <span class="setta-port-caption top">case</span>
+                          <span class="setta-port-caption bottom">result</span>
                           <header class="setta-section-header">
                             <span class="setta-section-menu"></span>
-                            <span class="setta-section-title">
-                              Thumbnail checks
-                            </span>
-                            <span class="setta-section-kind">Parameters</span>
+                            <span class="setta-section-title"
+                              >Character trigrams</span
+                            >
+                            <span class="setta-section-kind">Candidate</span>
                             <span class="setta-section-actions">
                               <span class="setta-section-action">⌑</span>
                               <span class="setta-section-action">−</span>
                               <span class="setta-section-action">×</span>
                             </span>
                           </header>
-                          <div class="setta-check-parameters">
+                          <div class="setta-code-editor candidate-code-editor">
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">1</span>
+                              <code
+                                ><b>def</b> <i>match</i>(case, n,
+                                threshold):</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">2</span>
+                              <code
+                                >&nbsp; left = trigrams(case[<em>"left"</em>],
+                                n)</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">3</span>
+                              <code
+                                >&nbsp; score = jaccard(left,
+                                trigrams(case[<em>"right"</em>], n))</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">4</span>
+                              <code
+                                >&nbsp; <b>return</b> decision(score &gt;=
+                                threshold, score)</code
+                              >
+                            </div>
+                          </div>
+                          <div class="setta-candidate-parameters">
                             <div class="setta-item-row">
-                              <span class="setta-item-key">artifact</span>
-                              <span class="setta-item-control">thumbnail</span>
+                              <span class="setta-item-key">plan</span>
+                              <span class="setta-item-control sweep">Zip</span>
                             </div>
                             <div class="setta-item-row">
-                              <span class="setta-item-key">maximum bytes</span>
-                              <span class="setta-item-control">160000</span>
+                              <span class="setta-item-key">n</span>
+                              <span class="setta-item-control">[2, 3, 4]</span>
                             </div>
                             <div class="setta-item-row">
-                              <span class="setta-item-key">width</span>
-                              <span class="setta-item-control">512</span>
+                              <span class="setta-item-key">threshold</span>
+                              <span class="setta-item-control"
+                                >[.78, .70, .62]</span
+                              >
                             </div>
-                            <div class="setta-item-row">
-                              <span class="setta-item-key">height</span>
-                              <span class="setta-item-control">512</span>
+                            <div class="setta-item-row parameter-total">
+                              <span class="setta-item-key">resolves to</span>
+                              <span class="setta-item-value"
+                                >3 paired runs</span
+                              >
+                            </div>
+                          </div>
+                        </article>
+
+                        <article
+                          class="setta-section-card node-evaluator setta-check-section"
+                          data-section-active="false"
+                        >
+                          <span class="setta-port top"></span>
+                          <span class="setta-port right"></span>
+                          <span class="setta-port-caption top">results</span>
+                          <span class="setta-port-caption right">expected</span>
+                          <header class="setta-section-header">
+                            <span class="setta-section-menu"></span>
+                            <span class="setta-section-title"
+                              >Match quality</span
+                            >
+                            <span class="setta-section-kind">Check set</span>
+                            <span class="setta-section-actions">
+                              <span class="setta-section-action">⌑</span>
+                              <span class="setta-section-action">−</span>
+                              <span class="setta-section-action">×</span>
+                            </span>
+                          </header>
+                          <div class="setta-code-editor check-code-editor">
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">1</span>
+                              <code
+                                ><b>def</b> <i>assess</i>(cases, results,
+                                limits):</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">2</span>
+                              <code
+                                >&nbsp; validate_each(results,
+                                score=<em>"0..1"</em>)</code
+                              >
+                            </div>
+                            <div class="setta-code-line">
+                              <span class="setta-code-line-number">3</span>
+                              <code
+                                >&nbsp; gate(<em>"accuracy"</em>,
+                                accuracy(cases, results) &gt;=
+                                limits.min_accuracy)</code
+                              >
+                            </div>
+                            <div class="setta-code-line setta-code-fold">
+                              <span class="setta-code-line-number">4</span>
+                              <code>two more aggregate gates</code>
+                            </div>
+                          </div>
+                          <div
+                            class="setta-check-rules"
+                            role="table"
+                            aria-label="Check rules"
+                          >
+                            <div class="setta-check-rule heading" role="row">
+                              <span role="columnheader">Scope</span>
+                              <span role="columnheader">Rule</span>
+                              <span role="columnheader">Required</span>
+                            </div>
+                            <div class="setta-check-rule" role="row">
+                              <span role="cell">per case</span>
+                              <span role="cell">output.score</span>
+                              <code role="cell">0 ≤ value ≤ 1</code>
+                            </div>
+                            <div class="setta-check-rule" role="row">
+                              <span role="cell">aggregate</span>
+                              <span role="cell">accuracy</span>
+                              <code role="cell">≥ 93%</code>
+                            </div>
+                            <div class="setta-check-rule" role="row">
+                              <span role="cell">aggregate</span>
+                              <span role="cell">false positives</span>
+                              <code role="cell">≤ 3%</code>
+                            </div>
+                            <div class="setta-check-rule" role="row">
+                              <span role="cell">aggregate</span>
+                              <span role="cell">p95 duration</span>
+                              <code role="cell">≤ 50 ms</code>
                             </div>
                           </div>
                         </article>
 
                         <div class="react-flow__minimap" aria-hidden="true">
+                          <span class="minimap-node"></span>
                           <span class="minimap-node"></span>
                           <span class="minimap-node"></span>
                           <span class="minimap-node"></span>
@@ -824,7 +1177,8 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>Contain</strong><span>candidate</span>
+                                <strong>Weighted tokens</strong
+                                ><span>candidate</span>
                               </div>
                               <div class="setta-inspector-group-label">
                                 Runnable code
@@ -850,11 +1204,11 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  thumbnail
+                                  match
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
-                                Parameters
+                                Parameter plan · Grid
                               </div>
                               <div
                                 class="setta-workspace-inspector-config-row emphasis"
@@ -862,57 +1216,103 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  size
+                                  threshold
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  512
+                                  .72, .80, .88
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  resample
+                                  address weight
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  LANCZOS
+                                  .35, .50
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Resolved runs
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  3 × 2 = 6
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
-                                Contract
+                                Launch expansion
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Receives
+                                  Cases
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  input JSON
+                                  96
+                                </span>
+                              </div>
+                              <div
+                                class="setta-workspace-inspector-config-row emphasis"
+                              >
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Executions
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  576
+                                </span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Data bindings
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Incoming
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  input from 96 cases
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Returns
+                                  Outgoing
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  thumbnail image
+                                  each result → checks
                                 </span>
+                              </div>
+                              <div class="setta-binding-note">
+                                Edges are saved data bindings. They do not
+                                create trial nodes or expose expected labels to
+                                this candidate.
                               </div>
                               <span
                                 class="setta-workspace-inspector-config-action"
                               >
-                                <span>Candidate ready</span><span>✓</span>
+                                <span>6 variants ready</span><span>✓</span>
                               </span>
                             </div>
                           </div>
@@ -1005,10 +1405,10 @@
               <div>
                 <h3>Runs view</h3>
                 <p>
-                  One launch created two immutable rows: one candidate run for
-                  Contain and one for Cover. Each row groups that candidate's
-                  ten case executions and preserves its frozen source and
-                  parameter values.
+                  One launch created ten immutable rows—one per resolved
+                  parameter variant. Candidate groups collapse the ledger while
+                  resolved values, acceptance gates, and measurements remain
+                  first-class columns.
                 </p>
               </div>
               <div class="scene-caption">
@@ -1021,7 +1421,10 @@
                 class="setta-workspace setta-workspace-dark"
                 aria-label="Setta Workspace mockup showing live Bench runs"
               >
-                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                <div
+                  class="setta-workspace-shell bench-runs-shell"
+                  data-saved-view-tabs="true"
+                >
                   <div
                     class="setta-workspace-shell-pane-region"
                     data-workspace-shell-pane-region="leading"
@@ -1091,7 +1494,7 @@
                                 <span
                                   class="setta-workspace-outline-state-icon"
                                 >
-                                  2/2
+                                  10/10
                                 </span>
                               </div>
                             </div>
@@ -1108,6 +1511,36 @@
                               >
                                 <span
                                   class="setta-workspace-outline-disclosure"
+                                >
+                                  <svg class="setta-icon">
+                                    <use href="#icon-chevron"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Weighted tokens
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  6
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 28px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
                                 ></span>
                                 <span class="setta-workspace-outline-kind-icon">
                                   <svg class="setta-icon">
@@ -1115,7 +1548,12 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  BN-0042-02
+                                  t .80 · address .35
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  ✓
                                 </span>
                               </div>
                             </div>
@@ -1136,7 +1574,38 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  BN-0042-01
+                                  Character trigrams
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  3
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-check"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  Normalized exact
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  1
                                 </span>
                               </div>
                             </div>
@@ -1176,51 +1645,159 @@
                           <div class="setta-workspace-window-surface-body">
                             <div class="run-window-summary">
                               <div>
-                                <strong>Product thumbnail strategies</strong>
+                                <strong>Vendor record reconciliation</strong>
                                 <span>
-                                  project rev 0 · 2 candidates · Catalog inputs
+                                  project rev 7 · 3 candidates · 10 resolved
+                                  variants
                                 </span>
                               </div>
                               <div class="run-window-counts">
-                                <span><b>2</b> complete</span>
-                                <span><b>20</b> case results</span>
+                                <span><b>10</b> complete</span>
+                                <span><b>960</b> case results</span>
+                                <span><b>2</b> accepted</span>
                               </div>
                             </div>
                             <div class="run-table-wrap">
                               <table class="run-table">
                                 <thead>
                                   <tr>
-                                    <th>Run</th>
                                     <th>Candidate</th>
-                                    <th>Origin</th>
-                                    <th>Status</th>
+                                    <th>Resolved parameters</th>
+                                    <th>Gate result</th>
                                     <th>Cases</th>
-                                    <th>Median size</th>
-                                    <th>Duration</th>
+                                    <th>Accuracy</th>
+                                    <th>False positives</th>
+                                    <th>p95</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  <tr aria-selected="true">
-                                    <td class="table-id">BN-0042-02</td>
-                                    <td>Cover</td>
-                                    <td>inline Python</td>
-                                    <td>
-                                      <span class="status-label">Complete</span>
+                                  <tr class="candidate-group-start">
+                                    <td class="run-candidate">
+                                      <strong>Normalized exact</strong>
+                                      <small>BN-0042-01</small>
                                     </td>
-                                    <td>10 / 10</td>
-                                    <td>11.0 KB</td>
-                                    <td>350 ms</td>
+                                    <td class="table-id">fixed</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >3 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>72.9%</td>
+                                    <td>0.0%</td>
+                                    <td>9 ms</td>
+                                  </tr>
+                                  <tr class="candidate-group-start">
+                                    <td class="run-candidate" rowspan="6">
+                                      <strong>Weighted tokens</strong>
+                                      <small>6 grid variants</small>
+                                    </td>
+                                    <td class="table-id">t .72 · addr .35</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >2 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>92.7%</td>
+                                    <td>6.3%</td>
+                                    <td>17 ms</td>
                                   </tr>
                                   <tr>
-                                    <td class="table-id">BN-0042-01</td>
-                                    <td>Contain</td>
-                                    <td>inline Python</td>
+                                    <td class="table-id">t .72 · addr .50</td>
                                     <td>
-                                      <span class="status-label">Complete</span>
+                                      <span class="status-label failed"
+                                        >2 / 4 gates</span
+                                      >
                                     </td>
-                                    <td>10 / 10</td>
-                                    <td>9.3 KB</td>
-                                    <td>300 ms</td>
+                                    <td>96 / 96</td>
+                                    <td>93.8%</td>
+                                    <td>8.3%</td>
+                                    <td>18 ms</td>
+                                  </tr>
+                                  <tr aria-selected="true">
+                                    <td class="table-id">t .80 · addr .35</td>
+                                    <td>
+                                      <span class="status-label">Accepted</span>
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>94.8%</td>
+                                    <td>2.1%</td>
+                                    <td>18 ms</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">t .80 · addr .50</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >3 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>95.8%</td>
+                                    <td>4.2%</td>
+                                    <td>18 ms</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">t .88 · addr .35</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >3 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>89.6%</td>
+                                    <td>0.0%</td>
+                                    <td>18 ms</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">t .88 · addr .50</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >3 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>91.7%</td>
+                                    <td>0.0%</td>
+                                    <td>19 ms</td>
+                                  </tr>
+                                  <tr class="candidate-group-start">
+                                    <td class="run-candidate" rowspan="3">
+                                      <strong>Character trigrams</strong>
+                                      <small>3 zipped variants</small>
+                                    </td>
+                                    <td class="table-id">n 2 · t .78</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >3 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>88.5%</td>
+                                    <td>2.1%</td>
+                                    <td>21 ms</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">n 3 · t .70</td>
+                                    <td>
+                                      <span class="status-label failed"
+                                        >2 / 4 gates</span
+                                      >
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>92.7%</td>
+                                    <td>4.2%</td>
+                                    <td>23 ms</td>
+                                  </tr>
+                                  <tr>
+                                    <td class="table-id">n 4 · t .62</td>
+                                    <td>
+                                      <span class="status-label">Accepted</span>
+                                    </td>
+                                    <td>96 / 96</td>
+                                    <td>93.8%</td>
+                                    <td>2.1%</td>
+                                    <td>28 ms</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -1281,7 +1858,8 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>BN-0042-02</strong><span>run</span>
+                                <strong>BN-0042-04</strong
+                                ><span>resolved run</span>
                               </div>
                               <div class="setta-inspector-group-label">
                                 Result
@@ -1292,36 +1870,87 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Failed checks
+                                  Acceptance
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  0
+                                  4 / 4 gates
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Median size
+                                  Accuracy
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  11.0 KB
+                                  94.8%
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Duration
+                                  False positives
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  350 ms
+                                  2.1%
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  p95 duration
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  18 ms
+                                </span>
+                              </div>
+                              <div class="setta-inspector-group-label">
+                                Resolved parameters
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  threshold
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  .80
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  address weight
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  .35
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Grid member
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  3 / 6
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1336,7 +1965,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  rev 0
+                                  rev 7
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1348,7 +1977,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  Cover source · frozen
+                                  Weighted tokens · frozen
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1360,16 +1989,16 @@
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  Catalog inputs
+                                  96 labeled vendor pairs
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
                                 Latest activity
                               </div>
                               <div class="setta-log-lines">
-                                <div>10 case results adopted</div>
-                                <div>2 checks finalized per case</div>
-                                <div><em>run completed successfully</em></div>
+                                <div>96 decisions adopted</div>
+                                <div>output contract passed 96 / 96</div>
+                                <div><em>all aggregate gates accepted</em></div>
                               </div>
                             </div>
                           </div>
@@ -1452,10 +2081,10 @@
               <div>
                 <h3>Compare view</h3>
                 <p>
-                  Select two completed runs, then Bench joins their results by
-                  stable case ID. Here both
-                  <code>sunset-bottle</code> artifacts, measurements, and check
-                  findings occupy matching surfaces.
+                  Select two resolved runs, then Bench joins all ninety-six
+                  decisions by stable case ID. Filters reduce the review to
+                  improvements, regressions, or disagreements while each window
+                  keeps the same input and expected answer aligned.
                 </p>
               </div>
               <div class="scene-caption">
@@ -1468,7 +2097,10 @@
                 class="setta-workspace setta-workspace-dark"
                 aria-label="Setta Workspace mockup comparing two Bench runs"
               >
-                <div class="setta-workspace-shell" data-saved-view-tabs="true">
+                <div
+                  class="setta-workspace-shell bench-compare-shell"
+                  data-saved-view-tabs="true"
+                >
                   <div
                     class="setta-workspace-shell-pane-region"
                     data-workspace-shell-pane-region="leading"
@@ -1538,7 +2170,7 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Contain vs Cover
+                                  Exact → Weighted t .80 / .35
                                 </span>
                               </div>
                             </div>
@@ -1564,7 +2196,7 @@
                                 <span
                                   class="setta-workspace-outline-state-icon"
                                 >
-                                  10
+                                  96
                                 </span>
                               </div>
                             </div>
@@ -1585,12 +2217,12 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Differences
+                                  Improvements
                                 </span>
                                 <span
                                   class="setta-workspace-outline-state-icon"
                                 >
-                                  4
+                                  23
                                 </span>
                               </div>
                             </div>
@@ -1611,12 +2243,38 @@
                                   </svg>
                                 </span>
                                 <span class="setta-workspace-outline-label">
-                                  Failed checks
+                                  Regressions
                                 </span>
                                 <span
                                   class="setta-workspace-outline-state-icon"
                                 >
-                                  0
+                                  2
+                                </span>
+                              </div>
+                            </div>
+                            <div class="setta-workspace-outline-item">
+                              <div
+                                class="setta-workspace-outline-row"
+                                style="
+                                  --outline-depth: 14px;
+                                  --outline-color: #64748b;
+                                "
+                              >
+                                <span
+                                  class="setta-workspace-outline-disclosure"
+                                ></span>
+                                <span class="setta-workspace-outline-kind-icon">
+                                  <svg class="setta-icon">
+                                    <use href="#icon-search"></use>
+                                  </svg>
+                                </span>
+                                <span class="setta-workspace-outline-label">
+                                  All disagreements
+                                </span>
+                                <span
+                                  class="setta-workspace-outline-state-icon"
+                                >
+                                  25
                                 </span>
                               </div>
                             </div>
@@ -1637,7 +2295,7 @@
                               <use href="#icon-document"></use>
                             </svg>
                             <span class="setta-workspace-window-surface-title">
-                              Contain · BN-0042-01
+                              Normalized exact · fixed · BN-0042-01
                             </span>
                             <span
                               class="setta-workspace-window-surface-actions"
@@ -1658,39 +2316,56 @@
                           <div class="comparison-window-body">
                             <div class="comparison-metrics">
                               <div class="comparison-metric">
-                                <strong>0</strong><span>failed checks</span>
+                                <strong>72.9%</strong><span>accuracy</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>9.3 KB</strong><span>median size</span>
+                                <strong>0.0%</strong
+                                ><span>false positives</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>300 ms</strong><span>duration</span>
+                                <strong>9 ms</strong><span>p95 duration</span>
                               </div>
                             </div>
                             <div class="case-review">
                               <div
-                                class="artifact-preview"
-                                data-renderer="contain"
-                                role="img"
-                                aria-label="Contain thumbnail preview preserving the full product image"
+                                class="record-pair-preview"
+                                aria-label="Input vendor pair for case vendor-042"
                               >
-                                <span>contain output</span>
+                                <div>
+                                  <b>LEFT</b>
+                                  <span>Northwind Industrial</span>
+                                  <code>725 NW Davis St · Portland</code>
+                                </div>
+                                <div>
+                                  <b>RIGHT</b>
+                                  <span>Northwind Ind. LLC</span>
+                                  <code>725 NW Davis Street · Portland</code>
+                                </div>
                               </div>
                               <div class="case-review-head">
-                                <span>Case 01 · product-01.png</span>
-                                <span class="status-label">Passed</span>
+                                <span
+                                  >vendor-042 · expected sameCompany =
+                                  true</span
+                                >
+                                <span class="status-label failed"
+                                  >Incorrect</span
+                                >
                               </div>
                               <div class="case-result">
-                                <span>Dimensions</span>
-                                <code>512 × 512</code>
+                                <span>Decision</span>
+                                <code class="bad">sameCompany = false</code>
                               </div>
                               <div class="case-result">
-                                <span>File size</span>
-                                <code>6.8 KB</code>
+                                <span>Score</span>
+                                <code>.61</code>
                               </div>
                               <div class="case-result">
-                                <span>Visual note</span>
-                                <code>full scene retained</code>
+                                <span>Reasons</span>
+                                <code>legal suffix · street abbreviation</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Contract</span>
+                                <code class="good">valid output</code>
                               </div>
                             </div>
                           </div>
@@ -1702,9 +2377,9 @@
                               <use href="#icon-document"></use>
                             </svg>
                             <span class="setta-workspace-window-surface-title">
-                              Cover · BN-0042-02
+                              Weighted tokens · t .80 · addr .35 · BN-0042-04
                             </span>
-                            <span class="recommended">preferred</span>
+                            <span class="recommended">accepted</span>
                             <span
                               class="setta-workspace-window-surface-actions"
                               aria-hidden="true"
@@ -1724,39 +2399,54 @@
                           <div class="comparison-window-body">
                             <div class="comparison-metrics">
                               <div class="comparison-metric">
-                                <strong>0</strong><span>failed checks</span>
+                                <strong>94.8%</strong><span>accuracy</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>11.0 KB</strong><span>median size</span>
+                                <strong>2.1%</strong
+                                ><span>false positives</span>
                               </div>
                               <div class="comparison-metric">
-                                <strong>350 ms</strong><span>duration</span>
+                                <strong>18 ms</strong><span>p95 duration</span>
                               </div>
                             </div>
                             <div class="case-review">
                               <div
-                                class="artifact-preview"
-                                data-renderer="cover"
-                                role="img"
-                                aria-label="Cover thumbnail preview cropping the source to fill the square"
+                                class="record-pair-preview"
+                                aria-label="Input vendor pair for case vendor-042"
                               >
-                                <span>cover output</span>
+                                <div>
+                                  <b>LEFT</b>
+                                  <span>Northwind Industrial</span>
+                                  <code>725 NW Davis St · Portland</code>
+                                </div>
+                                <div>
+                                  <b>RIGHT</b>
+                                  <span>Northwind Ind. LLC</span>
+                                  <code>725 NW Davis Street · Portland</code>
+                                </div>
                               </div>
                               <div class="case-review-head">
-                                <span>Case 01 · product-01.png</span>
-                                <span class="status-label">Passed</span>
+                                <span
+                                  >vendor-042 · expected sameCompany =
+                                  true</span
+                                >
+                                <span class="status-label">Correct</span>
                               </div>
                               <div class="case-result">
-                                <span>Dimensions</span>
-                                <code>512 × 512</code>
+                                <span>Decision</span>
+                                <code class="good">sameCompany = true</code>
                               </div>
                               <div class="case-result">
-                                <span>File size</span>
-                                <code>7.3 KB</code>
+                                <span>Score</span>
+                                <code>.91</code>
                               </div>
                               <div class="case-result">
-                                <span>Visual note</span>
-                                <code class="good">frame filled</code>
+                                <span>Reasons</span>
+                                <code>name .94 · address .86</code>
+                              </div>
+                              <div class="case-result">
+                                <span>Contract</span>
+                                <code class="good">valid output</code>
                               </div>
                             </div>
                           </div>
@@ -1815,7 +2505,7 @@
                           <div class="setta-workspace-inspector">
                             <div class="setta-workspace-inspector-editor">
                               <div class="setta-inspector-identity">
-                                <strong>Cover</strong>
+                                <strong>Weighted tokens</strong>
                                 <span>comparison</span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1827,36 +2517,48 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Median size
+                                  Accuracy
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  +1.8 KB
+                                  +21.9 pp
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Duration
+                                  False positives
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  +50 ms
+                                  +2.1 pp
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Checks
+                                  p95 duration
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  no change
+                                  +9 ms
+                                </span>
+                              </div>
+                              <div class="setta-workspace-inspector-config-row">
+                                <span
+                                  class="setta-workspace-inspector-config-label"
+                                >
+                                  Aggregate gates
+                                </span>
+                                <span
+                                  class="setta-workspace-inspector-config-readonly"
+                                >
+                                  4 / 4 vs 3 / 4
                                 </span>
                               </div>
                               <div class="setta-inspector-group-label">
@@ -1866,12 +2568,12 @@
                                 <span
                                   class="setta-workspace-inspector-config-label"
                                 >
-                                  Differences reviewed
+                                  Disagreements reviewed
                                 </span>
                                 <span
                                   class="setta-workspace-inspector-config-readonly"
                                 >
-                                  10 / 10
+                                  25 / 25
                                 </span>
                               </div>
                               <div class="setta-workspace-inspector-config-row">
@@ -1891,7 +2593,7 @@
                                 <span
                                   class="setta-workspace-inspector-config-input"
                                 >
-                                  stronger shelf presence
+                                  best accuracy within FP budget
                                 </span>
                               </div>
                               <span
@@ -1980,76 +2682,79 @@
       >
         <div class="section-kicker">Deliberately bounded</div>
         <h2 id="boundaries-title" class="section-heading">
-          Bench owns one small comparison loop.
+          The matrix can grow without turning Bench into an optimizer.
         </h2>
         <p class="section-copy">
-          Candidates are source-backed sections the user can read in place or
-          import from a sibling app. Bench freezes a small launch, runs it
-          locally, and retains just enough evidence for pairwise review.
+          Fixed, grid, and zipped values are finite launch plans attached to
+          readable candidates. Bench expands exactly what the user can see; an
+          adaptive search engine such as Optuna remains an optional future
+          strategy rather than the product's center.
         </p>
 
         <div class="architecture-grid">
           <article class="architecture-column">
-            <div class="architecture-label">Simple inputs</div>
-            <h3>Author or import visible inputs and code.</h3>
+            <div class="architecture-label">Authored graph</div>
+            <h3>Complexity follows concepts.</h3>
             <p>
-              The primary path keeps the experiment legible. External commands
-              remain an advanced option when Bench cannot own their source.
+              The canvas contains reusable definitions, while cardinality stays
+              visible on parameters, ports, edge labels, and the launch preview.
             </p>
             <div class="architecture-list">
               <div class="architecture-item">
-                Catalog inputs · editable JSON code
+                1 Case Set · 96 labeled JSON pairs
               </div>
               <div class="architecture-item">
-                Contain · source plus native parameters
+                3 Candidates · readable source + parameter plans
               </div>
               <div class="architecture-item">
-                Cover · source plus native parameters
+                1 Check Set · contract + aggregate gates
               </div>
               <div class="architecture-item">
-                Thumbnail checks · parameter controls
+                7 named data bindings · no generated trial nodes
               </div>
             </div>
           </article>
 
           <article class="architecture-column center">
             <div class="architecture-label">Setta Bench owns</div>
-            <h3>The compact comparison.</h3>
+            <h3>The bounded experiment loop.</h3>
             <p>
               Enough durable state to run, inspect, compare, and run the same
               specification again.
             </p>
             <div class="architecture-list">
               <div class="architecture-item">
-                Project, candidate, case, and run identity
+                Fixed, grid, zip, and repeat expansion
               </div>
               <div class="architecture-item">
-                Bounded execution and cancellation
+                Immutable resolved runs and cancellation
               </div>
               <div class="architecture-item">
-                Bounded checks, logs, and artifacts
+                Per-case contracts and aggregate gates
               </div>
               <div class="architecture-item">
-                Two-run comparison and human preference
+                Grouped ledger, aligned cases, and review notes
               </div>
             </div>
           </article>
 
           <article class="architecture-column">
-            <div class="architecture-label">Sibling boundaries</div>
-            <h3>Each application stays focused.</h3>
+            <div class="architecture-label">Intentionally outside</div>
+            <h3>Search and orchestration stay optional.</h3>
             <p>
-              The apps exchange stable references and keep their own canonical
-              models.
+              These boundaries keep Bench useful as a Setta example instead of
+              growing into a general experiment platform.
             </p>
             <div class="architecture-list">
-              <div class="architecture-item">Python Canvas · build code</div>
-              <div class="architecture-item">Realtime · use code live</div>
               <div class="architecture-item">
-                Setta Bench · compare repeatable runs
+                No arbitrary workflow DAG or remote worker fleet
               </div>
               <div class="architecture-item">
-                Deep links · return to the source
+                No study database or automatic best-trial loop
+              </div>
+              <div class="architecture-item">No ML-specific model registry</div>
+              <div class="architecture-item">
+                Optuna may later suggest values through an adapter
               </div>
             </div>
           </article>
@@ -2062,24 +2767,24 @@
           <div class="tool-flow-card">
             <strong>Build</strong>
             <span
-              >Write source-backed candidates in Bench or import a Python Canvas
-              callable.</span
+              >Read 5 authored Workspace sections and preview 10 exact resolved
+              runs.</span
             >
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="tool-flow-card bench">
             <strong>Run</strong>
             <span
-              >Execute two candidates against the same ten cases and keep the
-              bounded results.</span
+              >Execute 96 cases across those 10 variants with bounded CPU
+              concurrency.</span
             >
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="tool-flow-card">
             <strong>Review</strong>
             <span
-              >Inspect the same case side by side, then record an optional
-              preference and note.</span
+              >Filter 960 results into 25 disagreements, compare two runs, and
+              record the decision.</span
             >
           </div>
         </div>
@@ -2087,12 +2792,12 @@
 
       <section class="page-shell closing" aria-labelledby="closing-title">
         <h2 id="closing-title">
-          Small enough to understand. Useful enough to keep.
+          Five sections to author. Enough evidence to make a real decision.
         </h2>
         <p>
-          Setta Bench demonstrates how a Setta app can join visual structure,
-          local execution, durable state, and rich comparison without becoming a
-          platform.
+          Setta Bench demonstrates how Workspace can join visible code, bounded
+          parameter plans, local execution, durable runs, and structured
+          comparison without becoming a general optimization platform.
         </p>
         <div class="hero-actions">
           <a class="primary-link" href="../apps/bench/README.md"
