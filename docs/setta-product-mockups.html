@@ -779,9 +779,9 @@
               <div class="showcase-number">App 01 · Workflow 02</div>
               <h2>Review · Choice</h2>
               <p>
-                A producer submits a bounded choice with evidence. Select any
-                option to see how the same evidence supports, qualifies, or
-                conflicts with it; Review returns one portable decision.
+                A producer submits a bounded choice with evidence. The same
+                facts are compared across every option; selecting one updates
+                the portable response without hiding the alternatives.
               </p>
             </div>
           </div>
@@ -825,11 +825,25 @@
                   <div class="setta-workspace-outline-item">
                     <div
                       class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #77d994"
+                      style="--outline-depth: 14px; --outline-color: #ad8cff"
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-check"></use></svg
+                          <use href="#icon-grid"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Tradeoffs</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 28px; --outline-color: #66748b"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-document"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
                         >shadow-read.json</span
@@ -839,7 +853,7 @@
                   <div class="setta-workspace-outline-item">
                     <div
                       class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #f2bc66"
+                      style="--outline-depth: 28px; --outline-color: #66748b"
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
@@ -878,69 +892,17 @@
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
-                  <g class="review-choice-relations" data-choice-relations="a">
-                    <g class="review-edge review-edge--gap">
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 246 C480 246 495 141 535 141"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 141 C905 141 910 234 950 234"
-                      />
-                    </g>
-                    <g class="review-edge review-edge--conflict">
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 246 C480 246 495 356 535 356"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 356 C905 356 910 314 950 314"
-                      />
-                    </g>
+                  <g class="review-edge review-edge--context">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M382 267 C406 267 406 267 430 267"
+                    />
                   </g>
-                  <g class="review-choice-relations" data-choice-relations="b">
-                    <g class="review-edge review-edge--support">
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 294 C480 294 495 141 535 141"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 294 C480 294 495 356 535 356"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 141 C905 141 910 234 950 234"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 356 C905 356 910 314 950 314"
-                      />
-                    </g>
-                  </g>
-                  <g class="review-choice-relations" data-choice-relations="c">
-                    <g class="review-edge review-edge--conflict">
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 342 C480 342 495 141 535 141"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 141 C905 141 910 234 950 234"
-                      />
-                    </g>
-                    <g class="review-edge review-edge--gap">
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M440 342 C480 342 495 356 535 356"
-                      />
-                      <path
-                        class="setta-workspace-graph-edge-path"
-                        d="M865 356 C905 356 910 314 950 314"
-                      />
-                    </g>
+                  <g class="review-edge review-edge--context">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M950 267 C974 267 974 267 998 267"
+                    />
                   </g>
                 </svg>
 
@@ -950,18 +912,7 @@
                 >
                   <span
                     class="setta-workspace-graph-port right"
-                    data-choice-port="a"
-                    style="--port-top: 45%"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    data-choice-port="b"
-                    style="--port-top: 66%"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    data-choice-port="c"
-                    style="--port-top: 86%"
+                    style="--port-top: 50%"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -1022,102 +973,152 @@
                   </div>
                 </article>
 
-                <article class="setta-section-card shadow-evidence-node">
+                <article class="setta-section-card tradeoff-node">
                   <span
                     class="setta-workspace-graph-port left"
-                    data-evidence-port="shadow"
-                    style="--port-top: 41%"
+                    style="--port-top: 50%; --port-color: #ad8cff"
                   ></span>
                   <span
                     class="setta-workspace-graph-port right"
-                    data-response-port="shadow"
-                    style="--port-top: 41%"
+                    style="--port-top: 50%; --port-color: #ad8cff"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
                       ><svg class="setta-icon">
-                        <use href="#icon-check"></use></svg></span
-                    ><span class="setta-section-title">shadow-read.json</span>
+                        <use href="#icon-grid"></use></svg></span
+                    ><span class="setta-section-title">Tradeoffs</span>
                     <span class="setta-section-actions">
                       <span
                         class="setta-section-action"
-                        aria-label="Open complete result"
+                        aria-label="Open comparison"
                         ><svg class="setta-icon">
                           <use href="#icon-fit"></use></svg
                       ></span>
                     </span>
                   </div>
-                  <div class="section-body review-shadow-result">
-                    <div class="review-shadow-metric">
-                      <strong>99.98%</strong>
-                      <span>compatible events</span>
-                    </div>
-                    <div class="review-shadow-bar" aria-hidden="true">
-                      <span></span>
-                    </div>
-                    <div class="review-evidence-note">
-                      <svg class="setta-icon" aria-hidden="true">
-                        <use href="#icon-check"></use>
-                      </svg>
-                      <span>2.1M events · rollback rehearsal passed</span>
-                    </div>
-                  </div>
-                  <div
-                    class="review-evidence-impact"
-                    data-evidence-impact="shadow"
-                    data-tone="support"
-                  >
-                    <svg class="setta-icon" aria-hidden="true">
-                      <use href="#icon-check"></use>
-                    </svg>
-                    <span>Supports B</span>
-                  </div>
-                </article>
-
-                <article class="setta-section-card consumer-evidence-node">
-                  <span
-                    class="setta-workspace-graph-port left"
-                    data-evidence-port="consumer"
-                    style="--port-top: 38%"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    data-response-port="consumer"
-                    style="--port-top: 38%"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-document"></use></svg></span
-                    ><span class="setta-section-title">consumers.json</span>
-                    <span class="setta-section-actions">
-                      <span
-                        class="setta-section-action"
-                        aria-label="Open consumer inventory"
-                        ><svg class="setta-icon">
-                          <use href="#icon-fit"></use></svg
-                      ></span>
-                    </span>
-                  </div>
-                  <div class="section-body review-consumer-list">
-                    <div>
-                      <strong>billing-worker</strong>
-                      <span>v2</span>
-                    </div>
-                    <div>
-                      <strong>warehouse-export</strong>
-                      <span>v2</span>
-                    </div>
-                  </div>
-                  <div
-                    class="review-evidence-impact"
-                    data-evidence-impact="consumer"
-                    data-tone="support"
-                  >
-                    <svg class="setta-icon" aria-hidden="true">
-                      <use href="#icon-check"></use>
-                    </svg>
-                    <span>Supports B's transition</span>
+                  <div class="section-body review-tradeoff-wrap">
+                    <table
+                      class="review-tradeoff-table"
+                      aria-label="Consequences of each rollout option"
+                    >
+                      <thead>
+                        <tr>
+                          <th scope="col">Factor</th>
+                          <th scope="col" data-choice-column="a">
+                            <strong>A</strong><span>Immediate</span>
+                          </th>
+                          <th
+                            scope="col"
+                            data-choice-column="b"
+                            data-selected="true"
+                          >
+                            <strong>B</strong><span>Dual read</span>
+                          </th>
+                          <th scope="col" data-choice-column="c">
+                            <strong>C</strong><span>Stay v2</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th scope="row">
+                            <strong>Mismatch exposure</strong>
+                            <span class="review-tradeoff-source"
+                              >shadow-read.json<svg
+                                class="setta-icon"
+                                aria-hidden="true"
+                              >
+                                <use href="#icon-fit"></use></svg
+                            ></span>
+                          </th>
+                          <td data-choice-column="a" data-tone="risk">
+                            <strong>0.02%</strong><span>exposed</span>
+                          </td>
+                          <td
+                            data-choice-column="b"
+                            data-selected="true"
+                            data-tone="support"
+                          >
+                            <strong>0.02%</strong><span>shadowed</span>
+                          </td>
+                          <td data-choice-column="c" data-tone="neutral">
+                            <strong>None</strong>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <strong>v2-only consumers</strong>
+                            <span class="review-tradeoff-source"
+                              >consumers.json<svg
+                                class="setta-icon"
+                                aria-hidden="true"
+                              >
+                                <use href="#icon-fit"></use></svg
+                            ></span>
+                          </th>
+                          <td data-choice-column="a" data-tone="risk">
+                            <strong>2 incompatible</strong>
+                          </td>
+                          <td
+                            data-choice-column="b"
+                            data-selected="true"
+                            data-tone="support"
+                          >
+                            <strong>2 remain online</strong>
+                          </td>
+                          <td data-choice-column="c" data-tone="neutral">
+                            <strong>Unchanged</strong>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <strong>v3 rollout</strong>
+                            <span class="review-tradeoff-source"
+                              >Choice<svg class="setta-icon" aria-hidden="true">
+                                <use href="#icon-outline"></use></svg
+                            ></span>
+                          </th>
+                          <td data-choice-column="a" data-tone="support">
+                            <strong>Now</strong>
+                          </td>
+                          <td
+                            data-choice-column="b"
+                            data-selected="true"
+                            data-tone="tradeoff"
+                          >
+                            <strong>7 days</strong>
+                          </td>
+                          <td data-choice-column="c" data-tone="risk">
+                            <strong>Not scheduled</strong>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">
+                            <strong>Rollback</strong>
+                            <span class="review-tradeoff-source"
+                              >shadow-read.json<svg
+                                class="setta-icon"
+                                aria-hidden="true"
+                              >
+                                <use href="#icon-fit"></use></svg
+                            ></span>
+                          </th>
+                          <td data-choice-column="a" data-tone="support">
+                            <strong>Rehearsed</strong>
+                          </td>
+                          <td
+                            data-choice-column="b"
+                            data-selected="true"
+                            data-tone="support"
+                          >
+                            <strong>Rehearsed</strong>
+                          </td>
+                          <td data-choice-column="c" data-tone="neutral">
+                            <strong>Not needed</strong>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </article>
 
@@ -1127,13 +1128,7 @@
                 >
                   <span
                     class="setta-workspace-graph-port left"
-                    data-decision-port="shadow"
-                    style="--port-top: 31%"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port left"
-                    data-decision-port="consumer"
-                    style="--port-top: 69%"
+                    style="--port-top: 50%; --port-color: #77d994"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -1182,7 +1177,6 @@
                 <div class="react-flow__minimap" aria-hidden="true">
                   <div class="minimap-viewport"></div>
                   <span class="minimap-node"></span
-                  ><span class="minimap-node"></span
                   ><span class="minimap-node"></span
                   ><span class="minimap-node"></span>
                 </div>
@@ -2317,10 +2311,6 @@
                     ["Cutover", "Immediately"],
                     ["Known conflict", "2 v2 consumers"],
                   ],
-                  evidence: {
-                    shadow: ["gap", "Supports A, with residual risk"],
-                    consumer: ["conflict", "Conflicts with A"],
-                  },
                 },
                 b: {
                   response: "B · Seven-day dual read",
@@ -2328,10 +2318,6 @@
                     ["Compatibility window", "7 days"],
                     ["Rollback threshold", "0.5% errors"],
                   ],
-                  evidence: {
-                    shadow: ["support", "Supports B"],
-                    consumer: ["support", "Supports B's transition"],
-                  },
                 },
                 c: {
                   response: "C · Remain on v2",
@@ -2339,10 +2325,6 @@
                     ["Active schema", "v2"],
                     ["v3 rollout", "Not scheduled"],
                   ],
-                  evidence: {
-                    shadow: ["conflict", "Argues against C"],
-                    consumer: ["gap", "Supports C temporarily"],
-                  },
                 },
               };
               const conditionNames = ["primary", "secondary"];
@@ -2356,6 +2338,14 @@
                     option.toggleAttribute("data-selected", selected);
                     option.setAttribute("aria-pressed", String(selected));
                   });
+                choiceStage
+                  .querySelectorAll("[data-choice-column]")
+                  .forEach((cell) => {
+                    cell.toggleAttribute(
+                      "data-selected",
+                      cell.dataset.choiceColumn === choice,
+                    );
+                  });
                 choiceStage.querySelector(
                   "[data-choice-response]",
                 ).textContent = state.response;
@@ -2367,21 +2357,6 @@
                     `[data-choice-condition-value="${name}"]`,
                   ).textContent = state.conditions[index][1];
                 });
-                Object.entries(state.evidence).forEach(
-                  ([evidence, [tone, label]]) => {
-                    const impact = choiceStage.querySelector(
-                      `[data-evidence-impact="${evidence}"]`,
-                    );
-                    impact.dataset.tone = tone;
-                    impact.querySelector("span").textContent = label;
-                    impact
-                      .querySelector("use")
-                      .setAttribute(
-                        "href",
-                        tone === "support" ? "#icon-check" : "#icon-alert",
-                      );
-                  },
-                );
               };
 
               choiceStage
