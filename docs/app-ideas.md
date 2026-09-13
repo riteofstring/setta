@@ -114,7 +114,7 @@ different.
 ## Recommended flagship: Setta Review
 
 Open the [Completion](setta-product-mockups.html#review-completion),
-[Question](setta-product-mockups.html#review-question),
+[Choice](setta-product-mockups.html#review-choice),
 [Candidate](setta-product-mockups.html#review-candidate), or
 [Permission](setta-product-mockups.html#review-permission) review mockup.
 
@@ -151,12 +151,13 @@ independent assessments from any external agent. Consensus recedes; disagreement
 evidence, and consequential claims receive attention so a person can resolve only the exceptions
 that require human judgment. Its response can become a continuation packet for the next consumer.
 
-#### Question and proposal review
+#### Choice review
 
-A producer can ask a bounded question or submit a proposal with options, a recommendation,
-evidence, risks, and an expected response shape. The reviewer can answer, select, approve, request
-revision, or reject. The external producer owns its session and decides how to continue after
-reading the response packet; Review never resumes an agent.
+A producer submits a bounded decision with explicit options, an optional recommendation, evidence,
+and an expected response shape. The reviewer selects, rejects, or requests revision and can attach
+conditions or rationale. Open-ended questions stay in ordinary conversations. The external
+producer owns its session and decides how to continue after reading the response packet; Review
+never resumes an agent.
 
 #### Candidate review
 

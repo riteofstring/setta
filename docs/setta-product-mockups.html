@@ -91,7 +91,7 @@
         </a>
         <nav class="site-nav" aria-label="Page navigation">
           <a href="#review-completion">Review</a>
-          <a href="#review-question">Questions</a>
+          <a href="#review-choice">Choice</a>
           <a href="#context-pack-build">Context Pack</a>
           <a href="#boundary">Boundary</a>
           <a href="app-ideas.md">Assessment</a>
@@ -773,36 +773,26 @@
           </div>
         </section>
 
-        <section id="review-question" class="page-shell product-showcase">
-          <div class="showcase-head">
+        <section id="review-choice" class="page-shell product-showcase">
+          <div class="showcase-head showcase-head-simple">
             <div>
               <div class="showcase-number">App 01 · Workflow 02</div>
-              <h2>Review · Question &amp; proposal</h2>
+              <h2>Review · Choice</h2>
               <p>
-                An external agent submits a frozen question, options,
-                recommendation, and evidence. Review exports a structured
-                answer; the external producer remains responsible for continuing
-                its own work.
+                A producer submits a bounded choice with evidence. Review
+                returns one portable decision with any necessary conditions; the
+                producer decides how to continue.
               </p>
-            </div>
-            <div
-              class="showcase-tags"
-              aria-label="Question review characteristics"
-            >
-              <span>immutable request</span><span>bounded options</span>
-              <span>risk evidence</span><span>response packet</span>
             </div>
           </div>
 
           <div class="app-frame">
             <setta-workspace
-              heading="Setta Review · question and proposal review"
-              meta="REVIEW R-118 · request frozen · response draft"
-              chips="QUESTION Q-118|3 OPTIONS"
+              heading="Setta Review · schema v3 rollout"
+              meta="Review R-118"
               action="Export response"
-              inspector-title="Answer"
-              tabs="Request|Evidence|Response"
-              selected-tab="Response"
+              inspector-title="Details"
+              inspector-open="false"
             >
               <div data-region="outline">
                 <div class="setta-workspace-outline">
@@ -827,24 +817,36 @@
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-spark"></use></svg
+                          <use href="#icon-outline"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label">Choice</span>
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px; --outline-color: #77d994"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-check"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Deployment question</span
+                        >shadow-read.json</span
                       >
                     </div>
                   </div>
                   <div class="setta-workspace-outline-item">
                     <div
                       class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #51d6c7"
+                      style="--outline-depth: 14px; --outline-color: #f2bc66"
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
                           <use href="#icon-document"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Option A · immediate cutover</span
+                        >consumers.json</span
                       >
                     </div>
                   </div>
@@ -858,49 +860,7 @@
                           <use href="#icon-check"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Option B · compatibility window</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #51d6c7"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Option C · remain on v2</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #f2bc66"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-panel"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Rollout evidence</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #ad8cff"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-check"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Response draft</span
+                        >Response</span
                       >
                     </div>
                   </div>
@@ -909,156 +869,207 @@
 
               <div
                 data-region="canvas"
-                class="canvas-stage review-question-stage"
+                class="canvas-stage review-choice-stage"
               >
                 <svg
                   class="setta-workspace-graph-layer"
-                  viewBox="0 0 1030 602"
+                  viewBox="0 0 1290 638"
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
-                  <g class="setta-workspace-graph-edge--agentic">
+                  <g class="review-edge review-edge--support">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M306 112 C330 112 330 260 348 260"
+                      d="M440 301 C485 301 490 141 535 141"
                     />
                   </g>
-                  <g class="setta-workspace-graph-edge--data">
+                  <g class="review-edge review-edge--gap">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M678 230 C710 230 710 112 742 112"
+                      d="M440 301 C485 301 490 356 535 356"
                     />
                   </g>
-                  <g
-                    class="setta-workspace-graph-edge--data setta-workspace-graph-edge--selected"
-                  >
+                  <g class="review-edge review-edge--support">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M678 300 C710 300 710 382 742 382"
+                      d="M865 141 C905 141 910 234 950 234"
+                    />
+                  </g>
+                  <g class="review-edge review-edge--gap">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M865 356 C905 356 910 314 950 314"
                     />
                   </g>
                 </svg>
 
-                <article class="setta-section-card question-node">
-                  <span class="setta-workspace-graph-port right agentic"></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Deployment question</span
-                    ><span class="setta-section-kind">request</span
-                    ><span class="setta-section-actions">•••</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="section-intro">
-                      <strong>How should event schema v3 ship?</strong
-                      ><span>choose one option · explain conditions</span>
-                    </div>
-                    <div class="chip-row">
-                      <span class="chip active">choose one</span
-                      ><span class="chip">rationale</span
-                      ><span class="chip">conditions</span>
-                    </div>
-                    <div class="section-summary">
-                      <span>producer: migration-agent</span><span>frozen</span>
-                    </div>
-                  </div>
-                </article>
-
-                <article class="setta-section-card options-node">
-                  <span
-                    class="setta-workspace-graph-port left agentic target"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    style="--port-top: 34%"
-                  ></span>
-                  <span
-                    class="setta-workspace-graph-port right"
-                    style="--port-top: 70%"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Proposed options</span
-                    ><span class="setta-section-kind">choice</span
-                    ><span class="setta-section-actions">•••</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="item-list">
-                      <div class="item-row">
-                        <span class="item-key">A · immediate cutover</span
-                        ><span class="item-value">high risk</span>
-                      </div>
-                      <div class="item-row" data-selected="true">
-                        <span class="item-key">B · dual-read window</span
-                        ><span class="item-value">recommended</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">C · remain on v2</span
-                        ><span class="item-value">defers value</span>
-                      </div>
-                    </div>
-                    <div class="section-summary">
-                      <span>3 bounded options</span><span>1 recommended</span>
-                    </div>
-                  </div>
-                </article>
-
-                <article class="setta-section-card question-evidence-node">
-                  <span class="setta-workspace-graph-port left"></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Rollout evidence</span
-                    ><span class="setta-section-kind">evidence</span
-                    ><span class="setta-section-actions">•••</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="item-list">
-                      <div class="item-row">
-                        <span class="item-key">v3 shadow reads</span
-                        ><span class="item-value">99.98%</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">legacy consumers</span
-                        ><span class="item-value">2 active</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">rollback tested</span
-                        ><span class="item-value">yes</span>
-                      </div>
-                    </div>
-                    <div class="section-summary">
-                      <span>3 sources</span><span>rev 8ad91e</span>
-                    </div>
-                  </div>
-                </article>
-
                 <article
-                  class="setta-section-card response-node"
+                  class="setta-section-card choice-node"
                   data-section-active="true"
                 >
-                  <span class="setta-workspace-graph-port left"></span>
+                  <span
+                    class="setta-workspace-graph-port right"
+                    style="--port-top: 67%"
+                  ></span>
                   <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Response draft</span
-                    ><span class="setta-section-kind">response</span
-                    ><span class="setta-section-actions">•••</span>
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-outline"></use></svg></span
+                    ><span class="setta-section-title">Choice</span>
                   </div>
                   <div class="section-body">
-                    <div class="item-list">
-                      <div class="item-row" data-selected="true">
-                        <span class="item-key">Decision</span
-                        ><span class="item-value">choose B</span>
+                    <div class="review-choice-prompt">
+                      <strong>How should event schema v3 ship?</strong>
+                    </div>
+                    <div class="review-choice-options">
+                      <div class="review-choice-option">
+                        <span
+                          class="review-choice-radio"
+                          aria-hidden="true"
+                        ></span>
+                        <span>
+                          <strong>A · Immediate cutover</strong>
+                        </span>
                       </div>
-                      <div class="item-row">
-                        <span class="item-key">Window</span
-                        ><span class="item-value">7 days</span>
+                      <div class="review-choice-option" data-selected="true">
+                        <span
+                          class="review-choice-radio"
+                          aria-label="Selected option"
+                          ><svg class="setta-icon">
+                            <use href="#icon-check"></use></svg
+                        ></span>
+                        <span>
+                          <strong>B · Seven-day dual read</strong>
+                          <small>Producer recommendation</small>
+                        </span>
                       </div>
-                      <div class="item-row">
-                        <span class="item-key">Rollback at</span
-                        ><span class="item-value">0.5% errors</span>
+                      <div class="review-choice-option">
+                        <span
+                          class="review-choice-radio"
+                          aria-hidden="true"
+                        ></span>
+                        <span>
+                          <strong>C · Remain on v2</strong>
+                        </span>
                       </div>
                     </div>
-                    <div class="section-summary">
-                      <span>response ready</span><span>not exported</span>
+                  </div>
+                </article>
+
+                <article class="setta-section-card shadow-evidence-node">
+                  <span
+                    class="setta-workspace-graph-port left"
+                    style="--port-color: #77d994"
+                  ></span>
+                  <span
+                    class="setta-workspace-graph-port right"
+                    style="--port-color: #77d994"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-check"></use></svg></span
+                    ><span class="setta-section-title">shadow-read.json</span>
+                    <span class="setta-section-actions">
+                      <span
+                        class="setta-section-action"
+                        aria-label="Open complete result"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                    </span>
+                  </div>
+                  <div class="section-body review-shadow-result">
+                    <div class="review-shadow-metric">
+                      <strong>99.98%</strong>
+                      <span>compatible events</span>
+                    </div>
+                    <div class="review-shadow-bar" aria-hidden="true">
+                      <span></span>
+                    </div>
+                    <div class="review-evidence-note">
+                      <svg class="setta-icon" aria-hidden="true">
+                        <use href="#icon-check"></use>
+                      </svg>
+                      <span>2.1M events · rollback rehearsal passed</span>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="setta-section-card consumer-evidence-node">
+                  <span
+                    class="setta-workspace-graph-port left"
+                    style="--port-color: #f2bc66"
+                  ></span>
+                  <span
+                    class="setta-workspace-graph-port right"
+                    style="--port-color: #f2bc66"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-document"></use></svg></span
+                    ><span class="setta-section-title">consumers.json</span>
+                    <span class="setta-section-actions">
+                      <span
+                        class="setta-section-action"
+                        aria-label="Open consumer inventory"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                    </span>
+                  </div>
+                  <div class="section-body review-consumer-list">
+                    <div>
+                      <strong>billing-worker</strong>
+                      <span>v2</span>
+                    </div>
+                    <div>
+                      <strong>warehouse-export</strong>
+                      <span>v2</span>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="setta-section-card choice-response-node">
+                  <span
+                    class="setta-workspace-graph-port left"
+                    style="--port-top: 32%; --port-color: #77d994"
+                  ></span>
+                  <span
+                    class="setta-workspace-graph-port left"
+                    style="--port-top: 72%; --port-color: #f2bc66"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-check"></use></svg></span
+                    ><span class="setta-section-title">Response</span>
+                  </div>
+                  <div class="section-body">
+                    <div class="review-response-choice">
+                      <svg class="setta-icon" aria-hidden="true">
+                        <use href="#icon-check"></use>
+                      </svg>
+                      <span>
+                        <strong>B · Seven-day dual read</strong>
+                      </span>
+                    </div>
+                    <div class="review-response-conditions">
+                      <div>
+                        <span>Compatibility window</span>
+                        <strong>7 days</strong>
+                      </div>
+                      <div>
+                        <span>Rollback threshold</span>
+                        <strong>0.5% errors</strong>
+                      </div>
+                    </div>
+                    <div
+                      class="review-inline-actions review-choice-response-actions"
+                    >
+                      <span data-action="primary">Confirm choice</span>
+                      <span>Request revision</span>
                     </div>
                   </div>
                 </article>
@@ -1072,56 +1083,7 @@
                 </div>
               </div>
 
-              <div data-region="inspector">
-                <div class="setta-workspace-inspector">
-                  <div class="setta-workspace-inspector-editor">
-                    <div class="inspector-identity">
-                      <strong>Dual-read compatibility window</strong
-                      ><span>option B</span>
-                    </div>
-                    <div class="inspector-group-label">Request</div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Response shape</span
-                      ><span class="inspector-value">CHOOSE ONE</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Producer</span
-                      ><span class="inspector-value">migration-agent</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Request hash</span
-                      ><span class="inspector-value">a29f…81ce</span>
-                    </div>
-                    <div class="inspector-group-label">Decision</div>
-                    <div class="inspector-row emphasis">
-                      <span class="inspector-label">Selected</span
-                      ><span class="inspector-value">OPTION B</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Window</span
-                      ><span class="inspector-input">7 days</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Rollback threshold</span
-                      ><span class="inspector-input">0.5%</span>
-                    </div>
-                    <div class="inspector-note">
-                      Preserve dual reads until both legacy consumers migrate.
-                      Roll back if the v3 error rate exceeds 0.5% for five
-                      minutes.
-                    </div>
-                    <div class="inspector-group-label">Response</div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Include evidence refs</span
-                      ><span class="toggle"></span>
-                    </div>
-                    <div class="inspector-primary-action">Confirm answer</div>
-                    <div class="inspector-secondary-action">
-                      Request revision
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <div data-region="inspector"></div>
             </setta-workspace>
           </div>
         </section>
