@@ -32,11 +32,17 @@ validates one complete candidate document, writes through a synced same-filesyst
 atomically renames it. A successful replacement increments the revision exactly once; conflict or
 persistence failure leaves canonical state unchanged.
 
-The case set is bounded JSONL with stable case IDs, a JSON input, and optional expected JSON. Bench
-reads and freezes the ordered cases when accepting a launch. A launch creates one run per selected
-candidate, freezes candidate configuration and project revision, durably writes all queued records,
-and only then makes work eligible to execute. Terminal run and case results are immutable. Rerun
-creates a new launch from the stored specification instead of editing history.
+The case set is bounded JSONL with stable case IDs, a JSON input, and optional expected JSON. Every
+application snapshot resolves the current file once and returns its parsed cases beside validation,
+so Build can show the experiment inputs instead of only exposing a storage path. An invalid file
+produces an empty current-case list and a path-specific validation issue without making the rest of
+the snapshot unavailable.
+
+When accepting a launch, Bench reloads the file once and uses the cases returned by that same
+validation pass as the immutable launch inputs. A launch creates one run per selected candidate,
+freezes candidate configuration and project revision, durably writes all queued records, and only
+then makes work eligible to execute. Terminal run and case results are immutable. Rerun creates a
+new launch from the stored specification instead of editing history.
 
 V1 records the Bench project revision and the complete resolved launch inputs, but it does not add
 a Git subprocess or record commit and dirty-state labels for ordinary command candidates. Those

@@ -1,6 +1,6 @@
 import type { WorkspaceGraphEdge, WorkspaceGraphPort } from "@setta/workspace";
 
-import type { ProjectV1 } from "../backend/generatedContract";
+import type { ApplicationSnapshotV1 } from "../backend/generatedContract";
 
 type BenchGraphProjection = {
   edges: WorkspaceGraphEdge[];
@@ -16,19 +16,23 @@ function graphId(...parts: string[]): string {
 }
 
 export function projectBenchGraph(
-  project: ProjectV1,
+  snapshot: Pick<ApplicationSnapshotV1, "cases" | "project">,
   visible = true,
 ): BenchGraphProjection {
   if (!visible) {
     return { edges: [], ports: [] };
   }
+  const project = snapshot.project;
+  const inputCount = snapshot.cases.length;
+  const inputLabel = `${String(inputCount)} ${inputCount === 1 ? "input" : "inputs"}`;
+  const resultLabel = `${String(inputCount)} ${inputCount === 1 ? "result" : "results"}`;
   const casePortId = graphId("bench", "case-set", project.caseSet.id, "cases");
   const ports: WorkspaceGraphPort[] = [
     {
       disabled: true,
       family: "data",
       id: casePortId,
-      label: "cases",
+      label: "inputs",
       sectionId: project.caseSet.id,
       side: "right",
       type: "source",
@@ -43,7 +47,7 @@ export function projectBenchGraph(
         disabled: true,
         family: "data",
         id: inputPortId,
-        label: "cases",
+        label: "inputs",
         sectionId: candidate.id,
         side: "left",
         type: "target",
@@ -52,7 +56,7 @@ export function projectBenchGraph(
         disabled: true,
         family: "data",
         id: outputPortId,
-        label: "output",
+        label: "results",
         sectionId: candidate.id,
         side: "right",
         type: "source",
@@ -61,7 +65,7 @@ export function projectBenchGraph(
     edges.push({
       family: "data",
       id: graphId("bench", "cases", candidate.id),
-      label: "all cases",
+      label: inputLabel,
       source: { portId: casePortId, sectionId: project.caseSet.id },
       target: { portId: inputPortId, sectionId: candidate.id },
     });
@@ -85,7 +89,7 @@ export function projectBenchGraph(
       edges.push({
         family: "data",
         id: graphId("bench", "checks", candidate.id),
-        label: "check output",
+        label: resultLabel,
         source: { portId: outputPortId, sectionId: candidate.id },
         target: {
           portId: evaluatorPortId,

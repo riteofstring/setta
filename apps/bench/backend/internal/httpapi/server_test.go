@@ -39,7 +39,7 @@ func TestHandlerServesSnapshotAndSessionAndProtectsMutations(t *testing.T) {
 		t.Fatalf("snapshot status = %d, body = %s", snapshotResponse.Code, snapshotResponse.Body.String())
 	}
 	var snapshot contracts.ApplicationSnapshotV1
-	if err := json.Unmarshal(snapshotResponse.Body.Bytes(), &snapshot); err != nil || snapshot.Version != contracts.SnapshotVersion || snapshot.Validation.Ready {
+	if err := json.Unmarshal(snapshotResponse.Body.Bytes(), &snapshot); err != nil || snapshot.Version != contracts.SnapshotVersion || snapshot.Validation.Ready || snapshot.Cases == nil {
 		t.Fatalf("snapshot = %#v, %v", snapshot, err)
 	}
 	sessionResponse := httptest.NewRecorder()

@@ -133,7 +133,7 @@ export function BenchController() {
         return;
       }
       const document = projectWorkspaceDocument(
-        next.project,
+        next,
         loaded ? workspaceHost.getSnapshot() : undefined,
       );
       projecting = true;
@@ -213,11 +213,11 @@ export function BenchController() {
           const current = snapshotRef.current;
           return current === null
             ? "Bench project loading"
-            : `Run ${String(current.validation.caseCount)} cases × ${String(current.project.candidates.length)} candidates = ${String(current.validation.executionCount)} executions`;
+            : `${String(current.validation.caseCount)} inputs × ${String(current.project.candidates.length)} candidates = ${String(current.validation.executionCount)} executions`;
         },
         icon: PlayIcon,
         id: "bench.launch",
-        label: "Run all candidates",
+        label: "Run comparison",
         run: () => void implementationRef.current?.launch(),
         scope: "pane",
         surfaces: ["toolbar", "palette"],
@@ -226,7 +226,7 @@ export function BenchController() {
     registerWorkspaceToolbarContributions(workspaceHost, [
       {
         commandId: "bench.launch",
-        description: "Run every candidate across the current case manifest",
+        description: "Run every candidate once for each current input case",
         icon: PlayIcon,
         kind: "command",
         placement: "before-viewport",

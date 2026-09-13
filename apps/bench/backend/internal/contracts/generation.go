@@ -237,6 +237,7 @@ interface ProjectValidationV1 {
 export interface ApplicationSnapshotV1 {
   version: "bench-snapshot/v1";
   project: ProjectV1;
+  cases: CaseV1[];
   validation: ProjectValidationV1;
   launches: LaunchV1[];
   runs: RunV1[];
@@ -263,10 +264,11 @@ func SnapshotSchema() map[string]any {
 		"$id":                  "https://setta.dev/schemas/bench/snapshot-v1",
 		"type":                 "object",
 		"additionalProperties": false,
-		"required":             []string{"version", "project", "validation", "launches", "runs", "reviews", "diagnostics"},
+		"required":             []string{"version", "project", "cases", "validation", "launches", "runs", "reviews", "diagnostics"},
 		"properties": map[string]any{
 			"version":     map[string]any{"const": SnapshotVersion},
 			"project":     ref("project"),
+			"cases":       array(ref("case"), 0, MaximumCases),
 			"validation":  ref("projectValidation"),
 			"launches":    array(ref("launch"), 0, -1),
 			"runs":        array(ref("run"), 0, -1),

@@ -5,7 +5,6 @@ const apiProxy = {
     target: process.env.SETTA_BENCH_BACKEND_ORIGIN ?? "http://127.0.0.1:8082",
   },
 };
-
 export default defineConfig({
   build: {
     chunkSizeWarningLimit: 3_000,

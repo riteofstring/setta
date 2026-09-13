@@ -68,12 +68,12 @@ export function LaunchPane() {
     <div className="bench-pane bench-launch-pane">
       <WorkspaceInspectorSettingsGroup
         status={`${String(project.candidates.length)} candidates`}
-        title="Launch preview"
+        title="Run comparison"
       >
         <div className="bench-launch-equation">
           <div>
-            <strong>{ready ? caseCount : "—"}</strong>
-            <span>cases</span>
+            <strong>{caseCount}</strong>
+            <span>inputs</span>
           </div>
           <b>×</b>
           <div>
@@ -82,12 +82,14 @@ export function LaunchPane() {
           </div>
           <b>=</b>
           <div>
-            <strong>{ready ? executionCount : "—"}</strong>
+            <strong>{executionCount}</strong>
             <span>executions</span>
           </div>
         </div>
         <p className="setta-workspace-inspector-help">
-          The validated JSONL manifest is frozen when the launch is accepted.
+          Bench reloads and freezes the current input cases, then runs every
+          candidate once per input. Results open in Runs; completed pairs can be
+          reviewed in Compare.
         </p>
         {issues.length === 0 ? null : (
           <ul className="bench-diagnostics">
@@ -103,7 +105,7 @@ export function LaunchPane() {
           {project.candidates.map((candidate) => (
             <li key={candidate.id}>
               <span>{candidate.name}</span>
-              <code>{candidate.command.argv[0]}</code>
+              <code>{candidate.command.argv.join(" ")}</code>
             </li>
           ))}
         </ul>
@@ -113,7 +115,7 @@ export function LaunchPane() {
           onClick={() => void actions.launch()}
           type="button"
         >
-          {pendingAction === "launch" ? "Starting…" : "Run all candidates"}
+          {pendingAction === "launch" ? "Starting…" : "Run comparison"}
         </button>
       </WorkspaceInspectorSettingsGroup>
       <WorkspaceInspectorSettingsGroup title="Execution">

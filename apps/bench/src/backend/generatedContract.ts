@@ -234,6 +234,7 @@ interface ProjectValidationV1 {
 export interface ApplicationSnapshotV1 {
   version: "bench-snapshot/v1";
   project: ProjectV1;
+  cases: CaseV1[];
   validation: ProjectValidationV1;
   launches: LaunchV1[];
   runs: RunV1[];

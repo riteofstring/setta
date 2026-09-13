@@ -1,23 +1,31 @@
 import {
+  WORKSPACE_CODE_SECTION_KIND,
+  createWorkspaceCodeSection,
   registerSectionKinds,
   type SectionKindDefinition,
   type WorkspaceHost,
 } from "@setta/workspace";
 
 import {
+  CandidateHeaderControls,
   CandidateInspector,
-  CandidateSection,
 } from "../sections/CandidateSection";
-import { CaseSetInspector, CaseSetSection } from "../sections/CaseSetSection";
+import {
+  CaseSetInspector,
+  CaseSetSection,
+  CaseSetSummary,
+} from "../sections/CaseSetSection";
 import {
   EvaluatorInspector,
   EvaluatorSection,
+  EvaluatorSummary,
 } from "../sections/EvaluatorSection";
-import { CandidateIcon, CasesIcon, ChecksIcon } from "../sections/SectionIcons";
+import { CasesIcon, ChecksIcon } from "../sections/SectionIcons";
 import { readBenchSectionData } from "../sections/sectionData";
+import { benchItemSearchableText } from "./benchSectionProjection";
 
 export const BENCH_CASE_SET_SECTION_KIND = "bench.case-set";
-export const BENCH_CANDIDATE_SECTION_KIND = "bench.candidate";
+export const BENCH_CANDIDATE_SECTION_KIND = WORKSPACE_CODE_SECTION_KIND;
 export const BENCH_EVALUATOR_SECTION_KIND = "bench.evaluator";
 
 type BenchSectionKindCatalog = Record<
@@ -27,13 +35,34 @@ type BenchSectionKindCatalog = Record<
   SectionKindDefinition
 >;
 
+type OrdinarySectionKindDefinition = Extract<
+  SectionKindDefinition,
+  { presentation?: undefined }
+>;
+
 function createBenchSectionKinds(): BenchSectionKindCatalog {
+  const candidateKind = createWorkspaceCodeSection({
+    defaultSize: { height: 220, width: 360 },
+    languages: ["bash"],
+    renderHeaderControls: (section) => (
+      <CandidateHeaderControls section={section} />
+    ),
+    renderInspector: (context) =>
+      context.type === "section" ? (
+        <CandidateInspector candidateId={context.section.id} />
+      ) : null,
+  }) as OrdinarySectionKindDefinition;
   return {
     [BENCH_CASE_SET_SECTION_KIND]: {
       assertValidData: (section) => readBenchSectionData(section.data),
       contentClassName: "bench-section-body",
-      defaultSize: { height: 148, width: 300 },
+      defaultSize: { height: 420, width: 360 },
+      getItemSearchableText: ({ item }) => benchItemSearchableText(item),
       icon: CasesIcon,
+      itemArea: {
+        renderLeadingContent: (section) => <CaseSetSummary section={section} />,
+        toolbar: "filter-only",
+      },
       renderContent: (section) => <CaseSetSection section={section} />,
       renderInspector: (context) =>
         context.type === "section" ? (
@@ -42,32 +71,31 @@ function createBenchSectionKinds(): BenchSectionKindCatalog {
       sizeConstraints: {
         maxHeight: 800,
         maxWidth: 800,
-        minHeight: 120,
-        minWidth: 240,
+        minHeight: 180,
+        minWidth: 300,
       },
     },
     [BENCH_CANDIDATE_SECTION_KIND]: {
-      assertValidData: (section) => readBenchSectionData(section.data),
-      contentClassName: "bench-section-body",
-      defaultSize: { height: 164, width: 320 },
-      icon: CandidateIcon,
-      renderContent: (section) => <CandidateSection section={section} />,
-      renderInspector: (context) =>
-        context.type === "section" ? (
-          <CandidateInspector data={context.section.data} />
-        ) : null,
+      ...candidateKind,
       sizeConstraints: {
-        maxHeight: 800,
+        maxHeight: 700,
         maxWidth: 900,
-        minHeight: 136,
-        minWidth: 260,
+        minHeight: 180,
+        minWidth: 300,
       },
     },
     [BENCH_EVALUATOR_SECTION_KIND]: {
       assertValidData: (section) => readBenchSectionData(section.data),
       contentClassName: "bench-section-body",
-      defaultSize: { height: 176, width: 310 },
+      defaultSize: { height: 420, width: 360 },
+      getItemSearchableText: ({ item }) => benchItemSearchableText(item),
       icon: ChecksIcon,
+      itemArea: {
+        renderLeadingContent: (section) => (
+          <EvaluatorSummary section={section} />
+        ),
+        toolbar: "hidden",
+      },
       renderContent: (section) => <EvaluatorSection section={section} />,
       renderInspector: (context) =>
         context.type === "section" ? (
@@ -76,8 +104,8 @@ function createBenchSectionKinds(): BenchSectionKindCatalog {
       sizeConstraints: {
         maxHeight: 900,
         maxWidth: 800,
-        minHeight: 140,
-        minWidth: 260,
+        minHeight: 180,
+        minWidth: 300,
       },
     },
   };

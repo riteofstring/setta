@@ -243,6 +243,7 @@ type PutReviewRequestV1 struct {
 type ApplicationSnapshotV1 struct {
 	Version     string              `json:"version"`
 	Project     ProjectV1           `json:"project"`
+	Cases       []CaseV1            `json:"cases"`
 	Validation  ProjectValidationV1 `json:"validation"`
 	Launches    []LaunchV1          `json:"launches"`
 	Runs        []RunV1             `json:"runs"`

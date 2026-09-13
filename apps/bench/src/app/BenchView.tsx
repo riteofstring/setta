@@ -263,9 +263,8 @@ function BenchWorkspace() {
     () => new Set(),
   );
   const graph = useMemo(
-    () =>
-      projectBenchGraph(snapshot.project, activeViewId === BENCH_BUILD_VIEW_ID),
-    [activeViewId, snapshot.project],
+    () => projectBenchGraph(snapshot, activeViewId === BENCH_BUILD_VIEW_ID),
+    [activeViewId, snapshot],
   );
   useEffect(() => {
     setSelectedEdgeIds((current) =>

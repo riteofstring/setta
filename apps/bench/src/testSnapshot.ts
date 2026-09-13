@@ -170,19 +170,21 @@ function completedRun(
 
 export function makeBenchSnapshot(): ApplicationSnapshotV1 {
   const project = makeBenchProject();
+  const cases = [
+    {
+      expected: { height: 512, width: 512 },
+      id: "sunset-bottle",
+      input: { path: "inputs/product-01.png" },
+      name: "Sunset bottle",
+    },
+  ];
   return {
+    cases,
     diagnostics: [],
     launches: [
       {
         candidates: project.candidates,
-        cases: [
-          {
-            expected: { height: 512, width: 512 },
-            id: "sunset-bottle",
-            input: { path: "inputs/product-01.png" },
-            name: "Sunset bottle",
-          },
-        ],
+        cases,
         caseSet: project.caseSet,
         createdAt: "2026-09-12T18:00:00Z",
         evaluator: project.evaluator,

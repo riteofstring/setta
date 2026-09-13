@@ -1106,6 +1106,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/case"
+      },
+      "maxItems": 100,
+      "minItems": 0,
+      "type": "array"
+    },
     "diagnostics": {
       "items": {
         "$ref": "#/$defs/structuredError"
@@ -1147,6 +1155,7 @@
   "required": [
     "version",
     "project",
+    "cases",
     "validation",
     "launches",
     "runs",

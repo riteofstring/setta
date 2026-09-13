@@ -95,20 +95,23 @@ func (coordinator *Coordinator) Snapshot() (contracts.ApplicationSnapshotV1, err
 	if err != nil {
 		return contracts.ApplicationSnapshotV1{}, err
 	}
+	validation, currentCases := coordinator.validation(projectSnapshot)
 	return contracts.ApplicationSnapshotV1{
-		Version: contracts.SnapshotVersion, Project: projectSnapshot, Launches: launches,
-		Validation: coordinator.validation(projectSnapshot), Runs: runs, Reviews: reviews, Diagnostics: diagnostics,
+		Version: contracts.SnapshotVersion, Project: projectSnapshot, Cases: currentCases, Launches: launches,
+		Validation: validation, Runs: runs, Reviews: reviews, Diagnostics: diagnostics,
 	}, nil
 }
 
-func (coordinator *Coordinator) validation(projectSnapshot contracts.ProjectV1) contracts.ProjectValidationV1 {
+func (coordinator *Coordinator) validation(projectSnapshot contracts.ProjectV1) (contracts.ProjectValidationV1, []contracts.CaseV1) {
 	issues := []contracts.ValidationIssueV1{}
+	caseValues := []contracts.CaseV1{}
 	caseCount := 0
-	caseValues, err := cases.Load(coordinator.root, projectSnapshot.CaseSet)
+	loadedCases, err := cases.Load(coordinator.root, projectSnapshot.CaseSet)
 	if err != nil {
 		issues = append(issues, contracts.ValidationIssueV1{Code: "case_manifest_invalid", Message: boundedMessage(err.Error()), Path: "project.caseSet.manifest"})
 	} else {
-		caseCount = len(caseValues)
+		caseValues = loadedCases
+		caseCount = len(loadedCases)
 	}
 	for _, candidate := range projectSnapshot.Candidates {
 		if err := executor.Preflight(coordinator.root, candidate); err != nil {
@@ -119,7 +122,7 @@ func (coordinator *Coordinator) validation(projectSnapshot contracts.ProjectV1) 
 	if caseCount > 0 {
 		executionCount = caseCount * len(projectSnapshot.Candidates)
 	}
-	return contracts.ProjectValidationV1{Ready: len(issues) == 0, CaseCount: caseCount, ExecutionCount: executionCount, Issues: issues}
+	return contracts.ProjectValidationV1{Ready: len(issues) == 0, CaseCount: caseCount, ExecutionCount: executionCount, Issues: issues}, caseValues
 }
 
 func (coordinator *Coordinator) Project() (contracts.ProjectV1, error) {
@@ -176,13 +179,9 @@ func (coordinator *Coordinator) Launch(request contracts.LaunchRequestV1) (contr
 	if err != nil {
 		return contracts.LaunchResponseV1{}, err
 	}
-	validation := coordinator.validation(projectSnapshot)
+	validation, caseValues := coordinator.validation(projectSnapshot)
 	if !validation.Ready {
 		return contracts.LaunchResponseV1{}, fmt.Errorf("coordinator: project is not ready: %s", validation.Issues[0].Message)
-	}
-	caseValues, err := cases.Load(coordinator.root, projectSnapshot.CaseSet)
-	if err != nil {
-		return contracts.LaunchResponseV1{}, err
 	}
 	return coordinator.createLaunch(projectSnapshot.ID, projectSnapshot.Revision, projectSnapshot.CaseSet, projectSnapshot.Execution, selected, caseValues, projectSnapshot.Evaluator, nil, nil)
 }

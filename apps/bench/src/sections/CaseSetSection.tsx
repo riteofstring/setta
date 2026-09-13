@@ -1,7 +1,9 @@
 import {
+  ItemDndContext,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   WorkspaceInspectorSettingsGroup,
+  WorkspaceItemList,
   type WorkspaceSection,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
@@ -9,31 +11,60 @@ import { useEffect, useState } from "react";
 import { projectDraft, useBench } from "../app/benchContext";
 import { readBenchSectionData } from "./sectionData";
 
-export function CaseSetSection({ section }: { section: WorkspaceSection }) {
+function caseSetIssue(
+  snapshot: ReturnType<typeof useBench>["snapshot"],
+): string | null {
+  return (
+    snapshot.validation.issues.find((issue) =>
+      issue.path.startsWith("project.caseSet"),
+    )?.message ?? null
+  );
+}
+
+export function CaseSetSummary({ section }: { section: WorkspaceSection }) {
   const { snapshot } = useBench();
   const { entityId } = readBenchSectionData(section.data);
   const caseSet = snapshot.project.caseSet;
   if (caseSet.id !== entityId) {
     return <p className="bench-card-error">Case set {entityId} is missing.</p>;
   }
+  const issue = caseSetIssue(snapshot);
   return (
-    <div className="bench-card-content">
-      <div className="bench-card-kind">Case set</div>
-      <dl className="bench-card-facts">
-        <div>
-          <dt>Manifest</dt>
-          <dd title={caseSet.manifest}>{caseSet.manifest}</dd>
-        </div>
-        <div>
-          <dt>Cases</dt>
-          <dd>
-            {snapshot.validation.ready
-              ? snapshot.validation.caseCount
-              : "manifest unavailable"}
-          </dd>
-        </div>
-      </dl>
+    <div className="bench-section-intro">
+      <div className="bench-card-stage">
+        <span>1 · Inputs</span>
+        <strong>
+          {issue === null
+            ? `${String(snapshot.cases.length)} input cases`
+            : "Needs attention"}
+        </strong>
+      </div>
+      <p className="bench-card-explanation">
+        Each named JSON value below is sent to every candidate. Expected values
+        are reference data; shared checks decide pass or fail.
+      </p>
+      {issue === null ? null : <p className="bench-card-error">{issue}</p>}
     </div>
+  );
+}
+
+export function CaseSetSection({ section }: { section: WorkspaceSection }) {
+  const itemTree = section.itemTree;
+  if (itemTree === undefined) {
+    return <p className="bench-card-error">Input cases are unavailable.</p>;
+  }
+  const topLevelItemIds = itemTree.items[itemTree.rootId]?.children ?? [];
+  if (topLevelItemIds.length === 0) {
+    return <p className="bench-card-empty">No input cases could be loaded.</p>;
+  }
+  return (
+    <ItemDndContext>
+      <WorkspaceItemList
+        listKey={`bench-inputs:${section.id}`}
+        sectionId={section.id}
+        topLevelItemIds={topLevelItemIds}
+      />
+    </ItemDndContext>
   );
 }
 
@@ -67,7 +98,14 @@ export function CaseSetInspector({ data }: { data: unknown }) {
     setFeedback(saved ? "Case set saved." : "Case set was not saved.");
   };
   return (
-    <WorkspaceInspectorSettingsGroup status="JSONL" title="Case set">
+    <WorkspaceInspectorSettingsGroup
+      status={`${String(snapshot.cases.length)} inputs`}
+      title="Input source"
+    >
+      <p className="setta-workspace-inspector-help">
+        Bench loads one named JSON object per line, then shows the parsed input
+        and expected value in the section.
+      </p>
       <label className="setta-workspace-inspector-config-row">
         <span className="setta-workspace-inspector-config-label">Name</span>
         <input
@@ -77,7 +115,9 @@ export function CaseSetInspector({ data }: { data: unknown }) {
         />
       </label>
       <label className="setta-workspace-inspector-config-row">
-        <span className="setta-workspace-inspector-config-label">Manifest</span>
+        <span className="setta-workspace-inspector-config-label">
+          JSONL case file
+        </span>
         <input
           className={`setta-workspace-inspector-config-input ${interaction}`}
           onChange={(event) => setManifest(event.currentTarget.value)}
@@ -90,7 +130,7 @@ export function CaseSetInspector({ data }: { data: unknown }) {
         onClick={() => void save()}
         type="button"
       >
-        Save case set
+        Save input source
       </button>
       {feedback === null ? null : <p role="status">{feedback}</p>}
     </WorkspaceInspectorSettingsGroup>

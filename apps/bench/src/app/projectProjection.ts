@@ -7,13 +7,22 @@ import {
   type WorkspaceSection,
 } from "@setta/workspace";
 
-import type { ProjectDraftV1, ProjectV1 } from "../backend/generatedContract";
+import type {
+  ApplicationSnapshotV1,
+  ProjectDraftV1,
+  ProjectV1,
+} from "../backend/generatedContract";
 import {
   BENCH_CANDIDATE_SECTION_KIND,
   BENCH_CASE_SET_SECTION_KIND,
   BENCH_EVALUATOR_SECTION_KIND,
 } from "./benchSectionKinds";
 import { projectDraft } from "./benchContext";
+import {
+  candidateCodeSectionData,
+  projectCaseSetItemTree,
+  projectEvaluatorItemTree,
+} from "./benchSectionProjection";
 
 export const BENCH_BUILD_VIEW_ID = "build";
 export const BENCH_RUNS_VIEW_ID = "runs";
@@ -36,6 +45,8 @@ function projectSection(
   name: string,
   project: ProjectV1,
   previous: WorkspaceSection | undefined,
+  data: WorkspaceSection["data"],
+  itemTree?: WorkspaceSection["itemTree"],
 ): WorkspaceSection {
   const layout = project.presentation.sections[id];
   if (layout === undefined) {
@@ -43,7 +54,7 @@ function projectSection(
   }
   return {
     children: [],
-    data: { entityId: id },
+    data,
     id,
     isHorizontalOrientation: false,
     isMinimized: previous?.isMinimized ?? false,
@@ -54,13 +65,15 @@ function projectSection(
     size: { height: layout.height, width: layout.width },
     styleColor: previous?.styleColor ?? null,
     tagColor: previous?.tagColor ?? null,
+    ...(itemTree === undefined ? {} : { itemTree }),
   };
 }
 
 function baseWorkspaceDocument(
-  project: ProjectV1,
+  snapshot: Pick<ApplicationSnapshotV1, "cases" | "project">,
   previous: WorkspaceDocument | undefined,
 ): WorkspaceDocumentInput {
+  const project = snapshot.project;
   const sections: WorkspaceDocument["sections"] = {};
   sections[project.caseSet.id] = projectSection(
     project.caseSet.id,
@@ -68,6 +81,11 @@ function baseWorkspaceDocument(
     project.caseSet.name,
     project,
     previous?.sections[project.caseSet.id],
+    { entityId: project.caseSet.id },
+    projectCaseSetItemTree(
+      snapshot.cases,
+      previous?.sections[project.caseSet.id],
+    ),
   );
   for (const candidate of project.candidates) {
     sections[candidate.id] = projectSection(
@@ -76,6 +94,7 @@ function baseWorkspaceDocument(
       candidate.name,
       project,
       previous?.sections[candidate.id],
+      candidateCodeSectionData(candidate),
     );
   }
   if (project.evaluator !== null) {
@@ -85,6 +104,11 @@ function baseWorkspaceDocument(
       project.evaluator.name,
       project,
       previous?.sections[project.evaluator.id],
+      { entityId: project.evaluator.id },
+      projectEvaluatorItemTree(
+        project.evaluator,
+        previous?.sections[project.evaluator.id],
+      ),
     );
   }
   const topLevelSections = Object.fromEntries(
@@ -179,10 +203,10 @@ function createFixedSavedViews(
 }
 
 export function projectWorkspaceDocument(
-  project: ProjectV1,
+  snapshot: Pick<ApplicationSnapshotV1, "cases" | "project">,
   previous?: WorkspaceDocument,
 ): WorkspaceDocumentInput {
-  const base = baseWorkspaceDocument(project, previous);
+  const base = baseWorkspaceDocument(snapshot, previous);
   const savedViews = createFixedSavedViews(base, previous?.savedViews);
   const active = savedViews.views[savedViews.activeViewId];
   if (active === undefined) {

@@ -11,18 +11,26 @@ interaction, and managed-window surfaces. Bench contributes only app-specific se
 pane contents, commands, graph projection, and managed-window bodies. It adds no second header,
 parallel token system, imitation sidebar, or custom window chrome.
 
-The Build canvas contains only top-level authored sections: one case set, each candidate, and one
-shared check set. Section data contains stable domain identity, while the complete backend snapshot
-remains canonical. The graph uses Workspace's existing `data` connection family. Derived edges mean
-“run these cases through this candidate” and “apply these checks to this candidate's outputs.”
-Cases, launches, runs, and results stay in purpose-built rows and managed windows rather than
-becoming canvas nodes.
+The Build canvas contains only top-level authored sections: one input set, each candidate, and one
+shared check set. The complete backend snapshot remains canonical and includes the currently parsed
+input cases. The input section projects every case as native Workspace item rows with its actual
+`input` and `expected` JSON. Each candidate is a native read-only Workspace Bash code section that
+shows the exact argument vector Bench will execute. The check section uses native item rows to name
+both the required output artifact and the rule applied to it. Storage filenames and editing controls
+stay in Inspector because they are configuration details, not the experiment itself.
 
-Bench registers its section kinds through the public host-scoped registry. Cards show concise
-identity and readiness; app-owned Inspector contributions edit the bounded authored fields. A
-coherent edit submits one complete revision-checked project replacement. Conflicts wait for or fetch
-the canonical snapshot and remain explicit; the browser does not replay an edit against unseen
-state.
+The graph uses Workspace's existing `data` connection family. Its counted edges mean “send these
+inputs to this candidate” and “apply the shared checks to these candidate results.” Stage labels in
+the sections make that left-to-right sequence explicit. Launches, runs, and results stay in
+purpose-built rows and managed windows rather than becoming canvas nodes.
+
+Bench registers its section kinds through the public host-scoped registry. App-owned Inspector
+contributions edit the bounded authored fields. An ordinary local candidate stores an invocation,
+not arbitrary source files, so Bench names that boundary instead of inferring a source path from
+command arguments. An imported Python Canvas invocation is read-only and must be changed by editing
+and re-exporting its source callable. A coherent edit submits one complete revision-checked project
+replacement. Conflicts wait for or fetch the canonical snapshot and remain explicit; the browser
+does not replay an edit against unseen state.
 
 ## Build, Runs, and Compare
 
@@ -34,10 +42,12 @@ terminal run, uses an app pane to navigate differences, and records preference a
 pane. Saved views own canvas visibility and camera; the app keeps a separate managed-window state
 for each presentation so Workspace's window manager remains authoritative for window behavior.
 
-The launch action is a Workspace command exposed through the native toolbar and command palette.
-Its disabled reason reports invalid project state, and its status text resolves the candidate × case
-matrix before execution. A trailing Launch pane may show the same small preview. There is no launch
-or result section and no canvas overlay pretending to be a shell slot.
+The “Run comparison” action is a Workspace command exposed through the native toolbar and command
+palette, and repeated at the end of the check section where the authored flow terminates. Its
+disabled reason reports invalid project state, and its status text resolves the input × candidate
+matrix before execution. A trailing Launch pane shows the same preview and explains that Runs and
+Compare are the next steps. There is no launch or result section and no canvas overlay pretending to
+be a shell slot.
 
 Run and comparison views consume one complete backend snapshot. Application selection—active run,
 the two runs being compared, and active case—is browser state and is reconciled by stable IDs after

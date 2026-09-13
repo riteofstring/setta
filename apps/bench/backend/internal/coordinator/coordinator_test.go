@@ -139,8 +139,11 @@ func assertReadySnapshot(t *testing.T, control *Coordinator) {
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	if !snapshot.Validation.Ready || snapshot.Validation.CaseCount != 1 || snapshot.Validation.ExecutionCount != 2 {
+	if !snapshot.Validation.Ready || snapshot.Validation.CaseCount != 1 || snapshot.Validation.ExecutionCount != 2 || len(snapshot.Cases) != 1 {
 		t.Fatalf("validation = %#v", snapshot.Validation)
+	}
+	if snapshot.Cases[0].ID != "one" || snapshot.Cases[0].Name != "One" || string(snapshot.Cases[0].Input) != "{}" || string(snapshot.Cases[0].Expected) != "null" {
+		t.Fatalf("current cases = %#v", snapshot.Cases)
 	}
 }
 
@@ -176,7 +179,7 @@ func TestSnapshotSurfacesManifestFailureWithoutFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshot() = %v", err)
 	}
-	if snapshot.Validation.Ready || snapshot.Validation.CaseCount != 0 || len(snapshot.Validation.Issues) == 0 || snapshot.Validation.Issues[0].Path != "project.caseSet.manifest" {
+	if snapshot.Validation.Ready || snapshot.Validation.CaseCount != 0 || len(snapshot.Cases) != 0 || len(snapshot.Validation.Issues) == 0 || snapshot.Validation.Issues[0].Path != "project.caseSet.manifest" {
 		t.Fatalf("validation = %#v", snapshot.Validation)
 	}
 }

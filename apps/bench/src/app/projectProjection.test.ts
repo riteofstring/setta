@@ -1,7 +1,10 @@
-import { createWorkspaceHost } from "@setta/workspace";
+import {
+  WORKSPACE_CODE_SECTION_KIND,
+  createWorkspaceHost,
+} from "@setta/workspace";
 import { describe, expect, it } from "vitest";
 
-import { makeBenchProject } from "../testSnapshot";
+import { makeBenchSnapshot } from "../testSnapshot";
 import { registerBenchSectionKinds } from "./benchSectionKinds";
 import {
   BENCH_BUILD_VIEW_ID,
@@ -14,8 +17,8 @@ import {
 
 describe("Bench Workspace projection", () => {
   it("authors only domain entities and exposes three fixed saved-view tabs", () => {
-    const project = makeBenchProject();
-    const document = projectWorkspaceDocument(project);
+    const snapshot = makeBenchSnapshot();
+    const document = projectWorkspaceDocument(snapshot);
 
     expect(Object.keys(document.sections)).toEqual([
       "catalog-images",
@@ -26,6 +29,18 @@ describe("Bench Workspace projection", () => {
     expect(document.sections["catalog-images"]?.data).toEqual({
       entityId: "catalog-images",
     });
+    expect(document.sections.contain?.kind).toBe(WORKSPACE_CODE_SECTION_KIND);
+    expect(document.sections.contain?.data).toMatchObject({
+      code: "thumbnail-candidate run \\\n  --mode contain",
+      language: "bash",
+      mode: "read-only",
+    });
+    const inputItems = Object.values(
+      document.sections["catalog-images"]?.itemTree?.items ?? {},
+    );
+    expect(inputItems.map((item) => item.presentation?.label)).toEqual(
+      expect.arrayContaining(["Sunset bottle", "input", "expected"]),
+    );
     expect(document.savedViews?.activeViewId).toBe(BENCH_BUILD_VIEW_ID);
     expect(
       Object.values(document.savedViews?.views ?? {}).map((view) => [
@@ -57,10 +72,11 @@ describe("Bench Workspace projection", () => {
   });
 
   it("round-trips section names, geometry, and viewport into the project draft", () => {
-    const project = makeBenchProject();
+    const snapshot = makeBenchSnapshot();
+    const project = snapshot.project;
     const host = createWorkspaceHost();
     registerBenchSectionKinds(host);
-    host.loadDocument(projectWorkspaceDocument(project));
+    host.loadDocument(projectWorkspaceDocument(snapshot));
     const current = host.getSnapshot();
     expect(
       projectDraftSignature(projectDraftFromWorkspace(project, current)),

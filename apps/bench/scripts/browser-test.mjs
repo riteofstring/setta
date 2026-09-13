@@ -414,6 +414,8 @@ async function exerciseBrowser(client, origin) {
     client,
     `({
       appHeaders: document.querySelectorAll(".bench-app-header").length,
+      body: document.body.textContent ?? "",
+      codeSections: document.querySelectorAll('[data-section-type="setta.code"]').length,
       edgeCount: document.querySelectorAll("[data-edge-id]").length,
       names: Array.from(document.querySelectorAll('[data-workspace-section-shell="true"]')).map(
         (section) => section.textContent ?? "",
@@ -424,8 +426,20 @@ async function exerciseBrowser(client, origin) {
     })`,
   );
   assert.equal(authored.appHeaders, 0);
+  assert.equal(authored.codeSections, 2);
   assert.ok(authored.edgeCount >= 4);
   assert.deepEqual(authored.tabs, ["Build", "Runs", "Compare"]);
+  for (const content of [
+    "Sunset bottle",
+    "inputs/product-01.png",
+    "thumbnail-candidate run",
+    "--mode contain",
+    "output artifact",
+    "Run comparison",
+  ]) {
+    assert.ok(authored.body.includes(content), `${content} was not visible.`);
+  }
+  assert.ok(!authored.body.includes("cases.jsonl"));
   for (const name of [
     "Colorful catalog images",
     "Contain",
@@ -435,7 +449,7 @@ async function exerciseBrowser(client, origin) {
     assert.ok(authored.names.some((text) => text.includes(name)));
   }
 
-  await clickButton(client, "Run all candidates");
+  await clickButton(client, "Run comparison");
   const completed = await waitForSnapshot(
     origin,
     "the CPU candidate comparison",

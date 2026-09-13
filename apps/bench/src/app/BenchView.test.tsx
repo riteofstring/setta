@@ -88,7 +88,7 @@ describe("Bench Workspace composition", () => {
   it("uses one Workspace shell for authored sections, run history, and comparison", async () => {
     const snapshot = makeBenchSnapshot();
     registerBenchSectionKinds(host);
-    host.loadDocument(projectWorkspaceDocument(snapshot.project));
+    host.loadDocument(projectWorkspaceDocument(snapshot));
 
     await act(async () => {
       root.render(
@@ -116,6 +116,15 @@ describe("Bench Workspace composition", () => {
     ).toHaveLength(4);
     expect(container.textContent).toContain("Colorful catalog images");
     expect(container.textContent).toContain("Thumbnail quality");
+    expect(container.textContent).toContain("Sunset bottle");
+    expect(container.textContent).toContain("inputs/product-01.png");
+    expect(container.textContent).toContain("thumbnail-candidate run");
+    expect(container.textContent).toContain("--mode contain");
+    expect(container.textContent).toContain("output artifact");
+    expect(container.textContent).not.toContain("cases.jsonl");
+    expect(
+      container.querySelectorAll('[data-section-type="setta.code"]'),
+    ).toHaveLength(2);
 
     await act(async () => {
       activateWorkspaceSavedView(host, BENCH_RUNS_VIEW_ID);
@@ -157,8 +166,9 @@ describe("Bench Workspace composition", () => {
       ],
       ready: false,
     };
+    snapshot.cases = [];
     registerBenchSectionKinds(host);
-    host.loadDocument(projectWorkspaceDocument(snapshot.project));
+    host.loadDocument(projectWorkspaceDocument(snapshot));
 
     await act(async () => {
       root.render(
@@ -173,13 +183,15 @@ describe("Bench Workspace composition", () => {
     });
 
     const launch = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "Run all candidates",
+      (button) => button.textContent?.trim() === "Run comparison",
     );
     expect(launch?.disabled).toBe(true);
     expect(container.textContent).toContain(
       "cases.jsonl contains an invalid record",
     );
-    expect(container.textContent).toContain("—cases×2candidates=—executions");
+    expect(container.textContent?.replaceAll(/\s/g, "")).toContain(
+      "0inputs×2candidates=0executions",
+    );
   });
 
   it("keeps a saved review when the compared runs change sides", async () => {
@@ -259,7 +271,7 @@ describe("Bench Workspace composition", () => {
             snapshot,
           }}
         >
-          <CandidateInspector data={{ entityId: "contain" }} />
+          <CandidateInspector candidateId="contain" />
         </BenchContext.Provider>,
       );
     });
@@ -273,7 +285,7 @@ describe("Bench Workspace composition", () => {
     await act(async () => setInputValue(workingDirectory, "   "));
     await act(async () => {
       [...container.querySelectorAll("button")]
-        .find((button) => button.textContent?.trim() === "Save candidate")
+        .find((button) => button.textContent?.trim() === "Save invocation")
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 

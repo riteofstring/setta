@@ -8,52 +8,57 @@ import { useState } from "react";
 
 import { projectDraft, useBench } from "../app/benchContext";
 import type { CandidateV1 } from "../backend/generatedContract";
-import { readBenchSectionData } from "./sectionData";
 
-export function CandidateSection({ section }: { section: WorkspaceSection }) {
-  const { snapshot } = useBench();
-  const { entityId } = readBenchSectionData(section.data);
-  const candidate = snapshot.project.candidates.find(
-    (entry) => entry.id === entityId,
-  );
-  if (candidate === undefined) {
-    return <p className="bench-card-error">Candidate {entityId} is missing.</p>;
-  }
+function candidateIssue(
+  snapshot: ReturnType<typeof useBench>["snapshot"],
+  candidateId: string,
+): string | null {
   return (
-    <div className="bench-card-content">
-      <div className="bench-card-kind">
-        {candidate.origin === null ? "Local command" : "Python Canvas export"}
-      </div>
-      <dl className="bench-card-facts">
-        <div>
-          <dt>Command</dt>
-          <dd title={candidate.command.argv.join(" ")}>
-            {candidate.command.argv.join(" ")}
-          </dd>
-        </div>
-        <div>
-          <dt>Directory</dt>
-          <dd>{candidate.command.workingDirectory || "project root"}</dd>
-        </div>
-      </dl>
-    </div>
+    snapshot.validation.issues.find((issue) =>
+      issue.path.startsWith(`project.candidates.${candidateId}.`),
+    )?.message ?? null
   );
 }
 
-export function CandidateInspector({ data }: { data: unknown }) {
+export function CandidateHeaderControls({
+  section,
+}: {
+  section: WorkspaceSection;
+}) {
   const { snapshot } = useBench();
-  const { entityId } = readBenchSectionData(data);
+  const candidateIndex = snapshot.project.candidates.findIndex(
+    (entry) => entry.id === section.id,
+  );
+  const candidate = snapshot.project.candidates[candidateIndex];
+  if (candidate === undefined) return null;
+  const issue = candidateIssue(snapshot, candidate.id);
+  return (
+    <span
+      className="bench-code-header-stage"
+      data-status={issue === null ? "ready" : "error"}
+      title={
+        issue ??
+        `Candidate ${String(candidateIndex + 1)} of ${String(snapshot.project.candidates.length)} runs once per input`
+      }
+    >
+      2 · {candidate.origin === null ? "command" : "Canvas export"}
+    </span>
+  );
+}
+
+export function CandidateInspector({ candidateId }: { candidateId: string }) {
+  const { snapshot } = useBench();
   const candidate = snapshot.project.candidates.find(
-    (entry) => entry.id === entityId,
+    (entry) => entry.id === candidateId,
   );
   if (candidate === undefined) {
-    return <p role="alert">Candidate {entityId} is missing.</p>;
+    return <p role="alert">Candidate {candidateId} is missing.</p>;
   }
   return (
     <CandidateEditor
       candidate={candidate}
-      entityId={entityId}
-      key={`${entityId}:${String(snapshot.project.revision)}`}
+      entityId={candidateId}
+      key={`${candidateId}:${String(snapshot.project.revision)}`}
     />
   );
 }
@@ -75,7 +80,9 @@ function CandidateEditor({
   );
   const [feedback, setFeedback] = useState<string | null>(null);
   const interaction = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+  const imported = candidate.origin !== null;
   const save = async () => {
+    if (imported) return;
     const argv = argumentsDraft
       .split("\n")
       .map((entry) => entry.trim())
@@ -106,12 +113,17 @@ function CandidateEditor({
     <>
       <WorkspaceInspectorSettingsGroup
         status={candidate.origin === null ? "local" : "exported"}
-        title="Candidate"
+        title="Invocation"
       >
+        <p className="setta-workspace-inspector-help">
+          Bench starts this command once per input case, writes the case as JSON
+          to stdin, and reads one JSON result from stdout.
+        </p>
         <label className="setta-workspace-inspector-config-row">
           <span className="setta-workspace-inspector-config-label">Name</span>
           <input
             className={`setta-workspace-inspector-config-input ${interaction}`}
+            disabled={imported}
             onChange={(event) => setName(event.currentTarget.value)}
             value={name}
           />
@@ -120,6 +132,7 @@ function CandidateEditor({
           <span>Command arguments, one per line</span>
           <textarea
             className={interaction}
+            disabled={imported}
             onChange={(event) => setArgumentsDraft(event.currentTarget.value)}
             rows={6}
             value={argumentsDraft}
@@ -131,19 +144,27 @@ function CandidateEditor({
           </span>
           <input
             className={`setta-workspace-inspector-config-input ${interaction}`}
+            disabled={imported}
             onChange={(event) => setWorkingDirectory(event.currentTarget.value)}
             placeholder="project root"
             value={workingDirectory}
           />
         </label>
-        <button
-          className={`setta-workspace-inspector-primary-action ${interaction}`}
-          disabled={pendingAction !== null}
-          onClick={() => void save()}
-          type="button"
-        >
-          Save candidate
-        </button>
+        {imported ? (
+          <p className="setta-workspace-inspector-help">
+            Exported commands are frozen. Edit the callable in Python Canvas,
+            export it again, and re-import the candidate.
+          </p>
+        ) : (
+          <button
+            className={`setta-workspace-inspector-primary-action ${interaction}`}
+            disabled={pendingAction !== null}
+            onClick={() => void save()}
+            type="button"
+          >
+            Save invocation
+          </button>
+        )}
         {feedback === null ? null : <p role="status">{feedback}</p>}
       </WorkspaceInspectorSettingsGroup>
       <CandidateSource candidate={candidate} />
@@ -152,7 +173,16 @@ function CandidateEditor({
 }
 
 function CandidateSource({ candidate }: { candidate: CandidateV1 }) {
-  if (candidate.origin === null) return null;
+  if (candidate.origin === null) {
+    return (
+      <WorkspaceInspectorSettingsGroup status="local" title="Source">
+        <p className="setta-workspace-inspector-help">
+          Bench stores the invocation, not local source files. Edit the source
+          in its own project; the code section shows exactly what Bench runs.
+        </p>
+      </WorkspaceInspectorSettingsGroup>
+    );
+  }
   return (
     <WorkspaceInspectorSettingsGroup title="Source">
       <dl className="bench-inspector-facts">
