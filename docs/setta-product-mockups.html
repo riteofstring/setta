@@ -779,9 +779,9 @@
               <div class="showcase-number">App 01 · Workflow 02</div>
               <h2>Review · Choice</h2>
               <p>
-                A producer submits a bounded choice with evidence. Review
-                returns one portable decision with any necessary conditions; the
-                producer decides how to continue.
+                A producer submits a bounded choice with evidence. Select any
+                option to see how the same evidence supports, qualifies, or
+                conflicts with it; Review returns one portable decision.
               </p>
             </div>
           </div>
@@ -870,6 +870,7 @@
               <div
                 data-region="canvas"
                 class="canvas-stage review-choice-stage"
+                data-choice="b"
               >
                 <svg
                   class="setta-workspace-graph-layer"
@@ -877,29 +878,69 @@
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
-                  <g class="review-edge review-edge--support">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M440 301 C485 301 490 141 535 141"
-                    />
+                  <g class="review-choice-relations" data-choice-relations="a">
+                    <g class="review-edge review-edge--gap">
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 246 C480 246 495 141 535 141"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 141 C905 141 910 234 950 234"
+                      />
+                    </g>
+                    <g class="review-edge review-edge--conflict">
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 246 C480 246 495 356 535 356"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 356 C905 356 910 314 950 314"
+                      />
+                    </g>
                   </g>
-                  <g class="review-edge review-edge--gap">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M440 301 C485 301 490 356 535 356"
-                    />
+                  <g class="review-choice-relations" data-choice-relations="b">
+                    <g class="review-edge review-edge--support">
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 294 C480 294 495 141 535 141"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 294 C480 294 495 356 535 356"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 141 C905 141 910 234 950 234"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 356 C905 356 910 314 950 314"
+                      />
+                    </g>
                   </g>
-                  <g class="review-edge review-edge--support">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M865 141 C905 141 910 234 950 234"
-                    />
-                  </g>
-                  <g class="review-edge review-edge--gap">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M865 356 C905 356 910 314 950 314"
-                    />
+                  <g class="review-choice-relations" data-choice-relations="c">
+                    <g class="review-edge review-edge--conflict">
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 342 C480 342 495 141 535 141"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 141 C905 141 910 234 950 234"
+                      />
+                    </g>
+                    <g class="review-edge review-edge--gap">
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M440 342 C480 342 495 356 535 356"
+                      />
+                      <path
+                        class="setta-workspace-graph-edge-path"
+                        d="M865 356 C905 356 910 314 950 314"
+                      />
+                    </g>
                   </g>
                 </svg>
 
@@ -909,7 +950,18 @@
                 >
                   <span
                     class="setta-workspace-graph-port right"
-                    style="--port-top: 67%"
+                    data-choice-port="a"
+                    style="--port-top: 45%"
+                  ></span>
+                  <span
+                    class="setta-workspace-graph-port right"
+                    data-choice-port="b"
+                    style="--port-top: 66%"
+                  ></span>
+                  <span
+                    class="setta-workspace-graph-port right"
+                    data-choice-port="c"
+                    style="--port-top: 86%"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -922,19 +974,28 @@
                       <strong>How should event schema v3 ship?</strong>
                     </div>
                     <div class="review-choice-options">
-                      <div class="review-choice-option">
-                        <span
-                          class="review-choice-radio"
-                          aria-hidden="true"
+                      <button
+                        type="button"
+                        class="review-choice-option"
+                        data-choice-option="a"
+                        aria-pressed="false"
+                      >
+                        <span class="review-choice-radio" aria-hidden="true"
+                          ><svg class="setta-icon">
+                            <use href="#icon-check"></use></svg
                         ></span>
                         <span>
                           <strong>A · Immediate cutover</strong>
                         </span>
-                      </div>
-                      <div class="review-choice-option" data-selected="true">
-                        <span
-                          class="review-choice-radio"
-                          aria-label="Selected option"
+                      </button>
+                      <button
+                        type="button"
+                        class="review-choice-option"
+                        data-choice-option="b"
+                        data-selected="true"
+                        aria-pressed="true"
+                      >
+                        <span class="review-choice-radio" aria-hidden="true"
                           ><svg class="setta-icon">
                             <use href="#icon-check"></use></svg
                         ></span>
@@ -942,16 +1003,21 @@
                           <strong>B · Seven-day dual read</strong>
                           <small>Producer recommendation</small>
                         </span>
-                      </div>
-                      <div class="review-choice-option">
-                        <span
-                          class="review-choice-radio"
-                          aria-hidden="true"
+                      </button>
+                      <button
+                        type="button"
+                        class="review-choice-option"
+                        data-choice-option="c"
+                        aria-pressed="false"
+                      >
+                        <span class="review-choice-radio" aria-hidden="true"
+                          ><svg class="setta-icon">
+                            <use href="#icon-check"></use></svg
                         ></span>
                         <span>
                           <strong>C · Remain on v2</strong>
                         </span>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -959,11 +1025,13 @@
                 <article class="setta-section-card shadow-evidence-node">
                   <span
                     class="setta-workspace-graph-port left"
-                    style="--port-color: #77d994"
+                    data-evidence-port="shadow"
+                    style="--port-top: 41%"
                   ></span>
                   <span
                     class="setta-workspace-graph-port right"
-                    style="--port-color: #77d994"
+                    data-response-port="shadow"
+                    style="--port-top: 41%"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -994,16 +1062,28 @@
                       <span>2.1M events · rollback rehearsal passed</span>
                     </div>
                   </div>
+                  <div
+                    class="review-evidence-impact"
+                    data-evidence-impact="shadow"
+                    data-tone="support"
+                  >
+                    <svg class="setta-icon" aria-hidden="true">
+                      <use href="#icon-check"></use>
+                    </svg>
+                    <span>Supports B</span>
+                  </div>
                 </article>
 
                 <article class="setta-section-card consumer-evidence-node">
                   <span
                     class="setta-workspace-graph-port left"
-                    style="--port-color: #f2bc66"
+                    data-evidence-port="consumer"
+                    style="--port-top: 38%"
                   ></span>
                   <span
                     class="setta-workspace-graph-port right"
-                    style="--port-color: #f2bc66"
+                    data-response-port="consumer"
+                    style="--port-top: 38%"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -1029,16 +1109,31 @@
                       <span>v2</span>
                     </div>
                   </div>
+                  <div
+                    class="review-evidence-impact"
+                    data-evidence-impact="consumer"
+                    data-tone="support"
+                  >
+                    <svg class="setta-icon" aria-hidden="true">
+                      <use href="#icon-check"></use>
+                    </svg>
+                    <span>Supports B's transition</span>
+                  </div>
                 </article>
 
-                <article class="setta-section-card choice-response-node">
+                <article
+                  class="setta-section-card choice-response-node"
+                  aria-live="polite"
+                >
                   <span
                     class="setta-workspace-graph-port left"
-                    style="--port-top: 32%; --port-color: #77d994"
+                    data-decision-port="shadow"
+                    style="--port-top: 31%"
                   ></span>
                   <span
                     class="setta-workspace-graph-port left"
-                    style="--port-top: 72%; --port-color: #f2bc66"
+                    data-decision-port="consumer"
+                    style="--port-top: 69%"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
@@ -1052,17 +1147,27 @@
                         <use href="#icon-check"></use>
                       </svg>
                       <span>
-                        <strong>B · Seven-day dual read</strong>
+                        <strong data-choice-response
+                          >B · Seven-day dual read</strong
+                        >
                       </span>
                     </div>
                     <div class="review-response-conditions">
                       <div>
-                        <span>Compatibility window</span>
-                        <strong>7 days</strong>
+                        <span data-choice-condition-label="primary"
+                          >Compatibility window</span
+                        >
+                        <strong data-choice-condition-value="primary"
+                          >7 days</strong
+                        >
                       </div>
                       <div>
-                        <span>Rollback threshold</span>
-                        <strong>0.5% errors</strong>
+                        <span data-choice-condition-label="secondary"
+                          >Rollback threshold</span
+                        >
+                        <strong data-choice-condition-value="secondary"
+                          >0.5% errors</strong
+                        >
                       </div>
                     </div>
                     <div
@@ -2202,6 +2307,92 @@
                 </div>
                 ${savedViews}
               </div>`;
+
+            const choiceStage = this.querySelector(".review-choice-stage");
+            if (choiceStage) {
+              const choiceStates = {
+                a: {
+                  response: "A · Immediate cutover",
+                  conditions: [
+                    ["Cutover", "Immediately"],
+                    ["Known conflict", "2 v2 consumers"],
+                  ],
+                  evidence: {
+                    shadow: ["gap", "Supports A, with residual risk"],
+                    consumer: ["conflict", "Conflicts with A"],
+                  },
+                },
+                b: {
+                  response: "B · Seven-day dual read",
+                  conditions: [
+                    ["Compatibility window", "7 days"],
+                    ["Rollback threshold", "0.5% errors"],
+                  ],
+                  evidence: {
+                    shadow: ["support", "Supports B"],
+                    consumer: ["support", "Supports B's transition"],
+                  },
+                },
+                c: {
+                  response: "C · Remain on v2",
+                  conditions: [
+                    ["Active schema", "v2"],
+                    ["v3 rollout", "Not scheduled"],
+                  ],
+                  evidence: {
+                    shadow: ["conflict", "Argues against C"],
+                    consumer: ["gap", "Supports C temporarily"],
+                  },
+                },
+              };
+              const conditionNames = ["primary", "secondary"];
+              const renderChoice = (choice) => {
+                const state = choiceStates[choice];
+                choiceStage.dataset.choice = choice;
+                choiceStage
+                  .querySelectorAll("[data-choice-option]")
+                  .forEach((option) => {
+                    const selected = option.dataset.choiceOption === choice;
+                    option.toggleAttribute("data-selected", selected);
+                    option.setAttribute("aria-pressed", String(selected));
+                  });
+                choiceStage.querySelector(
+                  "[data-choice-response]",
+                ).textContent = state.response;
+                conditionNames.forEach((name, index) => {
+                  choiceStage.querySelector(
+                    `[data-choice-condition-label="${name}"]`,
+                  ).textContent = state.conditions[index][0];
+                  choiceStage.querySelector(
+                    `[data-choice-condition-value="${name}"]`,
+                  ).textContent = state.conditions[index][1];
+                });
+                Object.entries(state.evidence).forEach(
+                  ([evidence, [tone, label]]) => {
+                    const impact = choiceStage.querySelector(
+                      `[data-evidence-impact="${evidence}"]`,
+                    );
+                    impact.dataset.tone = tone;
+                    impact.querySelector("span").textContent = label;
+                    impact
+                      .querySelector("use")
+                      .setAttribute(
+                        "href",
+                        tone === "support" ? "#icon-check" : "#icon-alert",
+                      );
+                  },
+                );
+              };
+
+              choiceStage
+                .querySelectorAll("[data-choice-option]")
+                .forEach((option) => {
+                  option.addEventListener("click", () => {
+                    renderChoice(option.dataset.choiceOption);
+                  });
+                });
+              renderChoice(choiceStage.dataset.choice || "b");
+            }
           }
         },
       );
