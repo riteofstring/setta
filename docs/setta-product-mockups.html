@@ -779,9 +779,9 @@
               <div class="showcase-number">App 01 · Workflow 02</div>
               <h2>Review · Choice</h2>
               <p>
-                One decision surface keeps the options, tradeoffs, terms, and
-                human actions together. Source artifacts remain inspectable
-                without turning the review into a graph.
+                One compact decision section keeps the options and human actions
+                together. Rich source sections expose the underlying change and
+                run data; edges show where each artifact informs the decision.
               </p>
             </div>
           </div>
@@ -819,7 +819,7 @@
                           <use href="#icon-grid"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Choice review</span
+                        >How should event schema v3 ship?</span
                       >
                     </div>
                   </div>
@@ -830,10 +830,10 @@
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
+                          <use href="#icon-code"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >shadow-read.json</span
+                        >Schema change</span
                       >
                     </div>
                   </div>
@@ -844,10 +844,24 @@
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
+                          <use href="#icon-code"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >consumers.json</span
+                        >Shadow-read results</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 28px; --outline-color: #66748b"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-code"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Consumer compatibility</span
                       >
                     </div>
                   </div>
@@ -859,20 +873,69 @@
                 class="canvas-stage review-choice-stage"
                 data-choice="b"
               >
+                <svg
+                  class="setta-workspace-graph-layer"
+                  viewBox="0 0 1290 638"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <g class="review-choice-edge">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M207 390 C207 358 395 358 395 333"
+                    />
+                  </g>
+                  <g class="review-choice-edge">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M530 390 C530 360 568 360 568 333"
+                    />
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M670 390 C670 350 943 358 943 333"
+                    />
+                  </g>
+                  <g class="review-choice-edge">
+                    <path
+                      class="setta-workspace-graph-edge-path"
+                      d="M932 390 C932 376 693 376 693 333"
+                    />
+                  </g>
+                </svg>
+
                 <article
                   class="setta-section-card choice-review-node"
                   data-section-active="true"
                 >
+                  <span
+                    class="review-choice-factor-port"
+                    style="--factor-left: 15.3%"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="review-choice-factor-port"
+                    style="--factor-left: 39.2%"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="review-choice-factor-port"
+                    style="--factor-left: 56.6%"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="review-choice-factor-port"
+                    style="--factor-left: 91.3%"
+                    aria-hidden="true"
+                  ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-kind-icon" aria-hidden="true"
                       ><svg class="setta-icon">
                         <use href="#icon-grid"></use></svg></span
-                    ><span class="setta-section-title">Choice review</span>
+                    ><span class="setta-section-title"
+                      >How should event schema v3 ship?</span
+                    >
                   </div>
                   <div class="section-body review-choice-surface">
-                    <div class="review-choice-question">
-                      <strong>How should event schema v3 ship?</strong>
-                    </div>
                     <table
                       class="review-choice-matrix"
                       aria-label="Rollout choices and tradeoffs"
@@ -880,30 +943,10 @@
                       <thead>
                         <tr>
                           <th scope="col">Option</th>
-                          <th scope="col">
-                            <strong>Mismatch</strong>
-                            <span class="review-choice-source"
-                              >shadow-read.json</span
-                            >
-                          </th>
-                          <th scope="col">
-                            <strong>v2 consumers</strong>
-                            <span class="review-choice-source"
-                              >consumers.json</span
-                            >
-                          </th>
-                          <th scope="col">
-                            <strong>Rollout</strong>
-                            <span class="review-choice-source"
-                              >submitted option</span
-                            >
-                          </th>
-                          <th scope="col">
-                            <strong>Rollback</strong>
-                            <span class="review-choice-source"
-                              >shadow-read.json</span
-                            >
-                          </th>
+                          <th scope="col"><strong>Mismatch</strong></th>
+                          <th scope="col"><strong>v2 consumers</strong></th>
+                          <th scope="col"><strong>Rollout</strong></th>
+                          <th scope="col"><strong>Rollback</strong></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -934,7 +977,7 @@
                           </td>
                           <td data-tone="support"><strong>Now</strong></td>
                           <td data-tone="support">
-                            <strong>Rehearsed</strong>
+                            <strong>Rehearsed</strong><span>0.5% errors</span>
                           </td>
                         </tr>
                         <tr data-choice-row="b" data-selected="true">
@@ -966,7 +1009,7 @@
                           </td>
                           <td data-tone="tradeoff"><strong>7 days</strong></td>
                           <td data-tone="support">
-                            <strong>Rehearsed</strong>
+                            <strong>Rehearsed</strong><span>0.5% errors</span>
                           </td>
                         </tr>
                         <tr data-choice-row="c">
@@ -1002,28 +1045,200 @@
                       </tbody>
                     </table>
                     <div class="review-choice-footer">
-                      <div class="review-choice-terms" aria-live="polite">
-                        <div>
-                          <span data-choice-condition-label="primary"
-                            >Compatibility window</span
-                          >
-                          <strong data-choice-condition-value="primary"
-                            >7 days</strong
-                          >
-                        </div>
-                        <div>
-                          <span data-choice-condition-label="secondary"
-                            >Rollback threshold</span
-                          >
-                          <strong data-choice-condition-value="secondary"
-                            >0.5% errors</strong
-                          >
-                        </div>
+                      <div
+                        class="review-inline-actions review-choice-actions"
+                        data-choice-actions
+                      >
+                        <button type="button" data-action="primary">
+                          Confirm choice
+                        </button>
+                        <button type="button" data-choice-request-changes>
+                          Request changes
+                        </button>
                       </div>
-                      <div class="review-inline-actions review-choice-actions">
-                        <span data-action="primary">Confirm choice</span>
-                        <span>Request revision</span>
+                      <form
+                        class="review-choice-revision-form"
+                        data-choice-revision-form
+                        hidden
+                      >
+                        <label for="choice-revision-message"
+                          >Requested change</label
+                        >
+                        <input
+                          id="choice-revision-message"
+                          name="revision"
+                          placeholder="Describe a missing option or evidence"
+                          required
+                        />
+                        <button type="submit" data-action="primary">
+                          Send request
+                        </button>
+                        <button type="button" data-choice-revision-cancel>
+                          Cancel
+                        </button>
+                      </form>
+                      <div
+                        class="review-choice-revision-sent"
+                        data-choice-revision-sent
+                        hidden
+                      >
+                        <svg class="setta-icon" aria-hidden="true">
+                          <use href="#icon-check"></use>
+                        </svg>
+                        Revision requested
                       </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card review-choice-evidence-node review-choice-schema-node"
+                >
+                  <span
+                    class="review-choice-evidence-port"
+                    aria-hidden="true"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-code"></use></svg></span
+                    ><span class="setta-section-title">Schema change</span>
+                    <span class="setta-section-kind">event-v3.ts</span>
+                    <span class="setta-section-actions">
+                      <span
+                        class="setta-section-action"
+                        aria-label="Open complete diff"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                    </span>
+                  </div>
+                  <div class="section-body review-diff-preview">
+                    <div class="review-diff-hunk">@@ -8,4 +8,5 @@ Event</div>
+                    <div class="review-diff-line" data-line="context">
+                      <span>8</span><span>8</span><code>schemaVersion: 3,</code>
+                    </div>
+                    <div class="review-diff-line" data-line="deletion">
+                      <span>9</span><span></span
+                      ><code>occurredAt: string,</code>
+                    </div>
+                    <div class="review-diff-line" data-line="addition">
+                      <span></span><span>9</span><code>emittedAt: string,</code>
+                    </div>
+                    <div class="review-diff-line" data-line="addition">
+                      <span></span><span>10</span><code>traceId: string,</code>
+                    </div>
+                    <div class="review-diff-line" data-line="context">
+                      <span>10</span><span>11</span
+                      ><code>payload: unknown</code>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card review-choice-evidence-node review-choice-shadow-node"
+                >
+                  <span
+                    class="review-choice-evidence-port"
+                    style="--evidence-port-left: 29%"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="review-choice-evidence-port"
+                    style="--evidence-port-left: 69%"
+                    aria-hidden="true"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-code"></use></svg></span
+                    ><span class="setta-section-title"
+                      >Shadow-read results</span
+                    >
+                    <span class="setta-section-kind">shadow-read.json</span>
+                    <span class="setta-section-actions">
+                      <span
+                        class="setta-section-action"
+                        aria-label="Open complete source"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                    </span>
+                  </div>
+                  <div class="section-body review-code-preview">
+                    <div class="review-code-line">
+                      <span>1</span><code>{</code>
+                    </div>
+                    <div class="review-code-line">
+                      <span>2</span
+                      ><code><b>"events_seen"</b>: <i>1248932</i>,</code>
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>3</span
+                      ><code><b>"mismatch_rate"</b>: <i>0.0002</i>,</code>
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>4</span
+                      ><code
+                        ><b>"rollback_rehearsal"</b>: <em>"passed"</em>,</code
+                      >
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>5</span
+                      ><code><b>"error_threshold"</b>: <i>0.005</i></code>
+                    </div>
+                    <div class="review-code-line">
+                      <span>6</span><code>}</code>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card review-choice-evidence-node review-choice-consumer-node"
+                >
+                  <span
+                    class="review-choice-evidence-port"
+                    style="--evidence-port-left: 26%"
+                    aria-hidden="true"
+                  ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-kind-icon" aria-hidden="true"
+                      ><svg class="setta-icon">
+                        <use href="#icon-code"></use></svg></span
+                    ><span class="setta-section-title"
+                      >Consumer compatibility</span
+                    >
+                    <span class="setta-section-kind">consumers.json</span>
+                    <span class="setta-section-actions">
+                      <span
+                        class="setta-section-action"
+                        aria-label="Open complete source"
+                        ><svg class="setta-icon">
+                          <use href="#icon-fit"></use></svg
+                      ></span>
+                    </span>
+                  </div>
+                  <div class="section-body review-code-preview">
+                    <div class="review-code-line">
+                      <span>1</span><code>{</code>
+                    </div>
+                    <div class="review-code-line">
+                      <span>2</span><code><b>"compatible"</b>: <i>18</i>,</code>
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>3</span><code><b>"requires_v2"</b>: [</code>
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>4</span><code><em>"invoice-indexer"</em>,</code>
+                    </div>
+                    <div class="review-code-line" data-cited="true">
+                      <span>5</span><code><em>"warehouse-export"</em></code>
+                    </div>
+                    <div class="review-code-line">
+                      <span>6</span><code>]</code>
+                    </div>
+                    <div class="review-code-line">
+                      <span>7</span><code>}</code>
                     </div>
                   </div>
                 </article>
@@ -2158,29 +2373,7 @@
 
             const choiceStage = this.querySelector(".review-choice-stage");
             if (choiceStage) {
-              const choiceStates = {
-                a: {
-                  conditions: [
-                    ["Cutover", "Immediately"],
-                    ["Known conflict", "2 v2 consumers"],
-                  ],
-                },
-                b: {
-                  conditions: [
-                    ["Compatibility window", "7 days"],
-                    ["Rollback threshold", "0.5% errors"],
-                  ],
-                },
-                c: {
-                  conditions: [
-                    ["Active schema", "v2"],
-                    ["v3 rollout", "Not scheduled"],
-                  ],
-                },
-              };
-              const conditionNames = ["primary", "secondary"];
               const renderChoice = (choice) => {
-                const state = choiceStates[choice];
                 choiceStage.dataset.choice = choice;
                 choiceStage
                   .querySelectorAll("[data-choice-option]")
@@ -2197,14 +2390,6 @@
                       row.dataset.choiceRow === choice,
                     );
                   });
-                conditionNames.forEach((name, index) => {
-                  choiceStage.querySelector(
-                    `[data-choice-condition-label="${name}"]`,
-                  ).textContent = state.conditions[index][0];
-                  choiceStage.querySelector(
-                    `[data-choice-condition-value="${name}"]`,
-                  ).textContent = state.conditions[index][1];
-                });
               };
 
               choiceStage
@@ -2215,6 +2400,39 @@
                   });
                 });
               renderChoice(choiceStage.dataset.choice || "b");
+
+              const choiceActions = choiceStage.querySelector(
+                "[data-choice-actions]",
+              );
+              const revisionForm = choiceStage.querySelector(
+                "[data-choice-revision-form]",
+              );
+              const revisionSent = choiceStage.querySelector(
+                "[data-choice-revision-sent]",
+              );
+              const revisionInput = revisionForm.querySelector("input");
+
+              choiceStage
+                .querySelector("[data-choice-request-changes]")
+                .addEventListener("click", () => {
+                  choiceActions.hidden = true;
+                  revisionSent.hidden = true;
+                  revisionForm.hidden = false;
+                  revisionInput.focus();
+                });
+              choiceStage
+                .querySelector("[data-choice-revision-cancel]")
+                .addEventListener("click", () => {
+                  revisionForm.reset();
+                  revisionForm.hidden = true;
+                  choiceActions.hidden = false;
+                });
+              revisionForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                if (!revisionForm.reportValidity()) return;
+                revisionForm.hidden = true;
+                revisionSent.hidden = false;
+              });
             }
           }
         },

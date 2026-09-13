@@ -2609,18 +2609,23 @@ h1 {
   gap: 6px;
 }
 
-.review-inline-actions span {
+.review-inline-actions > span,
+.review-inline-actions > button {
   min-height: 24px;
+  appearance: none;
   padding: 4px 8px;
   border: 1px solid rgb(43 54 74);
   border-radius: 4px;
   background: rgb(17 23 34);
   color: rgb(150 164 192);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 9px;
   font-weight: 600;
 }
 
-.review-inline-actions span[data-action="primary"] {
+.review-inline-actions > span[data-action="primary"],
+.review-inline-actions > button[data-action="primary"] {
   border-color: rgb(59 130 246);
   background: rgb(30 58 138 / 65%);
   color: rgb(239 246 255);
@@ -2704,6 +2709,24 @@ h1 {
 .review-diff-line[data-line="addition"] code::before {
   color: rgb(119 217 148);
   content: "+ ";
+}
+
+.review-diff-line[data-line="deletion"] {
+  background: rgb(127 29 29 / 18%);
+}
+
+.review-diff-line[data-line="deletion"] > span {
+  background: rgb(127 29 29 / 14%);
+  color: rgb(240 124 134 / 68%);
+}
+
+.review-diff-line[data-line="deletion"] code {
+  color: rgb(254 202 202);
+}
+
+.review-diff-line[data-line="deletion"] code::before {
+  color: rgb(240 124 134);
+  content: "- ";
 }
 
 .review-diff-line[data-line="context"] code::before {
@@ -2831,7 +2854,7 @@ h1 {
 }
 
 .review-choice-stage .choice-review-node {
-  top: 82px;
+  top: 24px;
   left: 50%;
   width: fit-content;
   min-width: 720px;
@@ -2839,24 +2862,39 @@ h1 {
   transform: translateX(-50%);
 }
 
+.review-choice-edge .setta-workspace-graph-edge-path {
+  fill: none;
+  stroke: rgb(96 165 250 / 72%);
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+.review-choice-factor-port,
+.review-choice-evidence-port {
+  position: absolute;
+  z-index: 40;
+  width: 10px;
+  height: 10px;
+  border: 1px solid hsl(220 25% 11%);
+  border-radius: 50%;
+  background: rgb(96 165 250);
+}
+
+.review-choice-factor-port {
+  bottom: -6px;
+  left: var(--factor-left);
+  transform: translateX(-50%);
+}
+
+.review-choice-evidence-port {
+  top: -6px;
+  left: var(--evidence-port-left, 50%);
+  transform: translateX(-50%);
+}
+
 .review-choice-surface {
   overflow: hidden;
   background: rgb(12 17 25);
-}
-
-.review-choice-question {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  padding-inline: 14px;
-  border-block-end: 1px solid rgb(40 50 68 / 68%);
-}
-
-.review-choice-question strong {
-  display: block;
-  color: rgb(226 232 240);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .review-choice-row-control {
@@ -2996,17 +3034,6 @@ h1 {
   box-shadow: inset 3px 0 0 var(--green);
 }
 
-.review-choice-source {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 3px;
-  color: rgb(86 105 143);
-  font-family: var(--mono);
-  font-size: 8px;
-  font-weight: 400;
-}
-
 .review-choice-matrix td {
   padding: 7px 6px;
   color: rgb(150 164 192);
@@ -3050,43 +3077,168 @@ h1 {
   display: flex;
   min-height: 54px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px;
   padding: 8px 12px;
   background: rgb(15 21 31);
 }
 
-.review-choice-terms {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 18px;
-}
-
-.review-choice-terms > div {
-  min-width: 105px;
-}
-
-.review-choice-terms span,
-.review-choice-terms strong {
-  display: block;
-}
-
-.review-choice-terms span {
-  color: rgb(117 136 174);
-  font-size: 8px;
-}
-
-.review-choice-terms strong {
-  margin-top: 2px;
-  color: rgb(203 213 225);
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 500;
+.review-choice-footer [hidden] {
+  display: none;
 }
 
 .review-choice-actions {
   flex: 0 0 auto;
+}
+
+.review-choice-revision-form {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.review-choice-revision-form label {
+  flex: 0 0 auto;
+  color: rgb(117 136 174);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.review-choice-revision-form input {
+  width: auto;
+  min-width: 0;
+  height: 28px;
+  flex: 1 1 auto;
+  padding-inline: 8px;
+  border: 1px solid rgb(43 54 74);
+  border-radius: 4px;
+  outline: 0;
+  background: rgb(12 17 25);
+  color: rgb(203 213 225);
+  font-family: inherit;
+  font-size: 9px;
+}
+
+.review-choice-revision-form input::placeholder {
+  color: rgb(86 105 143);
+}
+
+.review-choice-revision-form button {
+  min-height: 28px;
+  appearance: none;
+  padding: 4px 8px;
+  border: 1px solid rgb(43 54 74);
+  border-radius: 4px;
+  background: rgb(17 23 34);
+  color: rgb(150 164 192);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.review-choice-revision-form button[data-action="primary"] {
+  border-color: rgb(59 130 246);
+  background: rgb(30 58 138 / 65%);
+  color: rgb(239 246 255);
+}
+
+.review-choice-revision-sent {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: rgb(119 217 148);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.review-choice-revision-sent .setta-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.review-choice-stage .review-choice-schema-node {
+  top: 390px;
+  left: 32px;
+  width: 350px;
+}
+
+.review-choice-stage .review-choice-shadow-node {
+  top: 390px;
+  left: 425px;
+  width: 350px;
+}
+
+.review-choice-stage .review-choice-consumer-node {
+  top: 390px;
+  left: 822px;
+  width: 420px;
+}
+
+.review-choice-evidence-node .setta-section-kind {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.review-code-preview {
+  overflow: hidden;
+  padding-block: 2px;
+  background: rgb(12 17 25);
+  font-family: var(--mono);
+}
+
+.review-code-line {
+  display: grid;
+  min-height: 20px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  font-size: 8px;
+}
+
+.review-code-line > span {
+  height: 100%;
+  padding: 3px 6px;
+  border-inline-end: 1px solid rgb(40 50 68 / 52%);
+  color: rgb(65 80 108);
+  text-align: end;
+}
+
+.review-code-line code {
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: 9px;
+  color: rgb(182 192 211);
+  font-family: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-code-line[data-cited="true"] {
+  background: rgb(30 58 138 / 18%);
+  box-shadow: inset 2px 0 0 rgb(96 165 250 / 80%);
+}
+
+.review-code-line b,
+.review-code-line i,
+.review-code-line em {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.review-code-line b {
+  color: rgb(147 197 253);
+}
+
+.review-code-line i {
+  color: rgb(252 211 128);
+}
+
+.review-code-line em {
+  color: rgb(181 231 196);
 }
 
 .context-pack-stage .task-node {
