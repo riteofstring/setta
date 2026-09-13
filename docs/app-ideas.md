@@ -146,9 +146,10 @@ Codex, Claude Code, OpenCode, or any other producer can submit and consume the s
 
 #### Completion review
 
-Completion review presents bounded completion claims beside exact evidence and marks each claim
-supported, contradicted, unproven, or qualified. Its response can become a continuation packet for
-the next consumer.
+Completion review presents bounded completion claims beside exact evidence and can ingest
+independent assessments from any external agent. Consensus recedes; disagreements, missing
+evidence, and consequential claims receive attention so a person can resolve only the exceptions
+that require human judgment. Its response can become a continuation packet for the next consumer.
 
 #### Question and proposal review
 

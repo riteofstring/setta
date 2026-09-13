@@ -68,6 +68,14 @@
           d="m18 15 .7 2.3L21 18l-2.3.7L18 21l-.7-2.3L15 18l2.3-.7L18 15Z"
         />
       </symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.8 20h18.4L12 3Z" />
+        <path d="M12 9v5M12 17.5h.01" />
+      </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </symbol>
     </svg>
 
     <header class="site-header">
@@ -206,60 +214,26 @@
 
       <section class="mockup-area" aria-label="Recommended product mockups">
         <section id="review-completion" class="page-shell product-showcase">
-          <div class="showcase-head">
+          <div class="showcase-head showcase-head-simple">
             <div>
               <div class="showcase-number">App 01 · Workflow 01</div>
               <h2>Review · Completion</h2>
               <p>
-                Reviews an agent's completion claims without editing its
-                submission. The graph shows which evidence supports each claim;
-                attention marks unsupported or qualified assertions.
+                Agents submit claims, evidence, and independent assessments.
+                Consensus stays quiet; disagreement comes to the human.
               </p>
             </div>
-            <div
-              class="showcase-tags"
-              aria-label="Completion review characteristics"
-            >
-              <span>claim sections</span><span>evidence edges</span>
-              <span>AI Follow</span><span>continuation packet</span>
-            </div>
-          </div>
-
-          <div
-            class="capability-strip"
-            aria-label="Workspace capabilities used by Setta Review"
-          >
-            <article>
-              <span>Custom sections</span>
-              <strong>Claims are first-class objects</strong>
-              <code>claim · status · qualifier</code>
-            </article>
-            <article>
-              <span>Typed edges</span>
-              <strong>Support is visible on canvas</strong>
-              <code>supports · contradicts · produced</code>
-            </article>
-            <article>
-              <span>Attention</span>
-              <strong>Unproven claims come to the front</strong>
-              <code>selected claim → source range</code>
-            </article>
-            <article>
-              <span>Portable result</span>
-              <strong>A new agent can continue</strong>
-              <code>review-response.json</code>
-            </article>
           </div>
 
           <div class="app-frame">
             <setta-workspace
-              heading="Setta Review · completion review"
-              meta="REVIEW R-204 · request frozen · revision 7"
-              chips="4 CLAIMS|6 SOURCES"
+              heading="Setta Review · checkout idempotency"
+              meta="Review R-204 · live"
+              chips="1 NEEDS YOU"
               action="Export response"
-              inspector-title="Claim review"
-              tabs="Summary|Evidence|Response"
-              selected-tab="Evidence"
+              inspector-title="Decision"
+              tabs="Review|Evidence|Response"
+              selected-tab="Review"
             >
               <div data-region="outline">
                 <div class="setta-workspace-outline">
@@ -277,15 +251,13 @@
                   <div class="setta-workspace-outline-item">
                     <div
                       class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #ad8cff"
+                      style="--outline-depth: 14px; --outline-color: #66748b"
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-spark"></use></svg
+                          <use href="#icon-lock"></use></svg
                       ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Agent request</span
-                      >
+                      <span class="setta-workspace-outline-label">Request</span>
                     </div>
                   </div>
                   <div
@@ -298,11 +270,9 @@
                     >
                       <span class="setta-workspace-outline-kind-icon"
                         ><svg class="setta-icon">
-                          <use href="#icon-check"></use></svg
+                          <use href="#icon-alert"></use></svg
                       ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Completion claims · 4</span
-                      >
+                      <span class="setta-workspace-outline-label">Claims</span>
                       <span class="setta-workspace-outline-state-icon"
                         ><svg class="setta-icon">
                           <use href="#icon-panel"></use></svg
@@ -319,7 +289,7 @@
                           <use href="#icon-document"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Git diff · 3 files</span
+                        >Evidence</span
                       >
                     </div>
                   </div>
@@ -333,32 +303,7 @@
                           <use href="#icon-check"></use></svg
                       ></span>
                       <span class="setta-workspace-outline-label"
-                        >Test log · 42 passed</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #f2bc66"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-layers"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Build artifact</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div class="setta-workspace-outline-row">
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Continuation manifest</span
+                        >Response</span
                       >
                     </div>
                   </div>
@@ -375,55 +320,48 @@
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
-                  <g class="setta-workspace-graph-edge--agentic">
+                  <g class="review-edge review-edge--context">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M304 112 C330 112 330 265 352 265"
+                      d="M242 255 C266 255 266 255 290 255"
                     />
                   </g>
-                  <g
-                    class="setta-workspace-graph-edge--data setta-workspace-graph-edge--selected"
-                  >
+                  <g class="review-edge review-edge--gap">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M682 255 C712 255 712 104 742 104"
+                      d="M688 330 C720 330 720 151 752 151"
                     />
                   </g>
-                  <g class="setta-workspace-graph-edge--data">
+                  <g class="review-edge review-edge--support">
                     <path
                       class="setta-workspace-graph-edge-path"
-                      d="M682 300 C712 300 712 306 742 306"
+                      d="M688 330 C720 330 720 376 752 376"
                     />
                   </g>
-                  <g class="setta-workspace-graph-edge--data">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M304 467 C525 467 525 350 742 350"
-                    />
+                  <g class="review-edge-marker review-edge-marker--gap">
+                    <circle cx="718" cy="245" r="10" />
+                    <text x="718" y="249">!</text>
+                  </g>
+                  <g class="review-edge-marker review-edge-marker--support">
+                    <circle cx="718" cy="360" r="10" />
+                    <path d="m713 360 3 3 6-7" />
                   </g>
                 </svg>
 
                 <article class="setta-section-card request-node">
-                  <span class="setta-workspace-graph-port right agentic"></span>
+                  <span class="setta-workspace-graph-port right"></span>
                   <div class="setta-section-header">
                     <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Agent request</span
-                    ><span class="setta-section-kind">task</span
-                    ><span class="setta-section-actions">•••</span>
+                    ><span class="setta-section-title">Request</span>
                   </div>
-                  <div class="section-body">
-                    <div class="section-intro">
-                      <strong>Make checkout retries idempotent</strong
-                      ><span>preserve API behavior · add exact tests</span>
+                  <div class="section-body review-request-body">
+                    <div class="review-request-lock" aria-hidden="true">
+                      <svg class="setta-icon">
+                        <use href="#icon-lock"></use>
+                      </svg>
                     </div>
-                    <div class="chip-row">
-                      <span class="chip active">repository</span
-                      ><span class="chip">tests</span
-                      ><span class="chip">artifact</span>
-                    </div>
-                    <div class="section-summary">
-                      <span>requested by agent</span><span>14:08</span>
-                    </div>
+                    <strong>Make checkout retries idempotent</strong>
+                    <span>Frozen submission</span>
                   </div>
                 </article>
 
@@ -433,115 +371,137 @@
                   data-section-attention="true"
                 >
                   <span
-                    class="setta-workspace-graph-port left agentic target"
+                    class="setta-workspace-graph-port left"
+                    style="--port-top: 62%"
                   ></span>
                   <span
                     class="setta-workspace-graph-port right"
-                    style="--port-top: 34%"
+                    style="--port-top: 87%; --port-color: #f2bc66"
                   ></span>
+                  <div class="setta-section-header">
+                    <span class="setta-section-menu"></span
+                    ><span class="setta-section-title">Claims</span>
+                    <span
+                      class="review-agent-stack"
+                      aria-label="Three reviewer agents active"
+                    >
+                      <span aria-hidden="true">Cx</span>
+                      <span aria-hidden="true">Cl</span>
+                      <span data-live="true" aria-hidden="true">O</span>
+                    </span>
+                  </div>
+                  <div class="section-body review-claim-list">
+                    <div class="review-claim-row" data-state="settled">
+                      <span class="review-claim-status" aria-label="Consensus">
+                        <svg class="setta-icon">
+                          <use href="#icon-check"></use>
+                        </svg>
+                      </span>
+                      <strong>Retries reuse one key</strong>
+                      <span
+                        class="review-reviewer-signals"
+                        aria-label="Three reviewers agree"
+                      >
+                        <i></i><i></i><i></i>
+                      </span>
+                    </div>
+                    <div class="review-claim-row" data-state="settled">
+                      <span class="review-claim-status" aria-label="Consensus">
+                        <svg class="setta-icon">
+                          <use href="#icon-check"></use>
+                        </svg>
+                      </span>
+                      <strong>Parallel requests converge</strong>
+                      <span
+                        class="review-reviewer-signals"
+                        aria-label="Three reviewers agree"
+                      >
+                        <i></i><i></i><i></i>
+                      </span>
+                    </div>
+                    <div class="review-claim-row" data-state="settled">
+                      <span class="review-claim-status" aria-label="Consensus">
+                        <svg class="setta-icon">
+                          <use href="#icon-check"></use>
+                        </svg>
+                      </span>
+                      <strong>All tests pass</strong>
+                      <span
+                        class="review-reviewer-signals"
+                        aria-label="Three reviewers agree"
+                      >
+                        <i></i><i></i><i></i>
+                      </span>
+                    </div>
+                    <div
+                      class="review-claim-row"
+                      data-state="disputed"
+                      data-selected="true"
+                    >
+                      <span
+                        class="review-claim-status"
+                        aria-label="Reviewers disagree"
+                      >
+                        <svg class="setta-icon">
+                          <use href="#icon-alert"></use>
+                        </svg>
+                      </span>
+                      <strong>No migration required</strong>
+                      <span
+                        class="review-reviewer-signals"
+                        aria-label="One reviewer supports; two reviewers raise concerns"
+                      >
+                        <i></i><i data-concern="true"></i
+                        ><i data-concern="true"></i>
+                      </span>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="setta-section-card schema-node">
                   <span
-                    class="setta-workspace-graph-port right"
-                    style="--port-top: 67%"
+                    class="setta-workspace-graph-port left"
+                    style="--port-color: #f2bc66"
                   ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Completion claims</span
-                    ><span class="setta-section-kind">claim set</span
-                    ><span class="setta-section-actions">•••</span>
+                    ><span class="setta-section-title">Schema change</span>
                   </div>
-                  <div class="section-body">
-                    <div class="item-list">
-                      <div class="item-row" data-selected="true">
-                        <span class="item-key">Retries reuse one key</span
-                        ><span class="item-value">supported</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">Parallel requests converge</span
-                        ><span class="item-value">supported</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">All tests pass</span
-                        ><span class="item-value">supported</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">No migration required</span
-                        ><span class="item-value">qualified</span>
-                      </div>
-                    </div>
-                    <div class="section-summary">
-                      <span>3 supported</span><span>1 qualified</span>
+                  <div class="section-body review-diff-preview">
+                    <div><b>+</b><span>idempotency_key</span></div>
+                    <div><b>+</b><span>unique index</span></div>
+                    <div class="review-evidence-cue" data-state="gap">
+                      <svg class="setta-icon">
+                        <use href="#icon-alert"></use>
+                      </svg>
+                      <strong>No backfill</strong>
                     </div>
                   </div>
                 </article>
 
-                <article class="setta-section-card diff-node">
-                  <span class="setta-workspace-graph-port left"></span>
+                <article class="setta-section-card tests-node">
+                  <span
+                    class="setta-workspace-graph-port left"
+                    style="--port-color: #77d994"
+                  ></span>
                   <div class="setta-section-header">
                     <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Git diff</span
-                    ><span class="setta-section-kind">source</span
-                    ><span class="setta-section-actions">•••</span>
+                    ><span class="setta-section-title">Tests</span>
                   </div>
-                  <div class="section-body">
-                    <div class="code-block">
-                      <b>+ key := request.ID</b><br /><em
-                        >+ store.LoadOrCreate(key)</em
-                      ><br />+ return cached.Result
+                  <div class="section-body review-test-result">
+                    <div class="review-test-mark" aria-hidden="true">
+                      <svg class="setta-icon">
+                        <use href="#icon-check"></use>
+                      </svg>
                     </div>
-                    <div class="section-summary">
-                      <span>3 files</span><span>+48 −11</span>
-                    </div>
-                  </div>
-                </article>
-
-                <article class="setta-section-card log-node">
-                  <span class="setta-workspace-graph-port left"></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Exact test run</span
-                    ><span class="setta-section-kind">receipt</span
-                    ><span class="setta-section-actions">•••</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="item-list">
-                      <div class="item-row">
-                        <span class="item-key">checkout/retry</span
-                        ><span class="item-value">18 passed</span>
-                      </div>
-                      <div class="item-row">
-                        <span class="item-key">checkout/concurrent</span
-                        ><span class="item-value">24 passed</span>
-                      </div>
-                    </div>
-                    <div class="section-summary">
-                      <span>42 / 42</span><span>1.8 s</span>
-                    </div>
-                  </div>
-                </article>
-
-                <article class="setta-section-card artifact-node">
-                  <span class="setta-workspace-graph-port right"></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-menu"></span
-                    ><span class="setta-section-title">Build artifact</span
-                    ><span class="setta-section-kind">artifact</span
-                    ><span class="setta-section-actions">•••</span>
-                  </div>
-                  <div class="section-body">
-                    <div class="section-intro">
-                      <strong>checkout-service.tar.zst</strong
-                      ><span>sha256 · b91e…6a2d · linux/arm64</span>
-                    </div>
-                    <div class="section-summary">
-                      <span>reproducible</span><span>18.4 MB</span>
-                    </div>
+                    <strong>42 / 42</strong>
+                    <span>Fresh database</span>
                   </div>
                 </article>
 
                 <div class="react-flow__minimap" aria-hidden="true">
                   <div class="minimap-viewport"></div>
                   <span class="minimap-node"></span
-                  ><span class="minimap-node"></span
                   ><span class="minimap-node"></span
                   ><span class="minimap-node"></span>
                 </div>
@@ -551,50 +511,65 @@
                 <div class="setta-workspace-inspector">
                   <div class="setta-workspace-inspector-editor">
                     <div class="inspector-identity">
-                      <strong>Retries reuse one key</strong><span>claim</span>
+                      <strong>No migration required</strong>
+                      <svg class="setta-icon" aria-label="Needs attention">
+                        <use href="#icon-alert"></use>
+                      </svg>
                     </div>
-                    <div class="inspector-group-label">Verdict</div>
-                    <div class="inspector-row emphasis">
-                      <span class="inspector-label">Status</span
-                      ><span class="inspector-value">SUPPORTED</span>
+                    <div class="review-decision-state">
+                      <span class="review-decision-icon" aria-hidden="true">
+                        <svg class="setta-icon">
+                          <use href="#icon-alert"></use>
+                        </svg>
+                      </span>
+                      <div>
+                        <strong>Agents disagree</strong>
+                        <span>Your decision is needed</span>
+                      </div>
                     </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Confidence</span
-                      ><span class="inspector-value">HIGH</span>
+                    <div
+                      class="review-vote-list"
+                      aria-label="Agent assessments"
+                    >
+                      <div class="review-vote-row">
+                        <span class="review-vote-agent"><i>Cx</i>Codex</span>
+                        <span class="review-vote-status" data-state="supported">
+                          <svg class="setta-icon">
+                            <use href="#icon-check"></use>
+                          </svg>
+                          Supported
+                        </span>
+                      </div>
+                      <div class="review-vote-row">
+                        <span class="review-vote-agent"><i>Cl</i>Claude</span>
+                        <span class="review-vote-status" data-state="qualified">
+                          <svg class="setta-icon">
+                            <use href="#icon-alert"></use>
+                          </svg>
+                          Qualified
+                        </span>
+                      </div>
+                      <div class="review-vote-row">
+                        <span class="review-vote-agent"><i>O</i>OpenCode</span>
+                        <span class="review-vote-status" data-state="unproven">
+                          <svg class="setta-icon">
+                            <use href="#icon-alert"></use>
+                          </svg>
+                          Unproven
+                        </span>
+                      </div>
                     </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Reviewer</span
-                      ><span class="inspector-value">reviewer/local</span>
+                    <p class="review-decision-note">
+                      Passing tests cover new databases, but the change adds no
+                      backfill for existing records.
+                    </p>
+                    <div class="inspector-primary-action">Request evidence</div>
+                    <div class="inspector-secondary-action">
+                      Accept with caveat
                     </div>
-                    <div class="inspector-group-label">Evidence</div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Primary</span
-                      ><span class="inspector-value">diff:L41–58</span>
+                    <div class="review-detail-link">
+                      Evidence &amp; provenance →
                     </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Corroborates</span
-                      ><span class="inspector-value">test:retry#18</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Revision</span
-                      ><span class="inspector-value">6f312ac</span>
-                    </div>
-                    <div class="inspector-note">
-                      The selected range introduces the stable request key. The
-                      exact retry suite exercises duplicate delivery and cached
-                      response reuse.
-                    </div>
-                    <div class="inspector-group-label">Response</div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Include sources</span
-                      ><span class="toggle"></span>
-                    </div>
-                    <div class="inspector-row">
-                      <span class="inspector-label">Include receipts</span
-                      ><span class="toggle"></span>
-                    </div>
-                    <div class="inspector-primary-action">Accept claim</div>
-                    <div class="inspector-secondary-action">Mark qualified</div>
                   </div>
                 </div>
               </div>
