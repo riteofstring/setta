@@ -2335,9 +2335,16 @@ h1 {
   width: 470px;
 }
 
-.review-completion-stage .review-collapsed-evidence {
-  top: 407px;
+.review-completion-stage .review-evidence-test-node {
+  top: 383px;
   left: 820px;
+  width: 350px;
+}
+
+.review-completion-stage .review-evidence-diff-node {
+  top: 446px;
+  left: 820px;
+  width: 350px;
 }
 
 .review-completion-stage .request-node--tertiary {
@@ -2752,7 +2759,7 @@ h1 {
 }
 
 .review-compact-claim-row[data-state="accepted"] .setta-icon {
-  color: rgb(96 165 250);
+  color: rgb(119 217 148);
 }
 
 .review-compact-claim-row strong {
@@ -2765,19 +2772,12 @@ h1 {
   white-space: nowrap;
 }
 
-.review-compact-claim-row > span:last-child:not(.review-claim-dot) {
-  color: rgb(86 105 143);
-  font-family: var(--mono);
-  font-size: 7px;
-  text-transform: uppercase;
-}
-
 .review-human-decision {
   display: flex;
   min-height: 27px;
   align-items: center;
   gap: 6px;
-  color: rgb(96 165 250);
+  color: rgb(119 217 148);
   font-size: 9px;
   font-weight: 600;
 }
@@ -2793,6 +2793,7 @@ h1 {
 }
 
 .review-compact-claim-list--open .review-compact-claim-row {
+  grid-template-columns: 18px minmax(0, 1fr);
   min-height: 25px;
 }
 
@@ -2805,58 +2806,8 @@ h1 {
   background: rgb(86 105 143 / 48%);
 }
 
-.review-compact-claim-row[data-state="draft"] .review-claim-dot {
-  border-color: rgb(81 214 199);
-  background: transparent;
-  box-shadow: 0 0 8px rgb(81 214 199 / 34%);
-}
-
-.review-compact-claim-row[data-state="draft"] > span:last-child {
-  color: rgb(81 214 199);
-}
-
-.review-collapsed-evidence {
-  position: absolute;
-  z-index: 2;
-  display: flex;
-  width: 58px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid rgb(53 66 88);
-  border-radius: 6px;
-  background: hsl(220 24% 4.5%);
-  color: rgb(119 217 148);
-  box-shadow:
-    5px 5px 0 -1px hsl(220 24% 7%),
-    5px 5px 0 0 rgb(53 66 88),
-    10px 10px 0 -1px hsl(220 24% 9%),
-    10px 10px 0 0 rgb(43 54 74);
-}
-
-.review-collapsed-evidence::after {
-  position: absolute;
-  top: 50%;
-  left: -6px;
-  width: 9px;
-  height: 9px;
-  border: 2px solid rgb(119 217 148);
-  border-radius: 50%;
-  background: hsl(220 24% 4.5%);
-  content: "";
-  transform: translateY(-50%);
-}
-
-.review-collapsed-evidence .setta-icon {
-  width: 15px;
-  height: 15px;
-}
-
-.review-collapsed-evidence strong {
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
+.review-minimized-evidence {
+  min-height: 32px;
 }
 
 .review-completion-stage .react-flow__minimap {
