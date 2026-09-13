@@ -1012,6 +1012,21 @@ h1 {
   content: "";
 }
 
+.setta-section-kind-icon {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: rgb(117 136 174);
+}
+
+.setta-section-kind-icon .setta-icon {
+  width: 13px;
+  height: 13px;
+}
+
 .setta-section-title {
   min-width: 0;
   flex: 1;
