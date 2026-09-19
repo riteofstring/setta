@@ -52,6 +52,14 @@
         "module": "realtime-frontend"
       },
       {
+        "path": "docs/design/review-backend.md",
+        "module": "review-backend"
+      },
+      {
+        "path": "docs/design/review-frontend.md",
+        "module": "review-frontend"
+      },
+      {
         "path": "docs/design/setta-runtime.md",
         "module": "setta-runtime"
       },
@@ -136,6 +144,43 @@
           ],
           "timeoutSeconds": 300
         }
+      },
+      {
+        "name": "review-contracts",
+        "outputs": [
+          "apps/review/backend/internal/contracts/testdata/review-request-v1.schema.json",
+          "apps/review/backend/internal/contracts/testdata/review-response-v1.schema.json",
+          "apps/review/backend/internal/contracts/testdata/review-snapshot-v1.schema.json",
+          "apps/review/backend/internal/contracts/testdata/review-mutation-v1.schema.json",
+          "apps/review/src/backend/generatedContract.ts",
+          "apps/review/src/backend/generatedValidators.js",
+          "apps/review/src/backend/generatedValidators.d.ts"
+        ],
+        "inputs": [
+          "apps/review/backend/cmd/generate-contract/*.go",
+          "apps/review/backend/internal/contracts/*.go",
+          "apps/review/scripts/compile-validators.mjs"
+        ],
+        "generate": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/review",
+            "run",
+            "contract:generate"
+          ],
+          "timeoutSeconds": 300
+        },
+        "verify": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/review",
+            "run",
+            "contract:check"
+          ],
+          "timeoutSeconds": 300
+        }
       }
     ]
   },
@@ -147,6 +192,10 @@
       "apps/realtime/src/backend/generatedContract.ts",
       "apps/realtime/src/backend/generatedValidators.js",
       "apps/realtime/src/backend/generatedValidators.d.ts",
+      "apps/review/backend/internal/contracts/testdata/*.schema.json",
+      "apps/review/src/backend/generatedContract.ts",
+      "apps/review/src/backend/generatedValidators.js",
+      "apps/review/src/backend/generatedValidators.d.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"
     ],
@@ -161,6 +210,9 @@
       "apps/realtime/examples/neon-sketch/app.py",
       "apps/realtime/src/main.tsx",
       "apps/realtime/vitest.setup.ts",
+      "apps/review/backend/cmd/review/main.go",
+      "apps/review/src/main.tsx",
+      "apps/review/vitest.setup.ts",
       "docs/setta-product-mockups.js",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
@@ -184,6 +236,10 @@
       "apps/realtime/vitest.config.ts",
       "apps/realtime/vitest.setup.ts",
       "apps/realtime/scripts/**",
+      "apps/review/vite.config.ts",
+      "apps/review/vitest.config.ts",
+      "apps/review/vitest.setup.ts",
+      "apps/review/scripts/**",
       "docs/setta-product-mockups.js",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
@@ -238,6 +294,19 @@
       "dependsOn": ["workspace", "realtime-backend"]
     },
     {
+      "name": "review-backend",
+      "paths": ["apps/review/backend/**", "apps/review/examples/**"]
+    },
+    {
+      "name": "review-frontend",
+      "paths": [
+        "apps/review/*",
+        "apps/review/scripts/**",
+        "apps/review/src/**"
+      ],
+      "dependsOn": ["workspace", "review-backend"]
+    },
+    {
       "name": "setta-runtime",
       "paths": [
         "packages/setta-runtime/**",
@@ -249,7 +318,9 @@
         "python-canvas-backend",
         "python-canvas-frontend",
         "realtime-backend",
-        "realtime-frontend"
+        "realtime-frontend",
+        "review-backend",
+        "review-frontend"
       ]
     }
   ],
@@ -313,6 +384,23 @@
       "timeoutSeconds": 900
     },
     {
+      "name": "review-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "apps/review/backend",
+      "modules": ["review-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "review-frontend-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/review", "run", "build"],
+      "modules": ["review-frontend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
@@ -334,6 +422,15 @@
       "argv": ["go", "mod", "tidy", "-diff"],
       "cwd": "apps/realtime/backend",
       "modules": ["realtime-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "review-go-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["go", "mod", "tidy", "-diff"],
+      "cwd": "apps/review/backend",
+      "modules": ["review-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -360,6 +457,10 @@
       "apps/realtime/backend/**/*_test.go",
       "apps/realtime/src/**/*.test.ts",
       "apps/realtime/src/**/*.test.tsx",
+      "apps/review/backend/**/*_test.go",
+      "apps/review/*.test.mjs",
+      "apps/review/src/**/*.test.ts",
+      "apps/review/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -412,6 +513,20 @@
         ],
         "module": "realtime-frontend",
         "focusedSuite": "realtime-frontend-focused"
+      },
+      {
+        "paths": ["apps/review/backend/**/*_test.go"],
+        "module": "review-backend",
+        "focusedSuite": "review-backend-focused"
+      },
+      {
+        "paths": [
+          "apps/review/*.test.mjs",
+          "apps/review/src/**/*.test.ts",
+          "apps/review/src/**/*.test.tsx"
+        ],
+        "module": "review-frontend",
+        "focusedSuite": "review-frontend-focused"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -520,6 +635,33 @@
         "timeoutSeconds": 600
       },
       {
+        "name": "review-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["review-backend"],
+        "paths": ["apps/review/backend/**/*_test.go"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "apps/review/backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "review-frontend-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["review-frontend"],
+        "paths": [
+          "apps/review/*.test.mjs",
+          "apps/review/src/**/*.test.ts",
+          "apps/review/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/review", "run", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
         "name": "realtime-contract-drift",
         "kind": "contract",
         "scope": "repository",
@@ -537,6 +679,21 @@
           "run",
           "contract:check"
         ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "review-contract-drift",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/review/backend/internal/contracts/**",
+          "apps/review/src/backend/**",
+          "apps/review/scripts/compile-validators.mjs",
+          "apps/review/package.json"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/review", "run", "contract:check"],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
       },
@@ -630,6 +787,20 @@
         "timeoutSeconds": 600
       },
       {
+        "name": "review-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/review/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/review", "run", "browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
         "name": "packed-consumer-contract",
         "kind": "contract",
         "scope": "repository",
@@ -676,6 +847,11 @@
       {
         "name": "realtime-go",
         "versionFile": "apps/realtime/backend/.go-version",
+        "source": "go-toolchain"
+      },
+      {
+        "name": "review-go",
+        "versionFile": "apps/review/backend/.go-version",
         "source": "go-toolchain"
       }
     ],
