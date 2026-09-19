@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	maximumTextBytes = 2 << 20
+	maximumTextBytes = 1 << 20
 	maximumJSONBytes = 4 << 20
-	maximumDiffBytes = 8 << 20
+	maximumDiffBytes = 4 << 20
 	maximumLineBytes = 1 << 20
 )
 
@@ -155,11 +155,13 @@ func (resolver *Resolver) resolveText(reference contracts.TextEvidenceReference)
 	}
 	start := reference.StartLine
 	end := reference.EndLine
+	truncated := false
 	return contracts.ResolvedEvidenceContent{
 		Kind:      "text",
 		Text:      &text,
 		StartLine: &start,
 		EndLine:   &end,
+		Truncated: &truncated,
 	}, nil
 }
 
@@ -269,7 +271,8 @@ func (resolver *Resolver) resolveDiff(reference contracts.GitDiffEvidenceReferen
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
-	return contracts.ResolvedEvidenceContent{Kind: "gitDiff", UnifiedDiff: &patch}, nil
+	truncated := false
+	return contracts.ResolvedEvidenceContent{Kind: "gitDiff", UnifiedDiff: &patch, Truncated: &truncated}, nil
 }
 
 func (resolver *Resolver) regularFile(relative string) (string, os.FileInfo, error) {
