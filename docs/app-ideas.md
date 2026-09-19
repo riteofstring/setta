@@ -91,7 +91,6 @@ version.
 | ----------------------------------- | -------: | ---------: | ------------: | ------: | ------------------------- |
 | Setta Review                        |        5 |          4 |             5 |       4 | Build first               |
 | Setta Context Pack                  |        5 |          4 |             5 |       4 | Build second or alongside |
-| Independent Setta Permit            |        5 |          2 |             5 |       4 | Do not split yet          |
 | Agent Context and Replay Bench      |        5 |          2 |             5 |       4 | Defer                     |
 | Multi-format general evidence audit |        5 |          2 |             5 |       3 | Defer generalization      |
 | Generic evaluation dashboard        |        4 |          2 |             4 |       1 | Do not build              |
@@ -99,7 +98,7 @@ version.
 | Broad investigation workspace       |        5 |          1 |             3 |       2 | Do not build              |
 | Generic MCP inspector               |        3 |          4 |             4 |       1 | Do not build as an app    |
 
-The recommended portfolio contains **two applications**, not four. Setta Review owns immutable
+The recommended portfolio contains **two applications**. Setta Review owns immutable
 requests and review responses. Setta Context Pack owns authored, revisable context bundles. They
 share provenance and portable-file conventions, but their mutation rules and durable records are
 different.
@@ -115,8 +114,7 @@ different.
 
 Open the [Completion](setta-product-mockups.html#review-completion),
 [Choice matrix](setta-product-mockups.html#review-choice),
-[Choice artifact comparison](setta-product-mockups.html#review-choice-artifacts), or
-[Permission](setta-product-mockups.html#review-permission) review mockup.
+[Choice artifact comparison](setta-product-mockups.html#review-choice-artifacts) review mockup.
 
 Setta Review should be a **visual review and response app for work prepared by agents, applications,
 scripts, or people**. Its recurring question is:
@@ -134,7 +132,7 @@ Codex, Claude Code, OpenCode, or any other producer can submit and consume the s
 - A **review request** is an immutable description of what the producer wants reviewed.
 - A **review type** defines bounded subject and decision semantics. Types are built into the app;
   the first version is not a generic form or plug-in builder.
-- A **subject** is the claim, question, option, candidate, or capability being considered.
+- A **subject** is the claim, question, option, or candidate being considered.
 - An **evidence reference** points to an exact Git hunk, text or log range, JSON result, local file,
   or content-addressed artifact.
 - A **review response** records decisions, qualifications, rationale, selected artifacts,
@@ -168,18 +166,11 @@ the reviewer needs to judge images, text, JSON, or other admitted artifacts at u
 can record a selection, ranking, rejection, or qualification, include chosen artifacts, and attach
 drawn feedback to an exact artifact revision.
 
-#### Permission review
-
-Permission review compares a submitted tool catalog or proposed policy with normalized traces and
-lets a reviewer allow, narrow, or deny capabilities. The response is advisory unless an external
-consumer explicitly validates and enforces it.
-
 ### Why Workspace matters
 
 - Real subjects, evidence, and options remain visible together instead of becoming abstract task
   labels.
-- Typed edges show which evidence supports a claim, which option a risk affects, or which calls
-  motivate a permission.
+- Typed edges show which evidence supports a claim or affects an option.
 - Attention and framing bring every source for the selected subject into view.
 - Managed windows make candidate, diff, log, artifact, and proposal comparison a first-class
   interaction.
@@ -202,8 +193,8 @@ foundation.
 
 The first version does not run or resume an agent, edit source, execute tests, invoke tools, commit
 or push Git changes, contact providers, authenticate remote services, or infer whether a claim is
-true. Permission review should follow only after the common request and response contracts work in
-real handoffs.
+true. Permission and policy changes can arrive as ordinary configuration diffs in completion
+review; Review does not own a portable permission model or enforcement adapters.
 
 ## Second application: Setta Context Pack
 
@@ -216,7 +207,7 @@ question is:
 > bundle be handed off without this app?
 
 An agent or person starts with one task and selects local files, exact text ranges, Git revisions or
-diffs, artifacts, and tool-policy references. Context Pack records provenance and materializes a
+diffs, and artifacts. Context Pack records provenance and materializes a
 self-contained bundle that another agent or ordinary program can consume.
 
 ### Durable concepts
@@ -253,17 +244,6 @@ Context Pack is a prerequisite-shaped product for a later replay bench. It prove
 materialization and arbitrary-app handoff before Setta assumes responsibility for running or
 comparing agents.
 
-## Possible future third application: Setta Permit
-
-Permission review belongs in Setta Review while it accepts a frozen proposal and emits one response.
-Permit becomes a separate product only if it owns durable reusable policies, policy revisions,
-schema validation, compatibility reporting, and consumer-specific export adapters. That lifecycle
-would be policy authoring rather than proposal review.
-
-Do not pre-emptively split it. First import catalogs and traces as ordinary files and prove the
-permission-review workflow. A later split must still avoid invoking tools, starting MCP servers,
-storing credentials, executing agents, or claiming to sandbox a process.
-
 ## Deferred directions
 
 ### Agent Context and Replay Bench
@@ -299,7 +279,7 @@ anchor type.
 - **Broad investigation workspace:** ingestion, OCR, indexing, retrieval, entity resolution,
   collaboration, and publishing turn it into a large knowledge platform.
 - **Generic MCP inspector:** discovery and invocation are useful features, but they do not create a
-  durable product record. A reviewed permission response is the stronger boundary.
+  durable product record.
 - **Generic agent builder:** visual agent graphs and provider configuration are established
   categories and would pull Setta back toward a universal application.
 
@@ -331,9 +311,7 @@ than imports from another app's frontend or backend internals.
 3. Add choice review with matrix and artifact-comparison presentations without introducing a
    generic review-type plug-in system.
 4. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
-5. Explore permission review using exported catalogs and traces.
-6. Split Permit only if durable policy authoring and adapter compatibility become recurring work.
-7. Reconsider Bench only after context, evidence, artifacts, and review records already move
+5. Reconsider Bench only after context, evidence, artifacts, and review records already move
    cleanly between independent producers and consumers.
 
 ## Product guardrail

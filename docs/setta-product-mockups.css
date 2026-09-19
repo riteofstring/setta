@@ -315,8 +315,7 @@ h1 {
 }
 
 .status.waiting,
-.status.changed,
-.status.qualified {
+.status.changed {
   color: #f59e0b;
 }
 
@@ -3070,8 +3069,7 @@ h1 {
   pointer-events: auto;
 }
 
-.review-candidate-footer [hidden],
-.review-permission-footer [hidden] {
+.review-candidate-footer [hidden] {
   display: none;
 }
 
@@ -3098,8 +3096,6 @@ h1 {
 
 .review-candidate-actions button,
 .review-candidate-revision-form button,
-.review-permission-editor button,
-.review-permission-revision-form button,
 .context-bundle-footer button {
   min-height: 28px;
   appearance: none;
@@ -3117,8 +3113,6 @@ h1 {
 
 .review-candidate-actions button[data-action="primary"],
 .review-candidate-revision-form button[data-action="primary"],
-.review-permission-editor button[data-action="primary"],
-.review-permission-revision-form button[data-action="primary"],
 .context-bundle-footer button[data-action="primary"] {
   border-color: rgb(59 130 246);
   background: rgb(30 58 138 / 65%);
@@ -3138,16 +3132,14 @@ h1 {
   font-weight: 600;
 }
 
-.review-candidate-revision-form label,
-.review-permission-revision-form label {
+.review-candidate-revision-form label {
   flex: 0 0 auto;
   color: rgb(117 136 174);
   font-size: 8px;
   font-weight: 500;
 }
 
-.review-candidate-revision-form input,
-.review-permission-revision-form input {
+.review-candidate-revision-form input {
   width: auto;
   min-width: 0;
   height: 28px;
@@ -3162,8 +3154,7 @@ h1 {
   font-size: 9px;
 }
 
-.review-candidate-decision-sent,
-.review-permission-sent {
+.review-candidate-decision-sent {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3172,31 +3163,20 @@ h1 {
   font-weight: 600;
 }
 
-.review-candidate-decision-sent .setta-icon,
-.review-permission-sent .setta-icon {
+.review-candidate-decision-sent .setta-icon {
   width: 13px;
   height: 13px;
 }
 
-.review-permission-stage .review-permission-node {
-  top: 24px;
-  left: 50%;
-  width: 900px;
-  transform: translateX(-50%);
-}
-
-.review-permission-edge,
 .context-pack-edge {
   opacity: 0;
   transition: opacity 140ms ease;
 }
 
-.review-permission-edge[data-active],
 .context-pack-edge[data-active] {
   opacity: 1;
 }
 
-.review-permission-edge .setta-workspace-graph-edge-path,
 .context-pack-edge .setta-workspace-graph-edge-path {
   fill: none;
   stroke: rgb(96 165 250 / 72%);
@@ -3204,8 +3184,6 @@ h1 {
   stroke-width: 1.5;
 }
 
-.review-permission-factor-port,
-.review-permission-evidence-port,
 .context-pack-target-port,
 .context-pack-evidence-port {
   position: absolute;
@@ -3220,44 +3198,25 @@ h1 {
   transition: opacity 140ms ease;
 }
 
-.review-permission-factor-port,
 .context-pack-target-port {
   bottom: -7px;
 }
 
-.review-permission-factor-port {
-  left: var(--permission-factor-left);
-}
-
-.review-permission-evidence-port,
 .context-pack-evidence-port {
   top: -7px;
 }
 
-.review-permission-evidence-port {
-  left: var(--permission-evidence-port-left);
-}
-
-.review-permission-factor-port[data-active],
-.review-permission-evidence-port[data-active],
 .context-pack-target-port[data-active],
 .context-pack-evidence-port[data-active] {
   opacity: 1;
 }
 
-.review-permission-table-wrap {
-  overflow: hidden;
-}
-
-.review-permission-table,
 .context-bundle-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
-.review-permission-table th,
-.review-permission-table td,
 .context-bundle-table th,
 .context-bundle-table td {
   border-block-end: 1px solid rgb(40 50 68);
@@ -3265,7 +3224,6 @@ h1 {
   font-size: 9px;
 }
 
-.review-permission-table thead th,
 .context-bundle-table thead th {
   padding: 7px 10px;
   color: rgb(117 136 174);
@@ -3273,60 +3231,11 @@ h1 {
   text-align: start;
 }
 
-.review-permission-table tbody th,
-.review-permission-table tbody td,
 .context-bundle-table tbody th,
 .context-bundle-table tbody td {
   padding: 6px 10px;
 }
 
-.review-permission-table th:first-child {
-  width: 32%;
-}
-
-.review-permission-table th:nth-child(2) {
-  width: 14%;
-}
-
-.review-permission-table th:nth-child(3) {
-  width: 18%;
-}
-
-.review-permission-table th:nth-child(4) {
-  width: 13%;
-}
-
-.review-permission-table th:nth-child(5) {
-  width: 23%;
-}
-
-.review-permission-table thead button {
-  width: 100%;
-  appearance: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-align: start;
-}
-
-.review-permission-table thead th[data-evidence-active] {
-  background: rgb(30 58 138 / 16%);
-  box-shadow: inset 0 -2px 0 rgb(96 165 250 / 80%);
-}
-
-.review-permission-table thead button[aria-pressed="true"] {
-  color: rgb(96 165 250);
-}
-
-.review-permission-table tbody tr[data-selected] {
-  background: rgb(29 101 62 / 16%);
-  box-shadow: inset 3px 0 0 rgb(119 217 148);
-}
-
-.review-permission-table tbody th button,
 .context-bundle-table tbody th button {
   display: grid;
   width: 100%;
@@ -3345,7 +3254,6 @@ h1 {
   text-align: start;
 }
 
-.review-permission-table tbody th button span,
 .context-bundle-table tbody th button span {
   display: grid;
   width: 14px;
@@ -3355,122 +3263,16 @@ h1 {
   border-radius: 50%;
 }
 
-.review-permission-table tbody th button[aria-pressed="true"] span {
-  border-color: rgb(119 217 148);
-  background: rgb(119 217 148);
-  box-shadow: inset 0 0 0 3px rgb(18 45 35);
-}
-
-.review-permission-table td[data-tone="low"] {
-  color: rgb(119 217 148);
-}
-
-.review-permission-table td[data-tone="high"] {
-  color: rgb(240 124 134);
-}
-
-.review-permission-table
-  tr[data-permission-decision="allow"]
-  [data-permission-response] {
-  color: rgb(119 217 148);
-}
-
-.review-permission-table
-  tr[data-permission-decision="narrow"]
-  [data-permission-response] {
-  color: rgb(242 188 102);
-}
-
-.review-permission-table
-  tr[data-permission-decision="deny"]
-  [data-permission-response] {
-  color: rgb(240 124 134);
-}
-
-.review-permission-footer {
-  min-height: 58px;
-  padding: 7px 10px;
-  background: rgb(15 21 31);
-}
-
-.review-permission-editor,
-.review-permission-revision-form {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-}
-
-.review-permission-current {
-  display: grid;
-  min-width: 150px;
-  flex: 1 1 auto;
-  gap: 1px;
-}
-
-.review-permission-current strong {
-  color: rgb(203 213 225);
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.review-permission-current input {
-  width: 100%;
-  min-width: 0;
-  height: 20px;
-  overflow: hidden;
-  padding: 1px 5px;
-  border: 1px solid rgb(43 54 74);
-  border-radius: 3px;
-  outline: 0;
-  background: rgb(12 17 25);
-  color: rgb(86 105 143);
-  font-family: var(--mono);
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.review-permission-decisions {
-  display: flex;
-  gap: 3px;
-}
-
-.review-permission-decisions button[aria-pressed="true"] {
-  border-color: rgb(119 217 148);
-  background: rgb(29 101 62 / 38%);
-  color: rgb(167 243 208);
-}
-
-.review-permission-revision-form input {
-  min-width: 220px;
-}
-
-.review-permission-stage .review-permission-catalog-node {
-  top: 390px;
-  left: 80px;
-  width: 520px;
-}
-
-.review-permission-stage .review-permission-observed-node {
-  top: 390px;
-  left: 690px;
-  width: 520px;
-}
-
-.review-permission-evidence-node .setta-section-kind,
 .context-source-node .setta-section-kind {
   letter-spacing: 0;
   text-transform: none;
 }
 
-.review-permission-evidence-node[data-evidence-active],
 .context-source-node[data-evidence-active] {
   border-color: rgb(59 130 246 / 72%);
   box-shadow: 0 0 0 1px rgb(59 130 246 / 22%);
 }
 
-.review-permission-evidence-node[data-evidence-active] .setta-section-title,
 .context-source-node[data-evidence-active] .setta-section-title {
   color: rgb(96 165 250);
 }
