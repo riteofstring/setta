@@ -200,31 +200,32 @@ agent, script, notebook, or experiment system**. Its recurring question is:
 > What happened across this result set, which exact observations and artifacts matter, and what
 > should another person or tool inspect next?
 
-The app does not generate a dashboard from arbitrary data. A trusted local project contains
-checked-in Setta sections that express the experiment's useful views. A small manifest supplies
-observations and artifact references, while shared selection, filter, and timeline state keeps the
-sections synchronized. The durable output is a portable selection packet rather than another run
-database.
+The app does not generate arbitrary dashboards or execute project-supplied UI code. A trusted local
+project supplies one typed manifest, an observation table, and local artifacts. Lens assembles a
+bounded catalog of useful Setta sections from those semantics, while shared selection, filter, and
+timeline state keeps the sections synchronized. The durable output is a portable selection packet
+rather than another run database.
 
 ### Durable concepts
 
 - An **experiment manifest** identifies the result set, factor and metric fields, stable observation
-  IDs, timestamps when relevant, and artifact references. It contains data semantics, not layout or
-  executable UI definitions.
-- A **project presentation** is the checked-in, trusted section code and Workspace configuration
-  that makes one experiment family understandable. Section code is the customization layer; the
-  first version has no dashboard DSL or dynamic third-party discovery.
+  IDs, timestamps when relevant, and content-addressed artifact references. It contains data
+  semantics, not layout or executable UI definitions.
+- The **built-in view catalog** contains facets, scatter and parallel-coordinate plots, a virtualized
+  observation table, standardized time series, and admitted artifact viewers. Lens chooses the
+  applicable sections from the manifest; projects do not provide React code, ECharts options, or a
+  dashboard language.
 - **Linked exploration state** contains the current filters, selected observations, compared
   observations, and timeline or range position shared by participating sections.
-- An **annotation** records a human note, range, region, or artifact overlay against an exact
-  observation or artifact revision.
-- A **selection packet** exports the selected observation IDs, filters, ranges, annotations, and
+- A **note** records human context against an exact observation, artifact revision, and optional
+  time range. Spatial and drawn artifact feedback remains the responsibility of Review.
+- A **selection packet** exports the selected observation IDs, filters, ranges, notes, and
   artifact references for another Setta app or arbitrary tool.
 
 ### Why Workspace matters
 
-- Charts, spreadsheets, images, code, diffs, text, browser views, and custom sections can show the
-  native outputs of an experiment instead of reducing everything to generic metrics.
+- Charts, a virtualized table, standardized series, and code, text, JSON, and image artifacts show
+  the native outputs of an experiment instead of reducing everything to generic metrics.
 - Shared selection and timeline state can coordinate a population view, exact observation, rich
   artifact, and event trace.
 - Managed windows support temporary high-fidelity comparison without permanently expanding the
@@ -232,24 +233,27 @@ database.
 - Attention, framing, and saved presentations can move between overview, failure replay, and pinned
   comparison without duplicating the underlying record.
 
-The two mockup examples deliberately use different authored presentations. The battery workspace
-links a dense sweep, spreadsheet, charge trace, and thermal frame. The drone workspace links a
-failure matrix, spatial replay, signal timeline, event trace, and controller source. These are
-project-authored Setta workspaces, not interfaces that Lens infers or generates automatically.
+The two mockup examples deliberately exercise different parts of the same bundled catalog. The
+battery workspace links a dense sweep, table, charge trace, and thermal frame. The drone workspace
+links a failure matrix, spatial replay, signal timeline, event trace, and controller source. The
+first implementation proves the battery workflow; additional bundled section types can extend that
+catalog without introducing project code or plug-in discovery.
 
 ### Bounded first version
 
-1. Open one trusted local project with checked-in sections and one admitted experiment manifest.
-2. Resolve table-like observations plus local code, text, image, JSON, and other already-supported
+1. Open one trusted local project with one admitted experiment manifest and content-addressed
+   observation source.
+2. Assemble applicable built-in facets, scatter, parallel-coordinate, table, series, and artifact
+   sections from typed fields and local code, text, image, JSON, and standardized-series artifacts.
+3. Provide shared selection, filtering, comparison, optional timeline state, and exact notes across
+   those sections without rewriting the immutable inputs.
+4. Export a versioned selection packet with selected row values, notes, ranges, and reverified
    artifact references.
-3. Provide shared selection, filtering, comparison, and optional timeline state to the authored
-   sections.
-4. Export a versioned selection packet with annotations and artifact references.
 
 The first version does not launch experiments, tune parameters, schedule work, replace an
-experiment tracker, query an unbounded remote dataset, generate interfaces, discover third-party
-sections, sandbox untrusted code, or define a general plug-in system. A normal trusted project build
-loads its section code.
+experiment tracker, query an unbounded remote dataset, accept arbitrary chart specifications,
+discover third-party sections, load project code, sandbox untrusted code, or define a general
+plug-in system.
 
 ### Portfolio role
 

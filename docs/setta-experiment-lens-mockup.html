@@ -116,10 +116,10 @@
             Explore the shape of an experiment, not just its charts.
           </h1>
           <p class="hero-lede">
-            An agent or script writes a manifest and artifacts. A trusted local
-            project supplies checked-in Setta sections, and Lens links them
-            through shared selection and timeline state. It neither generates
-            the interface nor runs the experiment.
+            An agent or script writes a typed manifest and artifacts. Lens
+            assembles its built-in Setta sections and links them through shared
+            selection and timeline state. It neither runs the experiment nor
+            loads project-supplied interface code.
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#explore"
@@ -147,10 +147,10 @@
           <div class="experiment-lens-summary-row">
             <span>VIEW</span>
             <div>
-              <strong>The trusted project supplies the views</strong>
+              <strong>Lens supplies a bounded view catalog</strong>
               <small
-                >Checked-in sections share filters, selection, and timeline
-                state.</small
+                >Rich built-in sections share filters, selection, and timeline
+                state without a plug-in system.</small
               >
             </div>
           </div>
@@ -1408,9 +1408,9 @@
             </h2>
             <p>
               Lens is not trying to replace TensorBoard, W&amp;B, MLflow, or a
-              one-off notebook. It is a focused example of how trusted
-              project-local sections can make recorded results explorable and
-              hand a precise selection to the next tool.
+              one-off notebook. It is a focused example of how a bounded set of
+              Setta-native views can make recorded results explorable and hand a
+              precise selection to the next tool.
             </p>
           </div>
           <div
@@ -1431,9 +1431,7 @@
               <div role="rowheader">Primary object</div>
               <div role="cell">Run, metric, artifact, lineage</div>
               <div role="cell">
-                <strong
-                  >A trusted project presentation and portable selection</strong
-                >
+                <strong>A typed result set and portable selection</strong>
               </div>
             </div>
             <div class="experiment-lens-comparison-row" role="row">
@@ -1441,8 +1439,8 @@
               <div role="cell">Generic dashboards, queries, panels</div>
               <div role="cell">
                 <strong
-                  >Checked-in sections shaped around this experiment’s
-                  domain</strong
+                  >Linked built-in views over typed factors, metrics, series,
+                  and artifacts</strong
                 >
               </div>
             </div>
@@ -1451,7 +1449,7 @@
               <div role="cell">Built-in panels, notebooks, or plug-ins</div>
               <div role="cell">
                 <strong
-                  >Ordinary trusted project code; no generated UI or dynamic
+                  >A closed Setta section catalog; no project code or dynamic
                   discovery</strong
                 >
               </div>
@@ -1471,8 +1469,8 @@
               <div role="cell">Usually files or tracker-specific panels</div>
               <div role="cell">
                 <strong
-                  >Code, diffs, images, drawing, spreadsheets, browser views,
-                  terminals, and custom sections</strong
+                  >Charts, virtualized tables, series, code, text, JSON, and
+                  images</strong
                 >
               </div>
             </div>
@@ -1496,9 +1494,9 @@
             <div class="showcase-number">The handoff</div>
             <h2>A selection is useful outside the app.</h2>
             <p>
-              The Lens exports IDs, filters, time ranges, annotations, and
-              artifact references—not screenshots of a dashboard. Another Setta
-              app, notebook, CLI, or agent can continue from the same evidence.
+              The Lens exports IDs, filters, time ranges, notes, and artifact
+              references—not screenshots of a dashboard. Another Setta app,
+              notebook, CLI, or agent can continue from the same evidence.
             </p>
           </div>
           <div
@@ -1516,16 +1514,16 @@
             <div class="experiment-lens-handoff-step">
               <span>02 · Understand</span><strong>Experiment Lens</strong
               ><small
-                >Links trusted project sections and records the selected cohort,
-                runs, time range, and notes.</small
+                >Links built-in sections and records the selected cohort, runs,
+                time range, and notes.</small
               >
             </div>
             <div class="experiment-lens-handoff-arrow">→</div>
             <div class="experiment-lens-handoff-step">
               <span>03 · Continue</span><strong>Any downstream tool</strong
               ><small
-                >Receives stable trial IDs and artifact URIs in a small JSON
-                bundle.</small
+                >Receives stable trial IDs and content-addressed artifact
+                references in a small JSON bundle.</small
               >
             </div>
           </div>
