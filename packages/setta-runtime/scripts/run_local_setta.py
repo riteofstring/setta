@@ -86,7 +86,7 @@ def run(arguments: Sequence[str]) -> int:
     uv = _required_command("uv")
     pnpm = _required_command("pnpm")
     go = _pinned_go()
-    _run([pnpm, "install", "--frozen-lockfile"], ROOT)
+    _run([pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], ROOT)
     reusable = _realtime_reusable_assets() if arguments[0] == "realtime" else None
     if reusable is not None:
         _build_realtime_frontend(pnpm, go)
@@ -225,7 +225,7 @@ def _build_realtime_frontend(pnpm: str, go: Path) -> None:
 
 def _realtime_reusable_assets() -> dict[str, ReusableAppAssets] | None:
     reusable: dict[str, ReusableAppAssets] = {}
-    for app_id in ("python-canvas", "review"):
+    for app_id in ("experiment-lens", "python-canvas", "review"):
         assets = _reusable_app_assets(app_id)
         if assets is None:
             return None

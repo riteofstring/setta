@@ -24,6 +24,8 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             "fixtures/packed-consumer/package.json",
             "fixtures/packed-consumer/package.template.json",
             "apps/playground/package.json",
+            "apps/experiment-lens/src/main.tsx",
+            "apps/experiment-lens/backend/cmd/experiment-lens/main.go",
             "apps/realtime/src/main.tsx",
             "apps/realtime/backend/cmd/realtime/main.go",
             "apps/review/src/main.tsx",
@@ -48,6 +50,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
         )[0]
 
         for required in (
+            "go -C apps/experiment-lens/backend mod verify",
             "go -C apps/python-canvas/backend mod verify",
             "go -C apps/realtime/backend mod verify",
             "go -C apps/review/backend mod verify",
@@ -70,7 +73,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             linux.index("go -C apps/realtime/backend mod verify"),
             linux.index("Build all native servers in pinned manylinux 2.28"),
         )
-        self.assertEqual(linux.count("--network none"), 4)
+        self.assertEqual(linux.count("--network none"), 5)
 
     def test_every_platform_builds_and_packages_all_registered_apps(self) -> None:
         contents = WORKFLOW.read_text(encoding="utf-8")
@@ -87,6 +90,9 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
         for name, job in jobs.items():
             with self.subTest(job=name):
                 for required in (
+                    "pnpm install --frozen-lockfile --ignore-scripts",
+                    "go -C apps/experiment-lens/backend test ./...",
+                    "go -C apps/experiment-lens/backend mod verify",
                     "go -C apps/python-canvas/backend test ./...",
                     "go -C apps/python-canvas/backend mod verify",
                     "go -C apps/realtime/backend test ./...",
@@ -94,25 +100,30 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
                     "go -C apps/review/backend test ./...",
                     "go -C apps/review/backend mod verify",
                     "pnpm --filter @setta/workspace run build",
+                    "pnpm --filter @setta/experiment-lens run build",
                     "pnpm --filter @setta/python-canvas run build",
                     "pnpm --filter @setta/realtime run build",
                     "pnpm --filter @setta/review run build",
+                    '--native-server "experiment-lens=',
                     '--native-server "python-canvas=',
                     '--native-server "realtime=',
                     '--native-server "review=',
+                    '--web-root "experiment-lens=apps/experiment-lens/dist"',
                     '--web-root "python-canvas=apps/python-canvas/dist"',
                     '--web-root "realtime=apps/realtime/dist"',
                     '--web-root "review=apps/review/dist"',
                     "--skip-frontend-build",
+                    "apps/experiment-lens/backend/.go-version",
                     "apps/realtime/backend/.go-version",
                     "apps/review/backend/.go-version",
                 ):
                     self.assertIn(required, job)
+                self.assertEqual(job.count('--native-server "experiment-lens='), 1)
                 self.assertEqual(job.count('--native-server "python-canvas='), 1)
                 self.assertEqual(job.count('--native-server "realtime='), 1)
                 self.assertEqual(job.count('--native-server "review='), 1)
 
-        for backend in ("python-canvas", "realtime", "review"):
+        for backend in ("experiment-lens", "python-canvas", "realtime", "review"):
             self.assertIn(f"go -C apps/{backend}/backend build", jobs["macos"])
             self.assertIn(f"go -C apps/{backend}/backend build", jobs["windows"])
             self.assertIn(f"--workdir /workspace/apps/{backend}/backend", jobs["linux"])

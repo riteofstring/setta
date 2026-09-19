@@ -36,6 +36,9 @@ PUBLIC_OPEN_SCHEMA = "setta-open/v1"
 SESSION_SCHEMA = "setta-live-session/v1"
 RUNTIME_SESSION_SCHEMA = "python-canvas-session/v1"
 APP_ID = "python-canvas"
+EXPERIMENT_LENS_APP_ID = "experiment-lens"
+EXPERIMENT_LENS_RUNTIME_SESSION_SCHEMA = "experiment-lens-session/v1"
+EXPERIMENT_LENS_SCHEMA = "setta-experiment-lens-schema/v1"
 REALTIME_APP_ID = "realtime"
 REALTIME_RUNTIME_SESSION_SCHEMA = "realtime-session/v1"
 REALTIME_SCHEMA = "setta-realtime-schema/v2"
@@ -43,6 +46,11 @@ REVIEW_APP_ID = "review"
 REVIEW_RUNTIME_SESSION_SCHEMA = "review-session/v1"
 REVIEW_SCHEMA = "setta-review-schema/v1"
 APP_DESCRIPTORS = (
+    {
+        "id": "experiment-lens",
+        "name": "Experiment Lens",
+        "summary": "Explore recorded experiments and export portable selections.",
+    },
     {
         "id": "python-canvas",
         "name": "Python Canvas",
@@ -63,6 +71,19 @@ APP_IDS = tuple(str(descriptor["id"]) for descriptor in APP_DESCRIPTORS)
 APPLIED_PROJECT_NAME = "Setta Wheel Acceptance"
 REQUIRED_OFFLINE_SCHEMA_COMMANDS = frozenset(
     {"schema", "open", "session.inspect", "snapshot", "apply", "run"}
+)
+REQUIRED_EXPERIMENT_LENS_SCHEMAS = frozenset(
+    {
+        "experimentManifest",
+        "exportResult",
+        "lensMutation",
+        "lensSnapshot",
+        "mutationResult",
+        "observationSource",
+        "selectionPacket",
+        "series",
+        "structuredError",
+    }
 )
 REQUIRED_REALTIME_SCHEMA_COMMANDS = frozenset(
     {"apply", "invoke", "reload", "schema", "snapshot"}

@@ -43,6 +43,13 @@ class BuildApp:
 
 _APPS = (
     BuildApp(
+        "experiment-lens",
+        "@setta/experiment-lens",
+        ROOT / "apps" / "experiment-lens" / "dist",
+        ROOT / "apps" / "experiment-lens" / "backend",
+        "./cmd/experiment-lens",
+    ),
+    BuildApp(
         "python-canvas",
         "@setta/python-canvas",
         ROOT / "apps" / "python-canvas" / "dist",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -24,6 +25,9 @@ from .models import (
     APP_IDS,
     APPLIED_PROJECT_NAME,
     COMMAND_TIMEOUT_SECONDS,
+    EXPERIMENT_LENS_APP_ID,
+    EXPERIMENT_LENS_RUNTIME_SESSION_SCHEMA,
+    EXPERIMENT_LENS_SCHEMA,
     HTTP_TIMEOUT_SECONDS,
     MAX_HTTP_BODY_BYTES,
     MAX_HTTP_REQUEST_BYTES,
@@ -35,6 +39,7 @@ from .models import (
     REALTIME_RUNTIME_SESSION_SCHEMA,
     REALTIME_SCHEMA,
     REQUIRED_OFFLINE_SCHEMA_COMMANDS,
+    REQUIRED_EXPERIMENT_LENS_SCHEMAS,
     REQUIRED_REALTIME_SCHEMA_COMMANDS,
     REQUIRED_REVIEW_SCHEMAS,
     REVIEW_APP_ID,
@@ -141,9 +146,11 @@ def run_clean_install(wheel: Path, launcher: Path, temporary_root: Path) -> None
     assert_no_retired_alias(venv_scripts(environment_root), environment)
     assert_installed_root_commands(setta, python, environment, unrelated, wheel)
     assert_offline_schema(setta, environment, unrelated)
+    assert_experiment_lens_offline_schema(setta, environment, unrelated)
     assert_realtime_offline_schema(setta, environment, unrelated)
     assert_review_offline_schema(setta, environment, unrelated)
     exercise_live_server(setta, environment, unrelated, temporary_root, python)
+    exercise_experiment_lens_server(setta, environment, unrelated, temporary_root)
     exercise_realtime_server(setta, environment, unrelated, temporary_root)
     exercise_review_server(setta, environment, unrelated, temporary_root)
 
@@ -253,6 +260,30 @@ def assert_offline_schema_document(document: Mapping[str, object]) -> None:
     }
     if REQUIRED_OFFLINE_SCHEMA_COMMANDS - names:
         raise SmokeError("offline Python Canvas schema omits public AI-native commands")
+
+
+def assert_experiment_lens_offline_schema(
+    setta: Path, environment: Mapping[str, str], cwd: Path
+) -> None:
+    document = run_json_command(
+        (str(setta), EXPERIMENT_LENS_APP_ID, "schema"),
+        environment,
+        cwd,
+        "offline Experiment Lens schema",
+    )
+    assert_experiment_lens_offline_schema_document(document)
+
+
+def assert_experiment_lens_offline_schema_document(
+    document: Mapping[str, object],
+) -> None:
+    if set(document) != {"schemaVersion", "schemas"}:
+        raise SmokeError("offline Experiment Lens schema has an invalid shape")
+    if document.get("schemaVersion") != EXPERIMENT_LENS_SCHEMA:
+        raise SmokeError("offline Experiment Lens schema has an invalid version")
+    schemas = require_object(document["schemas"], "offline Experiment Lens schemas")
+    if set(schemas) != REQUIRED_EXPERIMENT_LENS_SCHEMAS:
+        raise SmokeError("offline Experiment Lens schema omits public contracts")
 
 
 def assert_realtime_offline_schema(
@@ -484,6 +515,122 @@ def exercise_realtime_server(
         raise cleanup_failure
 
 
+def exercise_experiment_lens_server(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    temporary_root: Path,
+) -> None:
+    project = temporary_root / "experiment-lens-project"
+    project.mkdir(mode=0o700)
+    write_experiment_lens_project(project)
+    expected_project = str(project.resolve(strict=True))
+    live = start_foreground_open(
+        (
+            str(setta),
+            EXPERIMENT_LENS_APP_ID,
+            "open",
+            "--project-root",
+            str(project),
+            "--no-open",
+        ),
+        cwd=cwd,
+        environment=environment,
+    )
+    readiness_url = ""
+    failure_capture = FailureCapture()
+    with failure_capture:
+        readiness = parse_json_document(
+            live.wait_for_readiness(OPEN_READY_TIMEOUT_SECONDS),
+            "Experiment Lens public open readiness",
+        )
+        readiness_url = assert_experiment_lens_open_readiness(
+            readiness, expected_project
+        )
+        nonce = assert_experiment_lens_web_and_identity(readiness_url, expected_project)
+        live.retain_app_session(
+            LiveSessionIdentity(
+                project_path=expected_project,
+                url=readiness_url,
+                owner_pid=live.process.pid,
+                instance_nonce=nonce,
+            )
+        )
+        live_response = http_get(readiness_url + "/api/v1/experiment-lens")
+        live_snapshot = require_object(
+            parse_json_document(
+                live_response.body, "Experiment Lens live snapshot API response"
+            ),
+            "Experiment Lens live snapshot API response",
+        )
+        if (
+            live_response.status != 200
+            or live_response.content_type != "application/json"
+        ):
+            raise SmokeError("Experiment Lens did not serve its live snapshot API")
+        assert_experiment_lens_snapshot(
+            live_snapshot, "Experiment Lens live snapshot API response", revision=0
+        )
+        cli_snapshot = run_json_command(
+            (
+                str(setta),
+                EXPERIMENT_LENS_APP_ID,
+                "snapshot",
+                "--project-root",
+                str(project),
+            ),
+            environment,
+            cwd,
+            "live Experiment Lens snapshot",
+        )
+        assert_experiment_lens_snapshot(
+            cli_snapshot, "live Experiment Lens snapshot", revision=0
+        )
+        if cli_snapshot != live_snapshot:
+            raise SmokeError("Experiment Lens CLI snapshot does not match the live API")
+        selected = assert_experiment_lens_apply(
+            setta,
+            environment,
+            cwd,
+            project,
+            cli_snapshot,
+            temporary_root / "experiment-lens-mutation.json",
+        )
+        assert_experiment_lens_export(
+            setta,
+            environment,
+            cwd,
+            project,
+            selected,
+            temporary_root / "experiment-lens-selection-packet.json",
+        )
+    failure = failure_capture.error
+    cleanup_failure = cleanup_live_server(
+        live,
+        setta,
+        environment,
+        cwd,
+        project,
+        readiness_url,
+        failed=failure is not None,
+        close_foreground=close_foreground_open,
+        session_cleanup=assert_experiment_lens_session_cleanup,
+        server_unavailable=assert_server_unavailable,
+    )
+    if failure is not None:
+        if cleanup_failure is not None:
+            if isinstance(failure, SmokeError):
+                raise SmokeError(
+                    f"{failure}; cleanup also failed: {cleanup_failure}"
+                ) from failure
+            failure.add_note(
+                f"Setta wheel smoke cleanup also failed: {cleanup_failure}"
+            )
+        raise failure
+    if cleanup_failure is not None:
+        raise cleanup_failure
+
+
 def exercise_review_server(
     setta: Path,
     environment: Mapping[str, str],
@@ -576,6 +723,255 @@ def exercise_review_server(
         raise failure
     if cleanup_failure is not None:
         raise cleanup_failure
+
+
+def write_experiment_lens_project(project: Path) -> None:
+    data = project / "data"
+    try:
+        data.mkdir(mode=0o700)
+        with (data / "observations.json").open("xb") as destination:
+            destination.write(_experiment_lens_observation_source_bytes())
+        (data / "observations.json").chmod(0o600)
+    except OSError as error:
+        raise SmokeError(
+            "unable to create the Experiment Lens acceptance project"
+        ) from error
+    write_operation(
+        project / "experiment.json",
+        _experiment_lens_manifest(),
+        "Experiment Lens manifest",
+    )
+
+
+def _experiment_lens_observation_source_bytes() -> bytes:
+    return (
+        b'{"version":1,"experimentId":"smoke","observations":['
+        b'{"id":"run-1","values":{"score":1}}]}\n'
+    )
+
+
+def _experiment_lens_manifest() -> dict[str, object]:
+    observations = _experiment_lens_observation_source_bytes()
+    return {
+        "version": 1,
+        "id": "smoke",
+        "title": "Experiment Lens wheel smoke",
+        "summary": "Verify the packaged Experiment Lens application.",
+        "fields": [
+            {
+                "id": "score",
+                "label": "Score",
+                "description": "",
+                "role": "metric",
+                "valueType": "number",
+                "unit": None,
+                "nullable": False,
+            }
+        ],
+        "observations": {
+            "path": "data/observations.json",
+            "byteLength": len(observations),
+            "sha256": hashlib.sha256(observations).hexdigest(),
+        },
+        "artifacts": [],
+        "relations": [],
+        "provenance": {
+            "producer": {
+                "kind": "application",
+                "name": "Setta wheel smoke",
+            },
+            "createdAt": "2026-09-19T00:00:00Z",
+        },
+    }
+
+
+def _experiment_lens_selection(*, selected: bool) -> dict[str, object]:
+    return {
+        "filters": [],
+        "focusedObservationId": "run-1" if selected else None,
+        "selectedObservationIds": ["run-1"] if selected else [],
+        "selectedArtifactIds": [],
+        "ranges": [],
+        "notes": [],
+    }
+
+
+def assert_experiment_lens_snapshot(
+    document: Mapping[str, object], label: str, *, revision: int
+) -> None:
+    required = {
+        "version",
+        "manifestPath",
+        "manifestSha256",
+        "observationSourcePath",
+        "observationSourceSha256",
+        "experiment",
+        "observations",
+        "artifacts",
+        "revision",
+        "selection",
+    }
+    manifest = _experiment_lens_manifest()
+    observation_reference = require_object(
+        manifest["observations"], "Experiment Lens observation reference"
+    )
+    digest = document.get("manifestSha256")
+    if (
+        set(document) != required
+        or document.get("version") != 1
+        or document.get("manifestPath") != "experiment.json"
+        or not isinstance(digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        or document.get("observationSourcePath") != "data/observations.json"
+        or document.get("observationSourceSha256")
+        != observation_reference.get("sha256")
+        or document.get("experiment") != manifest
+        or document.get("observations") != [{"id": "run-1", "values": {"score": 1}}]
+        or document.get("artifacts") != []
+        or document.get("revision") != revision
+        or document.get("selection")
+        != _experiment_lens_selection(selected=revision > 0)
+    ):
+        raise SmokeError(f"{label} has an invalid experiment snapshot")
+
+
+def assert_experiment_lens_apply(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    snapshot: Mapping[str, object],
+    input_path: Path,
+) -> Mapping[str, object]:
+    manifest_digest = snapshot.get("manifestSha256")
+    observation_digest = snapshot.get("observationSourceSha256")
+    if not isinstance(manifest_digest, str) or not isinstance(observation_digest, str):
+        raise SmokeError("Experiment Lens snapshot omitted its source identity")
+    write_operation(
+        input_path,
+        {
+            "experimentId": "smoke",
+            "manifestSha256": manifest_digest,
+            "observationSourceSha256": observation_digest,
+            "expectedRevision": 0,
+            "selection": _experiment_lens_selection(selected=True),
+        },
+        "Experiment Lens mutation",
+    )
+    try:
+        result = run_json_command(
+            (
+                str(setta),
+                EXPERIMENT_LENS_APP_ID,
+                "apply",
+                "--project-root",
+                str(project),
+                "--file",
+                str(input_path),
+            ),
+            environment,
+            cwd,
+            "live Experiment Lens apply",
+        )
+    finally:
+        remove_experiment_lens_input(input_path)
+    if set(result) != {"version", "snapshot"} or result.get("version") != 1:
+        raise SmokeError("Experiment Lens apply returned an invalid envelope")
+    selected = require_object(result["snapshot"], "Experiment Lens apply snapshot")
+    assert_experiment_lens_snapshot(
+        selected, "Experiment Lens apply snapshot", revision=1
+    )
+    return selected
+
+
+def assert_experiment_lens_export(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    snapshot: Mapping[str, object],
+    output_path: Path,
+) -> None:
+    result = run_json_command(
+        (
+            str(setta),
+            EXPERIMENT_LENS_APP_ID,
+            "export",
+            "--project-root",
+            str(project),
+            "--output",
+            str(output_path),
+        ),
+        environment,
+        cwd,
+        "Experiment Lens selection export",
+    )
+    if set(result) != {"version", "packet"} or result.get("version") != 1:
+        raise SmokeError("Experiment Lens export returned an invalid envelope")
+    packet = require_object(result["packet"], "Experiment Lens selection packet")
+    packet_id = packet.get("id")
+    source = require_object(packet.get("source"), "Experiment Lens packet source")
+    if (
+        set(packet)
+        != {
+            "version",
+            "id",
+            "experiment",
+            "source",
+            "revision",
+            "selection",
+            "observations",
+            "artifacts",
+        }
+        or packet.get("version") != 1
+        or packet_id != "smoke-r1"
+        or packet.get("experiment")
+        != {
+            "id": "smoke",
+            "title": "Experiment Lens wheel smoke",
+            "summary": "Verify the packaged Experiment Lens application.",
+        }
+        or source
+        != {
+            "manifestPath": "experiment.json",
+            "manifestSha256": snapshot.get("manifestSha256"),
+            "observationSourcePath": "data/observations.json",
+            "observationSourceSha256": snapshot.get("observationSourceSha256"),
+        }
+        or packet.get("revision") != 1
+        or packet.get("selection") != _experiment_lens_selection(selected=True)
+        or packet.get("observations") != [{"id": "run-1", "values": {"score": 1}}]
+        or packet.get("artifacts") != []
+    ):
+        raise SmokeError("Experiment Lens export returned an invalid selection packet")
+    try:
+        with output_path.open("rb") as exported:
+            exported_packet = require_object(
+                parse_json_document(
+                    read_bounded(
+                        exported,
+                        MAX_HTTP_BODY_BYTES,
+                        "Experiment Lens exported selection packet",
+                    ),
+                    "Experiment Lens exported selection packet",
+                ),
+                "Experiment Lens exported selection packet",
+            )
+    except OSError as error:
+        raise SmokeError(
+            "Experiment Lens did not write its requested selection packet"
+        ) from error
+    if exported_packet != packet:
+        raise SmokeError(
+            "Experiment Lens exported file does not match its command result"
+        )
+
+
+def remove_experiment_lens_input(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError as error:
+        raise SmokeError("unable to remove the Experiment Lens mutation") from error
 
 
 def write_review_project(project: Path) -> None:
@@ -748,6 +1144,43 @@ def assert_realtime_session_cleanup(
         raise SmokeError("Realtime shutdown did not restore offline project access")
 
 
+def assert_experiment_lens_session_cleanup(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    *,
+    timeout: float = COMMAND_TIMEOUT_SECONDS,
+) -> None:
+    result = run_process(
+        (
+            str(setta),
+            EXPERIMENT_LENS_APP_ID,
+            "snapshot",
+            "--project-root",
+            str(project),
+        ),
+        cwd=cwd,
+        env=environment,
+        timeout=timeout,
+        label="Experiment Lens post-shutdown snapshot",
+    )
+    document = require_object(
+        parse_json_document(
+            result.stdout, "Experiment Lens post-shutdown snapshot output"
+        ),
+        "Experiment Lens post-shutdown snapshot output",
+    )
+    revision = document.get("revision")
+    if not is_nonnegative_int(revision) or revision > 1:
+        raise SmokeError(
+            "Experiment Lens post-shutdown snapshot has an invalid revision"
+        )
+    assert_experiment_lens_snapshot(
+        document, "Experiment Lens post-shutdown snapshot", revision=revision
+    )
+
+
 def assert_review_session_cleanup(
     setta: Path,
     environment: Mapping[str, str],
@@ -846,6 +1279,27 @@ def assert_realtime_open_readiness(document: object, expected_project: str) -> s
     return url
 
 
+def assert_experiment_lens_open_readiness(
+    document: object, expected_project: str
+) -> str:
+    readiness = require_object(document, "Experiment Lens public open readiness")
+    if set(readiness) != {"appId", "projectPath", "schemaVersion", "url"}:
+        raise SmokeError("Experiment Lens public open readiness has an invalid shape")
+    if (
+        readiness.get("schemaVersion") != PUBLIC_OPEN_SCHEMA
+        or readiness.get("appId") != EXPERIMENT_LENS_APP_ID
+        or readiness.get("projectPath") != expected_project
+    ):
+        raise SmokeError(
+            "Experiment Lens public open readiness has an invalid identity"
+        )
+    url = readiness.get("url")
+    if not isinstance(url, str):
+        raise SmokeError("Experiment Lens public open readiness has no URL")
+    validate_exact_loopback_origin(url)
+    return url
+
+
 def assert_review_open_readiness(document: object, expected_project: str) -> str:
     readiness = require_object(document, "Review public open readiness")
     if set(readiness) != {"appId", "projectPath", "schemaVersion", "url"}:
@@ -891,6 +1345,41 @@ def assert_realtime_web_and_identity(origin_url: str, project_path: str) -> str:
         or len(nonce) < 16
     ):
         raise SmokeError("Realtime session identity does not match public readiness")
+    return nonce
+
+
+def assert_experiment_lens_web_and_identity(origin_url: str, project_path: str) -> str:
+    root = http_get(origin_url + "/")
+    if (
+        root.status != 200
+        or not root.content_type.startswith("text/html")
+        or not root.body
+    ):
+        raise SmokeError(
+            "Experiment Lens did not serve root HTML from the public origin"
+        )
+    asset = http_get(find_same_origin_asset(origin_url, root.body))
+    if asset.status != 200 or not asset.body or not asset.content_type:
+        raise SmokeError("Experiment Lens did not serve its packaged web root")
+    identity = http_get(origin_url + "/api/v2/runtime/session")
+    document = require_object(
+        parse_json_document(identity.body, "Experiment Lens session identity response"),
+        "Experiment Lens session identity response",
+    )
+    nonce = document.get("instanceNonce")
+    if (
+        identity.status != 200
+        or identity.content_type != "application/json"
+        or set(document) != {"appId", "instanceNonce", "projectPath", "schemaVersion"}
+        or document.get("schemaVersion") != EXPERIMENT_LENS_RUNTIME_SESSION_SCHEMA
+        or document.get("appId") != EXPERIMENT_LENS_APP_ID
+        or document.get("projectPath") != project_path
+        or not isinstance(nonce, str)
+        or len(nonce) < 16
+    ):
+        raise SmokeError(
+            "Experiment Lens session identity does not match public readiness"
+        )
     return nonce
 
 

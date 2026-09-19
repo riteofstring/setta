@@ -4,7 +4,12 @@ import sys
 from collections.abc import Callable, Sequence
 
 from . import __version__
-from .apps import PythonCanvasAdapter, RealtimeAdapter, ReviewAdapter
+from .apps import (
+    ExperimentLensAdapter,
+    PythonCanvasAdapter,
+    RealtimeAdapter,
+    ReviewAdapter,
+)
 from .errors import InvalidInputError, SettaError, UnknownCommandError
 from .jsonio import write_json
 from .registry import AppRegistry, CommandContext
@@ -15,7 +20,14 @@ from .supervisor import NativeServerSupervisor
 
 def installed_apps() -> AppRegistry:
 
-    return AppRegistry((PythonCanvasAdapter(), RealtimeAdapter(), ReviewAdapter()))
+    return AppRegistry(
+        (
+            ExperimentLensAdapter(),
+            PythonCanvasAdapter(),
+            RealtimeAdapter(),
+            ReviewAdapter(),
+        )
+    )
 
 
 def main(arguments: Sequence[str] | None = None) -> int:

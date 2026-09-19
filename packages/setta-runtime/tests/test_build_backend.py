@@ -18,6 +18,22 @@ from platform_contract import required_platform_tag
 from scripts._stage_setta_wheel import StageAppInputs, StageInputs, stage
 from setta.runtime import RuntimeTarget, current_target
 
+EXPECTED_LICENSE_NAMES = frozenset(
+    {
+        "ajv-MIT.txt",
+        "conpty-MIT.txt",
+        "echarts-Apache-2.0.txt",
+        "echarts-NOTICE.txt",
+        "echarts-d3-BSD-3-Clause.txt",
+        "tanstack-react-table-MIT.txt",
+        "tanstack-react-virtual-MIT.txt",
+        "tanstack-table-core-MIT.txt",
+        "tanstack-virtual-core-MIT.txt",
+        "tslib-0BSD.txt",
+        "zrender-BSD-3-Clause.txt",
+    }
+)
+
 
 class SettaBuildBackendTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -89,11 +105,21 @@ class SettaBuildBackendTests(unittest.TestCase):
             self.assertIn("setta = setta.cli:main", entry_points)
             self.assertIn("setta/_guardian.py", names)
             self.assertIn("setta/_runtime/manifest.json", names)
-            notice_path = f"{dist_info}/licenses/conpty-MIT.txt"
-            self.assertIn(notice_path, names)
+            license_prefix = f"{dist_info}/licenses/"
+            license_names = {
+                name.removeprefix(license_prefix)
+                for name in names
+                if name.startswith(license_prefix)
+            }
+            self.assertEqual(license_names, EXPECTED_LICENSE_NAMES)
+            notice_path = f"{license_prefix}conpty-MIT.txt"
             self.assertIn(
                 "Copyright (c) 2020 UserExistsError",
                 archive.read(notice_path).decode("utf-8"),
+            )
+            self.assertIn(
+                "Apache ECharts",
+                archive.read(f"{license_prefix}echarts-NOTICE.txt").decode("utf-8"),
             )
             self._assert_complete_record(archive, record, names)
             extract_root = self.root / "installed-wheel"
@@ -112,10 +138,14 @@ class SettaBuildBackendTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout, "0.1.0\n")
         self.assertTrue((self.root / "metadata" / metadata_name / "METADATA").is_file())
-        self.assertTrue(
-            (
-                self.root / "metadata" / metadata_name / "licenses" / "conpty-MIT.txt"
-            ).is_file()
+        self.assertEqual(
+            {
+                path.name
+                for path in (
+                    self.root / "metadata" / metadata_name / "licenses"
+                ).iterdir()
+            },
+            EXPECTED_LICENSE_NAMES,
         )
 
     def test_backend_rejects_unmanifested_runtime_content(self) -> None:

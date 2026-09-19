@@ -19,6 +19,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
             native_server=Path("/installed/python-canvas"),
             web_root=Path("/installed/python-canvas-web"),
         )
+        experiment_lens = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/experiment-lens"),
+            web_root=Path("/installed/experiment-lens-web"),
+        )
         review = run_local_setta.ReusableAppAssets(
             native_server=Path("/installed/review"),
             web_root=Path("/installed/review-web"),
@@ -46,6 +50,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 run_local_setta,
                 "_realtime_reusable_assets",
                 return_value={
+                    "experiment-lens": experiment_lens,
                     "python-canvas": reusable,
                     "review": review,
                 },
@@ -68,13 +73,23 @@ class LocalSettaRunnerTests(unittest.TestCase):
             )
         self.assertEqual(status, 7)
         run.assert_called_once_with(
-            ["/tools/pnpm", "install", "--frozen-lockfile"], run_local_setta.ROOT
+            [
+                "/tools/pnpm",
+                "install",
+                "--frozen-lockfile",
+                "--ignore-scripts",
+            ],
+            run_local_setta.ROOT,
         )
         frontend.assert_called_once_with("/tools/pnpm", Path("/tools/go"))
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
         self.assertEqual(
             build.call_args.args[2],
-            {"python-canvas": reusable, "review": review},
+            {
+                "experiment-lens": experiment_lens,
+                "python-canvas": reusable,
+                "review": review,
+            },
         )
         install.assert_called_once_with("/tools/uv", wheel)
         record.assert_called_once_with("realtime-inputs")
@@ -204,6 +219,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
 
     def test_targeted_wheel_build_reuses_unrelated_app_paths(self) -> None:
         reusable = {
+            "experiment-lens": run_local_setta.ReusableAppAssets(
+                native_server=Path("/installed/experiment-lens"),
+                web_root=Path("/installed/experiment-lens-web"),
+            ),
             "python-canvas": run_local_setta.ReusableAppAssets(
                 native_server=Path("/installed/python-canvas"),
                 web_root=Path("/installed/python-canvas-web"),
@@ -224,6 +243,8 @@ class LocalSettaRunnerTests(unittest.TestCase):
         self.assertEqual(built, wheel)
         command = run.call_args.args[0]
         self.assertIn("--skip-frontend-build", command)
+        self.assertIn("experiment-lens=/installed/experiment-lens", command)
+        self.assertIn("experiment-lens=/installed/experiment-lens-web", command)
         self.assertIn(
             "python-canvas=/installed/python-canvas",
             command,
@@ -236,6 +257,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
         self.assertIn("review=/installed/review-web", command)
 
     def test_targeted_realtime_build_requires_every_unrelated_app(self) -> None:
+        lens = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/experiment-lens"),
+            web_root=Path("/installed/experiment-lens-web"),
+        )
         canvas = run_local_setta.ReusableAppAssets(
             native_server=Path("/installed/python-canvas"),
             web_root=Path("/installed/python-canvas-web"),
@@ -243,12 +268,16 @@ class LocalSettaRunnerTests(unittest.TestCase):
         with mock.patch.object(
             run_local_setta,
             "_reusable_app_assets",
-            side_effect=(canvas, None),
+            side_effect=(lens, canvas, None),
         ) as lookup:
             self.assertIsNone(run_local_setta._realtime_reusable_assets())
         self.assertEqual(
             lookup.call_args_list,
-            [mock.call("python-canvas"), mock.call("review")],
+            [
+                mock.call("experiment-lens"),
+                mock.call("python-canvas"),
+                mock.call("review"),
+            ],
         )
 
     def test_install_replaces_same_version_setta_with_current_wheel(self) -> None:

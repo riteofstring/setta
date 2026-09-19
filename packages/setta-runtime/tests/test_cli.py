@@ -81,7 +81,7 @@ class RootCliTests(unittest.TestCase):
     def test_installed_registry_exposes_all_independent_apps(self) -> None:
         self.assertEqual(
             tuple(item.app_id for item in installed_apps().descriptors()),
-            ("python-canvas", "realtime", "review"),
+            ("experiment-lens", "python-canvas", "realtime", "review"),
         )
 
     def test_root_dispatches_a_fixture_app_without_domain_branching(self) -> None:

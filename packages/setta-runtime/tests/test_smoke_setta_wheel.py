@@ -32,14 +32,15 @@ class WheelInspectionTests(unittest.TestCase):
         self.assertEqual(inspection.target, ("darwin", "arm64"))
         self.assertEqual(
             tuple(app.app_id for app in inspection.apps),
-            ("python-canvas", "realtime", "review"),
+            ("experiment-lens", "python-canvas", "realtime", "review"),
         )
         self.assertEqual(
-            inspection.apps[1].native_member, "setta/_runtime/bin/realtime"
+            inspection.apps[0].native_member,
+            "setta/_runtime/bin/experiment-lens",
         )
         self.assertIn(
-            "setta/_runtime/realtime/web/index.html",
-            inspection.apps[1].web_members,
+            "setta/_runtime/experiment-lens/web/index.html",
+            inspection.apps[0].web_members,
         )
 
     def test_rejects_a_source_tree_path_even_when_recorded(self) -> None:
@@ -57,6 +58,7 @@ class WheelInspectionTests(unittest.TestCase):
                 Path(temporary_directory),
                 extra_entries={
                     "setta/apps/__init__.py": b"",
+                    "setta/apps/experiment_lens.py": b"",
                     "setta/apps/python_canvas.py": b"",
                     "setta/apps/realtime.py": b"",
                     "setta/apps/review.py": b"",
@@ -274,6 +276,19 @@ class PublicContractValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeError, "public contracts"):
             acceptance.assert_review_offline_schema_document(document)
 
+    def test_experiment_lens_schema_requires_the_exact_public_contract_set(
+        self,
+    ) -> None:
+        document: dict[str, object] = {
+            "schemaVersion": "setta-experiment-lens-schema/v1",
+            "schemas": {name: {} for name in models.REQUIRED_EXPERIMENT_LENS_SCHEMAS},
+        }
+        acceptance.assert_experiment_lens_offline_schema_document(document)
+        schemas = models.require_object(document["schemas"], "Experiment Lens schemas")
+        schemas.pop("selectionPacket")
+        with self.assertRaisesRegex(smoke.SmokeError, "public contracts"):
+            acceptance.assert_experiment_lens_offline_schema_document(document)
+
     def test_realtime_readiness_web_root_and_identity_are_exact(self) -> None:
         project = "/tmp/realtime-project"
         origin = "http://127.0.0.1:43123"
@@ -370,6 +385,60 @@ class PublicContractValidationTests(unittest.TestCase):
             acceptance, "http_get", side_effect=responses
         ) as request:
             nonce = acceptance.assert_review_web_and_identity(origin, project)
+        self.assertEqual(nonce, "x" * 32)
+        self.assertEqual(
+            [call.args[0] for call in request.call_args_list],
+            [
+                origin + "/",
+                origin + "/assets/app.js",
+                origin + "/api/v2/runtime/session",
+            ],
+        )
+
+    def test_experiment_lens_readiness_web_root_and_identity_are_exact(self) -> None:
+        project = "/tmp/experiment-lens-project"
+        origin = "http://127.0.0.1:43123"
+        readiness: dict[str, object] = {
+            "schemaVersion": "setta-open/v1",
+            "appId": "experiment-lens",
+            "projectPath": project,
+            "url": origin,
+        }
+        self.assertEqual(
+            acceptance.assert_experiment_lens_open_readiness(readiness, project),
+            origin,
+        )
+        responses = [
+            models.HTTPResult(
+                url=origin + "/",
+                status=200,
+                content_type="text/html",
+                body=b'<script src="/assets/app.js"></script>',
+            ),
+            models.HTTPResult(
+                url=origin + "/assets/app.js",
+                status=200,
+                content_type="text/javascript",
+                body=b"export {};",
+            ),
+            models.HTTPResult(
+                url=origin + "/api/v2/runtime/session",
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "schemaVersion": "experiment-lens-session/v1",
+                        "appId": "experiment-lens",
+                        "projectPath": project,
+                        "instanceNonce": "x" * 32,
+                    }
+                ).encode(),
+            ),
+        ]
+        with mock.patch.object(
+            acceptance, "http_get", side_effect=responses
+        ) as request:
+            nonce = acceptance.assert_experiment_lens_web_and_identity(origin, project)
         self.assertEqual(nonce, "x" * 32)
         self.assertEqual(
             [call.args[0] for call in request.call_args_list],
@@ -568,12 +637,18 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 mock.patch.object(acceptance, "assert_installed_root_commands"),
                 mock.patch.object(acceptance, "assert_offline_schema") as canvas_schema,
                 mock.patch.object(
+                    acceptance, "assert_experiment_lens_offline_schema"
+                ) as experiment_lens_schema,
+                mock.patch.object(
                     acceptance, "assert_realtime_offline_schema"
                 ) as realtime_schema,
                 mock.patch.object(
                     acceptance, "assert_review_offline_schema"
                 ) as review_schema,
                 mock.patch.object(acceptance, "exercise_live_server") as canvas_live,
+                mock.patch.object(
+                    acceptance, "exercise_experiment_lens_server"
+                ) as experiment_lens_live,
                 mock.patch.object(
                     acceptance, "exercise_realtime_server"
                 ) as realtime_live,
@@ -583,9 +658,13 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                     Path("/dist/setta.whl"), Path("/launcher/python"), root
                 )
         canvas_schema.assert_called_once()
+        experiment_lens_schema.assert_called_once()
         realtime_schema.assert_called_once()
         review_schema.assert_called_once()
         canvas_live.assert_called_once()
+        experiment_lens_live.assert_called_once_with(
+            Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
+        )
         realtime_live.assert_called_once_with(
             Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
         )
@@ -916,9 +995,18 @@ def _write_wheel(
 ) -> Path:
     wheel = directory / "setta-1.2.3-py3-none-macosx_13_0_arm64.whl"
     runtime = {
+        "bin/experiment-lens": (b"native-server", True),
         "bin/python-canvas": (b"native-server", True),
         "bin/realtime": (b"native-server", True),
         "bin/review": (b"native-server", True),
+        "experiment-lens/web/assets/app-abc.js": (
+            b"console.log('experiment-lens')",
+            False,
+        ),
+        "experiment-lens/web/index.html": (
+            b"<script src='/assets/app-abc.js'></script>",
+            False,
+        ),
         "python-canvas/web/assets/app-abc.js": (b"console.log('setta')", False),
         "python-canvas/web/index.html": (
             b"<script src='/assets/app-abc.js'></script>",
@@ -945,6 +1033,11 @@ def _write_wheel(
     ]
     manifest = {
         "apps": [
+            {
+                "id": "experiment-lens",
+                "nativeServer": "bin/experiment-lens",
+                "webRoot": "experiment-lens/web",
+            },
             {
                 "id": "python-canvas",
                 "nativeServer": "bin/python-canvas",

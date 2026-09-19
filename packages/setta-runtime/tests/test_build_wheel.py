@@ -28,6 +28,16 @@ class WheelBuildContractTests(unittest.TestCase):
                     build_setta_wheel.ROOT,
                 ),
                 mock.call(
+                    [
+                        "/tools/pnpm",
+                        "--filter",
+                        "@setta/experiment-lens",
+                        "run",
+                        "build",
+                    ],
+                    build_setta_wheel.ROOT,
+                ),
+                mock.call(
                     ["/tools/pnpm", "--filter", "@setta/python-canvas", "run", "build"],
                     build_setta_wheel.ROOT,
                 ),
@@ -105,7 +115,7 @@ class WheelBuildContractTests(unittest.TestCase):
         ):
             build_setta_wheel._run_native_build(
                 build_setta_wheel._APPS[0],
-                Path("/tmp/python-canvas"),
+                Path("/tmp/experiment-lens"),
                 None,
                 RuntimeTarget(os="darwin", arch="arm64"),
             )
@@ -198,11 +208,13 @@ class WheelBuildContractTests(unittest.TestCase):
             target=None,
             wheel_platform_tag="macosx_13_0_arm64",
             native_server=[
+                "experiment-lens=/native/experiment-lens",
                 "realtime=/native/realtime",
                 "python-canvas=/native/canvas",
                 "review=/native/review",
             ],
             web_root=[
+                "experiment-lens=/web/experiment-lens",
                 "realtime=/web/realtime",
                 "python-canvas=/web/canvas",
                 "review=/web/review",
@@ -224,6 +236,11 @@ class WheelBuildContractTests(unittest.TestCase):
         self.assertEqual(
             apps,
             (
+                StageAppInputs(
+                    "experiment-lens",
+                    Path("/native/experiment-lens"),
+                    Path("/web/experiment-lens"),
+                ),
                 StageAppInputs(
                     "python-canvas", Path("/native/canvas"), Path("/web/canvas")
                 ),

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/setta-wheels.yml"
+      - "apps/experiment-lens/**"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
       - "apps/review/**"
@@ -25,6 +26,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/setta-wheels.yml"
+      - "apps/experiment-lens/**"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
       - "apps/review/**"
@@ -103,8 +105,10 @@ jobs:
           test "$(node --version)" = "v25.2.1"
           test "$(pnpm --version)" = "10.23.0"
           expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
+          experiment_lens_go_version="$(tr -d '\r\n' < apps/experiment-lens/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
           review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
+          test "$experiment_lens_go_version" = "$expected_go_version"
           test "$realtime_go_version" = "$expected_go_version"
           test "$review_go_version" = "$expected_go_version"
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
@@ -113,7 +117,7 @@ jobs:
       - name: Install frozen build dependencies
         shell: bash
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
           uv sync --frozen
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
@@ -123,6 +127,8 @@ jobs:
           CGO_CFLAGS: "-mmacosx-version-min=13.0"
           CGO_LDFLAGS: "-mmacosx-version-min=13.0"
         run: |
+          go -C apps/experiment-lens/backend test ./...
+          go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
@@ -133,6 +139,7 @@ jobs:
         shell: bash
         run: |
           pnpm --filter @setta/workspace run build
+          pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
           pnpm --filter @setta/review run build
@@ -144,6 +151,7 @@ jobs:
           CGO_LDFLAGS: "-mmacosx-version-min=13.0"
         run: |
           mkdir -p build/setta-native
+          go -C apps/experiment-lens/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/experiment-lens" ./cmd/experiment-lens
           go -C apps/python-canvas/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/python-canvas" ./cmd/python-canvas
           go -C apps/realtime/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/realtime" ./cmd/realtime
           go -C apps/review/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/review" ./cmd/review
@@ -155,9 +163,11 @@ jobs:
           CGO_LDFLAGS: "-mmacosx-version-min=13.0"
         run: |
           python packages/setta-runtime/scripts/build_setta_wheel.py \
+            --native-server "experiment-lens=build/setta-native/experiment-lens" \
             --native-server "python-canvas=build/setta-native/python-canvas" \
             --native-server "realtime=build/setta-native/realtime" \
             --native-server "review=build/setta-native/review" \
+            --web-root "experiment-lens=apps/experiment-lens/dist" \
             --web-root "python-canvas=apps/python-canvas/dist" \
             --web-root "realtime=apps/realtime/dist" \
             --web-root "review=apps/review/dist" \
@@ -233,8 +243,10 @@ jobs:
           test "$(node --version)" = "v25.2.1"
           test "$(pnpm --version)" = "10.23.0"
           expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
+          experiment_lens_go_version="$(tr -d '\r\n' < apps/experiment-lens/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
           review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
+          test "$experiment_lens_go_version" = "$expected_go_version"
           test "$realtime_go_version" = "$expected_go_version"
           test "$review_go_version" = "$expected_go_version"
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
@@ -243,12 +255,14 @@ jobs:
       - name: Install frozen build dependencies
         shell: bash
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
           uv sync --frozen
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         shell: bash
         run: |
+          go -C apps/experiment-lens/backend test ./...
+          go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
@@ -259,6 +273,7 @@ jobs:
         shell: bash
         run: |
           pnpm --filter @setta/workspace run build
+          pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
           pnpm --filter @setta/review run build
@@ -270,6 +285,23 @@ jobs:
           mkdir -p build/setta-native/go-build-cache
           test ! -L build/setta-native/go-build-cache
           docker pull "${{ matrix.manylinux_image }}"
+          docker run --rm \
+            --network none \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --volume "$GOROOT:/setta-go:ro" \
+            --volume "$host_go_mod_cache:/setta-go-mod-cache:ro" \
+            --workdir /workspace/apps/experiment-lens/backend \
+            --env GOROOT=/setta-go \
+            --env CGO_ENABLED=1 \
+            --env GOCACHE=/workspace/build/setta-native/go-build-cache \
+            --env GOMODCACHE=/setta-go-mod-cache \
+            --env GOTOOLCHAIN=local \
+            --env GOPROXY=off \
+            --env GOSUMDB=off \
+            --env HOME=/tmp \
+            "${{ matrix.manylinux_image }}" \
+            /setta-go/bin/go build -mod=readonly -trimpath -buildvcs=false -o /workspace/build/setta-native/experiment-lens ./cmd/experiment-lens
           docker run --rm \
             --network none \
             --user "$(id -u):$(id -g)" \
@@ -325,9 +357,11 @@ jobs:
         shell: bash
         run: |
           python packages/setta-runtime/scripts/build_setta_wheel.py \
+            --native-server "experiment-lens=build/setta-native/experiment-lens" \
             --native-server "python-canvas=build/setta-native/python-canvas" \
             --native-server "realtime=build/setta-native/realtime" \
             --native-server "review=build/setta-native/review" \
+            --web-root "experiment-lens=apps/experiment-lens/dist" \
             --web-root "python-canvas=apps/python-canvas/dist" \
             --web-root "realtime=apps/realtime/dist" \
             --web-root "review=apps/review/dist" \
@@ -411,8 +445,10 @@ jobs:
           if ((node --version) -ne "v25.2.1") { throw "Wrong Node" }
           if ((pnpm --version) -ne "10.23.0") { throw "Wrong pnpm" }
           $expectedGoVersion = (Get-Content apps/python-canvas/backend/.go-version -Raw).Trim()
+          $experimentLensGoVersion = (Get-Content apps/experiment-lens/backend/.go-version -Raw).Trim()
           $realtimeGoVersion = (Get-Content apps/realtime/backend/.go-version -Raw).Trim()
           $reviewGoVersion = (Get-Content apps/review/backend/.go-version -Raw).Trim()
+          if ($experimentLensGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           if ($realtimeGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           if ($reviewGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           $actualGoVersion = ((go version) -split ' ')[2]
@@ -421,11 +457,13 @@ jobs:
           if (-not [Environment]::Is64BitOperatingSystem) { throw "Windows amd64 runner required" }
       - name: Install frozen build dependencies
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --ignore-scripts
           uv sync --frozen
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         run: |
+          go -C apps/experiment-lens/backend test ./...
+          go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
@@ -435,21 +473,25 @@ jobs:
       - name: Build all production frontends
         run: |
           pnpm --filter @setta/workspace run build
+          pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
           pnpm --filter @setta/review run build
       - name: Build all native servers
         run: |
           New-Item -ItemType Directory -Force build/setta-native
+          go -C apps/experiment-lens/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/experiment-lens.exe" ./cmd/experiment-lens
           go -C apps/python-canvas/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/python-canvas.exe" ./cmd/python-canvas
           go -C apps/realtime/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/realtime.exe" ./cmd/realtime
           go -C apps/review/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/review.exe" ./cmd/review
       - name: Build Windows amd64 wheel
         run: |
           python packages/setta-runtime/scripts/build_setta_wheel.py `
+            --native-server "experiment-lens=build/setta-native/experiment-lens.exe" `
             --native-server "python-canvas=build/setta-native/python-canvas.exe" `
             --native-server "realtime=build/setta-native/realtime.exe" `
             --native-server "review=build/setta-native/review.exe" `
+            --web-root "experiment-lens=apps/experiment-lens/dist" `
             --web-root "python-canvas=apps/python-canvas/dist" `
             --web-root "realtime=apps/realtime/dist" `
             --web-root "review=apps/review/dist" `

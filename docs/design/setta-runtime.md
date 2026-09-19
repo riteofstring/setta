@@ -11,10 +11,16 @@ owns exact application IDs and aliases and dispatches without product-specific b
 command context contains only services every registered application can use; application-specific
 tools remain on their owning adapter.
 
-The Python Canvas and Realtime applications have distinct IDs, project identities, native servers,
-web roots, and live-session records. A session key includes the application ID, so identical local
-project paths cannot collide across applications. Compatibility aliases exist only when explicitly
-retained by a product contract; Realtime introduces none.
+Python Canvas, Realtime, Review, and Experiment Lens have distinct IDs, project identities, native
+servers, web roots, and live-session records. A session key includes the application ID, so
+identical local project paths cannot collide across applications. Compatibility aliases exist only
+when explicitly retained by a product contract; the newer applications introduce none.
+
+Experiment Lens uses the project directory containing `experiment.json` as its canonical identity.
+Snapshot and mutation commands use the verified live session when one exists, while export remains
+a native command so writing a packet to a caller-selected path retains one atomic filesystem owner.
+The adapter accepts only the app's closed command grammar, bounds mutation and response bodies,
+rejects symlink inputs, and validates the exact server identity before routing to it.
 
 ## Closed packaged manifest
 
@@ -47,8 +53,10 @@ an initialized worker, while later source edits remain explicit reload operation
 
 Workspace builds before application frontends. Every frontend and native server builds before
 staging, and the wheel backend packages only those verified roots. CI trigger and build matrices
-cover every registered app. Runtime boundary checks reject undeclared files, missing app assets,
-and source-checkout fallbacks.
+cover every registered app, including Experiment Lens on every published platform. Installed-wheel
+acceptance opens each app from a clean environment; the Lens flow verifies its schema, live
+identity and snapshot, selection mutation, packet export, and offline access after shutdown.
+Runtime boundary checks reject undeclared files, missing app assets, and source-checkout fallbacks.
 
 The repository-local Realtime runner fingerprints the platform, pinned toolchain, package locks,
 Workspace and Realtime build inputs, and packaged runtime sources. An installed Realtime runtime
@@ -79,3 +87,9 @@ layout, and lock until the caller explicitly resets it from the immutable fixtur
 Playground wheel builds validate checked-in generated Realtime contracts in check-only mode, and
 all Go compilation uses read-only module resolution, so setup cannot rewrite governed source or
 module locks.
+
+The Experiment Lens playground also treats its checked-in battery example as immutable input. Its
+launcher validates the complete fixture tree as regular non-symlink content, rejects mutable local
+state in the fixture, and copies it atomically into the ignored `tmp/` tree. Later launches preserve
+that working project, including Lens selection state, while packaging continues to consume only the
+application build outputs.
