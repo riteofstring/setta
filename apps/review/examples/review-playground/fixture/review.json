@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "review-playground",
-  "name": "Checkout reliability review",
+  "name": "Agent review playground",
   "requests": [
     "requests/checkout-completion.json",
     "requests/schema-rollout.json",

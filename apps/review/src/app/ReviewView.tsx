@@ -18,6 +18,7 @@ import { projectReviewGraph } from "./reviewProjection";
 
 const EMPTY_TABS: readonly WorkspaceShellTabDefinition[] = [];
 const CLOSED_PANE_WIDTH = 40;
+const COMPACT_VIEWPORT_QUERY = "(max-width: 720px)";
 
 function viewportInsets(
   viewState: WorkspaceShellViewState,
@@ -83,6 +84,25 @@ function ReviewWorkspace() {
   const [windowingState, setWindowingState] = useState(() =>
     createWorkspaceWindowingState(),
   );
+  useEffect(() => {
+    const media = window.matchMedia(COMPACT_VIEWPORT_QUERY);
+    const closeOutline = () => {
+      if (!media.matches) {
+        return;
+      }
+      setViewState((current) =>
+        current.leading.visible
+          ? {
+              ...current,
+              leading: { ...current.leading, visible: false },
+            }
+          : current,
+      );
+    };
+    closeOutline();
+    media.addEventListener("change", closeOutline);
+    return () => media.removeEventListener("change", closeOutline);
+  }, []);
   const graph = useMemo(
     () => projectReviewGraph(review.snapshot, review.selection),
     [review.selection, review.snapshot],
@@ -109,7 +129,7 @@ function ReviewWorkspace() {
       <WorkspaceShell
         ariaLabel="Setta Review workspace"
         canvas={canvas}
-        includeBuiltInInspector={false}
+        includeBuiltInInspector
         includeBuiltInSavedViews={false}
         leadingPaneShiftsCanvas
         leadingTabs={EMPTY_TABS}
@@ -140,7 +160,7 @@ export function ReviewView({ host }: { host: WorkspaceHost }) {
         <div>
           <strong>{review.snapshot.project.name}</strong>
           <span>
-            {finalCount} of {review.snapshot.requests.length} responded
+            {finalCount} of {review.snapshot.requests.length} complete
           </span>
         </div>
         <div className="review-app-actions">
