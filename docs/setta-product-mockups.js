@@ -229,6 +229,47 @@ const setupCandidateStage = (element) => {
     const candidateSelection = candidateStage.querySelector(
       "[data-candidate-selection]",
     );
+    const candidateAnnotate = candidateStage.querySelector(
+      "[data-candidate-annotate]",
+    );
+    const candidateClear = candidateStage.querySelector(
+      "[data-candidate-clear]",
+    );
+    const candidateAnnotationSummary = candidateStage.querySelector(
+      "[data-candidate-annotation-summary]",
+    );
+    const candidateRevisionInput = candidateRevisionForm.querySelector("input");
+    let annotationMode = false;
+
+    const selectedAnnotationLayer = () =>
+      candidateStage.querySelector(
+        `[data-artifact-annotation="${candidateStage.dataset.candidate}"]`,
+      );
+
+    const hasSelectedDrawing = () =>
+      Boolean(
+        selectedAnnotationLayer()?.querySelector("[data-annotation-stroke]"),
+      );
+
+    const renderAnnotationControls = () => {
+      const candidate = candidateStage.dataset.candidate;
+      const hasDrawing = hasSelectedDrawing();
+      candidateStage.dataset.annotationMode = String(annotationMode);
+      candidateAnnotate.setAttribute("aria-pressed", String(annotationMode));
+      candidateAnnotate.textContent = annotationMode
+        ? "Done drawing"
+        : hasDrawing
+          ? "Edit drawing"
+          : "Draw feedback";
+      candidateClear.hidden = !hasDrawing || !annotationMode;
+      candidateAnnotationSummary.hidden = !hasDrawing;
+      candidateAnnotationSummary.textContent = hasDrawing
+        ? `Drawing attached to ${candidateNames[candidate]}`
+        : "";
+      candidateRevisionInput.placeholder = hasDrawing
+        ? "Optional when drawing is attached"
+        : "Describe the requested change";
+    };
 
     const renderCandidate = (candidate) => {
       candidateStage.dataset.candidate = candidate;
@@ -255,7 +296,73 @@ const setupCandidateStage = (element) => {
         if (check) check.hidden = !selected;
       });
       candidateSelection.textContent = candidateNames[candidate];
+      renderAnnotationControls();
     };
+
+    candidateStage
+      .querySelectorAll("[data-artifact-annotation]")
+      .forEach((layer) => {
+        let activePointer = null;
+        let activePath = null;
+        let lastPoint = null;
+        const pointForEvent = (event) => {
+          const bounds = layer.getBoundingClientRect();
+          return {
+            x: ((event.clientX - bounds.left) / bounds.width) * 1000,
+            y: ((event.clientY - bounds.top) / bounds.height) * 1000,
+          };
+        };
+        const finishStroke = (event) => {
+          if (event.pointerId !== activePointer) return;
+          if (activePath && !activePath.getAttribute("d").includes(" L ")) {
+            activePath.setAttribute(
+              "d",
+              `${activePath.getAttribute("d")} L ${lastPoint.x + 1} ${lastPoint.y + 1}`,
+            );
+          }
+          activePointer = null;
+          activePath = null;
+          lastPoint = null;
+          renderAnnotationControls();
+        };
+
+        layer.addEventListener("pointerdown", (event) => {
+          if (
+            !annotationMode ||
+            layer.dataset.artifactAnnotation !==
+              candidateStage.dataset.candidate
+          ) {
+            return;
+          }
+          event.preventDefault();
+          const point = pointForEvent(event);
+          activePointer = event.pointerId;
+          lastPoint = point;
+          activePath = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path",
+          );
+          activePath.dataset.annotationStroke = "";
+          activePath.setAttribute("d", `M ${point.x} ${point.y}`);
+          layer.append(activePath);
+          layer.setPointerCapture(event.pointerId);
+          renderAnnotationControls();
+        });
+        layer.addEventListener("pointermove", (event) => {
+          if (event.pointerId !== activePointer || !activePath) return;
+          const point = pointForEvent(event);
+          if (Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y) < 5) {
+            return;
+          }
+          activePath.setAttribute(
+            "d",
+            `${activePath.getAttribute("d")} L ${point.x} ${point.y}`,
+          );
+          lastPoint = point;
+        });
+        layer.addEventListener("pointerup", finishStroke);
+        layer.addEventListener("pointercancel", finishStroke);
+      });
 
     candidateStage
       .querySelectorAll("[data-candidate-option]")
@@ -269,9 +376,22 @@ const setupCandidateStage = (element) => {
       });
     renderCandidate(candidateStage.dataset.candidate || "b");
 
+    candidateAnnotate.addEventListener("click", () => {
+      annotationMode = !annotationMode;
+      renderAnnotationControls();
+    });
+    candidateClear.addEventListener("click", () => {
+      selectedAnnotationLayer()
+        .querySelectorAll("[data-annotation-stroke]")
+        .forEach((stroke) => stroke.remove());
+      renderAnnotationControls();
+    });
+
     candidateStage
       .querySelector("[data-candidate-confirm]")
       .addEventListener("click", () => {
+        annotationMode = false;
+        renderAnnotationControls();
         candidateActions.hidden = true;
         candidateSentLabel.textContent = `${candidateNames[candidateStage.dataset.candidate]} selected`;
         candidateSent.hidden = false;
@@ -279,10 +399,12 @@ const setupCandidateStage = (element) => {
     candidateStage
       .querySelector("[data-candidate-request-changes]")
       .addEventListener("click", () => {
+        annotationMode = false;
+        renderAnnotationControls();
         candidateActions.hidden = true;
         candidateSent.hidden = true;
         candidateRevisionForm.hidden = false;
-        candidateRevisionForm.querySelector("input").focus();
+        candidateRevisionInput.focus();
       });
     candidateStage
       .querySelector("[data-candidate-revision-cancel]")
@@ -293,10 +415,21 @@ const setupCandidateStage = (element) => {
       });
     candidateRevisionForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      const hasDrawing = hasSelectedDrawing();
+      candidateRevisionInput.setCustomValidity(
+        hasDrawing || candidateRevisionInput.value.trim()
+          ? ""
+          : "Add a note or draw on the selected artifact.",
+      );
       if (!candidateRevisionForm.reportValidity()) return;
       candidateRevisionForm.hidden = true;
-      candidateSentLabel.textContent = "Revision requested";
+      candidateSentLabel.textContent = hasDrawing
+        ? "Revision requested with drawing"
+        : "Revision requested";
       candidateSent.hidden = false;
+    });
+    candidateRevisionInput.addEventListener("input", () => {
+      candidateRevisionInput.setCustomValidity("");
     });
   }
 };

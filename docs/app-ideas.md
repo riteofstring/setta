@@ -114,8 +114,8 @@ different.
 ## Recommended flagship: Setta Review
 
 Open the [Completion](setta-product-mockups.html#review-completion),
-[Choice](setta-product-mockups.html#review-choice),
-[Candidate](setta-product-mockups.html#review-candidate), or
+[Choice matrix](setta-product-mockups.html#review-choice),
+[Choice artifact comparison](setta-product-mockups.html#review-choice-artifacts), or
 [Permission](setta-product-mockups.html#review-permission) review mockup.
 
 Setta Review should be a **visual review and response app for work prepared by agents, applications,
@@ -137,8 +137,11 @@ Codex, Claude Code, OpenCode, or any other producer can submit and consume the s
 - A **subject** is the claim, question, option, candidate, or capability being considered.
 - An **evidence reference** points to an exact Git hunk, text or log range, JSON result, local file,
   or content-addressed artifact.
-- A **review response** records decisions, qualifications, rationale, selected artifacts, unresolved
-  items, and provenance without mutating the submitted request.
+- A **review response** records decisions, qualifications, rationale, selected artifacts,
+  artifact-anchored annotations, unresolved items, and provenance without mutating the submitted
+  request.
+- An **artifact annotation** is an immutable overlay anchored to an exact artifact revision. A
+  drawing can travel with the response without altering the submitted artifact.
 - A **continuation packet** is an optional response presentation for the next person, agent, or
   application.
 
@@ -159,11 +162,11 @@ conditions or rationale. Open-ended questions stay in ordinary conversations. Th
 producer owns its session and decides how to continue after reading the response packet; Review
 never resumes an agent.
 
-#### Candidate review
-
-Managed windows provide synchronized comparison of images, text, JSON, or other admitted
-artifacts. The response records a selection, ranking, rejection, or qualification and can include
-the chosen artifacts.
+Choice review has two presentations over that same request and response contract. A matrix keeps
+structured options and tradeoff factors together. An artifact comparison uses managed windows when
+the reviewer needs to judge images, text, JSON, or other admitted artifacts at useful fidelity. It
+can record a selection, ranking, rejection, or qualification, include chosen artifacts, and attach
+drawn feedback to an exact artifact revision.
 
 #### Permission review
 
@@ -193,7 +196,8 @@ foundation.
 1. Open one review request and an optional local Git worktree.
 2. Support two built-in types: completion review and choice review. Choice review covers bounded
    questions, proposals, and candidate sets with type-specific presentations.
-3. Resolve Git hunks, UTF-8 text or log ranges, JSON results, and local file artifacts.
+3. Resolve Git hunks, UTF-8 text or log ranges, JSON results, and local file artifacts, and attach
+   drawing overlays to exact artifact revisions.
 4. Export a versioned review response and optional continuation packet.
 
 The first version does not run or resume an agent, edit source, execute tests, invoke tools, commit
@@ -324,7 +328,7 @@ than imports from another app's frontend or backend internals.
 1. Define the smallest open Review Request, evidence-reference, Review Response, and continuation
    envelopes.
 2. Build completion review around a real agent or application handoff.
-3. Add choice review with question, proposal, and candidate presentations without introducing a
+3. Add choice review with matrix and artifact-comparison presentations without introducing a
    generic review-type plug-in system.
 4. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
 5. Explore permission review using exported catalogs and traces.

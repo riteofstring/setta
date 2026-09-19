@@ -155,7 +155,7 @@
               <strong>2</strong><span>focused apps</span>
             </div>
             <div class="summary-stat">
-              <strong>4</strong><span>review workflows</span>
+              <strong>3</strong><span>review workflows</span>
             </div>
             <div class="summary-stat">
               <strong>1</strong><span>shared shell</span>
@@ -673,13 +673,15 @@
         <section id="review-choice" class="page-shell product-showcase">
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">App 01 · Workflow 02</div>
-              <h2>Review · Choice</h2>
+              <div class="showcase-number">
+                App 01 · Workflow 02 · Matrix view
+              </div>
+              <h2>Review · Choice matrix</h2>
               <p>
-                One compact decision section keeps the options and human actions
-                together. Rich source sections expose the underlying change and
-                run data. Selecting an evidence-backed factor reveals its source
-                and cited lines.
+                The structured presentation keeps options, tradeoffs, and human
+                actions together. Rich source sections expose the underlying
+                change and run data. Selecting an evidence-backed factor reveals
+                its source and cited lines.
               </p>
             </div>
           </div>
@@ -1206,15 +1208,21 @@
           </div>
         </section>
 
-        <section id="review-candidate" class="page-shell product-showcase">
+        <section
+          id="review-choice-artifacts"
+          class="page-shell product-showcase"
+        >
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">App 01 · Workflow 03</div>
-              <h2>Review · Candidate</h2>
+              <div class="showcase-number">
+                App 01 · Workflow 02 · Artifact view
+              </div>
+              <h2>Review · Choice comparison</h2>
               <p>
-                Candidates stay large enough to judge. Selection and revision
-                controls remain beside the work instead of living in a permanent
-                inspector.
+                The same choice contract switches to managed windows when the
+                artifacts themselves need judgment. Candidates stay large enough
+                to compare, and drawn feedback is attached to the exact artifact
+                rather than baked into it.
               </p>
             </div>
           </div>
@@ -1344,7 +1352,15 @@
                       </div>
                       <div class="setta-workspace-window-surface-body">
                         <div class="artifact-canvas">
-                          <div class="artifact-art"></div>
+                          <div class="artifact-art">
+                            <svg
+                              class="artifact-annotation-layer"
+                              data-artifact-annotation="a"
+                              viewBox="0 0 1000 1000"
+                              preserveAspectRatio="none"
+                              aria-label="Drawing feedback on Orbital"
+                            ></svg>
+                          </div>
                           <div class="artifact-caption">
                             <span>ORBITAL / 01</span><span>cool study</span>
                           </div>
@@ -1373,7 +1389,24 @@
                       </div>
                       <div class="setta-workspace-window-surface-body">
                         <div class="artifact-canvas">
-                          <div class="artifact-art variant-b"></div>
+                          <div class="artifact-art variant-b">
+                            <svg
+                              class="artifact-annotation-layer"
+                              data-artifact-annotation="b"
+                              viewBox="0 0 1000 1000"
+                              preserveAspectRatio="none"
+                              aria-label="Drawing feedback on Signal"
+                            >
+                              <path
+                                data-annotation-stroke
+                                d="M170 600 C245 490 430 470 555 535 C630 575 635 680 535 735 C390 810 210 755 170 600"
+                              ></path>
+                              <path
+                                data-annotation-stroke
+                                d="M575 515 C690 455 765 380 820 270 M820 270 L774 292 M820 270 L807 325"
+                              ></path>
+                            </svg>
+                          </div>
                           <div class="artifact-caption">
                             <span>SIGNAL / 02</span><span>warm study</span>
                           </div>
@@ -1401,7 +1434,15 @@
                       </div>
                       <div class="setta-workspace-window-surface-body">
                         <div class="artifact-canvas">
-                          <div class="artifact-art variant-c"></div>
+                          <div class="artifact-art variant-c">
+                            <svg
+                              class="artifact-annotation-layer"
+                              data-artifact-annotation="c"
+                              viewBox="0 0 1000 1000"
+                              preserveAspectRatio="none"
+                              aria-label="Drawing feedback on Quiet orbit"
+                            ></svg>
+                          </div>
                           <div class="artifact-caption">
                             <span>QUIET / 03</span><span>muted study</span>
                           </div>
@@ -1420,6 +1461,16 @@
                       >
                       <button
                         type="button"
+                        data-candidate-annotate
+                        aria-pressed="false"
+                      >
+                        Edit drawing
+                      </button>
+                      <button type="button" data-candidate-clear hidden>
+                        Clear drawing
+                      </button>
+                      <button
+                        type="button"
                         data-action="primary"
                         data-candidate-confirm
                       >
@@ -1434,13 +1485,20 @@
                       data-candidate-revision-form
                       hidden
                     >
-                      <label for="candidate-revision">Requested change</label>
+                      <span
+                        class="review-candidate-annotation-summary"
+                        data-candidate-annotation-summary
+                      >
+                        Drawing attached to Signal
+                      </span>
+                      <label for="candidate-revision">Note</label>
                       <input
                         id="candidate-revision"
-                        required
-                        placeholder="What should the next candidates change?"
+                        placeholder="Optional when drawing is attached"
                       />
-                      <button type="submit" data-action="primary">Send</button>
+                      <button type="submit" data-action="primary">
+                        Send request
+                      </button>
                       <button type="button" data-candidate-revision-cancel>
                         Cancel
                       </button>
@@ -1467,7 +1525,7 @@
         <section id="review-permission" class="page-shell product-showcase">
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">App 01 · Later workflow</div>
+              <div class="showcase-number">App 01 · Workflow 03 · Later</div>
               <h2>Review · Permission</h2>
               <p>
                 One matrix compares exposure, observed use, and the proposed
