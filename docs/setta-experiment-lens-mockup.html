@@ -1,0 +1,1868 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="An interactive Setta mockup for exploring recorded experiment trials."
+    />
+    <title>Setta Experiment Lens mockup</title>
+    <link rel="stylesheet" href="setta-product-mockups.css" />
+    <style>
+      .experiment-lens-hero {
+        grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.72fr);
+        padding-block: 88px 74px;
+      }
+
+      .experiment-lens-hero h1 {
+        max-width: 820px;
+      }
+
+      .experiment-lens-summary {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--page-raised);
+      }
+
+      .experiment-lens-summary h2 {
+        margin: 0;
+        padding: 17px 20px;
+        border-block-end: 1px solid var(--line-soft);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .experiment-lens-summary-row {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px 20px;
+        border-block-end: 1px solid var(--line-soft);
+      }
+
+      .experiment-lens-summary-row:last-child {
+        border-block-end: 0;
+      }
+
+      .experiment-lens-summary-row > span {
+        color: var(--blue);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .experiment-lens-summary-row strong,
+      .experiment-lens-summary-row small {
+        display: block;
+      }
+
+      .experiment-lens-summary-row strong {
+        margin-bottom: 3px;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .experiment-lens-summary-row small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .experiment-lens-stage {
+        --experiment-accent: rgb(96 165 250);
+        --experiment-artifact-opacity: 0.18;
+      }
+
+      .experiment-lens-stage[data-codec="avif"] {
+        --experiment-accent: rgb(81 214 199);
+      }
+
+      .experiment-lens-stage[data-quality="45"] {
+        --experiment-artifact-opacity: 0.62;
+      }
+
+      .experiment-lens-controls {
+        inset: 20px 24px auto;
+        width: auto;
+        min-height: 104px;
+      }
+
+      .experiment-lens-control-body {
+        display: grid;
+        min-height: 70px;
+        grid-template-columns: auto auto minmax(160px, 1fr) auto;
+        align-items: center;
+        gap: 24px;
+        padding: 10px 12px;
+        border-block-start: 1px solid rgb(26 33 45);
+      }
+
+      .experiment-lens-fieldset {
+        display: flex;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .experiment-lens-fieldset legend,
+      .experiment-lens-current > span,
+      .experiment-lens-pinned > span {
+        display: block;
+        margin-block-end: 5px;
+        color: rgb(86 105 143);
+        font-size: 8px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .experiment-lens-option-group {
+        display: flex;
+        gap: 4px;
+      }
+
+      .experiment-lens-option,
+      .experiment-lens-action,
+      .experiment-lens-window-button {
+        min-height: 28px;
+        appearance: none;
+        padding: 4px 10px;
+        border: 1px solid rgb(43 54 74);
+        border-radius: 4px;
+        background: rgb(17 23 34);
+        color: rgb(150 164 192);
+        cursor: pointer;
+        font:
+          600 9px/1.2 ui-sans-serif,
+          system-ui,
+          sans-serif;
+        white-space: nowrap;
+      }
+
+      .experiment-lens-option[aria-pressed="true"] {
+        border-color: rgb(59 130 246);
+        background: rgb(30 58 138 / 65%);
+        color: rgb(239 246 255);
+      }
+
+      .experiment-lens-option:focus-visible,
+      .experiment-lens-action:focus-visible,
+      .experiment-lens-window-button:focus-visible {
+        outline: 2px solid rgb(81 214 199);
+        outline-offset: 2px;
+      }
+
+      .experiment-lens-current,
+      .experiment-lens-pinned {
+        min-width: 0;
+      }
+
+      .experiment-lens-current strong,
+      .experiment-lens-pinned strong {
+        display: block;
+        overflow: hidden;
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .experiment-lens-current small {
+        display: block;
+        margin-block-start: 2px;
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-actions {
+        display: flex;
+        align-items: end;
+        gap: 6px;
+      }
+
+      .experiment-lens-action[data-emphasis="primary"] {
+        border-color: rgb(59 130 246);
+        background: rgb(30 58 138 / 65%);
+        color: rgb(239 246 255);
+      }
+
+      .experiment-lens-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.42;
+      }
+
+      .experiment-lens-image-node {
+        top: 148px;
+        left: 24px;
+        width: 414px;
+        height: 442px;
+      }
+
+      .experiment-lens-heat-node {
+        top: 148px;
+        left: 462px;
+        width: 310px;
+        height: 260px;
+      }
+
+      .experiment-lens-tradeoff-node {
+        top: 148px;
+        left: 796px;
+        width: 470px;
+        height: 260px;
+      }
+
+      .experiment-lens-log-node {
+        top: 432px;
+        left: 462px;
+        width: 804px;
+        height: 158px;
+      }
+
+      .experiment-lens-node-body {
+        overflow: hidden;
+        border-block-start: 1px solid rgb(26 33 45);
+      }
+
+      .experiment-lens-image-node .experiment-lens-node-body {
+        height: calc(100% - 32px);
+      }
+
+      .experiment-lens-image-wrap {
+        position: relative;
+        height: 100%;
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-image-wrap svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .experiment-lens-image-artifacts {
+        opacity: var(--experiment-artifact-opacity);
+        transition: opacity 180ms ease;
+      }
+
+      .experiment-lens-stage[data-codec="webp"] [data-image-artifact="avif"],
+      .experiment-lens-stage[data-codec="avif"] [data-image-artifact="webp"] {
+        display: none;
+      }
+
+      .experiment-lens-image-caption {
+        position: absolute;
+        inset: auto 8px 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 6px 8px;
+        border: 1px solid rgb(40 50 68 / 88%);
+        border-radius: 4px;
+        background: rgb(9 13 20 / 88%);
+        color: rgb(182 192 211);
+        font-family: var(--mono);
+        font-size: 8px;
+        backdrop-filter: blur(8px);
+      }
+
+      .experiment-lens-heat-body {
+        display: flex;
+        height: calc(100% - 32px);
+        flex-direction: column;
+        padding: 10px;
+      }
+
+      .experiment-lens-heatmap {
+        width: 100%;
+        min-height: 0;
+        flex: 1;
+        color: rgb(240 124 134);
+      }
+
+      .experiment-lens-stage[data-codec="avif"] .experiment-lens-heatmap {
+        color: rgb(81 214 199);
+      }
+
+      .experiment-lens-heatmap rect[style*="--cell-opacity"] {
+        fill: currentColor;
+        opacity: var(--cell-opacity);
+        transition: opacity 180ms ease;
+      }
+
+      .experiment-lens-heat-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-block-start: 7px;
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-heat-footer strong {
+        color: rgb(182 192 211);
+        font-weight: 500;
+      }
+
+      .experiment-lens-tradeoff-body {
+        display: grid;
+        height: calc(100% - 32px);
+        grid-template-columns: 192px minmax(0, 1fr);
+        gap: 13px;
+        padding: 12px;
+      }
+
+      .experiment-lens-metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .experiment-lens-metric-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-block-end: 5px;
+        color: rgb(117 136 174);
+        font-size: 8px;
+      }
+
+      .experiment-lens-metric-head strong {
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-metric-track {
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: rgb(26 33 45);
+      }
+
+      .experiment-lens-metric-fill {
+        width: var(--metric-width);
+        height: 100%;
+        border-radius: inherit;
+        background: var(--experiment-accent);
+        transition: width 180ms ease;
+      }
+
+      .experiment-lens-tradeoff-chart {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .experiment-lens-tradeoff-chart .chart-frame,
+      .experiment-lens-tradeoff-chart .chart-axis {
+        fill: none;
+        stroke: rgb(43 54 74);
+        stroke-width: 1;
+      }
+
+      .experiment-lens-tradeoff-chart text {
+        fill: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-tradeoff-chart [data-trial-point] circle {
+        fill: rgb(65 80 108);
+        stroke: rgb(11 14 19);
+        stroke-width: 2;
+        transition:
+          fill 180ms ease,
+          r 180ms ease;
+      }
+
+      .experiment-lens-tradeoff-chart [data-active] circle {
+        r: 6px;
+        fill: var(--experiment-accent);
+      }
+
+      .experiment-lens-tradeoff-chart [data-active] text {
+        fill: rgb(203 213 225);
+      }
+
+      .experiment-lens-log-body {
+        height: calc(100% - 32px);
+        overflow: hidden;
+        padding: 10px 12px;
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-log-body pre {
+        margin: 0;
+        color: rgb(150 164 192);
+        font: 9px/1.65 var(--mono);
+        white-space: pre-wrap;
+      }
+
+      .experiment-lens-log-prompt {
+        color: rgb(81 214 199);
+      }
+
+      .experiment-lens-log-result {
+        color: rgb(119 217 148);
+      }
+
+      .experiment-lens-comparison-manager[hidden] {
+        display: none;
+      }
+
+      .experiment-lens-comparison-manager {
+        z-index: 10;
+        background: rgb(8 11 17 / 72%);
+        backdrop-filter: blur(3px);
+      }
+
+      .experiment-lens-comparison-manager
+        .setta-workspace-window-surface-header {
+        gap: 8px;
+      }
+
+      .experiment-lens-comparison-title {
+        min-width: 0;
+        flex: 1;
+        color: rgb(203 213 225);
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-comparison-meta,
+      .experiment-lens-export-status {
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-export-status {
+        color: rgb(119 217 148);
+      }
+
+      .experiment-lens-comparison-body {
+        display: grid;
+        min-height: 0;
+        flex: 1;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 14px;
+        background: rgb(11 16 24);
+      }
+
+      .experiment-lens-comparison-grid {
+        display: grid;
+        min-height: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .experiment-lens-comparison-card {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgb(40 50 68);
+        border-radius: 6px;
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-comparison-card figcaption {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        border-block-end: 1px solid rgb(40 50 68);
+        color: rgb(203 213 225);
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-comparison-card figcaption span {
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+        font-weight: 400;
+      }
+
+      .experiment-lens-miniature {
+        position: relative;
+        min-height: 0;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .experiment-lens-miniature svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .experiment-lens-miniature::after {
+        position: absolute;
+        inset: 0;
+        opacity: 0.16;
+        background-image:
+          linear-gradient(rgb(240 124 134 / 65%) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(96 165 250 / 55%) 1px, transparent 1px);
+        background-size: 34px 34px;
+        content: "";
+        pointer-events: none;
+      }
+
+      .experiment-lens-miniature[data-quality="45"]::after {
+        opacity: 0.58;
+        background-size: 46px 46px;
+      }
+
+      .experiment-lens-miniature[data-codec="avif"]::after {
+        background-image: radial-gradient(
+          circle at 55% 44%,
+          rgb(81 214 199 / 58%) 0 6px,
+          transparent 26px
+        );
+        background-size: 78px 66px;
+      }
+
+      .experiment-lens-comparison-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 14px;
+      }
+
+      .experiment-lens-comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        color: rgb(150 164 192);
+        font-size: 9px;
+      }
+
+      .experiment-lens-comparison-table th,
+      .experiment-lens-comparison-table td {
+        padding: 5px 9px;
+        border-block-start: 1px solid rgb(40 50 68);
+        text-align: end;
+      }
+
+      .experiment-lens-comparison-table th:first-child,
+      .experiment-lens-comparison-table td:first-child {
+        text-align: start;
+      }
+
+      .experiment-lens-comparison-table th {
+        color: rgb(86 105 143);
+        font-size: 8px;
+        font-weight: 500;
+      }
+
+      .experiment-lens-comparison-table td:not(:first-child) {
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+      }
+
+      .experiment-lens-window-actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .experiment-lens-window-button[data-emphasis="primary"] {
+        border-color: rgb(59 130 246);
+        background: rgb(30 58 138 / 65%);
+        color: rgb(239 246 255);
+      }
+
+      .experiment-lens-boundary {
+        padding-block: 76px 100px;
+      }
+
+      .experiment-lens-boundary .product-loop article {
+        min-height: 205px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .experiment-lens-image-artifacts,
+        .experiment-lens-heatmap rect,
+        .experiment-lens-metric-fill,
+        .experiment-lens-tradeoff-chart [data-trial-point] circle {
+          transition: none;
+        }
+      }
+
+      @media (max-width: 960px) {
+        .experiment-lens-hero {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="icon-library" aria-hidden="true">
+      <symbol id="icon-outline" viewBox="0 0 24 24">
+        <path d="M8 6h13M8 12h13M8 18h13" />
+        <path d="M3 6h.01M3 12h.01M3 18h.01" />
+      </symbol>
+      <symbol id="icon-panel" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 3v18M12 8h6M12 12h6M12 16h4" />
+      </symbol>
+      <symbol id="icon-layers" viewBox="0 0 24 24">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+      </symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24">
+        <path d="M4 6h7M15 6h5M4 12h2M10 12h10M4 18h10M18 18h2" />
+        <circle cx="13" cy="6" r="2" />
+        <circle cx="8" cy="12" r="2" />
+        <circle cx="16" cy="18" r="2" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5z" />
+      </symbol>
+      <symbol id="icon-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+        <path d="M9 3v15M15 6v15" />
+      </symbol>
+      <symbol id="icon-fit" viewBox="0 0 24 24">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-minus" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="icon-spark" viewBox="0 0 24 24">
+        <path
+          d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z"
+        />
+      </symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <circle cx="8" cy="9" r="2" />
+        <path d="m4 17 5-5 4 4 2-2 5 4" />
+      </symbol>
+      <symbol id="icon-code" viewBox="0 0 24 24">
+        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />
+      </symbol>
+      <symbol id="icon-chart" viewBox="0 0 24 24">
+        <path d="M4 20V9M10 20V4M16 20v-7M22 20H2" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </symbol>
+    </svg>
+
+    <header class="site-header">
+      <div class="page-shell header-inner">
+        <a class="brand" href="#top" aria-label="Setta Experiment Lens home">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </span>
+          Setta Experiment Lens
+        </a>
+        <nav class="site-nav" aria-label="Page navigation">
+          <a href="#explore">Explore</a>
+          <a href="#handoff">Handoff</a>
+          <a href="setta-product-mockups.html">Review mockups</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <section
+        class="page-shell hero experiment-lens-hero"
+        aria-labelledby="hero-title"
+      >
+        <div>
+          <div class="eyebrow">Recorded experiments · interactive results</div>
+          <h1 id="hero-title">Explore the experiment, not the dashboard.</h1>
+          <p class="hero-lede">
+            Agents run trials elsewhere. Setta turns their recorded outputs into
+            one interactive workspace where every rich result changes together.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#explore">Try the experiment</a>
+            <a class="secondary-link" href="#handoff">See the boundary</a>
+          </div>
+        </div>
+
+        <aside
+          class="experiment-lens-summary"
+          aria-label="How Experiment Lens works"
+        >
+          <h2>A small, finite contract</h2>
+          <div class="experiment-lens-summary-row">
+            <span>01</span>
+            <div>
+              <strong>Record trials</strong>
+              <small
+                >Any script or agent writes a manifest and artifacts.</small
+              >
+            </div>
+          </div>
+          <div class="experiment-lens-summary-row">
+            <span>02</span>
+            <div>
+              <strong>Explore native outputs</strong>
+              <small
+                >One trial switches the image, heatmap, metrics, and log.</small
+              >
+            </div>
+          </div>
+          <div class="experiment-lens-summary-row">
+            <span>03</span>
+            <div>
+              <strong>Hand off a selection</strong>
+              <small
+                >Export trial IDs and artifact references for the next
+                tool.</small
+              >
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="mockup-area" aria-label="Experiment Lens mockup">
+        <section id="explore" class="page-shell product-showcase">
+          <div class="showcase-head showcase-head-simple">
+            <div>
+              <div class="showcase-number">Interactive mockup</div>
+              <h2>Explore one finite experiment</h2>
+              <p>
+                Every factor combination below is a real recorded trial. Change
+                codec or quality, then compare the current trial with pinned A.
+              </p>
+            </div>
+          </div>
+
+          <div class="app-frame">
+            <setta-workspace
+              heading="Image compression sweep · product hero"
+              meta="4 recorded trials · no reruns or interpolation"
+              inspector-title="Details"
+              inspector-open="false"
+            >
+              <div data-region="outline">
+                <div class="setta-workspace-outline">
+                  <div class="setta-workspace-outline-item">
+                    <div class="setta-workspace-outline-row">
+                      <span class="setta-workspace-outline-disclosure">
+                        <svg class="setta-icon">
+                          <use href="#icon-chevron"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Product hero sweep</span
+                      >
+                    </div>
+                  </div>
+                  <div
+                    class="setta-workspace-outline-item"
+                    aria-selected="true"
+                  >
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px; --outline-color: #5d7cff"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-sliders"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Recorded trial selector</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-image"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Rendered image</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-grid"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Error heatmap</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-chart"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Tradeoffs</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon"
+                        ><svg class="setta-icon">
+                          <use href="#icon-code"></use></svg
+                      ></span>
+                      <span class="setta-workspace-outline-label"
+                        >Encoder log</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="canvas-stage experiment-lens-stage"
+                data-region="canvas"
+                data-codec="webp"
+                data-quality="75"
+              >
+                <article
+                  class="setta-section-card experiment-lens-controls"
+                  data-section-active="true"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon"
+                      ><svg class="setta-icon">
+                        <use href="#icon-sliders"></use></svg
+                    ></span>
+                    <span class="setta-section-title"
+                      >Recorded trial selector</span
+                    >
+                    <span class="setta-section-kind" data-current-trial
+                      >T-09</span
+                    >
+                  </header>
+                  <div class="experiment-lens-control-body">
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Codec</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-factor="codec"
+                          data-value="webp"
+                          aria-pressed="true"
+                        >
+                          WebP
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-factor="codec"
+                          data-value="avif"
+                          aria-pressed="false"
+                        >
+                          AVIF
+                        </button>
+                      </div>
+                    </fieldset>
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Quality</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-factor="quality"
+                          data-value="45"
+                          aria-pressed="false"
+                        >
+                          45
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-factor="quality"
+                          data-value="75"
+                          aria-pressed="true"
+                        >
+                          75
+                        </button>
+                      </div>
+                    </fieldset>
+                    <div class="experiment-lens-current">
+                      <span>Current trial</span>
+                      <strong
+                        ><span data-current-trial>T-09</span> ·
+                        <span data-current-label
+                          >WebP · quality 75</span
+                        ></strong
+                      >
+                      <small>4 / 4 combinations recorded</small>
+                    </div>
+                    <div class="experiment-lens-actions">
+                      <div class="experiment-lens-pinned">
+                        <span>Pinned A</span>
+                        <strong data-pinned-label
+                          >T-04 · WebP · quality 45</strong
+                        >
+                      </div>
+                      <button
+                        class="experiment-lens-action"
+                        type="button"
+                        data-pin-current
+                      >
+                        Pin current as A
+                      </button>
+                      <button
+                        class="experiment-lens-action"
+                        type="button"
+                        data-emphasis="primary"
+                        data-open-comparison
+                      >
+                        Compare A ↔ current
+                      </button>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="setta-section-card experiment-lens-image-node">
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon"
+                      ><svg class="setta-icon">
+                        <use href="#icon-image"></use></svg
+                    ></span>
+                    <span class="setta-section-title">Rendered image</span>
+                    <span class="setta-section-kind" data-output-trial
+                      >T-09</span
+                    >
+                  </header>
+                  <div
+                    class="experiment-lens-node-body experiment-lens-image-wrap"
+                  >
+                    <svg
+                      viewBox="0 0 720 640"
+                      role="img"
+                      aria-labelledby="rendered-image-title rendered-image-description"
+                    >
+                      <title id="rendered-image-title">
+                        Compressed mountain lake image
+                      </title>
+                      <desc id="rendered-image-description">
+                        A stylized mountain lake preview with visible
+                        compression artifacts that change with the selected
+                        trial.
+                      </desc>
+                      <defs>
+                        <linearGradient
+                          id="experiment-sky"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop offset="0" stop-color="#13264f" />
+                          <stop offset="0.58" stop-color="#6c6aa1" />
+                          <stop offset="1" stop-color="#f0a478" />
+                        </linearGradient>
+                        <linearGradient
+                          id="experiment-water"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop offset="0" stop-color="#344b70" />
+                          <stop offset="1" stop-color="#0e1a2a" />
+                        </linearGradient>
+                      </defs>
+                      <rect
+                        width="720"
+                        height="640"
+                        fill="url(#experiment-sky)"
+                      />
+                      <circle
+                        cx="565"
+                        cy="118"
+                        r="47"
+                        fill="#ffd7a0"
+                        opacity="0.9"
+                      />
+                      <g fill="#d8e3ef" opacity="0.7">
+                        <circle cx="96" cy="90" r="2" />
+                        <circle cx="184" cy="128" r="1.7" />
+                        <circle cx="292" cy="72" r="2.3" />
+                        <circle cx="398" cy="113" r="1.5" />
+                      </g>
+                      <path
+                        d="M0 350 122 210 214 298 338 154 492 333 588 242 720 365V455H0Z"
+                        fill="#263650"
+                      />
+                      <path
+                        d="m160 307 54-9 124-144 51 94-51-55-44 74-80 31Z"
+                        fill="#d6dfeb"
+                        opacity="0.85"
+                      />
+                      <path
+                        d="m493 333 95-91 54 61-54-35-31 41Z"
+                        fill="#b8c8da"
+                        opacity="0.76"
+                      />
+                      <path
+                        d="M0 410c165-28 284-21 374-1 119 27 221 22 346-7v238H0Z"
+                        fill="url(#experiment-water)"
+                      />
+                      <path
+                        d="M0 458c160-23 274-12 382 8 108 19 220 18 338-8"
+                        fill="none"
+                        stroke="#83a7be"
+                        stroke-width="5"
+                        opacity="0.4"
+                      />
+                      <path
+                        d="M0 525c169-18 286-7 382 10 106 19 217 16 338-9"
+                        fill="none"
+                        stroke="#8fb1c5"
+                        stroke-width="3"
+                        opacity="0.28"
+                      />
+                      <g
+                        class="experiment-lens-image-artifacts"
+                        data-image-artifact="webp"
+                      >
+                        <rect
+                          x="40"
+                          y="284"
+                          width="82"
+                          height="74"
+                          fill="#ef8c81"
+                        />
+                        <rect
+                          x="122"
+                          y="284"
+                          width="82"
+                          height="74"
+                          fill="#516e9e"
+                        />
+                        <rect
+                          x="368"
+                          y="210"
+                          width="82"
+                          height="74"
+                          fill="#d9858b"
+                        />
+                        <rect
+                          x="532"
+                          y="358"
+                          width="82"
+                          height="74"
+                          fill="#5e7da6"
+                        />
+                        <path
+                          d="M0 358H720M0 432H720M0 506H720"
+                          stroke="#aec1da"
+                          stroke-width="2"
+                        />
+                      </g>
+                      <g
+                        class="experiment-lens-image-artifacts"
+                        data-image-artifact="avif"
+                        fill="none"
+                        stroke="#6ef0d9"
+                        stroke-width="14"
+                      >
+                        <path
+                          d="M24 346c96-43 171-9 248-31s142-56 235-20 145 10 190-13"
+                        />
+                        <path d="M8 454c107-34 198-6 287 9s187 21 408-22" />
+                      </g>
+                    </svg>
+                    <div class="experiment-lens-image-caption">
+                      <span data-image-caption>output.webp · quality 75</span
+                      ><span data-image-size>184 KB</span>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="setta-section-card experiment-lens-heat-node">
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon"
+                      ><svg class="setta-icon">
+                        <use href="#icon-grid"></use></svg
+                    ></span>
+                    <span class="setta-section-title">Error heatmap</span>
+                    <span class="setta-section-kind" data-output-trial
+                      >T-09</span
+                    >
+                  </header>
+                  <div
+                    class="experiment-lens-node-body experiment-lens-heat-body"
+                  >
+                    <svg
+                      class="experiment-lens-heatmap"
+                      viewBox="0 0 288 160"
+                      role="img"
+                      aria-labelledby="heatmap-title heatmap-description"
+                    >
+                      <title id="heatmap-title">Pixel error heatmap</title>
+                      <desc id="heatmap-description">
+                        A grid showing where the selected compression trial
+                        differs from the source image.
+                      </desc>
+                      <rect
+                        x="0"
+                        y="0"
+                        width="288"
+                        height="160"
+                        rx="3"
+                        fill="#111827"
+                        opacity="1"
+                      />
+                      <rect
+                        x="8"
+                        y="8"
+                        width="61"
+                        height="31"
+                        rx="2"
+                        style="--cell-opacity: 0.4"
+                      />
+                      <rect
+                        x="77"
+                        y="8"
+                        width="61"
+                        height="31"
+                        rx="2"
+                        style="--cell-opacity: 0.9"
+                      />
+                      <rect
+                        x="146"
+                        y="8"
+                        width="61"
+                        height="31"
+                        rx="2"
+                        style="--cell-opacity: 0.25"
+                      />
+                      <rect
+                        x="215"
+                        y="8"
+                        width="65"
+                        height="31"
+                        rx="2"
+                        style="--cell-opacity: 0.65"
+                      />
+                      <rect
+                        x="8"
+                        y="47"
+                        width="61"
+                        height="47"
+                        rx="2"
+                        style="--cell-opacity: 0.82"
+                      />
+                      <rect
+                        x="77"
+                        y="47"
+                        width="61"
+                        height="47"
+                        rx="2"
+                        style="--cell-opacity: 0.34"
+                      />
+                      <rect
+                        x="146"
+                        y="47"
+                        width="61"
+                        height="47"
+                        rx="2"
+                        style="--cell-opacity: 1"
+                      />
+                      <rect
+                        x="215"
+                        y="47"
+                        width="65"
+                        height="47"
+                        rx="2"
+                        style="--cell-opacity: 0.44"
+                      />
+                      <rect
+                        x="8"
+                        y="102"
+                        width="61"
+                        height="50"
+                        rx="2"
+                        style="--cell-opacity: 0.22"
+                      />
+                      <rect
+                        x="77"
+                        y="102"
+                        width="61"
+                        height="50"
+                        rx="2"
+                        style="--cell-opacity: 0.72"
+                      />
+                      <rect
+                        x="146"
+                        y="102"
+                        width="61"
+                        height="50"
+                        rx="2"
+                        style="--cell-opacity: 0.52"
+                      />
+                      <rect
+                        x="215"
+                        y="102"
+                        width="65"
+                        height="50"
+                        rx="2"
+                        style="--cell-opacity: 0.86"
+                      />
+                    </svg>
+                    <div class="experiment-lens-heat-footer">
+                      <span>Source difference</span
+                      ><span>max <strong data-heat-max>8.4%</strong></span>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-tradeoff-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon"
+                      ><svg class="setta-icon">
+                        <use href="#icon-chart"></use></svg
+                    ></span>
+                    <span class="setta-section-title">Tradeoffs</span>
+                    <span class="setta-section-kind" data-output-trial
+                      >T-09</span
+                    >
+                  </header>
+                  <div
+                    class="experiment-lens-node-body experiment-lens-tradeoff-body"
+                  >
+                    <div class="experiment-lens-metrics">
+                      <div>
+                        <div class="experiment-lens-metric-head">
+                          <span>File size</span
+                          ><strong data-metric-value="size">184 KB</strong>
+                        </div>
+                        <div class="experiment-lens-metric-track">
+                          <div
+                            class="experiment-lens-metric-fill"
+                            data-metric-bar="size"
+                            style="--metric-width: 77%"
+                          ></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="experiment-lens-metric-head">
+                          <span>Similarity</span
+                          ><strong data-metric-value="similarity">0.971</strong>
+                        </div>
+                        <div class="experiment-lens-metric-track">
+                          <div
+                            class="experiment-lens-metric-fill"
+                            data-metric-bar="similarity"
+                            style="--metric-width: 71%"
+                          ></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="experiment-lens-metric-head">
+                          <span>Encode time</span
+                          ><strong data-metric-value="time">19 ms</strong>
+                        </div>
+                        <div class="experiment-lens-metric-track">
+                          <div
+                            class="experiment-lens-metric-fill"
+                            data-metric-bar="time"
+                            style="--metric-width: 27%"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <svg
+                      class="experiment-lens-tradeoff-chart"
+                      viewBox="0 0 230 190"
+                      role="img"
+                      aria-labelledby="tradeoff-title tradeoff-description"
+                    >
+                      <title id="tradeoff-title">
+                        Size and similarity for all four trials
+                      </title>
+                      <desc id="tradeoff-description">
+                        Four recorded trials plotted by file size and image
+                        similarity, with the current trial highlighted.
+                      </desc>
+                      <rect
+                        class="chart-frame"
+                        x="30"
+                        y="12"
+                        width="184"
+                        height="143"
+                      />
+                      <path class="chart-axis" d="M30 155h184M30 12v143" />
+                      <text x="122" y="181" text-anchor="middle">
+                        file size →
+                      </text>
+                      <text
+                        x="8"
+                        y="84"
+                        text-anchor="middle"
+                        transform="rotate(-90 8 84)"
+                      >
+                        similarity →
+                      </text>
+                      <g
+                        data-trial-point="avif-45"
+                        transform="translate(48 102)"
+                      >
+                        <circle r="4" />
+                        <text x="8" y="3">T-12</text>
+                      </g>
+                      <g
+                        data-trial-point="webp-45"
+                        transform="translate(87 119)"
+                      >
+                        <circle r="4" />
+                        <text x="8" y="3">T-04</text>
+                      </g>
+                      <g
+                        data-trial-point="avif-75"
+                        transform="translate(126 34)"
+                      >
+                        <circle r="4" />
+                        <text x="8" y="3">T-18</text>
+                      </g>
+                      <g
+                        data-trial-point="webp-75"
+                        data-active
+                        transform="translate(187 52)"
+                      >
+                        <circle r="6" />
+                        <text x="-8" y="-9" text-anchor="end">T-09</text>
+                      </g>
+                    </svg>
+                  </div>
+                </article>
+
+                <article class="setta-section-card experiment-lens-log-node">
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon"
+                      ><svg class="setta-icon">
+                        <use href="#icon-code"></use></svg
+                    ></span>
+                    <span class="setta-section-title">Encoder log</span>
+                    <span class="setta-section-kind" data-output-trial
+                      >T-09</span
+                    >
+                  </header>
+                  <div
+                    class="experiment-lens-node-body experiment-lens-log-body"
+                  >
+                    <pre><code><span class="experiment-lens-log-prompt">$</span> <span data-log-command>cwebp hero.png -q 75 -o output.webp</span>
+input   hero.png · 2400 × 1600 · 4.8 MB
+output  <span data-log-output>output.webp · 184 KB</span>
+<span class="experiment-lens-log-result" data-log-result>SSIM 0.971 · encoded in 19 ms</span></code></pre>
+                  </div>
+                </article>
+
+                <div
+                  class="setta-workspace-window-manager experiment-lens-comparison-manager"
+                  data-comparison
+                  hidden
+                >
+                  <section
+                    class="setta-workspace-window-surface"
+                    aria-label="Pinned trial comparison"
+                  >
+                    <header class="setta-workspace-window-surface-header">
+                      <svg class="setta-icon">
+                        <use href="#icon-layers"></use>
+                      </svg>
+                      <strong class="experiment-lens-comparison-title"
+                        >Pinned comparison</strong
+                      >
+                      <span
+                        class="experiment-lens-comparison-meta"
+                        data-comparison-meta
+                        >T-04 ↔ T-09</span
+                      >
+                      <span
+                        class="experiment-lens-export-status"
+                        data-export-status
+                        aria-live="polite"
+                      ></span>
+                      <button
+                        class="experiment-lens-window-button"
+                        type="button"
+                        data-close-comparison
+                      >
+                        Close
+                      </button>
+                    </header>
+                    <div
+                      class="setta-workspace-window-surface-body experiment-lens-comparison-body"
+                    >
+                      <div class="experiment-lens-comparison-grid">
+                        <figure class="experiment-lens-comparison-card">
+                          <figcaption>
+                            <strong>A · Pinned</strong
+                            ><span data-compare-label="a">T-04 · WebP 45</span>
+                          </figcaption>
+                          <div
+                            class="experiment-lens-miniature"
+                            data-compare-preview="a"
+                            data-codec="webp"
+                            data-quality="45"
+                          >
+                            <svg
+                              viewBox="0 0 640 300"
+                              preserveAspectRatio="xMidYMid slice"
+                              role="img"
+                              aria-label="Pinned trial image preview"
+                            >
+                              <defs>
+                                <linearGradient
+                                  id="experiment-compare-a"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop offset="0" stop-color="#172b56" />
+                                  <stop offset="1" stop-color="#df9479" />
+                                </linearGradient>
+                              </defs>
+                              <rect
+                                width="640"
+                                height="300"
+                                fill="url(#experiment-compare-a)"
+                              />
+                              <circle cx="505" cy="62" r="34" fill="#ffd7a0" />
+                              <path
+                                d="M0 214 102 105l90 76 116-121 145 146 82-82 105 100v76H0Z"
+                                fill="#263650"
+                              />
+                              <path
+                                d="M0 226c138-19 270-7 358 12 96 21 180 17 282-5v67H0Z"
+                                fill="#17253a"
+                              />
+                            </svg>
+                          </div>
+                        </figure>
+                        <figure class="experiment-lens-comparison-card">
+                          <figcaption>
+                            <strong>B · Current</strong
+                            ><span data-compare-label="b">T-09 · WebP 75</span>
+                          </figcaption>
+                          <div
+                            class="experiment-lens-miniature"
+                            data-compare-preview="b"
+                            data-codec="webp"
+                            data-quality="75"
+                          >
+                            <svg
+                              viewBox="0 0 640 300"
+                              preserveAspectRatio="xMidYMid slice"
+                              role="img"
+                              aria-label="Current trial image preview"
+                            >
+                              <defs>
+                                <linearGradient
+                                  id="experiment-compare-b"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop offset="0" stop-color="#172b56" />
+                                  <stop offset="1" stop-color="#df9479" />
+                                </linearGradient>
+                              </defs>
+                              <rect
+                                width="640"
+                                height="300"
+                                fill="url(#experiment-compare-b)"
+                              />
+                              <circle cx="505" cy="62" r="34" fill="#ffd7a0" />
+                              <path
+                                d="M0 214 102 105l90 76 116-121 145 146 82-82 105 100v76H0Z"
+                                fill="#263650"
+                              />
+                              <path
+                                d="M0 226c138-19 270-7 358 12 96 21 180 17 282-5v67H0Z"
+                                fill="#17253a"
+                              />
+                            </svg>
+                          </div>
+                        </figure>
+                      </div>
+                      <div class="experiment-lens-comparison-footer">
+                        <table class="experiment-lens-comparison-table">
+                          <thead>
+                            <tr>
+                              <th>Metric</th>
+                              <th>A</th>
+                              <th>B</th>
+                              <th>B − A</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>File size</td>
+                              <td data-compare-metric="a-size">118 KB</td>
+                              <td data-compare-metric="b-size">184 KB</td>
+                              <td data-compare-delta="size">+66 KB</td>
+                            </tr>
+                            <tr>
+                              <td>Similarity</td>
+                              <td data-compare-metric="a-similarity">0.931</td>
+                              <td data-compare-metric="b-similarity">0.971</td>
+                              <td data-compare-delta="similarity">+0.040</td>
+                            </tr>
+                            <tr>
+                              <td>Encode time</td>
+                              <td data-compare-metric="a-time">16 ms</td>
+                              <td data-compare-metric="b-time">19 ms</td>
+                              <td data-compare-delta="time">+3 ms</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div class="experiment-lens-window-actions">
+                          <button
+                            class="experiment-lens-window-button"
+                            type="button"
+                            data-emphasis="primary"
+                            data-export-selection
+                          >
+                            Export selection
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div data-region="inspector"></div>
+            </setta-workspace>
+          </div>
+        </section>
+      </section>
+
+      <section
+        id="handoff"
+        class="page-shell experiment-lens-boundary"
+        aria-labelledby="handoff-title"
+      >
+        <div class="section-kicker">Portable by design</div>
+        <h2 id="handoff-title" class="section-heading">
+          The app owns the view, not the experiment runner.
+        </h2>
+        <p class="section-copy">
+          Codex, Claude, OpenCode, a notebook, or a CI job can produce the same
+          small input. The result can leave Setta just as easily.
+        </p>
+        <div class="product-loop">
+          <article>
+            <div class="loop-index">01 / WRITE</div>
+            <h3>Manifest + artifacts</h3>
+            <p>
+              Each trial names its factors, scalar results, logs, images, and
+              other native artifacts.
+            </p>
+            <div class="loop-proof">
+              <span>experiment.json</span><span>files</span><span>URLs</span>
+            </div>
+          </article>
+          <article>
+            <div class="loop-index">02 / EXPLORE</div>
+            <h3>Coordinated workspace</h3>
+            <p>
+              Changing the trial changes every section atomically. Nothing is
+              predicted or rerun.
+            </p>
+            <div class="loop-proof">
+              <span>recorded trials</span><span>rich sections</span
+              ><span>compare</span>
+            </div>
+          </article>
+          <article>
+            <div class="loop-index">03 / HAND OFF</div>
+            <h3>Selection + references</h3>
+            <p>
+              The next agent or app receives the chosen trial IDs and references
+              to their evidence.
+            </p>
+            <div class="loop-proof">
+              <span>selection.json</span><span>trial IDs</span
+              ><span>artifact refs</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="setta-product-mockups.js"></script>
+    <script>
+      customElements.whenDefined("setta-workspace").then(() => {
+        const stage = document.querySelector(".experiment-lens-stage");
+        if (!stage) return;
+
+        const trials = {
+          "webp-45": {
+            id: "T-04",
+            codec: "webp",
+            codecLabel: "WebP",
+            quality: "45",
+            size: 118,
+            similarity: 0.931,
+            time: 16,
+            heat: "14.7%",
+            command: "cwebp hero.png -q 45 -o output.webp",
+            output: "output.webp",
+          },
+          "webp-75": {
+            id: "T-09",
+            codec: "webp",
+            codecLabel: "WebP",
+            quality: "75",
+            size: 184,
+            similarity: 0.971,
+            time: 19,
+            heat: "8.4%",
+            command: "cwebp hero.png -q 75 -o output.webp",
+            output: "output.webp",
+          },
+          "avif-45": {
+            id: "T-12",
+            codec: "avif",
+            codecLabel: "AVIF",
+            quality: "45",
+            size: 91,
+            similarity: 0.944,
+            time: 43,
+            heat: "11.1%",
+            command: "avifenc hero.png output.avif -q 45",
+            output: "output.avif",
+          },
+          "avif-75": {
+            id: "T-18",
+            codec: "avif",
+            codecLabel: "AVIF",
+            quality: "75",
+            size: 142,
+            similarity: 0.982,
+            time: 55,
+            heat: "5.2%",
+            command: "avifenc hero.png output.avif -q 75",
+            output: "output.avif",
+          },
+        };
+        let codec = "webp";
+        let quality = "75";
+        let pinnedKey = "webp-45";
+        const comparison = stage.querySelector("[data-comparison]");
+        const exportStatus = stage.querySelector("[data-export-status]");
+
+        const keyForCurrent = () => `${codec}-${quality}`;
+        const labelFor = (trial) =>
+          `${trial.codecLabel} · quality ${trial.quality}`;
+        const compactLabelFor = (trial) =>
+          `${trial.id} · ${trial.codecLabel} ${trial.quality}`;
+        const signed = (value, digits, unit) =>
+          `${value > 0 ? "+" : ""}${value.toFixed(digits)}${unit}`;
+
+        const renderComparison = () => {
+          const pinned = trials[pinnedKey];
+          const current = trials[keyForCurrent()];
+          stage.querySelector("[data-comparison-meta]").textContent =
+            `${pinned.id} ↔ ${current.id}`;
+          stage.querySelector("[data-compare-label='a']").textContent =
+            compactLabelFor(pinned);
+          stage.querySelector("[data-compare-label='b']").textContent =
+            compactLabelFor(current);
+          const pinnedPreview = stage.querySelector(
+            "[data-compare-preview='a']",
+          );
+          const currentPreview = stage.querySelector(
+            "[data-compare-preview='b']",
+          );
+          pinnedPreview.dataset.codec = pinned.codec;
+          pinnedPreview.dataset.quality = pinned.quality;
+          currentPreview.dataset.codec = current.codec;
+          currentPreview.dataset.quality = current.quality;
+          stage.querySelector("[data-compare-metric='a-size']").textContent =
+            `${pinned.size} KB`;
+          stage.querySelector("[data-compare-metric='b-size']").textContent =
+            `${current.size} KB`;
+          stage.querySelector(
+            "[data-compare-metric='a-similarity']",
+          ).textContent = pinned.similarity.toFixed(3);
+          stage.querySelector(
+            "[data-compare-metric='b-similarity']",
+          ).textContent = current.similarity.toFixed(3);
+          stage.querySelector("[data-compare-metric='a-time']").textContent =
+            `${pinned.time} ms`;
+          stage.querySelector("[data-compare-metric='b-time']").textContent =
+            `${current.time} ms`;
+          stage.querySelector("[data-compare-delta='size']").textContent =
+            signed(current.size - pinned.size, 0, " KB");
+          stage.querySelector("[data-compare-delta='similarity']").textContent =
+            signed(current.similarity - pinned.similarity, 3, "");
+          stage.querySelector("[data-compare-delta='time']").textContent =
+            signed(current.time - pinned.time, 0, " ms");
+        };
+
+        const render = () => {
+          const key = keyForCurrent();
+          const trial = trials[key];
+          const pinned = trials[pinnedKey];
+          stage.dataset.codec = codec;
+          stage.dataset.quality = quality;
+          stage.querySelectorAll("[data-factor]").forEach((button) => {
+            const selected =
+              button.dataset.factor === "codec"
+                ? button.dataset.value === codec
+                : button.dataset.value === quality;
+            button.setAttribute("aria-pressed", String(selected));
+          });
+          stage
+            .querySelectorAll("[data-current-trial], [data-output-trial]")
+            .forEach((element) => {
+              element.textContent = trial.id;
+            });
+          stage.querySelector("[data-current-label]").textContent =
+            labelFor(trial);
+          stage.querySelector("[data-pinned-label]").textContent =
+            compactLabelFor(pinned);
+          stage.querySelector("[data-image-caption]").textContent =
+            `${trial.output} · quality ${trial.quality}`;
+          stage.querySelector("[data-image-size]").textContent =
+            `${trial.size} KB`;
+          stage.querySelector("[data-heat-max]").textContent = trial.heat;
+          stage
+            .querySelectorAll(
+              ".experiment-lens-heatmap rect[style*='--cell-opacity']",
+            )
+            .forEach((cell) => {
+              const intensity = Number.parseFloat(
+                cell.style.getPropertyValue("--cell-opacity"),
+              );
+              const qualityScale = quality === "45" ? 1 : 0.48;
+              cell.style.opacity = String(
+                Math.min(1, intensity * qualityScale),
+              );
+            });
+          stage.querySelector("[data-metric-value='size']").textContent =
+            `${trial.size} KB`;
+          stage.querySelector("[data-metric-value='similarity']").textContent =
+            trial.similarity.toFixed(3);
+          stage.querySelector("[data-metric-value='time']").textContent =
+            `${trial.time} ms`;
+          stage
+            .querySelector("[data-metric-bar='size']")
+            .style.setProperty(
+              "--metric-width",
+              `${Math.round((trial.size / 240) * 100)}%`,
+            );
+          stage
+            .querySelector("[data-metric-bar='similarity']")
+            .style.setProperty(
+              "--metric-width",
+              `${Math.round(((trial.similarity - 0.9) / 0.1) * 100)}%`,
+            );
+          stage
+            .querySelector("[data-metric-bar='time']")
+            .style.setProperty(
+              "--metric-width",
+              `${Math.round((trial.time / 70) * 100)}%`,
+            );
+          stage.querySelector("[data-log-command]").textContent = trial.command;
+          stage.querySelector("[data-log-output]").textContent =
+            `${trial.output} · ${trial.size} KB`;
+          stage.querySelector("[data-log-result]").textContent =
+            `SSIM ${trial.similarity.toFixed(3)} · encoded in ${trial.time} ms`;
+          stage.querySelectorAll("[data-trial-point]").forEach((point) => {
+            point.toggleAttribute(
+              "data-active",
+              point.dataset.trialPoint === key,
+            );
+          });
+          stage.querySelector("[data-open-comparison]").disabled =
+            key === pinnedKey;
+          if (!comparison.hidden) renderComparison();
+        };
+
+        stage.querySelectorAll("[data-factor]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.dataset.factor === "codec") codec = button.dataset.value;
+            if (button.dataset.factor === "quality")
+              quality = button.dataset.value;
+            exportStatus.textContent = "";
+            render();
+          });
+        });
+        stage
+          .querySelector("[data-pin-current]")
+          .addEventListener("click", () => {
+            pinnedKey = keyForCurrent();
+            comparison.hidden = true;
+            exportStatus.textContent = "";
+            render();
+          });
+        stage
+          .querySelector("[data-open-comparison]")
+          .addEventListener("click", () => {
+            renderComparison();
+            exportStatus.textContent = "";
+            comparison.hidden = false;
+          });
+        stage
+          .querySelector("[data-close-comparison]")
+          .addEventListener("click", () => {
+            comparison.hidden = true;
+          });
+        stage
+          .querySelector("[data-export-selection]")
+          .addEventListener("click", () => {
+            exportStatus.textContent = "selection.json prepared";
+          });
+        render();
+      });
+    </script>
+  </body>
+</html>
