@@ -1,6 +1,6 @@
 {
   "lockVersion": 1,
-  "codePolishyVersion": "0.25.1",
-  "releaseDigest": "83dbafbd291d845626f25128d4d008a2311f29d2579e5137da4c926ddc1d0c47",
+  "codePolishyVersion": "0.26.0",
+  "releaseDigest": "1b0738ea2fd3fe0a582235b90ecabe4807047b14f0c93ccc6ebd6972756579a7",
   "features": ["javascript-bundle"]
 }

@@ -161,6 +161,7 @@
       "apps/realtime/examples/neon-sketch/app.py",
       "apps/realtime/src/main.tsx",
       "apps/realtime/vitest.setup.ts",
+      "docs/setta-product-mockups.js",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -183,6 +184,7 @@
       "apps/realtime/vitest.config.ts",
       "apps/realtime/vitest.setup.ts",
       "apps/realtime/scripts/**",
+      "docs/setta-product-mockups.js",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -197,7 +199,12 @@
   "modules": [
     {
       "name": "workspace",
-      "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
+      "paths": [
+        "packages/workspace/**",
+        "scripts/**",
+        "fixtures/**",
+        "docs/setta-product-mockups.js"
+      ]
     },
     {
       "name": "playground",
@@ -711,32 +718,6 @@
         "owner": "workspace",
         "reviewed": "2026-08-30",
         "expires": "2026-09-24"
-      },
-      {
-        "id": "go-1-26-6-security-fix",
-        "ecosystem": "artifact",
-        "package": "go",
-        "version": "1.26.6",
-        "scope": "apps/python-canvas/backend/.go-version",
-        "category": "security-fix",
-        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
-        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
-        "owner": "python-canvas-backend",
-        "reviewed": "2026-08-26",
-        "expires": "2026-09-12"
-      },
-      {
-        "id": "realtime-go-1-26-6-security-fix",
-        "ecosystem": "artifact",
-        "package": "realtime-go",
-        "version": "1.26.6",
-        "scope": "apps/realtime/backend/.go-version",
-        "category": "security-fix",
-        "evidence": "https://groups.google.com/g/golang-announce/c/94pEornpRlI/m/_JhCbsOZBAAJ",
-        "reason": "Go 1.26.6 fixes CVE-2026-56865 and CVE-2026-56864 in cmd/go checksum verification used when Setta resolves backend modules; retaining 1.26.2 would allow a malicious GOPROXY, or coordinated GOPROXY and GOSUMDB, to persist attacker-controlled module content.",
-        "owner": "realtime-backend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-12"
       }
     ],
     "vulnerabilityAssessments": [
