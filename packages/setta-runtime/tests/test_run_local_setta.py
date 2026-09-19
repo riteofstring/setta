@@ -19,6 +19,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
             native_server=Path("/installed/python-canvas"),
             web_root=Path("/installed/python-canvas-web"),
         )
+        review = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/review"),
+            web_root=Path("/installed/review-web"),
+        )
         with (
             mock.patch.object(
                 run_local_setta,
@@ -40,8 +44,11 @@ class LocalSettaRunnerTests(unittest.TestCase):
             ),
             mock.patch.object(
                 run_local_setta,
-                "_reusable_app_assets",
-                return_value=reusable,
+                "_realtime_reusable_assets",
+                return_value={
+                    "python-canvas": reusable,
+                    "review": review,
+                },
             ),
             mock.patch.object(run_local_setta, "_record_realtime_build") as record,
             mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
@@ -65,7 +72,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
         )
         frontend.assert_called_once_with("/tools/pnpm", Path("/tools/go"))
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
-        self.assertEqual(build.call_args.args[2], reusable)
+        self.assertEqual(
+            build.call_args.args[2],
+            {"python-canvas": reusable, "review": review},
+        )
         install.assert_called_once_with("/tools/uv", wheel)
         record.assert_called_once_with("realtime-inputs")
         foreground.assert_called_once_with(
@@ -101,7 +111,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 return_value=None,
             ),
             mock.patch.object(
-                run_local_setta, "_reusable_app_assets", return_value=None
+                run_local_setta, "_realtime_reusable_assets", return_value=None
             ),
             mock.patch.object(run_local_setta, "_record_realtime_build") as record,
             mock.patch.object(run_local_setta, "_build_realtime_frontend") as frontend,
@@ -193,10 +203,16 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 )
 
     def test_targeted_wheel_build_reuses_unrelated_app_paths(self) -> None:
-        reusable = run_local_setta.ReusableAppAssets(
-            native_server=Path("/installed/python-canvas"),
-            web_root=Path("/installed/python-canvas-web"),
-        )
+        reusable = {
+            "python-canvas": run_local_setta.ReusableAppAssets(
+                native_server=Path("/installed/python-canvas"),
+                web_root=Path("/installed/python-canvas-web"),
+            ),
+            "review": run_local_setta.ReusableAppAssets(
+                native_server=Path("/installed/review"),
+                web_root=Path("/installed/review-web"),
+            ),
+        }
         with tempfile.TemporaryDirectory() as temporary_directory:
             wheel_directory = Path(temporary_directory)
             wheel = wheel_directory / "setta.whl"
@@ -215,6 +231,24 @@ class LocalSettaRunnerTests(unittest.TestCase):
         self.assertIn(
             "python-canvas=/installed/python-canvas-web",
             command,
+        )
+        self.assertIn("review=/installed/review", command)
+        self.assertIn("review=/installed/review-web", command)
+
+    def test_targeted_realtime_build_requires_every_unrelated_app(self) -> None:
+        canvas = run_local_setta.ReusableAppAssets(
+            native_server=Path("/installed/python-canvas"),
+            web_root=Path("/installed/python-canvas-web"),
+        )
+        with mock.patch.object(
+            run_local_setta,
+            "_reusable_app_assets",
+            side_effect=(canvas, None),
+        ) as lookup:
+            self.assertIsNone(run_local_setta._realtime_reusable_assets())
+        self.assertEqual(
+            lookup.call_args_list,
+            [mock.call("python-canvas"), mock.call("review")],
         )
 
     def test_install_replaces_same_version_setta_with_current_wheel(self) -> None:

@@ -56,6 +56,13 @@ _APPS = (
         ROOT / "apps" / "realtime" / "backend",
         "./cmd/realtime",
     ),
+    BuildApp(
+        "review",
+        "@setta/review",
+        ROOT / "apps" / "review" / "dist",
+        ROOT / "apps" / "review" / "backend",
+        "./cmd/review",
+    ),
 )
 
 

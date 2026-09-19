@@ -39,6 +39,9 @@ APP_ID = "python-canvas"
 REALTIME_APP_ID = "realtime"
 REALTIME_RUNTIME_SESSION_SCHEMA = "realtime-session/v1"
 REALTIME_SCHEMA = "setta-realtime-schema/v2"
+REVIEW_APP_ID = "review"
+REVIEW_RUNTIME_SESSION_SCHEMA = "review-session/v1"
+REVIEW_SCHEMA = "setta-review-schema/v1"
 APP_DESCRIPTORS = (
     {
         "id": "python-canvas",
@@ -50,6 +53,11 @@ APP_DESCRIPTORS = (
         "name": "Realtime",
         "summary": "Build and run one local interactive application.",
     },
+    {
+        "id": "review",
+        "name": "Review",
+        "summary": "Inspect submitted work and return portable decisions.",
+    },
 )
 APP_IDS = tuple(str(descriptor["id"]) for descriptor in APP_DESCRIPTORS)
 APPLIED_PROJECT_NAME = "Setta Wheel Acceptance"
@@ -58,6 +66,21 @@ REQUIRED_OFFLINE_SCHEMA_COMMANDS = frozenset(
 )
 REQUIRED_REALTIME_SCHEMA_COMMANDS = frozenset(
     {"apply", "invoke", "reload", "schema", "snapshot"}
+)
+REQUIRED_REVIEW_SCHEMAS = frozenset(
+    {
+        "continuationPacket",
+        "exportDocument",
+        "exportResult",
+        "externalAssessment",
+        "mutationResult",
+        "projectManifest",
+        "reviewMutation",
+        "reviewRequest",
+        "reviewResponse",
+        "reviewSnapshot",
+        "structuredError",
+    }
 )
 PLATFORM_TAG_TARGETS = {
     "macosx_13_0_arm64": ("darwin", "arm64"),

@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -87,9 +87,7 @@ def run(arguments: Sequence[str]) -> int:
     pnpm = _required_command("pnpm")
     go = _pinned_go()
     _run([pnpm, "install", "--frozen-lockfile"], ROOT)
-    reusable = (
-        _reusable_app_assets("python-canvas") if arguments[0] == "realtime" else None
-    )
+    reusable = _realtime_reusable_assets() if arguments[0] == "realtime" else None
     if reusable is not None:
         _build_realtime_frontend(pnpm, go)
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
@@ -182,7 +180,7 @@ def _record_realtime_build(fingerprint: str) -> None:
 def _build_current_wheel(
     go: Path,
     wheel_directory: Path,
-    reusable: ReusableAppAssets | None = None,
+    reusable: Mapping[str, ReusableAppAssets] | None = None,
 ) -> Path:
     command = [
         sys.executable,
@@ -193,15 +191,17 @@ def _build_current_wheel(
         str(wheel_directory),
     ]
     if reusable is not None:
-        command.extend(
-            [
-                "--skip-frontend-build",
-                "--native-server",
-                f"python-canvas={reusable.native_server}",
-                "--web-root",
-                f"python-canvas={reusable.web_root}",
-            ]
-        )
+        command.append("--skip-frontend-build")
+        for app_id in sorted(reusable):
+            assets = reusable[app_id]
+            command.extend(
+                [
+                    "--native-server",
+                    f"{app_id}={assets.native_server}",
+                    "--web-root",
+                    f"{app_id}={assets.web_root}",
+                ]
+            )
     _run(command, ROOT)
     wheels = tuple(wheel_directory.glob("*.whl"))
     if len(wheels) != 1 or not wheels[0].is_file():
@@ -221,6 +221,16 @@ def _build_realtime_frontend(pnpm: str, go: Path) -> None:
         ROOT,
         environment=environment,
     )
+
+
+def _realtime_reusable_assets() -> dict[str, ReusableAppAssets] | None:
+    reusable: dict[str, ReusableAppAssets] = {}
+    for app_id in ("python-canvas", "review"):
+        assets = _reusable_app_assets(app_id)
+        if assets is None:
+            return None
+        reusable[app_id] = assets
+    return reusable
 
 
 def _reusable_app_assets(app_id: str) -> ReusableAppAssets | None:

@@ -6,6 +6,7 @@ on:
       - ".github/workflows/setta-wheels.yml"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
+      - "apps/review/**"
       - "apps/*/package.json"
       - "fixtures/packed-consumer/package.json"
       - "fixtures/packed-consumer/package.template.json"
@@ -26,6 +27,7 @@ on:
       - ".github/workflows/setta-wheels.yml"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
+      - "apps/review/**"
       - "apps/*/package.json"
       - "fixtures/packed-consumer/package.json"
       - "fixtures/packed-consumer/package.template.json"
@@ -102,7 +104,9 @@ jobs:
           test "$(pnpm --version)" = "10.23.0"
           expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
+          review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
           test "$realtime_go_version" = "$expected_go_version"
+          test "$review_go_version" = "$expected_go_version"
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
@@ -123,13 +127,16 @@ jobs:
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
           go -C apps/realtime/backend mod verify
-      - name: Build both production frontends
+          go -C apps/review/backend test ./...
+          go -C apps/review/backend mod verify
+      - name: Build all production frontends
         shell: bash
         run: |
           pnpm --filter @setta/workspace run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
-      - name: Build both native servers
+          pnpm --filter @setta/review run build
+      - name: Build all native servers
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -139,6 +146,7 @@ jobs:
           mkdir -p build/setta-native
           go -C apps/python-canvas/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/python-canvas" ./cmd/python-canvas
           go -C apps/realtime/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/realtime" ./cmd/realtime
+          go -C apps/review/backend build -trimpath -buildvcs=false -o "$GITHUB_WORKSPACE/build/setta-native/review" ./cmd/review
       - name: Build macOS 13-compatible wheel
         shell: bash
         env:
@@ -149,8 +157,10 @@ jobs:
           python packages/setta-runtime/scripts/build_setta_wheel.py \
             --native-server "python-canvas=build/setta-native/python-canvas" \
             --native-server "realtime=build/setta-native/realtime" \
+            --native-server "review=build/setta-native/review" \
             --web-root "python-canvas=apps/python-canvas/dist" \
             --web-root "realtime=apps/realtime/dist" \
+            --web-root "review=apps/review/dist" \
             --skip-frontend-build \
             --target "${{ matrix.target }}" \
             --wheel-platform-tag "${{ matrix.wheel_platform_tag }}"
@@ -224,7 +234,9 @@ jobs:
           test "$(pnpm --version)" = "10.23.0"
           expected_go_version="$(tr -d '\r\n' < apps/python-canvas/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
+          review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
           test "$realtime_go_version" = "$expected_go_version"
+          test "$review_go_version" = "$expected_go_version"
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
@@ -241,13 +253,16 @@ jobs:
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
           go -C apps/realtime/backend mod verify
-      - name: Build both production frontends
+          go -C apps/review/backend test ./...
+          go -C apps/review/backend mod verify
+      - name: Build all production frontends
         shell: bash
         run: |
           pnpm --filter @setta/workspace run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
-      - name: Build both native servers in pinned manylinux 2.28
+          pnpm --filter @setta/review run build
+      - name: Build all native servers in pinned manylinux 2.28
         shell: bash
         run: |
           host_go_mod_cache="$(go env GOMODCACHE)"
@@ -289,14 +304,33 @@ jobs:
             --env HOME=/tmp \
             "${{ matrix.manylinux_image }}" \
             /setta-go/bin/go build -mod=readonly -trimpath -buildvcs=false -o /workspace/build/setta-native/realtime ./cmd/realtime
+          docker run --rm \
+            --network none \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --volume "$GOROOT:/setta-go:ro" \
+            --volume "$host_go_mod_cache:/setta-go-mod-cache:ro" \
+            --workdir /workspace/apps/review/backend \
+            --env GOROOT=/setta-go \
+            --env CGO_ENABLED=1 \
+            --env GOCACHE=/workspace/build/setta-native/go-build-cache \
+            --env GOMODCACHE=/setta-go-mod-cache \
+            --env GOTOOLCHAIN=local \
+            --env GOPROXY=off \
+            --env GOSUMDB=off \
+            --env HOME=/tmp \
+            "${{ matrix.manylinux_image }}" \
+            /setta-go/bin/go build -mod=readonly -trimpath -buildvcs=false -o /workspace/build/setta-native/review ./cmd/review
       - name: Build tagged manylinux wheel
         shell: bash
         run: |
           python packages/setta-runtime/scripts/build_setta_wheel.py \
             --native-server "python-canvas=build/setta-native/python-canvas" \
             --native-server "realtime=build/setta-native/realtime" \
+            --native-server "review=build/setta-native/review" \
             --web-root "python-canvas=apps/python-canvas/dist" \
             --web-root "realtime=apps/realtime/dist" \
+            --web-root "review=apps/review/dist" \
             --skip-frontend-build \
             --target "${{ matrix.target }}" \
             --wheel-platform-tag "${{ matrix.wheel_platform_tag }}"
@@ -378,7 +412,9 @@ jobs:
           if ((pnpm --version) -ne "10.23.0") { throw "Wrong pnpm" }
           $expectedGoVersion = (Get-Content apps/python-canvas/backend/.go-version -Raw).Trim()
           $realtimeGoVersion = (Get-Content apps/realtime/backend/.go-version -Raw).Trim()
+          $reviewGoVersion = (Get-Content apps/review/backend/.go-version -Raw).Trim()
           if ($realtimeGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
+          if ($reviewGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           $actualGoVersion = ((go version) -split ' ')[2]
           if ($actualGoVersion -ne "go${expectedGoVersion}") { throw "Wrong Go" }
           if (-not ((uv --version) -match "^uv 0\.8\.19")) { throw "Wrong uv" }
@@ -394,23 +430,29 @@ jobs:
           go -C apps/python-canvas/backend mod verify
           go -C apps/realtime/backend test ./...
           go -C apps/realtime/backend mod verify
-      - name: Build both production frontends
+          go -C apps/review/backend test ./...
+          go -C apps/review/backend mod verify
+      - name: Build all production frontends
         run: |
           pnpm --filter @setta/workspace run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
-      - name: Build both native servers
+          pnpm --filter @setta/review run build
+      - name: Build all native servers
         run: |
           New-Item -ItemType Directory -Force build/setta-native
           go -C apps/python-canvas/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/python-canvas.exe" ./cmd/python-canvas
           go -C apps/realtime/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/realtime.exe" ./cmd/realtime
+          go -C apps/review/backend build -trimpath -buildvcs=false -o "$env:GITHUB_WORKSPACE/build/setta-native/review.exe" ./cmd/review
       - name: Build Windows amd64 wheel
         run: |
           python packages/setta-runtime/scripts/build_setta_wheel.py `
             --native-server "python-canvas=build/setta-native/python-canvas.exe" `
             --native-server "realtime=build/setta-native/realtime.exe" `
+            --native-server "review=build/setta-native/review.exe" `
             --web-root "python-canvas=apps/python-canvas/dist" `
             --web-root "realtime=apps/realtime/dist" `
+            --web-root "review=apps/review/dist" `
             --skip-frontend-build `
             --target windows-amd64 `
             --wheel-platform-tag win_amd64

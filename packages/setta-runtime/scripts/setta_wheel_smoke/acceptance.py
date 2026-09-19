@@ -34,8 +34,12 @@ from .models import (
     REALTIME_APP_ID,
     REALTIME_RUNTIME_SESSION_SCHEMA,
     REALTIME_SCHEMA,
+    REVIEW_APP_ID,
+    REVIEW_RUNTIME_SESSION_SCHEMA,
+    REVIEW_SCHEMA,
     REQUIRED_OFFLINE_SCHEMA_COMMANDS,
     REQUIRED_REALTIME_SCHEMA_COMMANDS,
+    REQUIRED_REVIEW_SCHEMAS,
     RUN_ALLOWANCE_MILLISECONDS,
     RUN_TIMEOUT_SECONDS,
     RUNTIME_SESSION_SCHEMA,
@@ -138,8 +142,10 @@ def run_clean_install(wheel: Path, launcher: Path, temporary_root: Path) -> None
     assert_installed_root_commands(setta, python, environment, unrelated, wheel)
     assert_offline_schema(setta, environment, unrelated)
     assert_realtime_offline_schema(setta, environment, unrelated)
+    assert_review_offline_schema(setta, environment, unrelated)
     exercise_live_server(setta, environment, unrelated, temporary_root, python)
     exercise_realtime_server(setta, environment, unrelated, temporary_root)
+    exercise_review_server(setta, environment, unrelated, temporary_root)
 
 
 def assert_installed_root_commands(
@@ -278,6 +284,28 @@ def assert_realtime_offline_schema_document(
     commands = require_object(document["commands"], "offline Realtime commands")
     if set(commands) != REQUIRED_REALTIME_SCHEMA_COMMANDS:
         raise SmokeError("offline Realtime schema omits public commands")
+
+
+def assert_review_offline_schema(
+    setta: Path, environment: Mapping[str, str], cwd: Path
+) -> None:
+    document = run_json_command(
+        (str(setta), REVIEW_APP_ID, "schema"),
+        environment,
+        cwd,
+        "offline Review schema",
+    )
+    assert_review_offline_schema_document(document)
+
+
+def assert_review_offline_schema_document(document: Mapping[str, object]) -> None:
+    if set(document) != {"schemaVersion", "schemas"}:
+        raise SmokeError("offline Review schema has an invalid shape")
+    if document.get("schemaVersion") != REVIEW_SCHEMA:
+        raise SmokeError("offline Review schema has an invalid version")
+    schemas = require_object(document["schemas"], "offline Review schemas")
+    if set(schemas) != REQUIRED_REVIEW_SCHEMAS:
+        raise SmokeError("offline Review schema omits public contracts")
 
 
 def exercise_live_server(
@@ -456,6 +484,174 @@ def exercise_realtime_server(
         raise cleanup_failure
 
 
+def exercise_review_server(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    temporary_root: Path,
+) -> None:
+    project = temporary_root / "review-project"
+    project.mkdir(mode=0o700)
+    write_review_project(project)
+    expected_project = str(project.resolve(strict=True))
+    live = start_foreground_open(
+        (
+            str(setta),
+            REVIEW_APP_ID,
+            "open",
+            "--project-root",
+            str(project),
+            "--no-open",
+        ),
+        cwd=cwd,
+        environment=environment,
+    )
+    readiness_url = ""
+    failure_capture = FailureCapture()
+    with failure_capture:
+        readiness = parse_json_document(
+            live.wait_for_readiness(OPEN_READY_TIMEOUT_SECONDS),
+            "Review public open readiness",
+        )
+        readiness_url = assert_review_open_readiness(readiness, expected_project)
+        nonce = assert_review_web_and_identity(readiness_url, expected_project)
+        live.retain_app_session(
+            LiveSessionIdentity(
+                project_path=expected_project,
+                url=readiness_url,
+                owner_pid=live.process.pid,
+                instance_nonce=nonce,
+            )
+        )
+        live_response = http_get(readiness_url + "/api/v1/review")
+        live_snapshot = require_object(
+            parse_json_document(
+                live_response.body, "Review live snapshot API response"
+            ),
+            "Review live snapshot API response",
+        )
+        if (
+            live_response.status != 200
+            or live_response.content_type != "application/json"
+        ):
+            raise SmokeError("Review did not serve its live snapshot API")
+        assert_review_snapshot(live_snapshot, "Review live snapshot API response")
+        cli_snapshot = run_json_command(
+            (
+                str(setta),
+                REVIEW_APP_ID,
+                "snapshot",
+                "--project-root",
+                str(project),
+            ),
+            environment,
+            cwd,
+            "live Review snapshot",
+        )
+        assert_review_snapshot(cli_snapshot, "live Review snapshot")
+        if cli_snapshot != live_snapshot:
+            raise SmokeError("Review CLI snapshot does not match the live API")
+    failure = failure_capture.error
+    cleanup_failure = cleanup_live_server(
+        live,
+        setta,
+        environment,
+        cwd,
+        project,
+        readiness_url,
+        failed=failure is not None,
+        close_foreground=close_foreground_open,
+        session_cleanup=assert_review_session_cleanup,
+        server_unavailable=assert_server_unavailable,
+    )
+    if failure is not None:
+        if cleanup_failure is not None:
+            if isinstance(failure, SmokeError):
+                raise SmokeError(
+                    f"{failure}; cleanup also failed: {cleanup_failure}"
+                ) from failure
+            failure.add_note(
+                f"Setta wheel smoke cleanup also failed: {cleanup_failure}"
+            )
+        raise failure
+    if cleanup_failure is not None:
+        raise cleanup_failure
+
+
+def write_review_project(project: Path) -> None:
+    requests = project / "requests"
+    try:
+        requests.mkdir(mode=0o700)
+    except OSError as error:
+        raise SmokeError("unable to create the Review acceptance project") from error
+    write_operation(project / "review.json", _review_manifest(), "Review manifest")
+    write_operation(
+        requests / "packaged-review.json",
+        _review_request(),
+        "Review request",
+    )
+
+
+def _review_manifest() -> dict[str, object]:
+    return {
+        "version": 1,
+        "id": "review-wheel-smoke",
+        "name": "Review wheel smoke",
+        "requests": ["requests/packaged-review.json"],
+    }
+
+
+def _review_request() -> dict[str, object]:
+    return {
+        "version": 1,
+        "id": "packaged-review",
+        "type": "completion",
+        "title": "Verify the packaged Review app",
+        "requestedDecision": "Confirm that the packaged Review app can read this request.",
+        "evidence": [],
+        "relations": [],
+        "provenance": {
+            "producer": {"kind": "script", "name": "Setta wheel smoke"},
+            "createdAt": "2026-09-19T00:00:00Z",
+        },
+        "completion": {
+            "claims": [
+                {
+                    "id": "packaged-app",
+                    "text": "The packaged Review app is available.",
+                }
+            ]
+        },
+    }
+
+
+def assert_review_snapshot(document: Mapping[str, object], label: str) -> None:
+    if (
+        set(document) != {"project", "requests", "revision", "version"}
+        or document.get("version") != 1
+        or document.get("revision") != 0
+        or document.get("project") != _review_manifest()
+    ):
+        raise SmokeError(f"{label} has an invalid project envelope")
+    requests = require_list(document.get("requests"), f"{label} requests")
+    if len(requests) != 1:
+        raise SmokeError(f"{label} does not contain the acceptance request")
+    request = require_object(requests[0], f"{label} request")
+    digest = request.get("sha256")
+    if (
+        set(request)
+        != {"assessments", "evidence", "path", "request", "response", "sha256"}
+        or request.get("path") != "requests/packaged-review.json"
+        or request.get("request") != _review_request()
+        or request.get("assessments") != []
+        or request.get("evidence") != []
+        or request.get("response") is not None
+        or not isinstance(digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+    ):
+        raise SmokeError(f"{label} has an invalid acceptance request")
+
+
 def write_realtime_entrypoint(path: Path) -> None:
     source = (
         b"def increment(value=0):\n"
@@ -510,7 +706,7 @@ def assert_realtime_invoke(
         )
     finally:
         remove_realtime_invoke_input(input_path)
-    if result != {"outputs": {"value": 42}, "error": None}:
+    if result != {"outputs": {"value": 42}, "updateCount": 0, "error": None}:
         raise SmokeError("live Realtime invoke did not return the expected output")
 
 
@@ -548,6 +744,34 @@ def assert_realtime_session_cleanup(
     )
     if set(document) != {"project", "runtime"}:
         raise SmokeError("Realtime shutdown did not restore offline project access")
+
+
+def assert_review_session_cleanup(
+    setta: Path,
+    environment: Mapping[str, str],
+    cwd: Path,
+    project: Path,
+    *,
+    timeout: float = COMMAND_TIMEOUT_SECONDS,
+) -> None:
+    result = run_process(
+        (
+            str(setta),
+            REVIEW_APP_ID,
+            "snapshot",
+            "--project-root",
+            str(project),
+        ),
+        cwd=cwd,
+        env=environment,
+        timeout=timeout,
+        label="Review post-shutdown snapshot",
+    )
+    document = require_object(
+        parse_json_document(result.stdout, "Review post-shutdown snapshot output"),
+        "Review post-shutdown snapshot output",
+    )
+    assert_review_snapshot(document, "Review post-shutdown snapshot")
 
 
 def close_foreground_open(live: ForegroundOpen) -> None:
@@ -620,6 +844,23 @@ def assert_realtime_open_readiness(document: object, expected_project: str) -> s
     return url
 
 
+def assert_review_open_readiness(document: object, expected_project: str) -> str:
+    readiness = require_object(document, "Review public open readiness")
+    if set(readiness) != {"appId", "projectPath", "schemaVersion", "url"}:
+        raise SmokeError("Review public open readiness has an invalid shape")
+    if (
+        readiness.get("schemaVersion") != PUBLIC_OPEN_SCHEMA
+        or readiness.get("appId") != REVIEW_APP_ID
+        or readiness.get("projectPath") != expected_project
+    ):
+        raise SmokeError("Review public open readiness has an invalid identity")
+    url = readiness.get("url")
+    if not isinstance(url, str):
+        raise SmokeError("Review public open readiness has no URL")
+    validate_exact_loopback_origin(url)
+    return url
+
+
 def assert_realtime_web_and_identity(origin_url: str, project_path: str) -> str:
     root = http_get(origin_url + "/")
     if (
@@ -648,6 +889,37 @@ def assert_realtime_web_and_identity(origin_url: str, project_path: str) -> str:
         or len(nonce) < 16
     ):
         raise SmokeError("Realtime session identity does not match public readiness")
+    return nonce
+
+
+def assert_review_web_and_identity(origin_url: str, project_path: str) -> str:
+    root = http_get(origin_url + "/")
+    if (
+        root.status != 200
+        or not root.content_type.startswith("text/html")
+        or not root.body
+    ):
+        raise SmokeError("Review did not serve root HTML from the public origin")
+    asset = http_get(find_same_origin_asset(origin_url, root.body))
+    if asset.status != 200 or not asset.body or not asset.content_type:
+        raise SmokeError("Review did not serve its packaged web root")
+    identity = http_get(origin_url + "/api/v2/runtime/session")
+    document = require_object(
+        parse_json_document(identity.body, "Review session identity response"),
+        "Review session identity response",
+    )
+    nonce = document.get("instanceNonce")
+    if (
+        identity.status != 200
+        or identity.content_type != "application/json"
+        or set(document) != {"appId", "instanceNonce", "projectPath", "schemaVersion"}
+        or document.get("schemaVersion") != REVIEW_RUNTIME_SESSION_SCHEMA
+        or document.get("appId") != REVIEW_APP_ID
+        or document.get("projectPath") != project_path
+        or not isinstance(nonce, str)
+        or len(nonce) < 16
+    ):
+        raise SmokeError("Review session identity does not match public readiness")
     return nonce
 
 

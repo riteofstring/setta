@@ -32,7 +32,7 @@ class WheelInspectionTests(unittest.TestCase):
         self.assertEqual(inspection.target, ("darwin", "arm64"))
         self.assertEqual(
             tuple(app.app_id for app in inspection.apps),
-            ("python-canvas", "realtime"),
+            ("python-canvas", "realtime", "review"),
         )
         self.assertEqual(
             inspection.apps[1].native_member, "setta/_runtime/bin/realtime"
@@ -59,6 +59,7 @@ class WheelInspectionTests(unittest.TestCase):
                     "setta/apps/__init__.py": b"",
                     "setta/apps/python_canvas.py": b"",
                     "setta/apps/realtime.py": b"",
+                    "setta/apps/review.py": b"",
                 },
             )
             smoke.inspect_wheel(wheel)
@@ -262,6 +263,17 @@ class PublicContractValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeError, "public commands"):
             acceptance.assert_realtime_offline_schema_document(document)
 
+    def test_review_schema_requires_the_exact_public_contract_set(self) -> None:
+        document: dict[str, object] = {
+            "schemaVersion": "setta-review-schema/v1",
+            "schemas": {name: {} for name in models.REQUIRED_REVIEW_SCHEMAS},
+        }
+        acceptance.assert_review_offline_schema_document(document)
+        schemas = models.require_object(document["schemas"], "Review schemas")
+        schemas.pop("reviewRequest")
+        with self.assertRaisesRegex(smoke.SmokeError, "public contracts"):
+            acceptance.assert_review_offline_schema_document(document)
+
     def test_realtime_readiness_web_root_and_identity_are_exact(self) -> None:
         project = "/tmp/realtime-project"
         origin = "http://127.0.0.1:43123"
@@ -315,6 +327,59 @@ class PublicContractValidationTests(unittest.TestCase):
             ],
         )
 
+    def test_review_readiness_web_root_and_identity_are_exact(self) -> None:
+        project = "/tmp/review-project"
+        origin = "http://127.0.0.1:43123"
+        readiness: dict[str, object] = {
+            "schemaVersion": "setta-open/v1",
+            "appId": "review",
+            "projectPath": project,
+            "url": origin,
+        }
+        self.assertEqual(
+            acceptance.assert_review_open_readiness(readiness, project), origin
+        )
+        responses = [
+            models.HTTPResult(
+                url=origin + "/",
+                status=200,
+                content_type="text/html",
+                body=b'<script src="/assets/app.js"></script>',
+            ),
+            models.HTTPResult(
+                url=origin + "/assets/app.js",
+                status=200,
+                content_type="text/javascript",
+                body=b"export {};",
+            ),
+            models.HTTPResult(
+                url=origin + "/api/v2/runtime/session",
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "schemaVersion": "review-session/v1",
+                        "appId": "review",
+                        "projectPath": project,
+                        "instanceNonce": "x" * 32,
+                    }
+                ).encode(),
+            ),
+        ]
+        with mock.patch.object(
+            acceptance, "http_get", side_effect=responses
+        ) as request:
+            nonce = acceptance.assert_review_web_and_identity(origin, project)
+        self.assertEqual(nonce, "x" * 32)
+        self.assertEqual(
+            [call.args[0] for call in request.call_args_list],
+            [
+                origin + "/",
+                origin + "/assets/app.js",
+                origin + "/api/v2/runtime/session",
+            ],
+        )
+
     def test_realtime_invoke_uses_the_installed_cli_and_reaps_its_input(
         self,
     ) -> None:
@@ -343,7 +408,7 @@ class PublicContractValidationTests(unittest.TestCase):
                     json.loads(input_path.read_text(encoding="utf-8")),
                     {"arguments": {"value": 41}, "content": []},
                 )
-                return {"outputs": {"value": 42}, "error": None}
+                return {"outputs": {"value": 42}, "updateCount": 0, "error": None}
 
             with mock.patch.object(acceptance, "run_json_command", side_effect=invoke):
                 acceptance.assert_realtime_invoke(
@@ -484,7 +549,7 @@ class PublicContractValidationTests(unittest.TestCase):
 
 
 class WheelSmokeContainmentTests(unittest.TestCase):
-    def test_clean_install_runs_both_installed_app_acceptance_flows(self) -> None:
+    def test_clean_install_runs_all_installed_app_acceptance_flows(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             with (
@@ -505,18 +570,26 @@ class WheelSmokeContainmentTests(unittest.TestCase):
                 mock.patch.object(
                     acceptance, "assert_realtime_offline_schema"
                 ) as realtime_schema,
+                mock.patch.object(
+                    acceptance, "assert_review_offline_schema"
+                ) as review_schema,
                 mock.patch.object(acceptance, "exercise_live_server") as canvas_live,
                 mock.patch.object(
                     acceptance, "exercise_realtime_server"
                 ) as realtime_live,
+                mock.patch.object(acceptance, "exercise_review_server") as review_live,
             ):
                 acceptance.run_clean_install(
                     Path("/dist/setta.whl"), Path("/launcher/python"), root
                 )
         canvas_schema.assert_called_once()
         realtime_schema.assert_called_once()
+        review_schema.assert_called_once()
         canvas_live.assert_called_once()
         realtime_live.assert_called_once_with(
+            Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
+        )
+        review_live.assert_called_once_with(
             Path("/clean/bin/setta"), {}, root / "unrelated-working-directory", root
         )
 
@@ -845,6 +918,7 @@ def _write_wheel(
     runtime = {
         "bin/python-canvas": (b"native-server", True),
         "bin/realtime": (b"native-server", True),
+        "bin/review": (b"native-server", True),
         "python-canvas/web/assets/app-abc.js": (b"console.log('setta')", False),
         "python-canvas/web/index.html": (
             b"<script src='/assets/app-abc.js'></script>",
@@ -852,6 +926,11 @@ def _write_wheel(
         ),
         "realtime/web/assets/app-abc.js": (b"console.log('realtime')", False),
         "realtime/web/index.html": (
+            b"<script src='/assets/app-abc.js'></script>",
+            False,
+        ),
+        "review/web/assets/app-abc.js": (b"console.log('review')", False),
+        "review/web/index.html": (
             b"<script src='/assets/app-abc.js'></script>",
             False,
         ),
@@ -875,6 +954,11 @@ def _write_wheel(
                 "id": "realtime",
                 "nativeServer": "bin/realtime",
                 "webRoot": "realtime/web",
+            },
+            {
+                "id": "review",
+                "nativeServer": "bin/review",
+                "webRoot": "review/web",
             },
         ],
         "assets": assets,
