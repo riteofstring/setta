@@ -258,8 +258,6 @@ def _copy_regular_file(source: Path, destination: Path, *, executable: bool) -> 
         destination.chmod(0o755 if executable else 0o644)
     except OSError as error:
         raise StageError(f"cannot stage asset {source}") from error
-    if _sha256(source) != _sha256(destination):
-        raise StageError(f"staged asset changed while copying: {source}")
 
 
 def _manifest_for(

@@ -758,22 +758,21 @@ async function captureScenarios(client, issues, options, scenarios, state) {
 }
 
 async function assertCaptureInputsUnchanged(options, prepared) {
-  if (
-    !sameArtifactHashes(prepared.builtWorkspace, workspaceDistArtifactHashes())
-  ) {
+  const builtWorkspace = workspaceDistArtifactHashes();
+  const liveResponses = await livePlaygroundResponseHashes(options.url);
+  if (!sameArtifactHashes(prepared.builtWorkspace, builtWorkspace)) {
     throw new Error("The built workspace artifact changed during capture.");
   }
   if (
-    JSON.stringify(prepared.liveResponses) !==
-    JSON.stringify(await livePlaygroundResponseHashes(options.url))
+    JSON.stringify(prepared.liveResponses) !== JSON.stringify(liveResponses)
   ) {
     throw new Error("Live Playground responses changed during capture.");
   }
   if (prepared.runtimeReference !== null) {
     assertRuntimeReferenceArtifact(
       prepared.runtimeReference,
-      workspaceDistArtifactHashes(),
-      await livePlaygroundResponseHashes(options.url),
+      builtWorkspace,
+      liveResponses,
     );
   }
 }
