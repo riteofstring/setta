@@ -252,10 +252,10 @@ export function ArtifactAnnotation({
           fill="none"
           key={stroke.id}
           pointerEvents="none"
-          stroke={strokeColor}
+          stroke={stroke.color ?? strokeColor}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth={strokeWidth}
+          strokeWidth={stroke.width ?? strokeWidth}
           vectorEffect="non-scaling-stroke"
         />
       ))}

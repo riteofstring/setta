@@ -4,8 +4,10 @@ export type NormalizedAnnotationPoint = Readonly<{
 }>;
 
 export type ArtifactAnnotationStroke = Readonly<{
+  color?: string;
   id: string;
   points: readonly NormalizedAnnotationPoint[];
+  width?: number;
 }>;
 
 export type AnnotationBounds = Readonly<{
