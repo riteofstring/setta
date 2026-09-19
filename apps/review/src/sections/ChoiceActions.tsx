@@ -22,6 +22,17 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
     }
   };
 
+  const confirmChoice = async () => {
+    try {
+      setFormError(null);
+      await review.actions.confirmChoice(requestId, "");
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Unable to confirm the choice.",
+      );
+    }
+  };
+
   return (
     <div className="review-choice-actions">
       {showRevision ? (
@@ -65,20 +76,28 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
           <button
             className="review-primary-action"
             disabled={!selected || busy}
-            onClick={() => void review.actions.confirmChoice(requestId, "")}
+            onClick={() => void confirmChoice()}
             type="button"
           >
             Confirm choice
           </button>
           <button
             disabled={busy}
-            onClick={() => setShowRevision(true)}
+            onClick={() => {
+              setFormError(null);
+              setShowRevision(true);
+            }}
             type="button"
           >
             Request changes
           </button>
         </div>
       )}
+      {!showRevision && formError ? (
+        <p className="review-form-error" role="alert">
+          {formError}
+        </p>
+      ) : null}
     </div>
   );
 }

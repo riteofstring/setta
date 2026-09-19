@@ -150,7 +150,7 @@ export function ReviewView({ host }: { host: WorkspaceHost }) {
             <span className="review-live">Live</span>
           )}
           <button
-            onClick={() => void review.actions.exportReview()}
+            onClick={() => void review.actions.exportReview().catch(() => {})}
             type="button"
           >
             Export responses

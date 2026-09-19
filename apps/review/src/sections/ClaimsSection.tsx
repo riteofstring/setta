@@ -113,8 +113,14 @@ function HumanDecision({
       setFormError("State the qualification before saving.");
       return;
     }
-    setFormError(null);
-    await onDecide(kind, rationale, qualification);
+    try {
+      setFormError(null);
+      await onDecide(kind, rationale, qualification);
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Unable to save the decision.",
+      );
+    }
   };
 
   return (
@@ -250,6 +256,7 @@ export function ClaimsSection({ section }: { section: WorkspaceSection }) {
             claim={selectedClaim}
             decision={decisionForClaim(snapshot, selectedClaim.id)}
             disabled={busy}
+            key={selectedClaim.id}
             onDecide={(kind, rationale, qualification) =>
               review.actions.decideClaim(requestId, {
                 claimId: selectedClaim.id,

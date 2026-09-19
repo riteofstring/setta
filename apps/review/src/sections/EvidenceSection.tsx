@@ -133,7 +133,7 @@ function DiffEvidence({
           disableFileHeader: true,
           hunkSeparators: "line-info",
           overflow: "wrap",
-          themeType: "dark",
+          themeType: "system",
         }}
         patch={content.unifiedDiff}
       />
