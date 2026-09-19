@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "review-playground",
+  "name": "Checkout reliability review",
+  "requests": [
+    "requests/checkout-completion.json",
+    "requests/schema-rollout.json",
+    "requests/launch-poster.json"
+  ]
+}

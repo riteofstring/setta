@@ -1,0 +1,17 @@
+{
+  "total": 20,
+  "v3_compatible": 18,
+  "requires_v2": [
+    {
+      "service": "invoice-indexer",
+      "owner": "finance-platform",
+      "migration_eta_days": 4
+    },
+    {
+      "service": "warehouse-export",
+      "owner": "fulfillment-data",
+      "migration_eta_days": 6
+    }
+  ],
+  "dual_read_validated": true
+}

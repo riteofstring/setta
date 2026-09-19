@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200">
+  <rect width="900" height="1200" fill="#f0eadc"/>
+  <rect x="64" y="64" width="772" height="1072" fill="none" stroke="#171717" stroke-width="4"/>
+  <circle cx="450" cy="510" r="285" fill="#171717"/>
+  <circle cx="450" cy="510" r="185" fill="#f0eadc"/>
+  <path d="M450 225 L620 510 L450 795 L280 510 Z" fill="#dc553f" opacity=".92"/>
+  <text x="84" y="126" fill="#171717" font-family="system-ui,sans-serif" font-size="28" letter-spacing="9">SETTA / 03</text>
+  <text x="80" y="1010" fill="#171717" font-family="system-ui,sans-serif" font-size="104" font-weight="780">APERTURE</text>
+  <text x="84" y="1070" fill="#dc553f" font-family="system-ui,sans-serif" font-size="24" letter-spacing="6">MAKE THE SYSTEM VISIBLE</text>
+</svg>

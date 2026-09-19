@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "id": "schema-rollout",
+  "type": "choice",
+  "title": "How should event schema v3 ship?",
+  "requestedDecision": "Choose a rollout plan that balances observed compatibility, rollout speed, and a rehearsed rollback path.",
+  "evidence": [
+    {
+      "id": "schema-change",
+      "kind": "gitDiff",
+      "gitDiff": {
+        "repositoryPath": "repository",
+        "baseRevision": "0000000000000000000000000000000000000000",
+        "targetRevision": null,
+        "path": "event_v3.ts",
+        "contextLines": 3,
+        "hunk": {
+          "oldStart": 1,
+          "oldLines": 9,
+          "newStart": 1,
+          "newLines": 10
+        }
+      }
+    },
+    {
+      "id": "shadow-read",
+      "kind": "json",
+      "json": {
+        "path": "evidence/shadow-read.json",
+        "pointers": [
+          "/events_seen",
+          "/mismatch_rate",
+          "/mismatches",
+          "/rollback_rehearsal",
+          "/window_hours"
+        ]
+      }
+    },
+    {
+      "id": "consumer-compatibility",
+      "kind": "json",
+      "json": {
+        "path": "evidence/consumers.json",
+        "pointers": [
+          "/total",
+          "/v3_compatible",
+          "/requires_v2",
+          "/dual_read_validated"
+        ]
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "mismatch-shadow-read",
+      "subjectKind": "factor",
+      "subjectId": "mismatch",
+      "evidenceId": "shadow-read",
+      "role": "informs",
+      "citations": [
+        { "kind": "jsonPointer", "pointer": "/mismatch_rate" },
+        { "kind": "jsonPointer", "pointer": "/mismatches" }
+      ]
+    },
+    {
+      "id": "consumers-compatibility",
+      "subjectKind": "factor",
+      "subjectId": "consumers",
+      "evidenceId": "consumer-compatibility",
+      "role": "informs",
+      "citations": [
+        { "kind": "jsonPointer", "pointer": "/requires_v2" },
+        { "kind": "jsonPointer", "pointer": "/dual_read_validated" }
+      ]
+    },
+    {
+      "id": "rollout-schema-change",
+      "subjectKind": "factor",
+      "subjectId": "rollout",
+      "evidenceId": "schema-change",
+      "role": "informs",
+      "citations": [{ "kind": "lineRange", "startLine": 1, "endLine": 10 }]
+    },
+    {
+      "id": "rollback-shadow-read",
+      "subjectKind": "factor",
+      "subjectId": "rollback",
+      "evidenceId": "shadow-read",
+      "role": "supports",
+      "citations": [{ "kind": "jsonPointer", "pointer": "/rollback_rehearsal" }]
+    }
+  ],
+  "provenance": {
+    "producer": {
+      "kind": "agent",
+      "name": "schema rollout analyst",
+      "model": "Claude Sonnet 4.5",
+      "harness": "Claude Code"
+    },
+    "createdAt": "2026-09-18T11:20:00Z"
+  },
+  "choice": {
+    "presentation": "matrix",
+    "expectedResponse": "selection",
+    "options": [
+      {
+        "id": "immediate",
+        "label": "A · Immediate cutover",
+        "description": "Move every producer and consumer to schema v3 now.",
+        "artifactEvidenceId": null
+      },
+      {
+        "id": "dual-read",
+        "label": "B · Seven-day dual read",
+        "description": "Shadow v3 while preserving v2 for one compatibility window.",
+        "artifactEvidenceId": null
+      },
+      {
+        "id": "remain-v2",
+        "label": "C · Remain on v2",
+        "description": "Defer the migration and retain the current schema.",
+        "artifactEvidenceId": null
+      }
+    ],
+    "factors": [
+      { "id": "mismatch", "label": "Mismatch", "description": "Observed output difference during shadow reads." },
+      { "id": "consumers", "label": "v2 consumers", "description": "Consumers that cannot yet accept v3." },
+      { "id": "rollout", "label": "Rollout", "description": "Time until v3 becomes authoritative." },
+      { "id": "rollback", "label": "Rollback", "description": "Ability to restore v2 after a failed rollout." }
+    ],
+    "tradeoffs": [
+      { "optionId": "immediate", "factorId": "mismatch", "value": "0.02% exposed", "tone": "risk" },
+      { "optionId": "immediate", "factorId": "consumers", "value": "2 incompatible", "tone": "risk" },
+      { "optionId": "immediate", "factorId": "rollout", "value": "Now", "tone": "support" },
+      { "optionId": "immediate", "factorId": "rollback", "value": "Rehearsed · 0.5% threshold", "tone": "support" },
+      { "optionId": "dual-read", "factorId": "mismatch", "value": "0.02% shadowed", "tone": "support" },
+      { "optionId": "dual-read", "factorId": "consumers", "value": "2 remain online", "tone": "support" },
+      { "optionId": "dual-read", "factorId": "rollout", "value": "7 days", "tone": "tradeoff" },
+      { "optionId": "dual-read", "factorId": "rollback", "value": "Rehearsed · 0.5% threshold", "tone": "support" },
+      { "optionId": "remain-v2", "factorId": "mismatch", "value": "None", "tone": "neutral" },
+      { "optionId": "remain-v2", "factorId": "consumers", "value": "Unchanged", "tone": "neutral" },
+      { "optionId": "remain-v2", "factorId": "rollout", "value": "Not scheduled", "tone": "risk" },
+      { "optionId": "remain-v2", "factorId": "rollback", "value": "Not needed", "tone": "neutral" }
+    ],
+    "recommendation": {
+      "optionId": "dual-read",
+      "rationale": "It contains the measured mismatch and keeps both incompatible consumers online during their migration window."
+    }
+  }
+}

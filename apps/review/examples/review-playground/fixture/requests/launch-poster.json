@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "id": "launch-poster",
+  "type": "choice",
+  "title": "Which launch poster should ship?",
+  "requestedDecision": "Choose the strongest poster, or draw directly on a candidate to request a precise revision.",
+  "evidence": [
+    {
+      "id": "poster-orbital",
+      "kind": "artifact",
+      "artifact": {
+        "path": "artifacts/orbital.svg",
+        "mediaType": "image/svg+xml",
+        "byteLength": 1049,
+        "sha256": "2118bf9cd512b4651838579abfebe02bd607af94f5986326a70413ae9337f60d"
+      }
+    },
+    {
+      "id": "poster-signal",
+      "kind": "artifact",
+      "artifact": {
+        "path": "artifacts/signal.svg",
+        "mediaType": "image/svg+xml",
+        "byteLength": 1141,
+        "sha256": "304098b29dee8e09886e49b6244699934c2724f8f52e24440d360753667892e7"
+      }
+    },
+    {
+      "id": "poster-aperture",
+      "kind": "artifact",
+      "artifact": {
+        "path": "artifacts/aperture.svg",
+        "mediaType": "image/svg+xml",
+        "byteLength": 793,
+        "sha256": "360bab525f7ae271cf653e60a67ed74a7efca8b902b0cf99122491cd8ede22c6"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "orbital-artifact",
+      "subjectKind": "option",
+      "subjectId": "orbital",
+      "evidenceId": "poster-orbital",
+      "role": "informs",
+      "citations": []
+    },
+    {
+      "id": "signal-artifact",
+      "subjectKind": "option",
+      "subjectId": "signal",
+      "evidenceId": "poster-signal",
+      "role": "informs",
+      "citations": []
+    },
+    {
+      "id": "aperture-artifact",
+      "subjectKind": "option",
+      "subjectId": "aperture",
+      "evidenceId": "poster-aperture",
+      "role": "informs",
+      "citations": []
+    }
+  ],
+  "provenance": {
+    "producer": { "kind": "application", "name": "brand exploration script" },
+    "createdAt": "2026-09-18T13:10:00Z"
+  },
+  "choice": {
+    "presentation": "artifacts",
+    "expectedResponse": "selection",
+    "options": [
+      {
+        "id": "orbital",
+        "label": "A · Orbital",
+        "description": "Atmospheric depth with a product-launch feel.",
+        "artifactEvidenceId": "poster-orbital"
+      },
+      {
+        "id": "signal",
+        "label": "B · Signal",
+        "description": "High-energy system motion with a bright focal line.",
+        "artifactEvidenceId": "poster-signal"
+      },
+      {
+        "id": "aperture",
+        "label": "C · Aperture",
+        "description": "Editorial geometry with a restrained print language.",
+        "artifactEvidenceId": "poster-aperture"
+      }
+    ],
+    "factors": [],
+    "tradeoffs": [],
+    "recommendation": {
+      "optionId": "signal",
+      "rationale": "The signal line most clearly expresses visible work moving through a system."
+    }
+  }
+}

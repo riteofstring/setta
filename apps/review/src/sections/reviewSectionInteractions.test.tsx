@@ -1,0 +1,739 @@
+import type { WorkspaceSection } from "@setta/workspace";
+import { act, useState, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  ReviewContext,
+  type ReviewActions,
+  type ReviewContextValue,
+  type ReviewSubjectSelection,
+} from "../app/reviewContext";
+import { changesRequestedResponse } from "../app/reviewModel";
+import {
+  REVIEW_ARTIFACT_CHOICE_SECTION_KIND,
+  REVIEW_ARTIFACT_SECTION_KIND,
+  REVIEW_CHOICE_SECTION_KIND,
+  REVIEW_CLAIMS_SECTION_KIND,
+  REVIEW_EVIDENCE_SECTION_KIND,
+} from "../app/reviewProjection";
+import type {
+  ArtifactAnnotation as ArtifactAnnotationContract,
+  RequestSnapshot,
+  ReviewSnapshot,
+} from "../backend/generatedContract";
+import { ArtifactChoiceSection } from "./ArtifactChoiceSection";
+import { ArtifactSection } from "./ArtifactSection";
+import { ChoiceMatrixSection } from "./ChoiceMatrixSection";
+import { ClaimsSection } from "./ClaimsSection";
+import { EvidenceSection } from "./EvidenceSection";
+
+const SHA = "a".repeat(64);
+const CREATED_AT = "2026-09-19T12:00:00Z";
+
+function workspaceSection(
+  id: string,
+  kind: string,
+  name: string,
+  data: Record<string, string>,
+): WorkspaceSection {
+  return {
+    children: [],
+    data,
+    id,
+    isHorizontalOrientation: false,
+    isMinimized: false,
+    kind,
+    name,
+    overflowMode: false,
+    positionAndSizeLocked: false,
+    size: { height: "auto", width: 600 },
+    styleColor: null,
+    tagColor: null,
+  };
+}
+
+function snapshotFor(...requests: RequestSnapshot[]): ReviewSnapshot {
+  return {
+    project: {
+      id: "review-project",
+      name: "Review project",
+      requests: requests.map((request) => request.path),
+      version: 1,
+    },
+    requests,
+    revision: 3,
+    version: 1,
+  };
+}
+
+function createActions(overrides: Partial<ReviewActions> = {}): ReviewActions {
+  return {
+    addAnnotationStroke: vi.fn(),
+    clearAnnotations: vi.fn(),
+    confirmChoice: vi.fn(async () => {}),
+    decideClaim: vi.fn(async () => {}),
+    exportReview: vi.fn(async () => {}),
+    requestChanges: vi.fn(async () => {}),
+    selectEvidence: vi.fn(),
+    selectOption: vi.fn(),
+    selectSubject: vi.fn(),
+    setDrawing: vi.fn(),
+    ...overrides,
+  };
+}
+
+function contextValue(
+  snapshot: ReviewSnapshot,
+  actions: ReviewActions,
+  overrides: Partial<Omit<ReviewContextValue, "actions" | "snapshot">> = {},
+): ReviewContextValue {
+  return {
+    actions,
+    annotationsByRequest: {},
+    busyRequestId: null,
+    drawing: null,
+    error: null,
+    selectedEvidenceId: null,
+    selectedOptions: {},
+    selection: null,
+    snapshot,
+    ...overrides,
+  };
+}
+
+function completionRequest(): RequestSnapshot {
+  return {
+    assessments: [
+      {
+        assessment: "supported",
+        caveat: null,
+        claimId: "tokens",
+        createdAt: CREATED_AT,
+        id: "assessment-tokens",
+        producer: { harness: "Codex CLI", model: "gpt-6" },
+        rationale: "The focused tests pass.",
+        requestId: "completion-request",
+        version: 1,
+      },
+      {
+        assessment: "contradicted",
+        caveat: null,
+        claimId: "migration",
+        createdAt: CREATED_AT,
+        id: "assessment-migration",
+        producer: { harness: "Claude Code", model: "opus" },
+        rationale: "A legacy row was dropped.",
+        requestId: "completion-request",
+        version: 1,
+      },
+    ],
+    evidence: [],
+    path: "requests/completion.json",
+    request: {
+      completion: {
+        claims: [
+          { id: "tokens", text: "Invalid tokens are rejected" },
+          { id: "migration", text: "Migration preserves every row" },
+          { id: "rollback", text: "Rollback restores the previous schema" },
+        ],
+      },
+      evidence: [],
+      id: "completion-request",
+      provenance: {
+        createdAt: CREATED_AT,
+        producer: {
+          kind: "agent",
+          name: "Builder",
+          model: "gpt-6",
+          harness: "Codex CLI",
+        },
+      },
+      relations: [],
+      requestedDecision: "Verify the migration before release.",
+      title: "Can schema v3 ship?",
+      type: "completion",
+      version: 1,
+    },
+    response: null,
+    sha256: SHA,
+  };
+}
+
+function matrixRequest(): RequestSnapshot {
+  return {
+    assessments: [],
+    evidence: [
+      {
+        content: {
+          endLine: 14,
+          kind: "text",
+          startLine: 10,
+          text: "attempt one\nattempt two\nzero failures\nall checks passed\ndone",
+          truncated: false,
+        },
+        error: null,
+        evidenceId: "reliability-log",
+        status: "resolved",
+      },
+    ],
+    path: "requests/rollout.json",
+    request: {
+      choice: {
+        expectedResponse: "selection",
+        factors: [
+          {
+            description: "Observed failures during rehearsal",
+            id: "reliability",
+            label: "Reliability",
+          },
+          {
+            description: "Time required to complete rollout",
+            id: "duration",
+            label: "Duration",
+          },
+        ],
+        options: [
+          {
+            artifactEvidenceId: null,
+            description: "Move all consumers immediately",
+            id: "immediate",
+            label: "Immediate cutover",
+          },
+          {
+            artifactEvidenceId: null,
+            description: "Run old and new readers together",
+            id: "gradual",
+            label: "Seven-day rollout",
+          },
+        ],
+        presentation: "matrix",
+        recommendation: {
+          optionId: "gradual",
+          rationale: "It limits rollback risk.",
+        },
+        tradeoffs: [
+          {
+            factorId: "reliability",
+            optionId: "immediate",
+            tone: "risk",
+            value: "Two incompatible consumers",
+          },
+          {
+            factorId: "duration",
+            optionId: "immediate",
+            tone: "support",
+            value: "One hour",
+          },
+          {
+            factorId: "reliability",
+            optionId: "gradual",
+            tone: "support",
+            value: "Zero rehearsal failures",
+          },
+          {
+            factorId: "duration",
+            optionId: "gradual",
+            tone: "tradeoff",
+            value: "Seven days",
+          },
+        ],
+      },
+      evidence: [
+        {
+          id: "reliability-log",
+          kind: "text",
+          text: {
+            endLine: 14,
+            mediaType: "text/plain",
+            path: "results/reliability.log",
+            startLine: 10,
+          },
+        },
+      ],
+      id: "rollout-request",
+      provenance: {
+        createdAt: CREATED_AT,
+        producer: { kind: "script", name: "rollout-study" },
+      },
+      relations: [
+        {
+          citations: [{ endLine: 13, kind: "lineRange", startLine: 12 }],
+          evidenceId: "reliability-log",
+          id: "reliability-evidence",
+          role: "supports",
+          subjectId: "reliability",
+          subjectKind: "factor",
+        },
+      ],
+      requestedDecision: "Choose the rollout strategy.",
+      title: "How should schema v3 ship?",
+      type: "choice",
+      version: 1,
+    },
+    response: null,
+    sha256: SHA,
+  };
+}
+
+function artifactRequest(): RequestSnapshot {
+  return {
+    assessments: [],
+    evidence: [
+      {
+        content: {
+          byteLength: 4_096,
+          kind: "artifact",
+          mediaType: "image/png",
+          route: "/api/evidence/artifact-request/candidate-a",
+          sha256: SHA,
+        },
+        error: null,
+        evidenceId: "candidate-a",
+        status: "resolved",
+      },
+    ],
+    path: "requests/artifact.json",
+    request: {
+      choice: {
+        expectedResponse: "selection",
+        factors: [],
+        options: [
+          {
+            artifactEvidenceId: "candidate-a",
+            description: "Higher contrast navigation",
+            id: "option-a",
+            label: "Candidate A",
+          },
+        ],
+        presentation: "artifacts",
+        recommendation: null,
+        tradeoffs: [],
+      },
+      evidence: [
+        {
+          artifact: {
+            byteLength: 4_096,
+            mediaType: "image/png",
+            path: "artifacts/candidate-a.png",
+            sha256: SHA,
+          },
+          id: "candidate-a",
+          kind: "artifact",
+        },
+      ],
+      id: "artifact-request",
+      provenance: {
+        createdAt: CREATED_AT,
+        producer: {
+          kind: "agent",
+          name: "Designer",
+          model: "gpt-6",
+          harness: "Codex CLI",
+        },
+      },
+      relations: [],
+      requestedDecision: "Choose a visual treatment or request changes.",
+      title: "Which navigation treatment should ship?",
+      type: "choice",
+      version: 1,
+    },
+    response: null,
+    sha256: SHA,
+  };
+}
+
+const COMPLETION_REQUEST = completionRequest();
+const COMPLETION_SNAPSHOT = snapshotFor(COMPLETION_REQUEST);
+const MATRIX_REQUEST = matrixRequest();
+const MATRIX_SNAPSHOT = snapshotFor(MATRIX_REQUEST);
+const ARTIFACT_REQUEST = artifactRequest();
+const ARTIFACT_SNAPSHOT = snapshotFor(ARTIFACT_REQUEST);
+
+const COMPLETION_SECTION = workspaceSection(
+  "completion-section",
+  REVIEW_CLAIMS_SECTION_KIND,
+  COMPLETION_REQUEST.request.title,
+  { requestId: COMPLETION_REQUEST.request.id },
+);
+const MATRIX_SECTION = workspaceSection(
+  "matrix-section",
+  REVIEW_CHOICE_SECTION_KIND,
+  MATRIX_REQUEST.request.title,
+  { requestId: MATRIX_REQUEST.request.id },
+);
+const MATRIX_EVIDENCE_SECTION = workspaceSection(
+  "matrix-evidence",
+  REVIEW_EVIDENCE_SECTION_KIND,
+  "reliability.log",
+  { evidenceId: "reliability-log", requestId: MATRIX_REQUEST.request.id },
+);
+const ARTIFACT_CHOICE_SECTION = workspaceSection(
+  "artifact-choice-section",
+  REVIEW_ARTIFACT_CHOICE_SECTION_KIND,
+  ARTIFACT_REQUEST.request.title,
+  { requestId: ARTIFACT_REQUEST.request.id },
+);
+const ARTIFACT_SECTION = workspaceSection(
+  "artifact-section",
+  REVIEW_ARTIFACT_SECTION_KIND,
+  "Candidate A",
+  { evidenceId: "candidate-a", requestId: ARTIFACT_REQUEST.request.id },
+);
+
+function MatrixWorkflow({
+  confirmChoice,
+}: {
+  confirmChoice: ReviewActions["confirmChoice"];
+}) {
+  const [selection, setSelection] = useState<ReviewSubjectSelection | null>(
+    null,
+  );
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string | null>
+  >({ "rollout-request": null });
+  const actions = createActions({
+    confirmChoice,
+    selectOption: (requestId, optionId) => {
+      setSelectedOptions((current) => ({
+        ...current,
+        [requestId]: optionId,
+      }));
+    },
+    selectSubject: setSelection,
+  });
+  return (
+    <ReviewContext.Provider
+      value={contextValue(MATRIX_SNAPSHOT, actions, {
+        selectedOptions,
+        selection,
+      })}
+    >
+      <ChoiceMatrixSection section={MATRIX_SECTION} />
+      <EvidenceSection section={MATRIX_EVIDENCE_SECTION} />
+    </ReviewContext.Provider>
+  );
+}
+
+function ArtifactWorkflow({
+  onRevisionAttempt,
+  onStroke,
+}: {
+  onRevisionAttempt: (
+    requestId: string,
+    rationale: string,
+    annotationCount: number,
+  ) => void;
+  onStroke: ReviewActions["addAnnotationStroke"];
+}) {
+  const [annotations, setAnnotations] = useState<ArtifactAnnotationContract[]>(
+    [],
+  );
+  const [drawing, setDrawing] = useState<ReviewContextValue["drawing"]>(null);
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string | null>
+  >({ "artifact-request": null });
+  const actions = createActions({
+    addAnnotationStroke: (requestId, evidenceId, points) => {
+      onStroke(requestId, evidenceId, points);
+      setAnnotations([
+        {
+          artifactEvidenceId: evidenceId,
+          artifactSha256: SHA,
+          id: `annotation:${requestId}:${evidenceId}`,
+          paths: [
+            {
+              color: "#5ee693",
+              points: points.map((point) => ({ ...point })),
+              width: 0.008,
+            },
+          ],
+        },
+      ]);
+    },
+    clearAnnotations: () => setAnnotations([]),
+    requestChanges: async (requestId, rationale) => {
+      onRevisionAttempt(requestId, rationale, annotations.length);
+      changesRequestedResponse(ARTIFACT_REQUEST, rationale, annotations);
+    },
+    selectOption: (requestId, optionId) =>
+      setSelectedOptions((current) => ({
+        ...current,
+        [requestId]: optionId,
+      })),
+    setDrawing: (requestId, evidenceId) =>
+      setDrawing(evidenceId ? { evidenceId, requestId } : null),
+  });
+  return (
+    <ReviewContext.Provider
+      value={contextValue(ARTIFACT_SNAPSHOT, actions, {
+        annotationsByRequest: { "artifact-request": annotations },
+        drawing,
+        selectedOptions,
+      })}
+    >
+      <ArtifactChoiceSection section={ARTIFACT_CHOICE_SECTION} />
+      <ArtifactSection section={ARTIFACT_SECTION} />
+    </ReviewContext.Provider>
+  );
+}
+
+function buttonContaining(
+  container: Element,
+  label: string,
+): HTMLButtonElement {
+  const button = Array.from(
+    container.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((candidate) => candidate.textContent?.includes(label));
+  if (!button) {
+    throw new Error(`No button contains ${label}.`);
+  }
+  return button;
+}
+
+function setControlValue(
+  control: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void {
+  const prototype =
+    control instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+  if (!descriptor?.set) {
+    throw new Error("This environment has no native control value setter.");
+  }
+  act(() => {
+    descriptor.set?.call(control, value);
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+async function click(button: HTMLButtonElement): Promise<void> {
+  await act(async () => {
+    button.click();
+  });
+}
+
+function dispatchPointer(
+  target: Element,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  clientX: number,
+  clientY: number,
+): void {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    cancelable: true,
+    clientX,
+    clientY,
+  });
+  Object.defineProperties(event, {
+    isPrimary: { value: true },
+    pointerId: { value: 4 },
+  });
+  act(() => target.dispatchEvent(event));
+}
+
+function configureAnnotationSurface(surface: SVGSVGElement): void {
+  const captured = new Set<number>();
+  Object.assign(surface, {
+    hasPointerCapture: (pointerId: number) => captured.has(pointerId),
+    releasePointerCapture: (pointerId: number) => captured.delete(pointerId),
+    setPointerCapture: (pointerId: number) => captured.add(pointerId),
+  });
+  vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+    bottom: 300,
+    height: 200,
+    left: 50,
+    right: 450,
+    toJSON: () => ({}),
+    top: 100,
+    width: 400,
+    x: 50,
+    y: 100,
+  });
+}
+
+describe("Review section interactions", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  function render(node: ReactNode): void {
+    act(() => root.render(node));
+  }
+
+  it("keeps every completion claim visible and records a human decision", async () => {
+    const decideClaim = vi.fn<ReviewActions["decideClaim"]>(async () => {});
+    const actions = createActions({ decideClaim });
+    render(
+      <ReviewContext.Provider
+        value={contextValue(COMPLETION_SNAPSHOT, actions, {
+          selection: {
+            requestId: "completion-request",
+            subjectId: "rollback",
+            subjectKind: "claim",
+          },
+        })}
+      >
+        <ClaimsSection section={COMPLETION_SECTION} />
+      </ReviewContext.Provider>,
+    );
+
+    const visibleClaims = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]"),
+    ).map((row) => row.querySelector("strong")?.textContent);
+    expect(visibleClaims).toEqual([
+      "Invalid tokens are rejected",
+      "Migration preserves every row",
+      "Rollback restores the previous schema",
+    ]);
+    expect(
+      buttonContaining(container, "Rollback restores the previous schema")
+        .textContent,
+    ).toContain("No assessments");
+    expect(container.textContent).toContain(
+      "No external reviewer has assessed this claim.",
+    );
+
+    const note = container.querySelector<HTMLInputElement>(
+      '[aria-label="Note for Rollback restores the previous schema"]',
+    );
+    if (!note) {
+      throw new Error("The selected claim has no human note field.");
+    }
+    setControlValue(note, "Recovery rehearsal passed.");
+    await click(buttonContaining(container, "Accept"));
+
+    expect(decideClaim).toHaveBeenCalledTimes(1);
+    expect(decideClaim).toHaveBeenCalledWith("completion-request", {
+      claimId: "rollback",
+      decision: "accepted",
+      qualification: null,
+      rationale: "Recovery rehearsal passed.",
+    });
+  });
+
+  it("links a selected matrix factor to its evidence and keeps option selection provisional", async () => {
+    const confirmChoice = vi.fn<ReviewActions["confirmChoice"]>(async () => {});
+    render(<MatrixWorkflow confirmChoice={confirmChoice} />);
+
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    await click(buttonContaining(container, "Reliability"));
+
+    expect(
+      buttonContaining(container, "Reliability").getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      container.querySelector('[role="status"] [data-role="supports"]')
+        ?.textContent,
+    ).toBe("supports");
+    const citedLines = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-cited="true"]'),
+    ).map((line) => line.querySelector("span")?.textContent);
+    expect(citedLines).toEqual(["12", "13"]);
+
+    await click(buttonContaining(container, "Seven-day rollout"));
+
+    expect(confirmChoice).not.toHaveBeenCalled();
+    const confirm = buttonContaining(container, "Confirm choice");
+    expect(confirm.disabled).toBe(false);
+    await click(confirm);
+    expect(confirmChoice).toHaveBeenCalledTimes(1);
+    expect(confirmChoice).toHaveBeenCalledWith("rollout-request", "");
+  });
+
+  it("keeps artifact strokes normalized and accepts revision feedback only with a note or drawing", async () => {
+    const onStroke = vi.fn<ReviewActions["addAnnotationStroke"]>();
+    const onRevisionAttempt = vi.fn();
+    render(
+      <ArtifactWorkflow
+        onRevisionAttempt={onRevisionAttempt}
+        onStroke={onStroke}
+      />,
+    );
+
+    await click(buttonContaining(container, "Request changes"));
+    await click(buttonContaining(container, "Send feedback"));
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Describe or draw the requested change.",
+    );
+    expect(onRevisionAttempt).toHaveBeenNthCalledWith(
+      1,
+      "artifact-request",
+      "",
+      0,
+    );
+
+    const firstRevision = container.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Requested changes"]',
+    );
+    if (!firstRevision) {
+      throw new Error("The revision form has no requested changes field.");
+    }
+    setControlValue(firstRevision, "Increase the inactive-tab contrast.");
+    await click(buttonContaining(container, "Send feedback"));
+
+    expect(onRevisionAttempt).toHaveBeenNthCalledWith(
+      2,
+      "artifact-request",
+      "Increase the inactive-tab contrast.",
+      0,
+    );
+    expect(
+      container.querySelector('[aria-label="Requested changes"]'),
+    ).toBeNull();
+
+    await click(buttonContaining(container, "Request changes"));
+    const secondRevision = container.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Requested changes"]',
+    );
+    if (!secondRevision) {
+      throw new Error("The revision form did not reopen.");
+    }
+    setControlValue(secondRevision, "");
+    await click(buttonContaining(container, "Draw feedback"));
+
+    const annotationSurface = container.querySelector<SVGSVGElement>(
+      '[aria-label="Annotation canvas for Candidate A"]',
+    );
+    if (!annotationSurface) {
+      throw new Error("The candidate has no annotation canvas.");
+    }
+    configureAnnotationSurface(annotationSurface);
+    dispatchPointer(annotationSurface, "pointerdown", 90, 120);
+    dispatchPointer(annotationSurface, "pointermove", 250, 200);
+    dispatchPointer(annotationSurface, "pointerup", 410, 280);
+
+    expect(onStroke).toHaveBeenCalledTimes(1);
+    expect(onStroke).toHaveBeenCalledWith("artifact-request", "candidate-a", [
+      { x: 0.1, y: 0.1 },
+      { x: 0.5, y: 0.5 },
+      { x: 0.9, y: 0.9 },
+    ]);
+
+    await click(buttonContaining(container, "Send feedback"));
+
+    expect(onRevisionAttempt).toHaveBeenNthCalledWith(
+      3,
+      "artifact-request",
+      "",
+      1,
+    );
+    expect(
+      container.querySelector('[aria-label="Requested changes"]'),
+    ).toBeNull();
+  });
+});
