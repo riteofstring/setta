@@ -586,6 +586,406 @@
         color: rgb(239 246 255);
       }
 
+      .experiment-lens-example-controls {
+        inset: 20px 24px auto;
+        width: auto;
+        min-height: 104px;
+      }
+
+      .experiment-lens-example-controls .experiment-lens-control-body {
+        grid-template-columns: auto auto minmax(240px, 1fr);
+      }
+
+      .experiment-lens-example-current {
+        justify-self: end;
+        min-width: 280px;
+      }
+
+      .experiment-lens-example-current strong,
+      .experiment-lens-example-current small {
+        display: block;
+      }
+
+      .experiment-lens-example-current strong {
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-example-current small {
+        margin-block-start: 3px;
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-query-plan-node {
+        top: 148px;
+        left: 24px;
+        width: 530px;
+        height: 390px;
+      }
+
+      .experiment-lens-query-latency-node {
+        top: 148px;
+        left: 578px;
+        width: 688px;
+        height: 190px;
+      }
+
+      .experiment-lens-query-log-node {
+        top: 362px;
+        left: 578px;
+        width: 688px;
+        height: 176px;
+      }
+
+      .experiment-lens-plan-body {
+        display: grid;
+        height: calc(100% - 32px);
+        place-items: center;
+        padding: 18px;
+        border-block-start: 1px solid rgb(26 33 45);
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-plan-variant {
+        display: flex;
+        width: min(100%, 360px);
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .experiment-lens-plan-stage[data-index="none"]
+        [data-plan-variant="composite"],
+      .experiment-lens-plan-stage[data-index="composite"]
+        [data-plan-variant="none"] {
+        display: none;
+      }
+
+      .experiment-lens-plan-box {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid rgb(43 54 74);
+        border-radius: 5px;
+        background: rgb(15 23 42);
+      }
+
+      .experiment-lens-plan-box strong,
+      .experiment-lens-plan-box span {
+        display: block;
+      }
+
+      .experiment-lens-plan-box strong {
+        color: rgb(203 213 225);
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-plan-box span {
+        margin-block-start: 3px;
+        color: rgb(86 105 143);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .experiment-lens-plan-arrow {
+        width: 1px;
+        height: 20px;
+        background: rgb(59 130 246);
+      }
+
+      .experiment-lens-plan-arrow::after {
+        display: block;
+        width: 5px;
+        height: 5px;
+        border-right: 1px solid rgb(59 130 246);
+        border-bottom: 1px solid rgb(59 130 246);
+        content: "";
+        transform: translate(-2px, 13px) rotate(45deg);
+      }
+
+      .experiment-lens-latency-body {
+        display: grid;
+        height: calc(100% - 32px);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        padding: 16px;
+        border-block-start: 1px solid rgb(26 33 45);
+      }
+
+      .experiment-lens-latency-column {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        justify-content: end;
+      }
+
+      .experiment-lens-latency-column strong,
+      .experiment-lens-latency-column span {
+        display: block;
+      }
+
+      .experiment-lens-latency-column strong {
+        margin-block-end: 9px;
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-latency-column span {
+        margin-block-end: 6px;
+        color: rgb(86 105 143);
+        font-size: 8px;
+        text-transform: uppercase;
+      }
+
+      .experiment-lens-latency-track {
+        height: 58px;
+        display: flex;
+        align-items: end;
+        border-block-end: 1px solid rgb(43 54 74);
+      }
+
+      .experiment-lens-latency-fill {
+        width: 100%;
+        height: var(--latency-height);
+        background: linear-gradient(
+          180deg,
+          rgb(96 165 250 / 88%),
+          rgb(37 99 235 / 28%)
+        );
+        transition: height 180ms ease;
+      }
+
+      .experiment-lens-query-log-body,
+      .experiment-lens-route-trace-body {
+        height: calc(100% - 32px);
+        padding: 11px 13px;
+        overflow: hidden;
+        border-block-start: 1px solid rgb(26 33 45);
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-query-log-body pre,
+      .experiment-lens-route-trace-body pre {
+        margin: 0;
+        color: rgb(150 164 192);
+        font: 9px/1.65 var(--mono);
+        white-space: pre-wrap;
+      }
+
+      .experiment-lens-route-map-node {
+        top: 148px;
+        left: 24px;
+        width: 700px;
+        height: 390px;
+      }
+
+      .experiment-lens-route-metrics-node {
+        top: 148px;
+        left: 748px;
+        width: 518px;
+        height: 180px;
+      }
+
+      .experiment-lens-route-trace-node {
+        top: 352px;
+        left: 748px;
+        width: 518px;
+        height: 186px;
+      }
+
+      .experiment-lens-route-map-body {
+        height: calc(100% - 32px);
+        padding: 10px;
+        overflow: hidden;
+        border-block-start: 1px solid rgb(26 33 45);
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-route-map-body svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .experiment-lens-route-map-body .route-grid {
+        stroke: rgb(40 50 68);
+        stroke-width: 1;
+      }
+
+      .experiment-lens-route-map-body .route-frontier {
+        fill: rgb(59 130 246 / 22%);
+      }
+
+      .experiment-lens-route-map-body .route-obstacle {
+        fill: rgb(51 65 85);
+      }
+
+      .experiment-lens-route-map-body .route-path {
+        fill: none;
+        stroke: rgb(81 214 199);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 8;
+      }
+
+      .experiment-lens-route-map-body .route-start {
+        fill: rgb(96 165 250);
+      }
+
+      .experiment-lens-route-map-body .route-goal {
+        fill: rgb(119 217 148);
+      }
+
+      .experiment-lens-route-metrics-body {
+        display: grid;
+        height: calc(100% - 32px);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        border-block-start: 1px solid rgb(26 33 45);
+        background: rgb(26 33 45);
+      }
+
+      .experiment-lens-route-metric {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 14px;
+        background: rgb(9 13 20);
+      }
+
+      .experiment-lens-route-metric span,
+      .experiment-lens-route-metric strong {
+        display: block;
+      }
+
+      .experiment-lens-route-metric span {
+        margin-block-end: 8px;
+        color: rgb(86 105 143);
+        font-size: 8px;
+        text-transform: uppercase;
+      }
+
+      .experiment-lens-route-metric strong {
+        color: rgb(203 213 225);
+        font-family: var(--mono);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .experiment-lens-difference {
+        padding-block: 92px;
+      }
+
+      .experiment-lens-difference-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+        gap: 48px;
+        align-items: start;
+      }
+
+      .experiment-lens-difference-note {
+        padding: 20px;
+        border-inline-start: 2px solid var(--cyan);
+        background: rgb(13 19 29);
+      }
+
+      .experiment-lens-difference-note strong,
+      .experiment-lens-difference-note span {
+        display: block;
+      }
+
+      .experiment-lens-difference-note strong {
+        margin-block-end: 8px;
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      .experiment-lens-difference-note span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .experiment-lens-difference-table-wrap {
+        overflow-x: auto;
+        border-block: 1px solid var(--line);
+      }
+
+      .experiment-lens-difference-table {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .experiment-lens-difference-table th,
+      .experiment-lens-difference-table td {
+        padding: 16px 18px;
+        border-block-end: 1px solid var(--line-soft);
+        text-align: start;
+        vertical-align: top;
+      }
+
+      .experiment-lens-difference-table tr:last-child td {
+        border-block-end: 0;
+      }
+
+      .experiment-lens-difference-table th {
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .experiment-lens-difference-table th:first-child,
+      .experiment-lens-difference-table td:first-child {
+        width: 150px;
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .experiment-lens-difference-table td {
+        color: var(--muted);
+      }
+
+      .experiment-lens-difference-table td:last-child {
+        color: #c5cfdf;
+      }
+
+      .experiment-lens-fit-check {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        margin-block-start: 36px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--line);
+      }
+
+      .experiment-lens-fit-check article {
+        padding: 22px;
+        background: var(--page-raised);
+      }
+
+      .experiment-lens-fit-check h3 {
+        margin-block-end: 8px;
+        font-size: 16px;
+        font-weight: 500;
+      }
+
+      .experiment-lens-fit-check p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       .experiment-lens-boundary {
         padding-block: 76px 100px;
       }
@@ -605,6 +1005,16 @@
 
       @media (max-width: 960px) {
         .experiment-lens-hero {
+          grid-template-columns: 1fr;
+        }
+
+        .experiment-lens-difference-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .experiment-lens-fit-check {
           grid-template-columns: 1fr;
         }
       }
@@ -684,9 +1094,9 @@
           Setta Experiment Lens
         </a>
         <nav class="site-nav" aria-label="Page navigation">
-          <a href="#explore">Explore</a>
+          <a href="#explore">Examples</a>
+          <a href="#difference">Difference</a>
           <a href="#handoff">Handoff</a>
-          <a href="setta-product-mockups.html">Review mockups</a>
         </nav>
       </div>
     </header>
@@ -697,11 +1107,12 @@
         aria-labelledby="hero-title"
       >
         <div>
-          <div class="eyebrow">Recorded experiments · interactive results</div>
-          <h1 id="hero-title">Explore the experiment, not the dashboard.</h1>
+          <div class="eyebrow">A read-only player for recorded experiments</div>
+          <h1 id="hero-title">Turn experiment results into a mini-app.</h1>
           <p class="hero-lede">
-            Agents run trials elsewhere. Setta turns their recorded outputs into
-            one interactive workspace where every rich result changes together.
+            A script or agent runs trials anywhere. Setta maps the recorded
+            factors to controls, so choosing one real trial changes every result
+            section together. It does not launch, rerun, or predict experiments.
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#explore">Try the experiment</a>
@@ -749,11 +1160,12 @@
         <section id="explore" class="page-shell product-showcase">
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">Interactive mockup</div>
-              <h2>Explore one finite experiment</h2>
+              <div class="showcase-number">Example 01 · Image compression</div>
+              <h2>Which codec keeps the image clean at a useful size?</h2>
               <p>
-                Every factor combination below is a real recorded trial. Change
-                codec or quality, then compare the current trial with pinned A.
+                Change codec or quality. The rendered image, error heatmap,
+                tradeoff plot, and encoder log all switch to the same recorded
+                trial. Pin two trials when the visual difference matters.
               </p>
             </div>
           </div>
@@ -1581,6 +1993,838 @@ output  <span data-log-output>output.webp · 184 KB</span>
             </setta-workspace>
           </div>
         </section>
+
+        <section class="page-shell product-showcase">
+          <div class="showcase-head showcase-head-simple">
+            <div>
+              <div class="showcase-number">Example 02 · Database benchmark</div>
+              <h2>Why did this index make the query faster?</h2>
+              <p>
+                Change the index or cache state. The recorded query plan,
+                latency distribution, and EXPLAIN output move together—without
+                connecting Setta to the database or rerunning the benchmark.
+              </p>
+            </div>
+          </div>
+
+          <div class="app-frame">
+            <setta-workspace
+              heading="Postgres benchmark · recent invoices"
+              meta="4 recorded trials · imported from benchmark.json"
+              inspector-title="Details"
+              inspector-open="false"
+            >
+              <div data-region="outline">
+                <div class="setta-workspace-outline">
+                  <div class="setta-workspace-outline-item">
+                    <div class="setta-workspace-outline-row">
+                      <span class="setta-workspace-outline-disclosure">
+                        <svg class="setta-icon">
+                          <use href="#icon-chevron"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Recent invoices query</span
+                      >
+                    </div>
+                  </div>
+                  <div
+                    class="setta-workspace-outline-item"
+                    aria-selected="true"
+                  >
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px; --outline-color: #5d7cff"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-sliders"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Recorded trial selector</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-layers"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Query plan</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-chart"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Latency distribution</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-code"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >EXPLAIN output</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="canvas-stage experiment-lens-plan-stage"
+                data-region="canvas"
+                data-index="composite"
+                data-cache="warm"
+              >
+                <article
+                  class="setta-section-card experiment-lens-example-controls"
+                  data-section-active="true"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-sliders"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title"
+                      >Recorded trial selector</span
+                    >
+                    <span class="setta-section-kind" data-query-bind="id"
+                      >Q-08</span
+                    >
+                  </header>
+                  <div class="experiment-lens-control-body">
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Index</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-query-factor="index"
+                          data-value="none"
+                          aria-pressed="false"
+                        >
+                          None
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-query-factor="index"
+                          data-value="composite"
+                          aria-pressed="true"
+                        >
+                          Composite
+                        </button>
+                      </div>
+                    </fieldset>
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Cache</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-query-factor="cache"
+                          data-value="cold"
+                          aria-pressed="false"
+                        >
+                          Cold
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-query-factor="cache"
+                          data-value="warm"
+                          aria-pressed="true"
+                        >
+                          Warm
+                        </button>
+                      </div>
+                    </fieldset>
+                    <div class="experiment-lens-example-current">
+                      <strong data-query-bind="label"
+                        >Q-08 · Composite index · warm cache</strong
+                      >
+                      <small>Current recorded trial · 4 / 4 available</small>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-query-plan-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-layers"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title">Query plan</span>
+                    <span class="setta-section-kind" data-query-bind="id"
+                      >Q-08</span
+                    >
+                  </header>
+                  <div class="experiment-lens-plan-body">
+                    <div
+                      class="experiment-lens-plan-variant"
+                      data-plan-variant="none"
+                    >
+                      <div class="experiment-lens-plan-box">
+                        <strong>Limit</strong><span>return 50 rows</span>
+                      </div>
+                      <span class="experiment-lens-plan-arrow"></span>
+                      <div class="experiment-lens-plan-box">
+                        <strong>Sort</strong
+                        ><span>created_at DESC · 186,240 rows</span>
+                      </div>
+                      <span class="experiment-lens-plan-arrow"></span>
+                      <div class="experiment-lens-plan-box">
+                        <strong>Sequential scan</strong
+                        ><span>filter account_id = 42</span>
+                      </div>
+                    </div>
+                    <div
+                      class="experiment-lens-plan-variant"
+                      data-plan-variant="composite"
+                    >
+                      <div class="experiment-lens-plan-box">
+                        <strong>Limit</strong><span>return 50 rows</span>
+                      </div>
+                      <span class="experiment-lens-plan-arrow"></span>
+                      <div class="experiment-lens-plan-box">
+                        <strong>Index scan</strong
+                        ><span
+                          >invoices_account_created_idx · already ordered</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-query-latency-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-chart"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title"
+                      >Latency distribution</span
+                    >
+                    <span class="setta-section-kind" data-query-bind="id"
+                      >Q-08</span
+                    >
+                  </header>
+                  <div class="experiment-lens-latency-body">
+                    <div class="experiment-lens-latency-column">
+                      <span>p50</span
+                      ><strong data-query-bind="p50">18 ms</strong>
+                      <div class="experiment-lens-latency-track">
+                        <div
+                          class="experiment-lens-latency-fill"
+                          data-query-bar="p50"
+                          style="--latency-height: 2%"
+                        ></div>
+                      </div>
+                    </div>
+                    <div class="experiment-lens-latency-column">
+                      <span>p95</span
+                      ><strong data-query-bind="p95">24 ms</strong>
+                      <div class="experiment-lens-latency-track">
+                        <div
+                          class="experiment-lens-latency-fill"
+                          data-query-bar="p95"
+                          style="--latency-height: 3%"
+                        ></div>
+                      </div>
+                    </div>
+                    <div class="experiment-lens-latency-column">
+                      <span>p99</span
+                      ><strong data-query-bind="p99">31 ms</strong>
+                      <div class="experiment-lens-latency-track">
+                        <div
+                          class="experiment-lens-latency-fill"
+                          data-query-bar="p99"
+                          style="--latency-height: 4%"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-query-log-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-code"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title">EXPLAIN output</span>
+                    <span class="setta-section-kind" data-query-bind="id"
+                      >Q-08</span
+                    >
+                  </header>
+                  <div class="experiment-lens-query-log-body">
+                    <pre><code><span class="experiment-lens-log-prompt">$</span> EXPLAIN (ANALYZE, BUFFERS) recent_invoices.sql
+<span data-query-bind="plan">Index Scan using invoices_account_created_idx</span>
+rows inspected: <span data-query-bind="rows">320</span> · shared buffers: <span data-query-bind="buffers">4 hit</span>
+<span class="experiment-lens-log-result">Execution Time: <span data-query-bind="execution">18 ms</span></span></code></pre>
+                  </div>
+                </article>
+              </div>
+
+              <div data-region="inspector"></div>
+            </setta-workspace>
+          </div>
+        </section>
+
+        <section class="page-shell product-showcase">
+          <div class="showcase-head showcase-head-simple">
+            <div>
+              <div class="showcase-number">Example 03 · Search algorithm</div>
+              <h2>What work did the algorithm do to find this route?</h2>
+              <p>
+                Change the algorithm or obstacle map. The recorded route,
+                explored frontier, metrics, and trace reveal why two methods can
+                find the same path with very different amounts of work.
+              </p>
+            </div>
+          </div>
+
+          <div class="app-frame">
+            <setta-workspace
+              heading="Grid search study · warehouse route"
+              meta="4 recorded trials · generated by route-bench"
+              inspector-title="Details"
+              inspector-open="false"
+            >
+              <div data-region="outline">
+                <div class="setta-workspace-outline">
+                  <div class="setta-workspace-outline-item">
+                    <div class="setta-workspace-outline-row">
+                      <span class="setta-workspace-outline-disclosure">
+                        <svg class="setta-icon">
+                          <use href="#icon-chevron"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Warehouse route</span
+                      >
+                    </div>
+                  </div>
+                  <div
+                    class="setta-workspace-outline-item"
+                    aria-selected="true"
+                  >
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px; --outline-color: #51d6c7"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-sliders"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Recorded trial selector</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-map"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Route and frontier</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-chart"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Search metrics</span
+                      >
+                    </div>
+                  </div>
+                  <div class="setta-workspace-outline-item">
+                    <div
+                      class="setta-workspace-outline-row"
+                      style="--outline-depth: 14px"
+                    >
+                      <span class="setta-workspace-outline-kind-icon">
+                        <svg class="setta-icon">
+                          <use href="#icon-code"></use>
+                        </svg>
+                      </span>
+                      <span class="setta-workspace-outline-label"
+                        >Search trace</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="canvas-stage experiment-lens-route-stage"
+                data-region="canvas"
+                data-search="astar"
+                data-terrain="dense"
+              >
+                <article
+                  class="setta-section-card experiment-lens-example-controls"
+                  data-section-active="true"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-sliders"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title"
+                      >Recorded trial selector</span
+                    >
+                    <span class="setta-section-kind" data-route-bind="id"
+                      >R-21</span
+                    >
+                  </header>
+                  <div class="experiment-lens-control-body">
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Search</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-route-factor="search"
+                          data-value="astar"
+                          aria-pressed="true"
+                        >
+                          A*
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-route-factor="search"
+                          data-value="dijkstra"
+                          aria-pressed="false"
+                        >
+                          Dijkstra
+                        </button>
+                      </div>
+                    </fieldset>
+                    <fieldset class="experiment-lens-fieldset">
+                      <legend>Map</legend>
+                      <div class="experiment-lens-option-group">
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-route-factor="terrain"
+                          data-value="sparse"
+                          aria-pressed="false"
+                        >
+                          Sparse
+                        </button>
+                        <button
+                          class="experiment-lens-option"
+                          type="button"
+                          data-route-factor="terrain"
+                          data-value="dense"
+                          aria-pressed="true"
+                        >
+                          Dense
+                        </button>
+                      </div>
+                    </fieldset>
+                    <div class="experiment-lens-example-current">
+                      <strong data-route-bind="label"
+                        >R-21 · A* · dense map</strong
+                      >
+                      <small>Current recorded trial · 4 / 4 available</small>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-route-map-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-map"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title"
+                      >Route and explored frontier</span
+                    >
+                    <span class="setta-section-kind" data-route-bind="id"
+                      >R-21</span
+                    >
+                  </header>
+                  <div class="experiment-lens-route-map-body">
+                    <svg
+                      viewBox="0 0 660 330"
+                      role="img"
+                      aria-labelledby="route-map-title route-map-description"
+                    >
+                      <title id="route-map-title">
+                        Recorded pathfinding result
+                      </title>
+                      <desc id="route-map-description">
+                        A warehouse grid showing obstacles, explored cells, and
+                        the selected algorithm's final route.
+                      </desc>
+                      <defs>
+                        <pattern
+                          id="experiment-route-grid"
+                          width="30"
+                          height="30"
+                          patternUnits="userSpaceOnUse"
+                        >
+                          <path class="route-grid" d="M30 0H0v30" fill="none" />
+                        </pattern>
+                      </defs>
+                      <rect width="660" height="330" fill="#0b111b" />
+                      <rect
+                        width="660"
+                        height="330"
+                        fill="url(#experiment-route-grid)"
+                      />
+                      <g data-route-obstacles="sparse">
+                        <rect
+                          class="route-obstacle"
+                          x="180"
+                          y="30"
+                          width="60"
+                          height="120"
+                          rx="4"
+                        />
+                        <rect
+                          class="route-obstacle"
+                          x="390"
+                          y="180"
+                          width="90"
+                          height="60"
+                          rx="4"
+                        />
+                      </g>
+                      <g data-route-obstacles="dense">
+                        <rect
+                          class="route-obstacle"
+                          x="150"
+                          y="0"
+                          width="60"
+                          height="150"
+                          rx="4"
+                        />
+                        <rect
+                          class="route-obstacle"
+                          x="270"
+                          y="120"
+                          width="60"
+                          height="180"
+                          rx="4"
+                        />
+                        <rect
+                          class="route-obstacle"
+                          x="420"
+                          y="30"
+                          width="90"
+                          height="120"
+                          rx="4"
+                        />
+                        <rect
+                          class="route-obstacle"
+                          x="510"
+                          y="210"
+                          width="60"
+                          height="90"
+                          rx="4"
+                        />
+                      </g>
+                      <g data-route-result="astar-sparse">
+                        <path
+                          class="route-frontier"
+                          d="M45 255h210v-90h195v-60h165v150H45Z"
+                        />
+                        <path
+                          class="route-path"
+                          d="M45 270h210v-90h210v60h150"
+                        />
+                      </g>
+                      <g data-route-result="dijkstra-sparse">
+                        <path class="route-frontier" d="M0 60h570v270H0Z" />
+                        <path
+                          class="route-path"
+                          d="M45 270h210v-90h210v60h150"
+                        />
+                      </g>
+                      <g data-route-result="astar-dense">
+                        <path
+                          class="route-frontier"
+                          d="M45 255h180v-75h90v-90h240v75h75v120H45Z"
+                        />
+                        <path
+                          class="route-path"
+                          d="M45 270h180v-90h75V75h240v90h75v105"
+                        />
+                      </g>
+                      <g data-route-result="dijkstra-dense">
+                        <path class="route-frontier" d="M0 30h630v300H0Z" />
+                        <path
+                          class="route-path"
+                          d="M45 270h180v-90h75V75h240v90h75v105"
+                        />
+                      </g>
+                      <circle class="route-start" cx="45" cy="270" r="11" />
+                      <circle class="route-goal" cx="615" cy="270" r="11" />
+                      <text
+                        x="45"
+                        y="274"
+                        text-anchor="middle"
+                        fill="#07101b"
+                        font-size="9"
+                      >
+                        S
+                      </text>
+                      <text
+                        x="615"
+                        y="274"
+                        text-anchor="middle"
+                        fill="#07101b"
+                        font-size="9"
+                      >
+                        G
+                      </text>
+                    </svg>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-route-metrics-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-chart"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title">Search metrics</span>
+                    <span class="setta-section-kind" data-route-bind="id"
+                      >R-21</span
+                    >
+                  </header>
+                  <div class="experiment-lens-route-metrics-body">
+                    <div class="experiment-lens-route-metric">
+                      <span>Path length</span
+                      ><strong data-route-bind="length">52.7 m</strong>
+                    </div>
+                    <div class="experiment-lens-route-metric">
+                      <span>Cells expanded</span
+                      ><strong data-route-bind="expanded">681</strong>
+                    </div>
+                    <div class="experiment-lens-route-metric">
+                      <span>Solve time</span
+                      ><strong data-route-bind="time">10.4 ms</strong>
+                    </div>
+                  </div>
+                </article>
+
+                <article
+                  class="setta-section-card experiment-lens-route-trace-node"
+                >
+                  <header class="setta-section-header">
+                    <span class="setta-section-kind-icon">
+                      <svg class="setta-icon">
+                        <use href="#icon-code"></use>
+                      </svg>
+                    </span>
+                    <span class="setta-section-title">Search trace</span>
+                    <span class="setta-section-kind" data-route-bind="id"
+                      >R-21</span
+                    >
+                  </header>
+                  <div class="experiment-lens-route-trace-body">
+                    <pre><code><span class="experiment-lens-log-prompt">$</span> route-bench <span data-route-bind="command">--search astar --map dense</span>
+frontier peak  <span data-route-bind="frontier">146 nodes</span>
+cells expanded <span data-route-bind="expanded">681</span>
+<span class="experiment-lens-log-result">goal reached · cost <span data-route-bind="length">52.7 m</span> · <span data-route-bind="time">10.4 ms</span></span></code></pre>
+                  </div>
+                </article>
+              </div>
+
+              <div data-region="inspector"></div>
+            </setta-workspace>
+          </div>
+        </section>
+      </section>
+
+      <section
+        id="difference"
+        class="page-shell experiment-lens-difference"
+        aria-labelledby="difference-title"
+      >
+        <div class="section-kicker">Where it fits</div>
+        <h2 id="difference-title" class="section-heading">
+          Not another experiment tracker.
+        </h2>
+        <p class="section-copy">
+          TensorBoard, W&amp;B, and MLflow differ substantially, but they
+          already cover the overlapping job of collecting and organizing runs.
+          Experiment Lens is only useful when a generic run page is not the
+          clearest way to understand the result.
+        </p>
+        <div class="experiment-lens-difference-grid">
+          <aside class="experiment-lens-difference-note">
+            <strong>The bet is composability, not a missing chart</strong>
+            <span
+              >Existing tools already show images, tables, text, and custom
+              charts. The defensible difference is a portable, domain-shaped
+              workspace. If that view is not materially clearer, use the
+              tracker.</span
+            >
+          </aside>
+          <div class="experiment-lens-difference-table-wrap">
+            <table class="experiment-lens-difference-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>TensorBoard / W&amp;B / MLflow</th>
+                  <th>Experiment Lens</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Primary job</td>
+                  <td>Track, compare, and manage runs over time.</td>
+                  <td>
+                    Play back one bounded experiment as an interactive mini-app.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Interface</td>
+                  <td>
+                    General-purpose charts, tables, reports, artifact browsers,
+                    and—in W&amp;B—custom panels.
+                  </td>
+                  <td>
+                    Domain-specific Setta sections such as images, diffs, plans,
+                    maps, code, and traces.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Interaction</td>
+                  <td>
+                    Select or filter runs, update dashboard panels, inspect
+                    history, and sometimes launch sweeps.
+                  </td>
+                  <td>
+                    A manifest binds a recorded factor combination to an entire
+                    composed Setta workspace.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Data boundary</td>
+                  <td>
+                    Product-specific logging SDK, event files, or tracking
+                    backend.
+                  </td>
+                  <td>
+                    Portable manifest plus artifact references; it can be
+                    produced from a tracker export.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Scale and cost</td>
+                  <td>
+                    Mature integrations and generic views make large run
+                    histories economical.
+                  </td>
+                  <td>
+                    A bounded trial set with extra section composition; not
+                    worth it for ordinary scalar experiments.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Strongest at</td>
+                  <td>
+                    Monitoring, long histories, large run sets, collaboration,
+                    and lineage.
+                  </td>
+                  <td>
+                    Human understanding of rich, coordinated outputs and a clean
+                    handoff to another tool.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Does not own</td>
+                  <td>
+                    Varies by product; often much of the experiment lifecycle.
+                  </td>
+                  <td>
+                    Running jobs, tuning, storage, model registry, or agent
+                    orchestration.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="experiment-lens-fit-check">
+          <article>
+            <h3>Use the existing tracker when…</h3>
+            <p>
+              Curves, scalar comparisons, tables, and its artifact viewer
+              already answer the question clearly.
+            </p>
+          </article>
+          <article>
+            <h3>Use Experiment Lens when…</h3>
+            <p>
+              Several domain-specific artifacts must change together for a human
+              to see why one recorded trial behaves differently.
+            </p>
+          </article>
+        </div>
       </section>
 
       <section
@@ -1862,6 +3106,203 @@ output  <span data-log-output>output.webp · 184 KB</span>
             exportStatus.textContent = "selection.json prepared";
           });
         render();
+
+        const queryStage = document.querySelector(
+          ".experiment-lens-plan-stage",
+        );
+        const queryTrials = {
+          "none-cold": {
+            id: "Q-01",
+            label: "Q-01 · No index · cold cache",
+            p50: 824,
+            p95: 932,
+            p99: 980,
+            plan: "Sequential Scan → Sort → Limit",
+            rows: "186,240",
+            buffers: "2,481 read",
+            execution: "824 ms",
+          },
+          "none-warm": {
+            id: "Q-02",
+            label: "Q-02 · No index · warm cache",
+            p50: 412,
+            p95: 498,
+            p99: 531,
+            plan: "Sequential Scan → Sort → Limit",
+            rows: "186,240",
+            buffers: "2,481 hit",
+            execution: "412 ms",
+          },
+          "composite-cold": {
+            id: "Q-07",
+            label: "Q-07 · Composite index · cold cache",
+            p50: 94,
+            p95: 126,
+            p99: 149,
+            plan: "Index Scan using invoices_account_created_idx",
+            rows: "320",
+            buffers: "188 read",
+            execution: "94 ms",
+          },
+          "composite-warm": {
+            id: "Q-08",
+            label: "Q-08 · Composite index · warm cache",
+            p50: 18,
+            p95: 24,
+            p99: 31,
+            plan: "Index Scan using invoices_account_created_idx",
+            rows: "320",
+            buffers: "4 hit",
+            execution: "18 ms",
+          },
+        };
+        let queryIndex = "composite";
+        let queryCache = "warm";
+
+        const bindQueryText = (name, value) => {
+          queryStage
+            .querySelectorAll(`[data-query-bind="${name}"]`)
+            .forEach((element) => {
+              element.textContent = value;
+            });
+        };
+
+        const renderQuery = () => {
+          const trial = queryTrials[`${queryIndex}-${queryCache}`];
+          queryStage.dataset.index = queryIndex;
+          queryStage.dataset.cache = queryCache;
+          queryStage
+            .querySelectorAll("[data-query-factor]")
+            .forEach((button) => {
+              const selected =
+                button.dataset.queryFactor === "index"
+                  ? button.dataset.value === queryIndex
+                  : button.dataset.value === queryCache;
+              button.setAttribute("aria-pressed", String(selected));
+            });
+          bindQueryText("id", trial.id);
+          bindQueryText("label", trial.label);
+          bindQueryText("p50", `${trial.p50} ms`);
+          bindQueryText("p95", `${trial.p95} ms`);
+          bindQueryText("p99", `${trial.p99} ms`);
+          bindQueryText("plan", trial.plan);
+          bindQueryText("rows", trial.rows);
+          bindQueryText("buffers", trial.buffers);
+          bindQueryText("execution", trial.execution);
+          ["p50", "p95", "p99"].forEach((percentile) => {
+            queryStage
+              .querySelector(`[data-query-bar="${percentile}"]`)
+              .style.setProperty(
+                "--latency-height",
+                `${Math.max(8, trial[percentile] / 10)}%`,
+              );
+          });
+        };
+
+        queryStage.querySelectorAll("[data-query-factor]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.dataset.queryFactor === "index") {
+              queryIndex = button.dataset.value;
+            } else {
+              queryCache = button.dataset.value;
+            }
+            renderQuery();
+          });
+        });
+        renderQuery();
+
+        const routeStage = document.querySelector(
+          ".experiment-lens-route-stage",
+        );
+        const routeTrials = {
+          "astar-sparse": {
+            id: "R-11",
+            label: "R-11 · A* · sparse map",
+            length: "38.2 m",
+            expanded: "284",
+            time: "4.8 ms",
+            frontier: "72 nodes",
+            command: "--search astar --map sparse",
+          },
+          "dijkstra-sparse": {
+            id: "R-12",
+            label: "R-12 · Dijkstra · sparse map",
+            length: "38.2 m",
+            expanded: "942",
+            time: "12.1 ms",
+            frontier: "301 nodes",
+            command: "--search dijkstra --map sparse",
+          },
+          "astar-dense": {
+            id: "R-21",
+            label: "R-21 · A* · dense map",
+            length: "52.7 m",
+            expanded: "681",
+            time: "10.4 ms",
+            frontier: "146 nodes",
+            command: "--search astar --map dense",
+          },
+          "dijkstra-dense": {
+            id: "R-22",
+            label: "R-22 · Dijkstra · dense map",
+            length: "52.7 m",
+            expanded: "1,684",
+            time: "25.6 ms",
+            frontier: "524 nodes",
+            command: "--search dijkstra --map dense",
+          },
+        };
+        let routeSearch = "astar";
+        let routeTerrain = "dense";
+
+        const bindRouteText = (name, value) => {
+          routeStage
+            .querySelectorAll(`[data-route-bind="${name}"]`)
+            .forEach((element) => {
+              element.textContent = value;
+            });
+        };
+
+        const renderRoute = () => {
+          const key = `${routeSearch}-${routeTerrain}`;
+          const trial = routeTrials[key];
+          routeStage.dataset.search = routeSearch;
+          routeStage.dataset.terrain = routeTerrain;
+          routeStage
+            .querySelectorAll("[data-route-factor]")
+            .forEach((button) => {
+              const selected =
+                button.dataset.routeFactor === "search"
+                  ? button.dataset.value === routeSearch
+                  : button.dataset.value === routeTerrain;
+              button.setAttribute("aria-pressed", String(selected));
+            });
+          routeStage
+            .querySelectorAll("[data-route-obstacles]")
+            .forEach((group) => {
+              group.hidden = group.dataset.routeObstacles !== routeTerrain;
+            });
+          routeStage
+            .querySelectorAll("[data-route-result]")
+            .forEach((group) => {
+              group.hidden = group.dataset.routeResult !== key;
+            });
+          Object.entries(trial).forEach(([name, value]) => {
+            bindRouteText(name, value);
+          });
+        };
+
+        routeStage.querySelectorAll("[data-route-factor]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.dataset.routeFactor === "search") {
+              routeSearch = button.dataset.value;
+            } else {
+              routeTerrain = button.dataset.value;
+            }
+            renderRoute();
+          });
+        });
+        renderRoute();
       });
     </script>
   </body>
