@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 320" role="img" aria-label="Thermal frame for cell 21">
+<rect width="430" height="320" fill="#09111d"/>
+<text x="22" y="30" fill="#dbeafe" font-size="15" font-family="Inter,system-ui,sans-serif" font-weight="600">Cell 21 · LCO</text>
+<text x="408" y="30" text-anchor="end" fill="#8da2c2" font-size="12" font-family="ui-monospace,monospace">cycle 900 · 15°C · 1C</text>
+<rect x="22" y="60" width="42" height="36" rx="4" fill="hsl(181.5 82% 44%)"/><text x="43" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">23.5</text>
+<rect x="70" y="60" width="42" height="36" rx="4" fill="hsl(179.1 82% 44.1%)"/><text x="91" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.1</text>
+<rect x="118" y="60" width="42" height="36" rx="4" fill="hsl(177.2 82% 44.2%)"/><text x="139" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.5</text>
+<rect x="166" y="60" width="42" height="36" rx="4" fill="hsl(174.3 82% 44.4%)"/><text x="187" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.2</text>
+<rect x="214" y="60" width="42" height="36" rx="4" fill="hsl(170.9 82% 44.6%)"/><text x="235" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.0</text>
+<rect x="262" y="60" width="42" height="36" rx="4" fill="hsl(169.5 82% 44.7%)"/><text x="283" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.3</text>
+<rect x="310" y="60" width="42" height="36" rx="4" fill="hsl(171.9 82% 44.5%)"/><text x="331" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.8</text>
+<rect x="358" y="60" width="42" height="36" rx="4" fill="hsl(177.6 82% 44.2%)"/><text x="379" y="83" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.5</text>
+<rect x="22" y="102" width="42" height="36" rx="4" fill="hsl(183.8 82% 43.9%)"/><text x="43" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">23.0</text>
+<rect x="70" y="102" width="42" height="36" rx="4" fill="hsl(178.9 82% 44.2%)"/><text x="91" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.2</text>
+<rect x="118" y="102" width="42" height="36" rx="4" fill="hsl(172.1 82% 44.5%)"/><text x="139" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.7</text>
+<rect x="166" y="102" width="42" height="36" rx="4" fill="hsl(165.5 82% 44.9%)"/><text x="187" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.3</text>
+<rect x="214" y="102" width="42" height="36" rx="4" fill="hsl(162.8 82% 45%)"/><text x="235" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.9</text>
+<rect x="262" y="102" width="42" height="36" rx="4" fill="hsl(166.1 82% 44.9%)"/><text x="283" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.1</text>
+<rect x="310" y="102" width="42" height="36" rx="4" fill="hsl(172.5 82% 44.5%)"/><text x="331" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.6</text>
+<rect x="358" y="102" width="42" height="36" rx="4" fill="hsl(178.1 82% 44.2%)"/><text x="379" y="125" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.3</text>
+<rect x="22" y="144" width="42" height="36" rx="4" fill="hsl(181.1 82% 44%)"/><text x="43" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">23.6</text>
+<rect x="70" y="144" width="42" height="36" rx="4" fill="hsl(173.4 82% 44.5%)"/><text x="91" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.4</text>
+<rect x="118" y="144" width="42" height="36" rx="4" fill="hsl(167.6 82% 44.8%)"/><text x="139" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.8</text>
+<rect x="166" y="144" width="42" height="36" rx="4" fill="hsl(164.1 82% 45%)"/><text x="187" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.6</text>
+<rect x="214" y="144" width="42" height="36" rx="4" fill="hsl(161.7 82% 45.1%)"/><text x="235" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">28.2</text>
+<rect x="262" y="144" width="42" height="36" rx="4" fill="hsl(166.3 82% 44.8%)"/><text x="283" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.1</text>
+<rect x="310" y="144" width="42" height="36" rx="4" fill="hsl(170 82% 44.6%)"/><text x="331" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.2</text>
+<rect x="358" y="144" width="42" height="36" rx="4" fill="hsl(172.9 82% 44.5%)"/><text x="379" y="167" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.5</text>
+<rect x="22" y="186" width="42" height="36" rx="4" fill="hsl(178.7 82% 44.2%)"/><text x="43" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.2</text>
+<rect x="70" y="186" width="42" height="36" rx="4" fill="hsl(175.2 82% 44.4%)"/><text x="91" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.0</text>
+<rect x="118" y="186" width="42" height="36" rx="4" fill="hsl(172.5 82% 44.5%)"/><text x="139" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.6</text>
+<rect x="166" y="186" width="42" height="36" rx="4" fill="hsl(168.6 82% 44.7%)"/><text x="187" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.6</text>
+<rect x="214" y="186" width="42" height="36" rx="4" fill="hsl(164.1 82% 45%)"/><text x="235" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.6</text>
+<rect x="262" y="186" width="42" height="36" rx="4" fill="hsl(163.8 82% 45%)"/><text x="283" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.7</text>
+<rect x="310" y="186" width="42" height="36" rx="4" fill="hsl(167.2 82% 44.8%)"/><text x="331" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.9</text>
+<rect x="358" y="186" width="42" height="36" rx="4" fill="hsl(173.5 82% 44.4%)"/><text x="379" y="209" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.4</text>
+<rect x="22" y="228" width="42" height="36" rx="4" fill="hsl(184.4 82% 43.8%)"/><text x="43" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">22.9</text>
+<rect x="70" y="228" width="42" height="36" rx="4" fill="hsl(180.5 82% 44.1%)"/><text x="91" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">23.8</text>
+<rect x="118" y="228" width="42" height="36" rx="4" fill="hsl(174.6 82% 44.4%)"/><text x="139" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.2</text>
+<rect x="166" y="228" width="42" height="36" rx="4" fill="hsl(168.7 82% 44.7%)"/><text x="187" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.5</text>
+<rect x="214" y="228" width="42" height="36" rx="4" fill="hsl(165.9 82% 44.9%)"/><text x="235" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">27.2</text>
+<rect x="262" y="228" width="42" height="36" rx="4" fill="hsl(168.2 82% 44.7%)"/><text x="283" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">26.7</text>
+<rect x="310" y="228" width="42" height="36" rx="4" fill="hsl(173.9 82% 44.4%)"/><text x="331" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">25.3</text>
+<rect x="358" y="228" width="42" height="36" rx="4" fill="hsl(179.6 82% 44.1%)"/><text x="379" y="251" text-anchor="middle" fill="#f8fafc" font-size="9" font-family="ui-monospace,monospace">24.0</text>
+<text x="22" y="296" fill="#7890b5" font-size="10" font-family="Inter,system-ui,sans-serif">Surface temperature · °C</text>
+<rect x="280" y="286" width="128" height="10" rx="5" fill="url(#scale)"/>
+<defs><linearGradient id="scale"><stop stop-color="hsl(218 82% 42%)"/><stop offset=".5" stop-color="hsl(109 82% 48%)"/><stop offset="1" stop-color="hsl(0 82% 54%)"/></linearGradient></defs>
+</svg>

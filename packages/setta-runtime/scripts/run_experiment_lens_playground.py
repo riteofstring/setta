@@ -29,15 +29,15 @@ class PlaygroundError(RuntimeError):
 
 def main(arguments: Sequence[str] | None = None) -> int:
     supplied = tuple(sys.argv[1:] if arguments is None else arguments)
-    if supplied:
-        sys.stderr.write("Usage: run_experiment_lens_playground.py\n")
+    if supplied not in ((), ("--no-open",)):
+        sys.stderr.write("Usage: run_experiment_lens_playground.py [--no-open]\n")
         return 2
     try:
         workspace = prepare_workspace()
     except PlaygroundError as error:
         sys.stderr.write(f"run_experiment_lens_playground: {error}\n")
         return 1
-    return _open_workspace(workspace)
+    return _open_workspace(workspace, no_open=supplied == ("--no-open",))
 
 
 def prepare_workspace() -> Path:
@@ -65,14 +65,15 @@ def prepare_workspace() -> Path:
     return WORKSPACE_ROOT
 
 
-def _open_workspace(workspace: Path) -> int:
+def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:
     runtime_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(runtime_root))
     from scripts import run_local_setta
 
-    return run_local_setta.main(
-        ["experiment-lens", "open", "--project-root", str(workspace)]
-    )
+    arguments = ["experiment-lens", "open", "--project-root", str(workspace)]
+    if no_open:
+        arguments.append("--no-open")
+    return run_local_setta.main(arguments)
 
 
 def _validate_fixture(root: Path) -> None:

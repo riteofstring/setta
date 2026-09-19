@@ -1,0 +1,1121 @@
+{
+  "$defs": {
+    "artifactContent": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "truncated"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "json": {},
+            "kind": {
+              "const": "json"
+            }
+          },
+          "required": [
+            "kind",
+            "json"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "series"
+            },
+            "series": {
+              "$ref": "#/$defs/series"
+            }
+          },
+          "required": [
+            "kind",
+            "series"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "byteLength": {
+              "maximum": 536870912,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "inline": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "artifact"
+            },
+            "mediaType": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "route": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "kind",
+            "route",
+            "inline",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "artifactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "byteLength": {
+          "maximum": 536870912,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "path",
+        "mediaType",
+        "byteLength",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "error": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "field",
+        "artifactId"
+      ],
+      "type": "object"
+    },
+    "exportResult": {
+      "additionalProperties": false,
+      "properties": {
+        "packet": {
+          "$ref": "#/$defs/packet"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "packet"
+      ],
+      "type": "object"
+    },
+    "field": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 2000,
+          "minLength": 0,
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "factor",
+            "metric",
+            "timestamp"
+          ]
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valueType": {
+          "enum": [
+            "number",
+            "string",
+            "boolean",
+            "timestamp"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "description",
+        "role",
+        "valueType",
+        "unit",
+        "nullable"
+      ],
+      "type": "object"
+    },
+    "filter": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operator": {
+          "enum": [
+            "in",
+            "range"
+          ]
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/scalar"
+          },
+          "maxItems": 1000,
+          "minItems": 0,
+          "type": "array"
+        }
+      },
+      "required": [
+        "fieldId",
+        "operator",
+        "values",
+        "minimum",
+        "maximum"
+      ],
+      "type": "object"
+    },
+    "identifier": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "type": "string"
+    },
+    "manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/artifactReference"
+          },
+          "maxItems": 100000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "observations": {
+          "$ref": "#/$defs/observationReference"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/relation"
+          },
+          "maxItems": 250000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "title",
+        "summary",
+        "fields",
+        "observations",
+        "artifacts",
+        "relations",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "mutation": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedRevision": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "experimentId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "manifestSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observationSourceSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        }
+      },
+      "required": [
+        "experimentId",
+        "manifestSha256",
+        "observationSourceSha256",
+        "expectedRevision",
+        "selection"
+      ],
+      "type": "object"
+    },
+    "mutationResult": {
+      "additionalProperties": false,
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/snapshot"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "snapshot"
+      ],
+      "type": "object"
+    },
+    "note": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifactSha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "observationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rangeId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "observationId",
+        "artifactId",
+        "artifactSha256",
+        "rangeId"
+      ],
+      "type": "object"
+    },
+    "observation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "values": {
+          "additionalProperties": {
+            "$ref": "#/$defs/scalar"
+          },
+          "maxProperties": 128,
+          "propertyNames": {
+            "$ref": "#/$defs/identifier"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "values"
+      ],
+      "type": "object"
+    },
+    "observationReference": {
+      "additionalProperties": false,
+      "properties": {
+        "byteLength": {
+          "maximum": 67108864,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "path",
+        "byteLength",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "observationSource": {
+      "additionalProperties": false,
+      "properties": {
+        "experimentId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "maxItems": 100000,
+          "minItems": 1,
+          "type": "array"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "experimentId",
+        "observations"
+      ],
+      "type": "object"
+    },
+    "packet": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/artifactReference"
+          },
+          "maxItems": 100000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "experiment": {
+          "$ref": "#/$defs/packetExperiment"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "maxItems": 10001,
+          "minItems": 0,
+          "type": "array"
+        },
+        "revision": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceIdentity"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "experiment",
+        "source",
+        "revision",
+        "selection",
+        "observations",
+        "artifacts"
+      ],
+      "type": "object"
+    },
+    "packetExperiment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "summary": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "path": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*\\\\)(?!.*//).+$",
+      "type": "string"
+    },
+    "producer": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "harness": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "kind": {
+              "const": "agent"
+            },
+            "model": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "model",
+            "harness"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "human",
+                "application",
+                "script"
+              ]
+            },
+            "name": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "createdAt": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/producer"
+        }
+      },
+      "required": [
+        "producer",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "range": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "artifactSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "axisId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "end": {
+          "type": "number"
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "start": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "artifactId",
+        "artifactSha256",
+        "axisId",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "relation": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "observationId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "role": {
+          "pattern": "^[a-z][a-z0-9.-]{0,63}$",
+          "type": "string"
+        },
+        "timeline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timeline"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "observationId",
+        "artifactId",
+        "role",
+        "timeline"
+      ],
+      "type": "object"
+    },
+    "resolvedArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/artifactContent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reference": {
+          "$ref": "#/$defs/artifactReference"
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "failed"
+          ]
+        }
+      },
+      "required": [
+        "reference",
+        "status",
+        "content",
+        "error"
+      ],
+      "type": "object"
+    },
+    "scalar": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "selection": {
+      "additionalProperties": false,
+      "properties": {
+        "filters": {
+          "items": {
+            "$ref": "#/$defs/filter"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "focusedObservationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "items": {
+            "$ref": "#/$defs/note"
+          },
+          "maxItems": 1000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "ranges": {
+          "items": {
+            "$ref": "#/$defs/range"
+          },
+          "maxItems": 1000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "selectedArtifactIds": {
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "maxItems": 10000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "selectedObservationIds": {
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "maxItems": 10000,
+          "minItems": 0,
+          "type": "array"
+        }
+      },
+      "required": [
+        "filters",
+        "focusedObservationId",
+        "selectedObservationIds",
+        "selectedArtifactIds",
+        "ranges",
+        "notes"
+      ],
+      "type": "object"
+    },
+    "series": {
+      "additionalProperties": false,
+      "properties": {
+        "axis": {
+          "$ref": "#/$defs/seriesAxis"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/seriesSample"
+          },
+          "maxItems": 100000,
+          "minItems": 1,
+          "type": "array"
+        },
+        "schemaVersion": {
+          "const": "setta-series/v1"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/seriesDefinition"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "axis",
+        "series",
+        "samples"
+      ],
+      "type": "object"
+    },
+    "seriesAxis": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "seriesDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "seriesSample": {
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/identifier"
+          },
+          "type": "object"
+        },
+        "x": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "values"
+      ],
+      "type": "object"
+    },
+    "snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/resolvedArtifact"
+          },
+          "maxItems": 100000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "experiment": {
+          "$ref": "#/$defs/manifest"
+        },
+        "manifestPath": {
+          "const": "experiment.json"
+        },
+        "manifestSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observationSourcePath": {
+          "$ref": "#/$defs/path"
+        },
+        "observationSourceSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "maxItems": 100000,
+          "minItems": 1,
+          "type": "array"
+        },
+        "revision": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "version",
+        "manifestPath",
+        "manifestSha256",
+        "observationSourcePath",
+        "observationSourceSha256",
+        "experiment",
+        "observations",
+        "artifacts",
+        "revision",
+        "selection"
+      ],
+      "type": "object"
+    },
+    "sourceIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "manifestPath": {
+          "const": "experiment.json"
+        },
+        "manifestSha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observationSourcePath": {
+          "$ref": "#/$defs/path"
+        },
+        "observationSourceSha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "manifestPath",
+        "manifestSha256",
+        "observationSourcePath",
+        "observationSourceSha256"
+      ],
+      "type": "object"
+    },
+    "timeline": {
+      "additionalProperties": false,
+      "properties": {
+        "axisId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "axisId",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://setta.local/schemas/experiment-lens/experiment-manifest-v1.json",
+  "$ref": "#/$defs/manifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

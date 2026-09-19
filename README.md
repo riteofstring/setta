@@ -34,7 +34,7 @@ Python Canvas uses `main` at `043d3b2e9` as its frozen behavior and presentation
 - Python Canvas installation, browser UI, and AI-native CLI: [apps/python-canvas/README.md](apps/python-canvas/README.md)
 - Realtime application: [apps/realtime/README.md](apps/realtime/README.md)
 - Review application: [apps/review/README.md](apps/review/README.md)
-- Experiment Lens application source: [`apps/experiment-lens/`](apps/experiment-lens/)
+- Experiment Lens application: [apps/experiment-lens/README.md](apps/experiment-lens/README.md)
 - Accepted reference, review, and parity evidence: [`docs/evidence/`](docs/evidence/)
 
 Implementation plans live in `docs/plans` only while they are active. Completed plans are removed

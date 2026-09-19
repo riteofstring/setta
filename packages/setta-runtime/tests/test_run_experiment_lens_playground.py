@@ -63,14 +63,22 @@ class ExperimentLensPlaygroundRunnerTests(unittest.TestCase):
             run_experiment_lens_playground, "_open_workspace", return_value=7
         ) as open_workspace:
             self.assertEqual(run_experiment_lens_playground.main([]), 7)
-        open_workspace.assert_called_once_with(self.workspace)
+        open_workspace.assert_called_once_with(self.workspace, no_open=False)
+
+    def test_main_can_leave_the_browser_closed(self) -> None:
+        with mock.patch.object(
+            run_experiment_lens_playground, "_open_workspace", return_value=7
+        ) as open_workspace:
+            self.assertEqual(run_experiment_lens_playground.main(["--no-open"]), 7)
+        open_workspace.assert_called_once_with(self.workspace, no_open=True)
 
     def test_main_rejects_arguments_without_touching_the_fixture(self) -> None:
         stderr = io.StringIO()
         with mock.patch.object(run_experiment_lens_playground.sys, "stderr", stderr):
             self.assertEqual(run_experiment_lens_playground.main(["--reset"]), 2)
         self.assertEqual(
-            stderr.getvalue(), "Usage: run_experiment_lens_playground.py\n"
+            stderr.getvalue(),
+            "Usage: run_experiment_lens_playground.py [--no-open]\n",
         )
         self.assertFalse(self.workspace.exists())
 

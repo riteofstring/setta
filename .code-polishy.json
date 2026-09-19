@@ -60,6 +60,14 @@
         "module": "review-frontend"
       },
       {
+        "path": "docs/design/experiment-lens-backend.md",
+        "module": "experiment-lens-backend"
+      },
+      {
+        "path": "docs/design/experiment-lens-frontend.md",
+        "module": "experiment-lens-frontend"
+      },
+      {
         "path": "docs/design/setta-runtime.md",
         "module": "setta-runtime"
       },
@@ -181,6 +189,48 @@
           ],
           "timeoutSeconds": 300
         }
+      },
+      {
+        "name": "experiment-lens-contracts",
+        "outputs": [
+          "apps/experiment-lens/backend/internal/contracts/testdata/experiment-manifest-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/observation-source-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/lens-snapshot-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/lens-mutation-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/selection-packet-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/mutation-result-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/export-result-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/structured-error-v1.schema.json",
+          "apps/experiment-lens/backend/internal/contracts/testdata/series-v1.schema.json",
+          "apps/experiment-lens/src/backend/generatedContract.ts",
+          "apps/experiment-lens/src/backend/generatedValidators.js",
+          "apps/experiment-lens/src/backend/generatedValidators.d.ts"
+        ],
+        "inputs": [
+          "apps/experiment-lens/backend/cmd/generate-contract/*.go",
+          "apps/experiment-lens/backend/internal/contracts/*.go",
+          "apps/experiment-lens/scripts/compile-validators.mjs"
+        ],
+        "generate": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/experiment-lens",
+            "run",
+            "contract:generate"
+          ],
+          "timeoutSeconds": 300
+        },
+        "verify": {
+          "argv": [
+            "pnpm",
+            "--filter",
+            "@setta/experiment-lens",
+            "run",
+            "contract:check"
+          ],
+          "timeoutSeconds": 300
+        }
       }
     ]
   },
@@ -196,6 +246,10 @@
       "apps/review/src/backend/generatedContract.ts",
       "apps/review/src/backend/generatedValidators.js",
       "apps/review/src/backend/generatedValidators.d.ts",
+      "apps/experiment-lens/backend/internal/contracts/testdata/*.schema.json",
+      "apps/experiment-lens/src/backend/generatedContract.ts",
+      "apps/experiment-lens/src/backend/generatedValidators.js",
+      "apps/experiment-lens/src/backend/generatedValidators.d.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"
     ],
@@ -215,6 +269,9 @@
       "apps/review/examples/review-playground/fixture/repository-current/event_v3.ts",
       "apps/review/src/main.tsx",
       "apps/review/vitest.setup.ts",
+      "apps/experiment-lens/backend/cmd/experiment-lens/main.go",
+      "apps/experiment-lens/src/main.tsx",
+      "apps/experiment-lens/vitest.setup.ts",
       "docs/setta-experiment-lens-mockup.js",
       "docs/setta-product-mockups.js",
       "packages/workspace/tailwind-preset.mjs",
@@ -243,6 +300,10 @@
       "apps/review/vitest.config.ts",
       "apps/review/vitest.setup.ts",
       "apps/review/scripts/**",
+      "apps/experiment-lens/vite.config.ts",
+      "apps/experiment-lens/vitest.config.ts",
+      "apps/experiment-lens/vitest.setup.ts",
+      "apps/experiment-lens/scripts/**",
       "docs/setta-experiment-lens-mockup.js",
       "docs/setta-product-mockups.js",
       "fixtures/**",
@@ -312,6 +373,22 @@
       "dependsOn": ["workspace", "review-backend"]
     },
     {
+      "name": "experiment-lens-backend",
+      "paths": [
+        "apps/experiment-lens/backend/**",
+        "apps/experiment-lens/examples/**"
+      ]
+    },
+    {
+      "name": "experiment-lens-frontend",
+      "paths": [
+        "apps/experiment-lens/*",
+        "apps/experiment-lens/scripts/**",
+        "apps/experiment-lens/src/**"
+      ],
+      "dependsOn": ["workspace", "experiment-lens-backend"]
+    },
+    {
       "name": "setta-runtime",
       "paths": [
         "packages/setta-runtime/**",
@@ -325,7 +402,9 @@
         "realtime-backend",
         "realtime-frontend",
         "review-backend",
-        "review-frontend"
+        "review-frontend",
+        "experiment-lens-backend",
+        "experiment-lens-frontend"
       ]
     }
   ],
@@ -406,6 +485,23 @@
       "timeoutSeconds": 900
     },
     {
+      "name": "experiment-lens-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "apps/experiment-lens/backend",
+      "modules": ["experiment-lens-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "experiment-lens-frontend-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/experiment-lens", "run", "build"],
+      "modules": ["experiment-lens-frontend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
@@ -440,6 +536,15 @@
       "timeoutSeconds": 300
     },
     {
+      "name": "experiment-lens-go-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["go", "mod", "tidy", "-diff"],
+      "cwd": "apps/experiment-lens/backend",
+      "modules": ["experiment-lens-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
       "name": "setta-runtime-build",
       "provides": ["build"],
       "argv": [
@@ -465,6 +570,9 @@
       "apps/review/backend/**/*_test.go",
       "apps/review/src/**/*.test.ts",
       "apps/review/src/**/*.test.tsx",
+      "apps/experiment-lens/backend/**/*_test.go",
+      "apps/experiment-lens/src/**/*.test.ts",
+      "apps/experiment-lens/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -530,6 +638,19 @@
         ],
         "module": "review-frontend",
         "focusedSuite": "review-frontend-focused"
+      },
+      {
+        "paths": ["apps/experiment-lens/backend/**/*_test.go"],
+        "module": "experiment-lens-backend",
+        "focusedSuite": "experiment-lens-backend-focused"
+      },
+      {
+        "paths": [
+          "apps/experiment-lens/src/**/*.test.ts",
+          "apps/experiment-lens/src/**/*.test.tsx"
+        ],
+        "module": "experiment-lens-frontend",
+        "focusedSuite": "experiment-lens-frontend-focused"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -664,6 +785,32 @@
         "timeoutSeconds": 600
       },
       {
+        "name": "experiment-lens-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["experiment-lens-backend"],
+        "paths": ["apps/experiment-lens/backend/**/*_test.go"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "apps/experiment-lens/backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "experiment-lens-frontend-focused",
+        "kind": "component",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["experiment-lens-frontend"],
+        "paths": [
+          "apps/experiment-lens/src/**/*.test.ts",
+          "apps/experiment-lens/src/**/*.test.tsx"
+        ],
+        "argv": ["pnpm", "--filter", "@setta/experiment-lens", "run", "test"],
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
         "name": "realtime-contract-drift",
         "kind": "contract",
         "scope": "repository",
@@ -696,6 +843,27 @@
           "apps/review/package.json"
         ],
         "argv": ["pnpm", "--filter", "@setta/review", "run", "contract:check"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "experiment-lens-contract-drift",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "quick",
+        "paths": [
+          "apps/experiment-lens/backend/internal/contracts/**",
+          "apps/experiment-lens/src/backend/**",
+          "apps/experiment-lens/scripts/compile-validators.mjs",
+          "apps/experiment-lens/package.json"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/experiment-lens",
+          "run",
+          "contract:check"
+        ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
       },
@@ -803,6 +971,26 @@
         "timeoutSeconds": 600
       },
       {
+        "name": "experiment-lens-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": [
+          "apps/experiment-lens/**",
+          "scripts/lib/cdp-client.mjs",
+          "scripts/lib/headless-chrome.mjs"
+        ],
+        "argv": [
+          "pnpm",
+          "--filter",
+          "@setta/experiment-lens",
+          "run",
+          "browser:test"
+        ],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 600
+      },
+      {
         "name": "packed-consumer-contract",
         "kind": "contract",
         "scope": "repository",
@@ -854,6 +1042,11 @@
       {
         "name": "review-go",
         "versionFile": "apps/review/backend/.go-version",
+        "source": "go-toolchain"
+      },
+      {
+        "name": "experiment-lens-go",
+        "versionFile": "apps/experiment-lens/backend/.go-version",
         "source": "go-toolchain"
       }
     ],

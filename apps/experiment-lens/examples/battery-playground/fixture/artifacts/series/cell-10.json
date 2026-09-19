@@ -1,0 +1,315 @@
+{
+  "axis": {
+    "id": "cycle",
+    "label": "Cycle",
+    "unit": null
+  },
+  "samples": [
+    {
+      "values": {
+        "capacity_retention_pct": 99.223,
+        "charge_efficiency_pct": 99.429,
+        "health_index_pct": 99.223
+      },
+      "x": 25
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 98.89,
+        "charge_efficiency_pct": 99.409,
+        "health_index_pct": 98.795
+      },
+      "x": 50
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 98.595,
+        "charge_efficiency_pct": 99.388,
+        "health_index_pct": 98.377
+      },
+      "x": 75
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 98.332,
+        "charge_efficiency_pct": 99.368,
+        "health_index_pct": 97.988
+      },
+      "x": 100
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 98.091,
+        "charge_efficiency_pct": 99.347,
+        "health_index_pct": 97.622
+      },
+      "x": 125
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 97.863,
+        "charge_efficiency_pct": 99.326,
+        "health_index_pct": 97.267
+      },
+      "x": 150
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 97.634,
+        "charge_efficiency_pct": 99.306,
+        "health_index_pct": 96.913
+      },
+      "x": 175
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 97.392,
+        "charge_efficiency_pct": 99.285,
+        "health_index_pct": 96.549
+      },
+      "x": 200
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 97.127,
+        "charge_efficiency_pct": 99.265,
+        "health_index_pct": 96.163
+      },
+      "x": 225
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 96.829,
+        "charge_efficiency_pct": 99.244,
+        "health_index_pct": 95.749
+      },
+      "x": 250
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 96.494,
+        "charge_efficiency_pct": 99.223,
+        "health_index_pct": 95.302
+      },
+      "x": 275
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 96.118,
+        "charge_efficiency_pct": 99.203,
+        "health_index_pct": 94.818
+      },
+      "x": 300
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 95.704,
+        "charge_efficiency_pct": 99.182,
+        "health_index_pct": 94.302
+      },
+      "x": 325
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 95.257,
+        "charge_efficiency_pct": 99.161,
+        "health_index_pct": 93.757
+      },
+      "x": 350
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 94.786,
+        "charge_efficiency_pct": 99.141,
+        "health_index_pct": 93.194
+      },
+      "x": 375
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 94.302,
+        "charge_efficiency_pct": 99.12,
+        "health_index_pct": 92.621
+      },
+      "x": 400
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 93.816,
+        "charge_efficiency_pct": 99.1,
+        "health_index_pct": 92.051
+      },
+      "x": 425
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 93.342,
+        "charge_efficiency_pct": 99.079,
+        "health_index_pct": 91.496
+      },
+      "x": 450
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 92.889,
+        "charge_efficiency_pct": 99.058,
+        "health_index_pct": 90.966
+      },
+      "x": 475
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 92.468,
+        "charge_efficiency_pct": 99.038,
+        "health_index_pct": 90.468
+      },
+      "x": 500
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 92.085,
+        "charge_efficiency_pct": 99.017,
+        "health_index_pct": 90.009
+      },
+      "x": 525
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 91.741,
+        "charge_efficiency_pct": 98.997,
+        "health_index_pct": 89.589
+      },
+      "x": 550
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 91.436,
+        "charge_efficiency_pct": 98.976,
+        "health_index_pct": 89.207
+      },
+      "x": 575
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 91.165,
+        "charge_efficiency_pct": 98.955,
+        "health_index_pct": 88.856
+      },
+      "x": 600
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 90.92,
+        "charge_efficiency_pct": 98.935,
+        "health_index_pct": 88.528
+      },
+      "x": 625
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 90.689,
+        "charge_efficiency_pct": 98.914,
+        "health_index_pct": 88.21
+      },
+      "x": 650
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 90.461,
+        "charge_efficiency_pct": 98.894,
+        "health_index_pct": 87.892
+      },
+      "x": 675
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 90.224,
+        "charge_efficiency_pct": 98.873,
+        "health_index_pct": 87.559
+      },
+      "x": 700
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 89.966,
+        "charge_efficiency_pct": 98.852,
+        "health_index_pct": 87.2
+      },
+      "x": 725
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 89.678,
+        "charge_efficiency_pct": 98.832,
+        "health_index_pct": 86.806
+      },
+      "x": 750
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 89.353,
+        "charge_efficiency_pct": 98.811,
+        "health_index_pct": 86.37
+      },
+      "x": 775
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 88.988,
+        "charge_efficiency_pct": 98.79,
+        "health_index_pct": 85.891
+      },
+      "x": 800
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 88.584,
+        "charge_efficiency_pct": 98.77,
+        "health_index_pct": 85.368
+      },
+      "x": 825
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 88.145,
+        "charge_efficiency_pct": 98.749,
+        "health_index_pct": 84.807
+      },
+      "x": 850
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 87.68,
+        "charge_efficiency_pct": 98.729,
+        "health_index_pct": 84.217
+      },
+      "x": 875
+    },
+    {
+      "values": {
+        "capacity_retention_pct": 87.198,
+        "charge_efficiency_pct": 98.708,
+        "health_index_pct": 83.61
+      },
+      "x": 900
+    }
+  ],
+  "schemaVersion": "setta-series/v1",
+  "series": [
+    {
+      "id": "capacity_retention_pct",
+      "label": "Capacity retention",
+      "unit": "%"
+    },
+    {
+      "id": "charge_efficiency_pct",
+      "label": "Charge efficiency",
+      "unit": "%"
+    },
+    {
+      "id": "health_index_pct",
+      "label": "Health index",
+      "unit": "%"
+    }
+  ]
+}

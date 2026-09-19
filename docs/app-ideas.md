@@ -215,8 +215,8 @@ rather than another run database.
   observation table, standardized time series, and admitted artifact viewers. Lens chooses the
   applicable sections from the manifest; projects do not provide React code, ECharts options, or a
   dashboard language.
-- **Linked exploration state** contains the current filters, selected observations, compared
-  observations, and timeline or range position shared by participating sections.
+- **Linked exploration state** contains the current filters, focused observation, explicit
+  selection basket, and timeline or range position shared by participating sections.
 - A **note** records human context against an exact observation, artifact revision, and optional
   time range. Spatial and drawn artifact feedback remains the responsibility of Review.
 - A **selection packet** exports the selected observation IDs, filters, ranges, notes, and
@@ -234,7 +234,7 @@ rather than another run database.
   comparison without duplicating the underlying record.
 
 The two mockup examples deliberately exercise different parts of the same bundled catalog. The
-battery workspace links a dense sweep, table, charge trace, and thermal frame. The drone workspace
+battery workspace links a dense sweep, table, aging trajectory, and thermal frame. The drone workspace
 links a failure matrix, spatial replay, signal timeline, event trace, and controller source. The
 first implementation proves the battery workflow; additional bundled section types can extend that
 catalog without introducing project code or plug-in discovery.
@@ -294,8 +294,8 @@ anchor type.
 
 - **Generic evaluation dashboard:** prompt playgrounds, trace dashboards, metrics, and leaderboards
   repeat familiar interfaces and require broad evaluation infrastructure. Experiment Lens stays
-  smaller by presenting one trusted project's recorded data and native artifacts through authored
-  sections.
+  smaller by presenting one trusted project's recorded data and native artifacts through a bounded
+  catalog of linked views.
 - **Generic visual runbook:** scheduling, credentials, retries, recovery, idempotency, and audit
   dominate the implementation, and agents can plan many low-risk steps dynamically.
 - **Broad investigation workspace:** ingestion, OCR, indexing, retrieval, entity resolution,
@@ -334,8 +334,8 @@ artifacts rather than imports from another app's frontend or backend internals.
 3. Add choice review with matrix and artifact-comparison presentations without introducing a
    generic review-type plug-in system.
 4. Define the smallest Experiment Manifest and Selection Packet around one real result set.
-5. Build Lens with trusted project-local sections and shared selection state; add a timeline only
-   when the chosen experiment needs one.
+5. Build Lens with bundled sections and shared selection state; enable the standardized timeline
+   only when the admitted artifacts provide one.
 6. Exercise the handoff by opening a Lens selection packet as Review evidence.
 7. Reconsider Bench only after evidence, artifacts, selections, and review records already move
    cleanly between independent producers and consumers.

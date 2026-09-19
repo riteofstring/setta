@@ -1,0 +1,9 @@
+export declare function validateExperimentManifestDocument(value: unknown): boolean;
+export declare function validateExportResultDocument(value: unknown): boolean;
+export declare function validateLensMutationDocument(value: unknown): boolean;
+export declare function validateLensSnapshotDocument(value: unknown): boolean;
+export declare function validateMutationResultDocument(value: unknown): boolean;
+export declare function validateObservationSourceDocument(value: unknown): boolean;
+export declare function validateSelectionPacketDocument(value: unknown): boolean;
+export declare function validateSeriesDocument(value: unknown): boolean;
+export declare function validateStructuredErrorDocument(value: unknown): boolean;
