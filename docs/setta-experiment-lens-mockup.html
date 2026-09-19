@@ -1232,7 +1232,7 @@
         </a>
         <nav class="site-nav" aria-label="Page navigation">
           <a href="#explore">Examples</a>
-          <a href="#difference">Difference</a>
+          <a href="#difference">Scope</a>
           <a href="#handoff">Handoff</a>
         </nav>
       </div>
@@ -1244,21 +1244,23 @@
         aria-labelledby="hero-title"
       >
         <div>
-          <div class="eyebrow">A read-only player for recorded experiments</div>
+          <div class="eyebrow">
+            A focused reference app for recorded experiments
+          </div>
           <h1 id="hero-title">
             Explore the shape of an experiment, not just its charts.
           </h1>
           <p class="hero-lede">
-            An agent or script records hundreds of trials and their artifacts.
-            Setta turns that result set into linked controls, plots, tables,
-            images, code, and time-based views—without owning the experiment
-            runner.
+            An agent or script writes a manifest and artifacts. A trusted local
+            project supplies checked-in Setta sections, and Lens links them
+            through shared selection and timeline state. It neither generates
+            the interface nor runs the experiment.
           </p>
           <div class="hero-actions">
-            <a class="primary-link" href="#explore">Explore two experiments</a>
-            <a class="secondary-link" href="#difference"
-              >Why not TensorBoard?</a
+            <a class="primary-link" href="#explore"
+              >Explore two presentations</a
             >
+            <a class="secondary-link" href="#difference">See the scope</a>
           </div>
         </div>
 
@@ -1266,33 +1268,34 @@
           class="experiment-lens-summary"
           aria-label="Experiment Lens contract"
         >
-          <h2>The product boundary</h2>
+          <h2>A small demo contract</h2>
           <div class="experiment-lens-summary-row">
-            <span>864</span>
+            <span>DATA</span>
             <div>
-              <strong>Recorded observations can stay dense</strong>
+              <strong>The manifest supplies recorded data</strong>
               <small
-                >Filter, brush, sort, inspect, and compare exact runs.</small
+                >Stable observation IDs, factors, metrics, and artifact
+                references.</small
               >
             </div>
           </div>
           <div class="experiment-lens-summary-row">
-            <span>05</span>
+            <span>VIEW</span>
             <div>
-              <strong>Native views remain linked</strong>
+              <strong>The trusted project supplies the views</strong>
               <small
-                >A point, row, frame, trace, and source file share one
-                selection.</small
+                >Checked-in sections share filters, selection, and timeline
+                state.</small
               >
             </div>
           </div>
           <div class="experiment-lens-summary-row">
-            <span>0×</span>
+            <span>OUT</span>
             <div>
-              <strong>No runner or agent harness</strong>
+              <strong>A selection packet leaves the app</strong>
               <small
-                >Any tool produces the manifest; any tool can consume the
-                selection.</small
+                >No runner, tracker, dashboard DSL, or dynamic plug-in
+                system.</small
               >
             </div>
           </div>
@@ -1306,11 +1309,11 @@
               <div class="showcase-number">Example 01 · Dense sweep atlas</div>
               <h2>Find a degradation regime, then inspect the exact cycle.</h2>
               <p>
-                This workspace holds 864 battery-cycle observations. Filtering
-                changes the landscape and spreadsheet together; selecting any
-                point or row opens its synchronized charge trace and
-                thermal-camera frame. Pin outliers into a managed comparison
-                window.
+                This project-authored workspace holds 864 battery-cycle
+                observations. Filtering changes the landscape and spreadsheet
+                together; selecting any point or row opens its synchronized
+                charge trace and thermal-camera frame. Pin outliers into a
+                managed comparison window.
               </p>
             </div>
           </div>
@@ -2026,12 +2029,12 @@
                 Move between a population, one trajectory, and one millisecond.
               </h2>
               <p>
-                This is the same product with a different experiment-native
-                view. A failure matrix summarizes 2,400 robustness trials;
-                selecting a cell loads one representative trajectory, its
-                synchronized signals, event trace, and exact controller
-                configuration. The timeline is the shared control—not a row
-                picker.
+                This trusted project authors a different presentation over the
+                same small Lens contract. A failure matrix summarizes 2,400
+                robustness trials; selecting a cell loads one representative
+                trajectory, its synchronized signals, event trace, and exact
+                controller configuration. The timeline is the shared control—not
+                a row picker.
               </p>
             </div>
           </div>
@@ -2533,16 +2536,16 @@
       <section id="difference" class="page-shell experiment-lens-difference">
         <div class="experiment-lens-difference-head">
           <div class="experiment-lens-difference-copy">
-            <div class="showcase-number">Why this is not another tracker</div>
+            <div class="showcase-number">Scope of the reference app</div>
             <h2>
-              The tracker stores runs. The Lens gives the result a
-              domain-specific interface.
+              Trackers record runs. Lens demonstrates linked exploration in
+              Setta.
             </h2>
             <p>
-              TensorBoard, W&amp;B, and MLflow remain better systems of record
-              for metrics, lineage, and large-scale run management. Experiment
-              Lens starts after an experiment has produced something worth
-              exploring.
+              Lens is not trying to replace TensorBoard, W&amp;B, MLflow, or a
+              one-off notebook. It is a focused example of how trusted
+              project-local sections can make recorded results explorable and
+              hand a precise selection to the next tool.
             </p>
           </div>
           <div
@@ -2556,15 +2559,15 @@
               role="row"
             >
               <div role="columnheader">Question</div>
-              <div role="columnheader">TensorBoard / W&amp;B / MLflow</div>
-              <div role="columnheader">Experiment Lens</div>
+              <div role="columnheader">Experiment systems</div>
+              <div role="columnheader">This Setta reference app</div>
             </div>
             <div class="experiment-lens-comparison-row" role="row">
               <div role="rowheader">Primary object</div>
               <div role="cell">Run, metric, artifact, lineage</div>
               <div role="cell">
                 <strong
-                  >A portable interactive presentation of a result set</strong
+                  >A trusted project presentation and portable selection</strong
                 >
               </div>
             </div>
@@ -2573,8 +2576,18 @@
               <div role="cell">Generic dashboards, queries, panels</div>
               <div role="cell">
                 <strong
-                  >Controls and views shaped around this experiment’s
+                  >Checked-in sections shaped around this experiment’s
                   domain</strong
+                >
+              </div>
+            </div>
+            <div class="experiment-lens-comparison-row" role="row">
+              <div role="rowheader">Customization</div>
+              <div role="cell">Built-in panels, notebooks, or plug-ins</div>
+              <div role="cell">
+                <strong
+                  >Ordinary trusted project code; no generated UI or dynamic
+                  discovery</strong
                 >
               </div>
             </div>
@@ -2603,7 +2616,7 @@
               <div role="cell">Often logs or orchestrates runs</div>
               <div role="cell">
                 <strong
-                  >Read-only: references runs made by any script, harness, or
+                  >Read-only: references results made by any script, harness, or
                   platform</strong
                 >
               </div>
@@ -2638,8 +2651,8 @@
             <div class="experiment-lens-handoff-step">
               <span>02 · Understand</span><strong>Experiment Lens</strong
               ><small
-                >Records the selected cohort, runs, time range, and human
-                notes.</small
+                >Links trusted project sections and records the selected cohort,
+                runs, time range, and notes.</small
               >
             </div>
             <div class="experiment-lens-handoff-arrow">→</div>

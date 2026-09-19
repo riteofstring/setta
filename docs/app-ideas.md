@@ -1,8 +1,8 @@
-# Setta Workspace Product Directions
+# Setta Workspace App Ideas
 
 ## Purpose
 
-Setta currently has two applications built on `@setta/workspace`:
+Setta currently has two implemented applications built on `@setta/workspace`:
 
 - Python Canvas turns Python callables, parameters, lists, generated code, diagnostics, and local
   execution into a durable visual project.
@@ -10,12 +10,14 @@ Setta currently has two applications built on `@setta/workspace`:
   streamed results, retained outputs, and artifacts.
 
 Both applications expose strict machine-readable CLI boundaries as well as visual interfaces. That
-combination is central to future products: agents should be able to prepare, inspect, and hand off
-work without reproducing human UI gestures, while the UI should make relationships, evidence, and
+combination is central to future apps: agents should be able to prepare, inspect, and hand off work
+without reproducing human UI gestures, while the UI should make relationships, evidence, and
 judgment easier for people to understand.
 
 This document evaluates possible next applications. It is an ideas document, not an implementation
-plan.
+plan. The apps are focused open-source demonstrations of what `@setta/workspace` can do, not startup
+theses. Each needs a clear purpose, a manageable implementation boundary, and useful relationships
+with the other apps; it does not need a commercial moat.
 
 Setta is not an AI agent harness. A person can use Codex, Claude Code, OpenCode, another agent, a
 script, or another application outside Setta and exchange ordinary files through the same
@@ -28,8 +30,8 @@ A new standalone application should satisfy all of the following:
 
 1. **Reuse dormant Setta strengths.** It should recover a small, coherent subset of capabilities
    from historical `main` or use Workspace capabilities that neither current application exercises.
-2. **Own one durable concept.** Its source of truth and lifecycle must differ from a Python project
-   or a live handler graph.
+2. **Have one clear purpose.** A person should be able to explain what the app helps them understand
+   or decide without describing a general platform.
 3. **Remain deliberately small.** A useful first version must not require a general agent runtime,
    workflow engine, distributed scheduler, secret vault, crawler, vector database, or collaboration
    platform.
@@ -37,15 +39,14 @@ A new standalone application should satisfy all of the following:
    inputs and consume its outputs through documented files and CLI contracts.
 5. **Reserve human effort for judgment.** The app should automate collection and bookkeeping while
    making comparison, review, taste, or authority decisions pleasant and legible.
-6. **Have a differentiated interaction.** Removing Workspace's real content, relationships,
+6. **Demonstrate a distinct interaction.** Removing Workspace's real content, relationships,
    attention, Inspector, managed windows, or saved presentations should materially weaken it.
-7. **Avoid commodity categories.** A familiar ingredient is acceptable, but the recurring job and
-   durable record should not amount to another generic dashboard, chat client, file browser, or
-   node editor.
+7. **Complement the portfolio.** Its inputs or outputs should hand off naturally to another Setta
+   app or arbitrary software, and it should not merely repeat another app's central interaction.
 
 The practical ranking is:
 
-`unused leverage + portability + recurring value + differentiation - integration burden - correctness burden`
+`unused leverage + focused purpose + portability + portfolio synergy - implementation burden`
 
 ## Capability landscape
 
@@ -63,7 +64,7 @@ coherent capability clusters that the current applications do not use:
 - artifact storage, imports, downloads, and provenance-related metadata.
 
 The current branch also contains Workspace capabilities that are available but not yet used by
-Python Canvas or Realtime as product features:
+Python Canvas or Realtime as application features:
 
 - multi-section attention and programmatic framing;
 - managed floating, docked, minimized, and maximized windows;
@@ -77,19 +78,20 @@ views, and revision-bound agent-friendly mutations. Realtime already demonstrate
 graphs, live events, bounded scheduling, streaming results, retained artifacts, drawing, and direct
 invocation. A new application should not merely recombine those same behaviors under another name.
 
-Historical code is evidence and a behavioral reference, not a drop-in product platform. The old
-agent, run, Git, file, and preview systems were integrated with a much broader application model.
-Recovering a narrow capability can reduce discovery risk, but a new app still needs its own small
-contract, persistence boundary, and failure semantics.
+Historical code is evidence and a behavioral reference, not a drop-in application foundation. The
+old agent, run, Git, file, and preview systems were integrated with a much broader application
+model. Recovering a narrow capability can reduce discovery risk, but a new app still needs its own
+small contract, persistence boundary, and failure semantics.
 
 ## Portfolio assessment
 
 Each score is out of five. A higher **Simplicity** score means a smaller, easier-to-bound first
 version.
 
-| Product boundary                    | Leverage | Simplicity | Agentic value | Novelty | Decision               |
+| App direction                       | Leverage | Simplicity | Agentic value | Novelty | Decision               |
 | ----------------------------------- | -------: | ---------: | ------------: | ------: | ---------------------- |
 | Setta Review                        |        5 |          4 |             5 |       4 | Build                  |
+| Experiment Lens                     |        5 |          4 |             5 |       3 | Build                  |
 | Agent Context and Replay Bench      |        5 |          2 |             5 |       4 | Defer                  |
 | Multi-format general evidence audit |        5 |          2 |             5 |       3 | Defer generalization   |
 | Generic evaluation dashboard        |        4 |          2 |             4 |       1 | Do not build           |
@@ -97,9 +99,10 @@ version.
 | Broad investigation workspace       |        5 |          1 |             3 |       2 | Do not build           |
 | Generic MCP inspector               |        3 |          4 |             4 |       1 | Do not build as an app |
 
-The recommended direction contains **one application: Setta Review**. It owns immutable requests
-and separate review responses. Completion and choice review are presentations over that same
-durable boundary, not separate applications.
+Together with Python Canvas and Realtime, the recommended portfolio contains four focused apps.
+Setta Review owns immutable requests and separate review responses. Experiment Lens owns linked
+exploration state and portable selections over recorded experiment results. They share conventions
+and artifacts without sharing an application model.
 
 ## Recommended application: Setta Review
 
@@ -166,7 +169,7 @@ drawn feedback to an exact artifact revision.
 - Managed windows make candidate, diff, log, artifact, and proposal comparison a first-class
   interaction.
 - Saved views can provide Request, Evidence, Compare, and Response presentations over one record.
-- Inspector controls can record a small decision without turning the product into a form builder.
+- Inspector controls can record a small decision without turning the app into a form builder.
 
 Historical questions, approval cards, agent-run events, tool calls, Git views, previews,
 attachments, artifacts, and AI Follow provide reference behavior. Current Workspace attention,
@@ -186,6 +189,76 @@ The first version does not run or resume an agent, edit source, execute tests, i
 or push Git changes, contact providers, authenticate remote services, or infer whether a claim is
 true. Permission and policy changes can arrive as ordinary configuration diffs in completion
 review; Review does not own a portable permission model or enforcement adapters.
+
+## Recommended application: Experiment Lens
+
+Open the [Experiment Lens mockup](setta-experiment-lens-mockup.html).
+
+Experiment Lens should be a **read-only explorer for recorded experiment results produced by any
+agent, script, notebook, or experiment system**. Its recurring question is:
+
+> What happened across this result set, which exact observations and artifacts matter, and what
+> should another person or tool inspect next?
+
+The app does not generate a dashboard from arbitrary data. A trusted local project contains
+checked-in Setta sections that express the experiment's useful views. A small manifest supplies
+observations and artifact references, while shared selection, filter, and timeline state keeps the
+sections synchronized. The durable output is a portable selection packet rather than another run
+database.
+
+### Durable concepts
+
+- An **experiment manifest** identifies the result set, factor and metric fields, stable observation
+  IDs, timestamps when relevant, and artifact references. It contains data semantics, not layout or
+  executable UI definitions.
+- A **project presentation** is the checked-in, trusted section code and Workspace configuration
+  that makes one experiment family understandable. Section code is the customization layer; the
+  first version has no dashboard DSL or dynamic third-party discovery.
+- **Linked exploration state** contains the current filters, selected observations, compared
+  observations, and timeline or range position shared by participating sections.
+- An **annotation** records a human note, range, region, or artifact overlay against an exact
+  observation or artifact revision.
+- A **selection packet** exports the selected observation IDs, filters, ranges, annotations, and
+  artifact references for another Setta app or arbitrary tool.
+
+### Why Workspace matters
+
+- Charts, spreadsheets, images, code, diffs, text, browser views, and custom sections can show the
+  native outputs of an experiment instead of reducing everything to generic metrics.
+- Shared selection and timeline state can coordinate a population view, exact observation, rich
+  artifact, and event trace.
+- Managed windows support temporary high-fidelity comparison without permanently expanding the
+  main workspace.
+- Attention, framing, and saved presentations can move between overview, failure replay, and pinned
+  comparison without duplicating the underlying record.
+
+The two mockup examples deliberately use different authored presentations. The battery workspace
+links a dense sweep, spreadsheet, charge trace, and thermal frame. The drone workspace links a
+failure matrix, spatial replay, signal timeline, event trace, and controller source. These are
+project-authored Setta workspaces, not interfaces that Lens infers or generates automatically.
+
+### Bounded first version
+
+1. Open one trusted local project with checked-in sections and one admitted experiment manifest.
+2. Resolve table-like observations plus local code, text, image, JSON, and other already-supported
+   artifact references.
+3. Provide shared selection, filtering, comparison, and optional timeline state to the authored
+   sections.
+4. Export a versioned selection packet with annotations and artifact references.
+
+The first version does not launch experiments, tune parameters, schedule work, replace an
+experiment tracker, query an unbounded remote dataset, generate interfaces, discover third-party
+sections, sandbox untrusted code, or define a general plug-in system. A normal trusted project build
+loads its section code.
+
+### Portfolio role
+
+- Python Canvas or ordinary experiment code can produce manifests and artifacts for Lens.
+- Lens can reduce a large result set to a precise selection packet for Setta Review.
+- Review can record a decision or request follow-up without absorbing Lens's continuous exploration
+  interaction.
+- Realtime demonstrates live shared state that a future experiment presentation may use, but live
+  ingestion is not required by the Lens first version.
 
 ## Deferred directions
 
@@ -216,13 +289,15 @@ anchor type.
 ## Directions not worth implementing
 
 - **Generic evaluation dashboard:** prompt playgrounds, trace dashboards, metrics, and leaderboards
-  are crowded, while reliable evaluation infrastructure is expensive.
+  repeat familiar interfaces and require broad evaluation infrastructure. Experiment Lens stays
+  smaller by presenting one trusted project's recorded data and native artifacts through authored
+  sections.
 - **Generic visual runbook:** scheduling, credentials, retries, recovery, idempotency, and audit
   dominate the implementation, and agents can plan many low-risk steps dynamically.
 - **Broad investigation workspace:** ingestion, OCR, indexing, retrieval, entity resolution,
   collaboration, and publishing turn it into a large knowledge platform.
 - **Generic MCP inspector:** discovery and invocation are useful features, but they do not create a
-  durable product record.
+  durable record.
 - **Generic agent builder:** visual agent graphs and provider configuration are established
   categories and would pull Setta back toward a universal application.
 
@@ -239,7 +314,8 @@ Realtime:
 - no requirement for a model provider merely to create, inspect, or consume the durable record;
 - the producing agent remains outside Setta's process boundary and keeps ownership of its session,
   tools, credentials, and execution loop;
-- exported responses and artifacts that remain useful without Setta installed; and
+- exported responses, selection packets, and artifacts that remain useful without Setta installed;
+  and
 - deep links as optional conveniences rather than the only way to resolve content.
 
 Shared framing and content-reference conventions are useful, but each app should retain its own
@@ -253,16 +329,20 @@ artifacts rather than imports from another app's frontend or backend internals.
 2. Build completion review around a real agent or application handoff.
 3. Add choice review with matrix and artifact-comparison presentations without introducing a
    generic review-type plug-in system.
-4. Reconsider Bench only after evidence, artifacts, and review records already move
+4. Define the smallest Experiment Manifest and Selection Packet around one real result set.
+5. Build Lens with trusted project-local sections and shared selection state; add a timeline only
+   when the chosen experiment needs one.
+6. Exercise the handoff by opening a Lens selection packet as Review evidence.
+7. Reconsider Bench only after evidence, artifacts, selections, and review records already move
    cleanly between independent producers and consumers.
 
-## Product guardrail
+## App guardrail
 
-Canvas nodes are a representation, not a product thesis. Agent execution is also a capability, not
-automatically a product thesis. A new application should own one durable record that agents can
-prepare and other software can consume. Its interface should concentrate human attention on the
-small amount of visual comparison, judgment, taste, or authority that remains valuable after the
-mechanical work is automated.
+Canvas nodes are a representation, not an app purpose. Agent execution is also a capability, not
+automatically an app purpose. A new application should demonstrate one coherent use of Workspace,
+give agents a documented file boundary, and produce something another app can consume. Its
+interface should concentrate human attention on visual exploration, comparison, judgment, taste,
+or authority that remains useful after the mechanical work is automated.
 
 If an app requires Setta to select a model, maintain an agent conversation, route tool calls, or
 resume provider-specific execution, it has crossed the boundary into an agent harness and should
