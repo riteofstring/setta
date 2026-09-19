@@ -19,7 +19,7 @@ Run it from the repository root:
 
 ```console
 pnpm experiment-lens:playground
-pnpm experiment-lens:playground -- --no-open
+pnpm experiment-lens:playground --no-open
 ```
 
 The launcher builds Experiment Lens, seeds `tmp/experiment-lens-playground/experiment-project`
