@@ -16,8 +16,8 @@ revision, imported external assessments, and human response drafts. Every mutati
 project identity and expected revision, validates one complete candidate, and atomically replaces
 the state. A conflict never replays against unseen state. Export materializes separate versioned
 `review-response.json` and optional `continuation-packet.json` files without changing any input.
-Hashes identify immutable request and artifact evidence; they are not used to detect local state
-changes.
+Hashes identify immutable requests and admitted evidence; they are not used to detect mutable
+Review state changes.
 
 Requests support two closed built-in workflows. Completion requests contain claims and semantic
 relations to evidence. Choice requests contain options, factors, tradeoff cells, optional producer
@@ -30,15 +30,17 @@ has been recorded.
 
 Every evidence path is relative to the project root, remains within its canonical boundary, and
 must name a regular non-symlink file. Git evidence names an exact base revision, optional target
-revision or current worktree, path, and bounded context. The backend invokes the installed Git
-executable without a shell and returns a unified diff; it never stages, edits, commits, or pushes.
-Text and log references name bounded line ranges. JSON references name a file and optional JSON
-Pointers. Artifact references name a media type and exact digest. Missing, changed, malformed,
-unsupported, oversized, or digest-mismatched evidence remains visible as a structured resolution
-failure instead of disappearing from the review.
+revision or current worktree, path, bounded context, exact hunk, and patch digest. Text and log
+references name bounded line ranges plus the complete source-file digest. JSON references name a
+file, optional JSON Pointers, and the complete source-file digest. Artifact references name a media
+type, byte length, and exact digest. The backend invokes Git without a shell and never stages,
+edits, commits, or pushes. If any source changes after request admission, that evidence becomes a
+structured resolution failure; Review never substitutes newer bytes into an existing decision.
 
 Resolved bounded text, JSON, and diff data travels in the snapshot. Binary artifacts use an exact
 same-origin evidence route keyed by request and evidence identity; callers cannot provide a path.
+Only a closed passive image, audio, and video allowlist renders inline. Other admitted artifacts
+remain inert metadata with an attachment-only download route.
 Drawing annotations store normalized artifact-relative paths beside the response and bind to the
 admitted artifact identity. They never alter source pixels.
 

@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/setta/review/backend/internal/contracts"
 )
 
 func TestStoreCreatesReplacesPublishesAndReloadsState(t *testing.T) {
@@ -83,6 +85,134 @@ func TestStoreRejectsConflictsWithoutChangingDurableState(t *testing.T) {
 	}
 }
 
+func TestStoresRejectStaleWriterAndRefreshFromDurableState(t *testing.T) {
+	root := t.TempDir()
+	first, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(first) error = %v", err)
+	}
+	defer first.Close()
+	second, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(second) error = %v", err)
+	}
+	defer second.Close()
+	firstInitial, err := first.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot(first) error = %v", err)
+	}
+	secondInitial, err := second.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot(second) error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := second.Subscribe(ctx)
+	if err != nil {
+		t.Fatalf("Subscribe(second) error = %v", err)
+	}
+	<-stream
+
+	firstCandidate := firstInitial
+	firstCandidate.Revision = 1
+	firstCandidate.Assessments = []contracts.ExternalAssessment{testAssessment("first-writer")}
+	secondCandidate := secondInitial
+	secondCandidate.Revision = 1
+	secondCandidate.Assessments = []contracts.ExternalAssessment{testAssessment("stale-writer")}
+	if _, err := first.Replace(0, firstCandidate); err != nil {
+		t.Fatalf("Replace(first) error = %v", err)
+	}
+	if _, err := second.Replace(0, secondCandidate); !errors.Is(err, ErrRevisionConflict) {
+		t.Fatalf("Replace(stale second) error = %v", err)
+	}
+	secondSnapshot, err := second.Snapshot()
+	requireAssessmentState(t, "Snapshot(second)", secondSnapshot, err, "first-writer")
+	select {
+	case published := <-stream:
+		requireAssessmentState(t, "published state", published, nil, "first-writer")
+	case <-time.After(time.Second):
+		t.Fatal("durable state was not published to stale store")
+	}
+	reloaded, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(reloaded) error = %v", err)
+	}
+	defer reloaded.Close()
+	durable, err := reloaded.Snapshot()
+	requireAssessmentState(t, "Snapshot(reloaded)", durable, err, "first-writer")
+}
+
+func TestStoresSerializeConcurrentWritersAtOneRevision(t *testing.T) {
+	root := t.TempDir()
+	first, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(first) error = %v", err)
+	}
+	defer first.Close()
+	second, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(second) error = %v", err)
+	}
+	defer second.Close()
+	firstInitial, err := first.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot(first) error = %v", err)
+	}
+	secondInitial, err := second.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot(second) error = %v", err)
+	}
+	firstCandidate := firstInitial
+	firstCandidate.Revision = 1
+	firstCandidate.Assessments = []contracts.ExternalAssessment{testAssessment("first-writer")}
+	secondCandidate := secondInitial
+	secondCandidate.Revision = 1
+	secondCandidate.Assessments = []contracts.ExternalAssessment{testAssessment("second-writer")}
+
+	type result struct {
+		assessmentID string
+		err          error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	go func() {
+		<-start
+		_, replaceErr := first.Replace(0, firstCandidate)
+		results <- result{assessmentID: "first-writer", err: replaceErr}
+	}()
+	go func() {
+		<-start
+		_, replaceErr := second.Replace(0, secondCandidate)
+		results <- result{assessmentID: "second-writer", err: replaceErr}
+	}()
+	close(start)
+	firstResult := <-results
+	secondResult := <-results
+	resultsByOutcome := []result{firstResult, secondResult}
+	winner := ""
+	conflicts := 0
+	for _, outcome := range resultsByOutcome {
+		switch {
+		case outcome.err == nil:
+			winner = outcome.assessmentID
+		case errors.Is(outcome.err, ErrRevisionConflict):
+			conflicts++
+		default:
+			t.Fatalf("Replace(%s) error = %v", outcome.assessmentID, outcome.err)
+		}
+	}
+	if winner == "" || conflicts != 1 {
+		t.Fatalf("results = %#v", resultsByOutcome)
+	}
+	reloaded, err := Open(root, "project-one")
+	if err != nil {
+		t.Fatalf("Open(reloaded) error = %v", err)
+	}
+	defer reloaded.Close()
+	durable, err := reloaded.Snapshot()
+	requireAssessmentState(t, "Snapshot(reloaded)", durable, err, winner)
+}
+
 func TestStoreRejectsSymlinkedStateDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink permissions vary on Windows")
@@ -111,5 +241,28 @@ func TestStoreRejectsAnotherProjectIdentity(t *testing.T) {
 	}
 	if _, err := Open(root, "project-two"); !errors.Is(err, ErrIdentityConflict) {
 		t.Fatalf("Open(other identity) error = %v", err)
+	}
+}
+
+func testAssessment(id string) contracts.ExternalAssessment {
+	return contracts.ExternalAssessment{
+		Version: 1, ID: id, RequestID: "request-one", ClaimID: "claim-one", Assessment: "supported",
+		Rationale: "The evidence supports this claim.", Producer: contracts.AssessmentProducer{Model: "model", Harness: "harness"}, CreatedAt: "2026-09-19T12:00:00Z",
+	}
+}
+
+func requireAssessmentState(t *testing.T, label string, document Document, err error, assessmentID string) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("%s error = %v", label, err)
+	}
+	if document.Revision != 1 {
+		t.Fatalf("%s revision = %d", label, document.Revision)
+	}
+	if len(document.Assessments) != 1 {
+		t.Fatalf("%s assessments = %#v", label, document.Assessments)
+	}
+	if document.Assessments[0].ID != assessmentID {
+		t.Fatalf("%s assessment = %#v, want %q", label, document.Assessments[0], assessmentID)
 	}
 }

@@ -247,6 +247,7 @@ function matrixRequest(): RequestSnapshot {
             endLine: 14,
             mediaType: "text/plain",
             path: "results/reliability.log",
+            sourceSha256: SHA,
             startLine: 10,
           },
         },
@@ -276,7 +277,7 @@ function matrixRequest(): RequestSnapshot {
   };
 }
 
-function artifactRequest(): RequestSnapshot {
+function artifactRequest(mediaType = "image/png"): RequestSnapshot {
   return {
     assessments: [],
     evidence: [
@@ -284,7 +285,7 @@ function artifactRequest(): RequestSnapshot {
         content: {
           byteLength: 4_096,
           kind: "artifact",
-          mediaType: "image/png",
+          mediaType,
           route: "/api/evidence/artifact-request/candidate-a",
           sha256: SHA,
         },
@@ -314,7 +315,7 @@ function artifactRequest(): RequestSnapshot {
         {
           artifact: {
             byteLength: 4_096,
-            mediaType: "image/png",
+            mediaType,
             path: "artifacts/candidate-a.png",
             sha256: SHA,
           },
@@ -543,16 +544,87 @@ function configureAnnotationSurface(surface: SVGSVGElement): void {
     setPointerCapture: (pointerId: number) => captured.add(pointerId),
   });
   vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
-    bottom: 300,
+    bottom: 350,
     height: 200,
     left: 50,
     right: 450,
     toJSON: () => ({}),
-    top: 100,
+    top: 150,
     width: 400,
     x: 50,
-    y: 100,
+    y: 150,
   });
+}
+
+function artifactRect(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): DOMRect {
+  return {
+    bottom: top + height,
+    height,
+    left,
+    right: left + width,
+    toJSON: () => ({}),
+    top,
+    width,
+    x: left,
+    y: top,
+  };
+}
+
+function installControlledResizeObserver(): () => void {
+  let callback: ResizeObserverCallback | null = null;
+  class ControlledResizeObserver {
+    public constructor(nextCallback: ResizeObserverCallback) {
+      callback = nextCallback;
+    }
+
+    public disconnect(): void {}
+
+    public observe(): void {}
+
+    public unobserve(): void {}
+  }
+  vi.stubGlobal("ResizeObserver", ControlledResizeObserver);
+  return () => {
+    if (!callback) {
+      throw new Error("The artifact did not install its resize observer.");
+    }
+    act(() => callback?.([], {} as ResizeObserver));
+  };
+}
+
+function loadArtifactImage(
+  container: Element,
+  layout: { height: number; width: number },
+): HTMLImageElement {
+  const stage = container.querySelector<HTMLDivElement>(
+    ".review-artifact-stage",
+  );
+  const image = stage?.querySelector<HTMLImageElement>("img");
+  if (!stage || !image) {
+    throw new Error("The image artifact did not render.");
+  }
+  vi.spyOn(stage, "getBoundingClientRect").mockImplementation(() =>
+    artifactRect(50, 100, layout.width, layout.height),
+  );
+  vi.spyOn(image, "getBoundingClientRect").mockImplementation(() =>
+    artifactRect(50, 100, layout.width, layout.height),
+  );
+  Object.defineProperties(image, {
+    offsetHeight: { configurable: true, get: () => layout.height },
+    offsetLeft: { configurable: true, value: 0 },
+    offsetParent: { configurable: true, value: stage },
+    offsetTop: { configurable: true, value: 0 },
+    offsetWidth: { configurable: true, get: () => layout.width },
+    naturalHeight: { configurable: true, value: 800 },
+    naturalWidth: { configurable: true, value: 1_600 },
+  });
+  act(() => image.dispatchEvent(new Event("load")));
+  return image;
 }
 
 describe("Review section interactions", () => {
@@ -568,6 +640,7 @@ describe("Review section interactions", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
   });
 
   function render(node: ReactNode): void {
@@ -655,6 +728,7 @@ describe("Review section interactions", () => {
   });
 
   it("keeps artifact strokes normalized and accepts revision feedback only with a note or drawing", async () => {
+    installControlledResizeObserver();
     const onStroke = vi.fn<ReviewActions["addAnnotationStroke"]>();
     const onRevisionAttempt = vi.fn();
     render(
@@ -663,6 +737,7 @@ describe("Review section interactions", () => {
         onStroke={onStroke}
       />,
     );
+    loadArtifactImage(container, { height: 300, width: 400 });
 
     await click(buttonContaining(container, "Request changes"));
     await click(buttonContaining(container, "Send feedback"));
@@ -712,10 +787,14 @@ describe("Review section interactions", () => {
     if (!annotationSurface) {
       throw new Error("The candidate has no annotation canvas.");
     }
+    expect(annotationSurface.style.left).toBe("0px");
+    expect(annotationSurface.style.top).toBe("50px");
+    expect(annotationSurface.style.width).toBe("400px");
+    expect(annotationSurface.style.height).toBe("200px");
     configureAnnotationSurface(annotationSurface);
-    dispatchPointer(annotationSurface, "pointerdown", 90, 120);
-    dispatchPointer(annotationSurface, "pointermove", 250, 200);
-    dispatchPointer(annotationSurface, "pointerup", 410, 280);
+    dispatchPointer(annotationSurface, "pointerdown", 90, 170);
+    dispatchPointer(annotationSurface, "pointermove", 250, 250);
+    dispatchPointer(annotationSurface, "pointerup", 410, 330);
 
     expect(onStroke).toHaveBeenCalledTimes(1);
     expect(onStroke).toHaveBeenCalledWith("artifact-request", "candidate-a", [
@@ -735,5 +814,59 @@ describe("Review section interactions", () => {
     expect(
       container.querySelector('[aria-label="Requested changes"]'),
     ).toBeNull();
+  });
+
+  it("tracks contained image resizes and never embeds active artifact types", () => {
+    const triggerResize = installControlledResizeObserver();
+    const actions = createActions();
+    const layout = { height: 300, width: 400 };
+    render(
+      <ReviewContext.Provider value={contextValue(ARTIFACT_SNAPSHOT, actions)}>
+        <ArtifactSection section={ARTIFACT_SECTION} />
+      </ReviewContext.Provider>,
+    );
+    loadArtifactImage(container, layout);
+
+    const annotationSurface = container.querySelector<SVGSVGElement>(
+      '[aria-label="Annotation canvas for Candidate A"]',
+    );
+    if (!annotationSurface) {
+      throw new Error("The image artifact has no annotation canvas.");
+    }
+    expect(annotationSurface.style.cssText).toContain("top: 50px");
+    expect(annotationSurface.style.cssText).toContain("height: 200px");
+
+    layout.width = 300;
+    triggerResize();
+    expect(annotationSurface.style.cssText).toContain("top: 75px");
+    expect(annotationSurface.style.cssText).toContain("width: 300px");
+    expect(annotationSurface.style.cssText).toContain("height: 150px");
+
+    const download = container.querySelector<HTMLAnchorElement>(
+      ".review-artifact-toolbar a",
+    );
+    expect(download?.textContent).toBe("Download original");
+    expect(download?.getAttribute("href")).toBe(
+      "/api/evidence/artifact-request/candidate-a?download=1",
+    );
+    expect(download?.hasAttribute("download")).toBe(true);
+    expect(download?.hasAttribute("target")).toBe(false);
+
+    const activeRequest = artifactRequest("text/html");
+    render(
+      <ReviewContext.Provider
+        value={contextValue(snapshotFor(activeRequest), actions)}
+      >
+        <ArtifactSection section={ARTIFACT_SECTION} />
+      </ReviewContext.Provider>,
+    );
+
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("video")).toBeNull();
+    expect(container.querySelector("audio")).toBeNull();
+    expect(
+      container.querySelector(".review-artifact-file-card")?.textContent,
+    ).toContain("text/html");
   });
 });

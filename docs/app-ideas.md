@@ -157,7 +157,7 @@ never resumes an agent.
 Choice review has two presentations over that same request and response contract. A matrix keeps
 structured options and tradeoff factors together. An artifact comparison uses managed windows when
 the reviewer needs to judge images, text, JSON, or other admitted artifacts at useful fidelity. It
-can record a selection, ranking, rejection, or qualification, include chosen artifacts, and attach
+can record a selection, rejection, or qualification, include chosen artifacts, and attach
 drawn feedback to an exact artifact revision.
 
 ### Why Workspace matters

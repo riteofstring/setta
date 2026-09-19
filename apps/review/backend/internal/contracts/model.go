@@ -85,6 +85,7 @@ type GitDiffEvidenceReference struct {
 	Path           string  `json:"path"`
 	ContextLines   int     `json:"contextLines"`
 	Hunk           GitHunk `json:"hunk"`
+	PatchSHA256    string  `json:"patchSha256"`
 }
 
 type GitHunk struct {
@@ -95,15 +96,17 @@ type GitHunk struct {
 }
 
 type TextEvidenceReference struct {
-	Path      string `json:"path"`
-	MediaType string `json:"mediaType"`
-	StartLine int    `json:"startLine"`
-	EndLine   int    `json:"endLine"`
+	Path         string `json:"path"`
+	MediaType    string `json:"mediaType"`
+	StartLine    int    `json:"startLine"`
+	EndLine      int    `json:"endLine"`
+	SourceSHA256 string `json:"sourceSha256"`
 }
 
 type JSONEvidenceReference struct {
-	Path     string   `json:"path"`
-	Pointers []string `json:"pointers"`
+	Path         string   `json:"path"`
+	Pointers     []string `json:"pointers"`
+	SourceSHA256 string   `json:"sourceSha256"`
 }
 
 type ArtifactEvidenceReference struct {

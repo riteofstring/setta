@@ -86,14 +86,23 @@ function evidenceTitle(
   return basename(evidencePath(reference));
 }
 
-function makeSection(
-  id: string,
-  kind: string,
-  name: string,
-  data: Record<string, string>,
-  size: { width: number; height: number | "auto" },
-  tagColor: string | null,
-): WorkspaceSectionInput {
+type ReviewSectionDefinition = Readonly<{
+  data: Record<string, string>;
+  id: string;
+  kind: string;
+  name: string;
+  size: { width: number; height: number | "auto" };
+  tagColor: string | null;
+}>;
+
+function makeSection({
+  data,
+  id,
+  kind,
+  name,
+  size,
+  tagColor,
+}: ReviewSectionDefinition): WorkspaceSectionInput {
   return {
     children: [],
     data,
@@ -227,14 +236,14 @@ export function projectReviewDocument(
     const controlId = requestSectionId(request.request.id);
     const controlSize = requestSize(request);
     sections[controlId] = preserveLocalPresentation(
-      makeSection(
-        controlId,
-        requestKind(request),
-        request.request.title,
-        sectionData(request.request.id),
-        controlSize,
-        requestTagColor(request),
-      ),
+      makeSection({
+        data: sectionData(request.request.id),
+        id: controlId,
+        kind: requestKind(request),
+        name: request.request.title,
+        size: controlSize,
+        tagColor: requestTagColor(request),
+      }),
       current,
     );
     const previousControl = current?.topLevelSections[controlId];
@@ -257,14 +266,14 @@ export function projectReviewDocument(
           : REVIEW_EVIDENCE_SECTION_KIND;
       const size = evidenceSize(reference);
       sections[evidenceId] = preserveLocalPresentation(
-        makeSection(
-          evidenceId,
+        makeSection({
+          data: sectionData(request.request.id, reference.id),
+          id: evidenceId,
           kind,
-          evidenceTitle(request, reference),
-          sectionData(request.request.id, reference.id),
+          name: evidenceTitle(request, reference),
           size,
-          resolved?.status === "failed" ? "#fb7185" : "#6680ad",
-        ),
+          tagColor: resolved?.status === "failed" ? "#fb7185" : "#6680ad",
+        }),
         current,
       );
       const position = placeEvidence(
@@ -300,7 +309,7 @@ function distributedPosition(index: number, count: number): number {
   return (index + 1) / (count + 1);
 }
 
-export type ReviewGraphProjection = Readonly<{
+type ReviewGraphProjection = Readonly<{
   edges: readonly WorkspaceGraphEdge[];
   ports: readonly WorkspaceGraphPort[];
   selectedEdgeIds: ReadonlySet<string>;
@@ -320,9 +329,6 @@ export function projectReviewGraph(
       const sourcePortId = relationPortId(relation.id, "source");
       const targetPortId = relationPortId(relation.id, "target");
       const edgeId = relationEdgeId(requestId, relation.id);
-      const resolved = request.evidence.find(
-        (candidate) => candidate.evidenceId === relation.evidenceId,
-      );
       ports.push(
         {
           family: "data",
@@ -354,7 +360,6 @@ export function projectReviewGraph(
           portId: sourcePortId,
           sectionId: requestSectionId(requestId),
         },
-        status: resolved?.status === "failed" ? "missing" : "idle",
         target: {
           portId: targetPortId,
           sectionId: evidenceSectionId(requestId, relation.evidenceId),

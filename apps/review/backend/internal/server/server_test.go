@@ -17,14 +17,16 @@ import (
 )
 
 type fakeService struct {
-	snapshot        contracts.ReviewSnapshot
-	applyResult     contracts.MutationResult
-	applyError      error
-	applied         *contracts.ReviewMutation
-	exportResult    contracts.ExportResult
-	exportRequested *bool
-	stream          <-chan contracts.ReviewSnapshot
-	artifactPath    string
+	snapshot         contracts.ReviewSnapshot
+	applyResult      contracts.MutationResult
+	applyError       error
+	applied          *contracts.ReviewMutation
+	exportResult     contracts.ExportResult
+	exportRequested  *bool
+	stream           <-chan contracts.ReviewSnapshot
+	artifactPath     string
+	artifactMetadata contracts.ArtifactEvidenceReference
+	artifactOpens    int
 }
 
 func (service *fakeService) Snapshot() (contracts.ReviewSnapshot, error) {
@@ -46,6 +48,7 @@ func (service *fakeService) Subscribe(context.Context) (<-chan contracts.ReviewS
 }
 
 func (service *fakeService) OpenArtifact(string, string) (*os.File, contracts.ArtifactEvidenceReference, error) {
+	service.artifactOpens++
 	file, err := os.Open(service.artifactPath)
 	if err != nil {
 		return nil, contracts.ArtifactEvidenceReference{}, err
@@ -55,7 +58,18 @@ func (service *fakeService) OpenArtifact(string, string) (*os.File, contracts.Ar
 		file.Close()
 		return nil, contracts.ArtifactEvidenceReference{}, err
 	}
-	return file, contracts.ArtifactEvidenceReference{Path: "candidate.png", MediaType: "image/png", ByteLength: info.Size(), SHA256: strings.Repeat("0", 64)}, nil
+	metadata := service.artifactMetadata
+	if metadata.Path == "" {
+		metadata.Path = filepath.Base(service.artifactPath)
+	}
+	if metadata.MediaType == "" {
+		metadata.MediaType = "image/png"
+	}
+	if metadata.SHA256 == "" {
+		metadata.SHA256 = strings.Repeat("0", 64)
+	}
+	metadata.ByteLength = info.Size()
+	return file, metadata, nil
 }
 
 func TestHandlerServesSnapshotAndExactIdentity(t *testing.T) {
@@ -117,24 +131,95 @@ func TestHandlerMapsRevisionConflictAndExportsContinuations(t *testing.T) {
 	}
 }
 
-func TestHandlerStreamsSnapshotsAndServesArtifacts(t *testing.T) {
+func TestHandlerStreamsSnapshots(t *testing.T) {
 	stream := make(chan contracts.ReviewSnapshot, 1)
 	stream <- contracts.ReviewSnapshot{Version: 1, Revision: 9}
 	close(stream)
-	artifact := filepath.Join(t.TempDir(), "candidate.png")
-	if err := os.WriteFile(artifact, []byte("image-bytes"), 0o644); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
-	service := &fakeService{stream: stream, artifactPath: artifact}
+	service := &fakeService{stream: stream}
 	handler := newTestHandler(t, service)
 
 	events := request(t, handler, http.MethodGet, "/api/v1/review/events", nil, "")
 	if events.Code != http.StatusOK || events.Header().Get("Content-Type") != "text/event-stream" || !strings.Contains(events.Body.String(), `"revision":9`) {
 		t.Fatalf("events response = %d, %#v, %s", events.Code, events.Header(), events.Body.String())
 	}
-	artifactResponse := request(t, handler, http.MethodGet, "/api/v1/evidence/request/candidate", nil, "")
-	if artifactResponse.Code != http.StatusOK || artifactResponse.Header().Get("Content-Type") != "image/png" || artifactResponse.Body.String() != "image-bytes" {
-		t.Fatalf("artifact response = %d, %#v, %q", artifactResponse.Code, artifactResponse.Header(), artifactResponse.Body.String())
+}
+
+func TestHandlerServesSafeArtifactPreview(t *testing.T) {
+	service := artifactService(t, "candidate.png", "image/png", "image-bytes")
+	handler := newTestHandler(t, service)
+
+	response := request(t, handler, http.MethodGet, "/api/v1/evidence/request/candidate", nil, "")
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "image/png" || response.Body.String() != "image-bytes" {
+		t.Fatalf("artifact response = %d, %#v, %q", response.Code, response.Header(), response.Body.String())
+	}
+	if disposition := response.Header().Get("Content-Disposition"); !strings.HasPrefix(disposition, "inline;") || !strings.Contains(disposition, "candidate.png") {
+		t.Fatalf("Content-Disposition = %q", disposition)
+	}
+}
+
+func TestHandlerContainsScriptedSVGPreview(t *testing.T) {
+	payload := `<svg xmlns="http://www.w3.org/2000/svg"><script>fetch('/api/v1/review')</script></svg>`
+	service := artifactService(t, "candidate.svg", "image/svg+xml", payload)
+	handler := newTestHandler(t, service)
+
+	response := request(t, handler, http.MethodGet, "/api/v1/evidence/request/candidate", nil, "")
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "image/svg+xml" || response.Body.String() != payload {
+		t.Fatalf("artifact response = %d, %#v, %q", response.Code, response.Header(), response.Body.String())
+	}
+	csp := response.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "sandbox") || !strings.Contains(csp, "base-uri 'none'") {
+		t.Fatalf("Content-Security-Policy = %q", csp)
+	}
+	for name, want := range map[string]string{
+		"Cross-Origin-Opener-Policy":   "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Referrer-Policy":              "no-referrer",
+		"X-Frame-Options":              "SAMEORIGIN",
+	} {
+		if got := response.Header().Get(name); got != want {
+			t.Fatalf("%s = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestHandlerRejectsActiveInlineArtifactAndAllowsDownload(t *testing.T) {
+	payload := `<script>fetch('/api/v1/review')</script>`
+	service := artifactService(t, "candidate.html", "text/html", payload)
+	handler := newTestHandler(t, service)
+
+	preview := request(t, handler, http.MethodGet, "/api/v1/evidence/request/candidate", nil, "")
+	if preview.Code != http.StatusUnsupportedMediaType || !strings.Contains(preview.Body.String(), "unsupported_media_type") {
+		t.Fatalf("preview response = %d, %#v, %q", preview.Code, preview.Header(), preview.Body.String())
+	}
+	download := request(t, handler, http.MethodGet, "/api/v1/evidence/request/candidate?download=1", nil, "")
+	if download.Code != http.StatusOK || download.Header().Get("Content-Type") != "text/html" || download.Body.String() != payload {
+		t.Fatalf("download response = %d, %#v, %q", download.Code, download.Header(), download.Body.String())
+	}
+	if disposition := download.Header().Get("Content-Disposition"); !strings.HasPrefix(disposition, "attachment;") || !strings.Contains(disposition, "candidate.html") {
+		t.Fatalf("Content-Disposition = %q", disposition)
+	}
+}
+
+func TestHandlerRejectsInvalidArtifactQueries(t *testing.T) {
+	service := artifactService(t, "candidate.png", "image/png", "image-bytes")
+	handler := newTestHandler(t, service)
+	targets := []string{
+		"/api/v1/evidence/request/candidate?download=",
+		"/api/v1/evidence/request/candidate?download=0",
+		"/api/v1/evidence/request/candidate?download=1&download=1",
+		"/api/v1/evidence/request/candidate?download=1&preview=1",
+		"/api/v1/evidence/request/candidate?download=1;preview=1",
+		"/api/v1/evidence/request/candidate?preview=1",
+	}
+
+	for _, target := range targets {
+		response := request(t, handler, http.MethodGet, target, nil, "")
+		if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid_request") {
+			t.Fatalf("%s response = %d, %#v, %q", target, response.Code, response.Header(), response.Body.String())
+		}
+	}
+	if service.artifactOpens != 0 {
+		t.Fatalf("artifact opens = %d", service.artifactOpens)
 	}
 }
 
@@ -148,6 +233,21 @@ func TestHandlerRejectsMalformedJSONAndMethods(t *testing.T) {
 	method := request(t, handler, http.MethodDelete, "/api/v1/review", nil, "")
 	if method.Code != http.StatusMethodNotAllowed || method.Header().Get("Allow") != "GET" {
 		t.Fatalf("method response = %d, %#v", method.Code, method.Header())
+	}
+}
+
+func artifactService(t *testing.T, name string, mediaType string, content string) *fakeService {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	return &fakeService{
+		artifactPath: path,
+		artifactMetadata: contracts.ArtifactEvidenceReference{
+			Path:      name,
+			MediaType: mediaType,
+		},
 	}
 }
 

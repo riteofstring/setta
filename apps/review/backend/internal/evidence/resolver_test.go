@@ -16,8 +16,10 @@ import (
 
 func TestResolverResolvesTextJSONAndArtifactEvidence(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "logs", "run.log"), "start\nretry\ncomplete\n")
-	writeTestFile(t, filepath.Join(root, "results.json"), `{"runs":[{"id":"a","errors":0},{"id":"b","errors":2}]}`)
+	textSource := "start\nretry\ncomplete\n"
+	jsonSource := `{"runs":[{"id":"a","errors":0},{"id":"b","errors":2}]}`
+	writeTestFile(t, filepath.Join(root, "logs", "run.log"), textSource)
+	writeTestFile(t, filepath.Join(root, "results.json"), jsonSource)
 	artifact := []byte("review-artifact")
 	writeTestFile(t, filepath.Join(root, "artifacts", "candidate.txt"), string(artifact))
 	digest := sha256.Sum256(artifact)
@@ -27,14 +29,14 @@ func TestResolverResolvesTextJSONAndArtifactEvidence(t *testing.T) {
 	}
 
 	textResult := resolver.Resolve("request-1", contracts.EvidenceReference{
-		ID: "log", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "logs/run.log", MediaType: "text/plain", StartLine: 2, EndLine: 3},
+		ID: "log", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "logs/run.log", MediaType: "text/plain", StartLine: 2, EndLine: 3, SourceSHA256: digestBytes([]byte(textSource))},
 	})
 	if textResult.Status != "resolved" || textResult.Content == nil || textResult.Content.Text == nil || *textResult.Content.Text != "retry\ncomplete" {
 		t.Fatalf("text result = %#v", textResult)
 	}
 
 	jsonResult := resolver.Resolve("request-1", contracts.EvidenceReference{
-		ID: "json", Kind: "json", JSON: &contracts.JSONEvidenceReference{Path: "results.json", Pointers: []string{"/runs/1/errors"}},
+		ID: "json", Kind: "json", JSON: &contracts.JSONEvidenceReference{Path: "results.json", Pointers: []string{"/runs/1/errors"}, SourceSHA256: digestBytes([]byte(jsonSource))},
 	})
 	if jsonResult.Status != "resolved" || jsonResult.Content == nil {
 		t.Fatalf("json result = %#v", jsonResult)
@@ -69,7 +71,7 @@ func TestResolverKeepsUnsafeAndChangedEvidenceVisible(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	linked := resolver.Resolve("request-1", contracts.EvidenceReference{
-		ID: "linked", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "linked.txt", MediaType: "text/plain", StartLine: 1, EndLine: 1},
+		ID: "linked", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "linked.txt", MediaType: "text/plain", StartLine: 1, EndLine: 1, SourceSHA256: strings.Repeat("0", 64)},
 	})
 	if linked.Status != "failed" || linked.Error == nil || linked.Error.Code != "unsafe_path" {
 		t.Fatalf("linked result = %#v", linked)
@@ -110,17 +112,82 @@ func TestResolverReturnsOnlyTheRequestedGitHunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	result := resolver.Resolve("request-1", contracts.EvidenceReference{
+	fullPatch := runGit(t, git, repository, "diff", "--no-ext-diff", "--no-color", "--unified=1", base, "--", "sample.txt")
+	selectedPatch, err := selectHunk(fullPatch, contracts.GitHunk{OldStart: 1, OldLines: 3, NewStart: 1, NewLines: 3})
+	if err != nil {
+		t.Fatalf("selectHunk() error = %v", err)
+	}
+	reference := contracts.EvidenceReference{
 		ID: "diff", Kind: "gitDiff", GitDiff: &contracts.GitDiffEvidenceReference{
 			RepositoryPath: "repository", BaseRevision: base, Path: "sample.txt", ContextLines: 1,
-			Hunk: contracts.GitHunk{OldStart: 1, OldLines: 3, NewStart: 1, NewLines: 3},
+			Hunk: contracts.GitHunk{OldStart: 1, OldLines: 3, NewStart: 1, NewLines: 3}, PatchSHA256: digestBytes([]byte(selectedPatch)),
 		},
-	})
+	}
+	result := resolver.Resolve("request-1", reference)
 	if result.Status != "resolved" || result.Content == nil || result.Content.UnifiedDiff == nil {
 		t.Fatalf("diff result = %#v", result)
 	}
 	if !strings.Contains(*result.Content.UnifiedDiff, "-two") || strings.Contains(*result.Content.UnifiedDiff, "-nine") {
 		t.Fatalf("selected patch = %s", *result.Content.UnifiedDiff)
+	}
+	writeTestFile(t, filepath.Join(repository, "sample.txt"), strings.ReplaceAll(changed, "TWO", "DEUX"))
+	changedResult := resolver.Resolve("request-1", reference)
+	if changedResult.Status != "failed" || changedResult.Error == nil || changedResult.Error.Code != "evidence_changed" {
+		t.Fatalf("changed diff result = %#v", changedResult)
+	}
+}
+
+func TestResolverRejectsChangedMutableEvidence(t *testing.T) {
+	root := t.TempDir()
+	textPath := filepath.Join(root, "note.txt")
+	jsonPath := filepath.Join(root, "result.json")
+	writeTestFile(t, textPath, "before\n")
+	writeTestFile(t, jsonPath, `{"value":"before"}`)
+	textDigest := digestBytes([]byte("before\n"))
+	jsonDigest := digestBytes([]byte(`{"value":"before"}`))
+	writeTestFile(t, textPath, "after\n")
+	writeTestFile(t, jsonPath, `{"value":"after"}`)
+	resolver, err := New(root)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	references := []contracts.EvidenceReference{
+		{ID: "text", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "note.txt", MediaType: "text/plain", StartLine: 1, EndLine: 1, SourceSHA256: textDigest}},
+		{ID: "json", Kind: "json", JSON: &contracts.JSONEvidenceReference{Path: "result.json", Pointers: []string{}, SourceSHA256: jsonDigest}},
+	}
+	for _, reference := range references {
+		result := resolver.Resolve("request-1", reference)
+		if result.Status != "failed" || result.Error == nil || result.Error.Code != "evidence_changed" {
+			t.Fatalf("%s result = %#v", reference.ID, result)
+		}
+	}
+}
+
+func TestResolverKeepsInvalidTextAsFailedEvidence(t *testing.T) {
+	for name, source := range map[string][]byte{
+		"invalid-utf8": {0xff, '\n'},
+		"nul":          {'o', 'k', 0, '\n'},
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, "source.txt")
+			if err := os.WriteFile(path, source, 0o644); err != nil {
+				t.Fatalf("WriteFile() error = %v", err)
+			}
+			resolver, err := New(root)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			result := resolver.Resolve("request-1", contracts.EvidenceReference{
+				ID: "source", Kind: "text", Text: &contracts.TextEvidenceReference{
+					Path: "source.txt", MediaType: "text/plain", StartLine: 1, EndLine: 1, SourceSHA256: digestBytes(source),
+				},
+			})
+			if result.Status != "failed" || result.Error == nil || result.Error.Code != "evidence_invalid" {
+				t.Fatalf("result = %#v", result)
+			}
+		})
 	}
 }
 

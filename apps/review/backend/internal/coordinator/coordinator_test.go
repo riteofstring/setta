@@ -114,9 +114,10 @@ func TestCoordinatorOpensOnlyAdmittedArtifactBytes(t *testing.T) {
 func completionFixture(id string) contracts.ReviewRequest {
 	model := "GPT-5"
 	harness := "Codex"
+	logDigest := sha256.Sum256([]byte("start\n42 tests passed\ncomplete\n"))
 	return contracts.ReviewRequest{
 		Version: 1, ID: id, Type: "completion", Title: "Verify checkout reliability", RequestedDecision: "Resolve the completion claim.",
-		Evidence:   []contracts.EvidenceReference{{ID: "test-log", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "logs/checkout.log", MediaType: "text/plain", StartLine: 2, EndLine: 2}}},
+		Evidence:   []contracts.EvidenceReference{{ID: "test-log", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "logs/checkout.log", MediaType: "text/plain", StartLine: 2, EndLine: 2, SourceSHA256: hex.EncodeToString(logDigest[:])}}},
 		Relations:  []contracts.EvidenceRelation{{ID: "tests-support", SubjectKind: "claim", SubjectID: "tests-pass", EvidenceID: "test-log", Role: "supports", Citations: []contracts.EvidenceCitation{{Kind: "lineRange", StartLine: intPointer(2), EndLine: intPointer(2)}}}},
 		Provenance: contracts.Provenance{Producer: contracts.ProducerIdentity{Kind: "agent", Name: "Implementation agent", Model: &model, Harness: &harness}, CreatedAt: "2026-09-19T11:00:00Z"},
 		Completion: &contracts.CompletionRequest{Claims: []contracts.CompletionClaim{{ID: "tests-pass", Text: "The checkout tests pass."}}},

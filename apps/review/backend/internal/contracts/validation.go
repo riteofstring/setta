@@ -92,35 +92,43 @@ func consumeUniqueJSONValue(decoder *json.Decoder, depth int) error {
 	}
 	switch delimiter {
 	case '{':
-		fields := map[string]struct{}{}
-		for decoder.More() {
-			nameToken, fieldErr := decoder.Token()
-			if fieldErr != nil {
-				return fieldErr
-			}
-			name, ok := nameToken.(string)
-			if !ok {
-				return errors.New("contracts: JSON object field name is invalid")
-			}
-			if _, exists := fields[name]; exists {
-				return fmt.Errorf("contracts: JSON object repeats field %q", name)
-			}
-			fields[name] = struct{}{}
-			if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		return consumeClosingDelimiter(decoder, '}')
+		return consumeUniqueJSONObject(decoder, depth)
 	case '[':
-		for decoder.More() {
-			if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		return consumeClosingDelimiter(decoder, ']')
+		return consumeUniqueJSONArray(decoder, depth)
 	default:
 		return errors.New("contracts: JSON compound value is invalid")
 	}
+}
+
+func consumeUniqueJSONObject(decoder *json.Decoder, depth int) error {
+	fields := map[string]struct{}{}
+	for decoder.More() {
+		nameToken, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := nameToken.(string)
+		if !ok {
+			return errors.New("contracts: JSON object field name is invalid")
+		}
+		if _, exists := fields[name]; exists {
+			return fmt.Errorf("contracts: JSON object repeats field %q", name)
+		}
+		fields[name] = struct{}{}
+		if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
+			return err
+		}
+	}
+	return consumeClosingDelimiter(decoder, '}')
+}
+
+func consumeUniqueJSONArray(decoder *json.Decoder, depth int) error {
+	for decoder.More() {
+		if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
+			return err
+		}
+	}
+	return consumeClosingDelimiter(decoder, ']')
 }
 
 func consumeClosingDelimiter(decoder *json.Decoder, expected byte) error {
@@ -161,6 +169,21 @@ func (manifest ProjectManifest) Validate() error {
 }
 
 func (request ReviewRequest) Validate() error {
+	if err := request.validateHeader(); err != nil {
+		return err
+	}
+	evidence, err := validateEvidence(request.Evidence)
+	if err != nil {
+		return err
+	}
+	subjects, err := request.validateBody(evidence)
+	if err != nil {
+		return err
+	}
+	return validateRelations(request.Relations, evidence, subjects)
+}
+
+func (request ReviewRequest) validateHeader() error {
 	if request.Version != ContractVersion {
 		return fmt.Errorf("contracts: unsupported review request version %d", request.Version)
 	}
@@ -176,29 +199,24 @@ func (request ReviewRequest) Validate() error {
 	if err := request.Provenance.Validate(); err != nil {
 		return fmt.Errorf("contracts: request provenance: %w", err)
 	}
-	evidence, err := validateEvidence(request.Evidence)
-	if err != nil {
-		return err
-	}
-	subjects := map[string]map[string]struct{}{}
+	return nil
+}
+
+func (request ReviewRequest) validateBody(evidence map[string]EvidenceReference) (map[string]map[string]struct{}, error) {
 	switch request.Type {
 	case "completion":
 		if request.Completion == nil || request.Choice != nil {
-			return errors.New("contracts: completion request body is invalid")
+			return nil, errors.New("contracts: completion request body is invalid")
 		}
-		subjects, err = request.Completion.validate()
+		return request.Completion.validate()
 	case "choice":
 		if request.Choice == nil || request.Completion != nil {
-			return errors.New("contracts: choice request body is invalid")
+			return nil, errors.New("contracts: choice request body is invalid")
 		}
-		subjects, err = request.Choice.validate(evidence)
+		return request.Choice.validate(evidence)
 	default:
-		return errors.New("contracts: request type is unsupported")
+		return nil, errors.New("contracts: request type is unsupported")
 	}
-	if err != nil {
-		return err
-	}
-	return validateRelations(request.Relations, evidence, subjects)
 }
 
 func (completion CompletionRequest) validate() (map[string]map[string]struct{}, error) {
@@ -222,23 +240,55 @@ func (completion CompletionRequest) validate() (map[string]map[string]struct{}, 
 }
 
 func (choice ChoiceRequest) validate(evidence map[string]EvidenceReference) (map[string]map[string]struct{}, error) {
-	if !slices.Contains([]string{"matrix", "artifacts"}, choice.Presentation) {
-		return nil, errors.New("contracts: choice presentation is unsupported")
+	if err := choice.validateShape(); err != nil {
+		return nil, err
 	}
-	if !slices.Contains([]string{"selection", "ranking", "approval"}, choice.ExpectedResponse) {
-		return nil, errors.New("contracts: choice expected response is unsupported")
+	options, err := validateChoiceOptions(choice.Options, evidence)
+	if err != nil {
+		return nil, err
+	}
+	factors, err := validateChoiceFactors(choice.Factors)
+	if err != nil {
+		return nil, err
+	}
+	if choice.Presentation == "matrix" && len(factors) == 0 {
+		return nil, errors.New("contracts: matrix choice requires factors")
+	}
+	tradeoffs, err := validateChoiceTradeoffs(choice.Tradeoffs, options, factors)
+	if err != nil {
+		return nil, err
+	}
+	if err := choice.validateCoverage(options, factors, tradeoffs); err != nil {
+		return nil, err
+	}
+	if err := choice.validateRecommendation(options); err != nil {
+		return nil, err
+	}
+	return map[string]map[string]struct{}{"option": options, "factor": factors}, nil
+}
+
+func (choice ChoiceRequest) validateShape() error {
+	if !slices.Contains([]string{"matrix", "artifacts"}, choice.Presentation) {
+		return errors.New("contracts: choice presentation is unsupported")
+	}
+	if !slices.Contains([]string{"selection", "approval"}, choice.ExpectedResponse) {
+		return errors.New("contracts: choice expected response is unsupported")
 	}
 	if len(choice.Options) < 2 || len(choice.Options) > maximumOptions {
-		return nil, errors.New("contracts: choice options are missing or exceed the limit")
+		return errors.New("contracts: choice options are missing or exceed the limit")
 	}
 	if choice.Factors == nil || len(choice.Factors) > maximumFactors {
-		return nil, errors.New("contracts: choice factors are missing or exceed the limit")
+		return errors.New("contracts: choice factors are missing or exceed the limit")
 	}
 	if choice.Tradeoffs == nil || len(choice.Tradeoffs) > maximumOptions*maximumFactors {
-		return nil, errors.New("contracts: choice tradeoffs are missing or exceed the limit")
+		return errors.New("contracts: choice tradeoffs are missing or exceed the limit")
 	}
+	return nil
+}
+
+func validateChoiceOptions(values []ChoiceOption, evidence map[string]EvidenceReference) (map[string]struct{}, error) {
 	options := map[string]struct{}{}
-	for _, option := range choice.Options {
+	for _, option := range values {
 		if !validID(option.ID) {
 			return nil, errors.New("contracts: choice option id is invalid")
 		}
@@ -259,8 +309,12 @@ func (choice ChoiceRequest) validate(evidence map[string]EvidenceReference) (map
 		}
 		options[option.ID] = struct{}{}
 	}
+	return options, nil
+}
+
+func validateChoiceFactors(values []ChoiceFactor) (map[string]struct{}, error) {
 	factors := map[string]struct{}{}
-	for _, factor := range choice.Factors {
+	for _, factor := range values {
 		if !validID(factor.ID) {
 			return nil, errors.New("contracts: choice factor id is invalid")
 		}
@@ -275,11 +329,12 @@ func (choice ChoiceRequest) validate(evidence map[string]EvidenceReference) (map
 		}
 		factors[factor.ID] = struct{}{}
 	}
-	if choice.Presentation == "matrix" && len(factors) == 0 {
-		return nil, errors.New("contracts: matrix choice requires factors")
-	}
+	return factors, nil
+}
+
+func validateChoiceTradeoffs(values []ChoiceTradeoff, options map[string]struct{}, factors map[string]struct{}) (map[string]struct{}, error) {
 	tradeoffs := map[string]struct{}{}
-	for _, tradeoff := range choice.Tradeoffs {
+	for _, tradeoff := range values {
 		if _, exists := options[tradeoff.OptionID]; !exists {
 			return nil, fmt.Errorf("contracts: tradeoff references missing option %q", tradeoff.OptionID)
 		}
@@ -298,25 +353,33 @@ func (choice ChoiceRequest) validate(evidence map[string]EvidenceReference) (map
 		}
 		tradeoffs[key] = struct{}{}
 	}
+	return tradeoffs, nil
+}
+
+func (choice ChoiceRequest) validateCoverage(options map[string]struct{}, factors map[string]struct{}, tradeoffs map[string]struct{}) error {
 	if choice.Presentation == "matrix" && len(tradeoffs) != len(options)*len(factors) {
-		return nil, errors.New("contracts: matrix choice must provide every option and factor tradeoff")
+		return errors.New("contracts: matrix choice must provide every option and factor tradeoff")
 	}
 	if choice.Presentation == "artifacts" {
 		for _, option := range choice.Options {
 			if option.ArtifactEvidenceID == nil {
-				return nil, fmt.Errorf("contracts: artifact choice option %q has no artifact", option.ID)
+				return fmt.Errorf("contracts: artifact choice option %q has no artifact", option.ID)
 			}
 		}
 	}
+	return nil
+}
+
+func (choice ChoiceRequest) validateRecommendation(options map[string]struct{}) error {
 	if choice.Recommendation != nil {
 		if _, exists := options[choice.Recommendation.OptionID]; !exists {
-			return nil, errors.New("contracts: recommendation references a missing option")
+			return errors.New("contracts: recommendation references a missing option")
 		}
 		if err := validateRequiredText(choice.Recommendation.Rationale); err != nil {
-			return nil, fmt.Errorf("contracts: recommendation rationale: %w", err)
+			return fmt.Errorf("contracts: recommendation rationale: %w", err)
 		}
 	}
-	return map[string]map[string]struct{}{"option": options, "factor": factors}, nil
+	return nil
 }
 
 func validateEvidence(references []EvidenceReference) (map[string]EvidenceReference, error) {
@@ -337,6 +400,13 @@ func validateEvidence(references []EvidenceReference) (map[string]EvidenceRefere
 }
 
 func (reference EvidenceReference) Validate() error {
+	if err := reference.validateShape(); err != nil {
+		return err
+	}
+	return reference.validateKind()
+}
+
+func (reference EvidenceReference) validateShape() error {
 	if !validID(reference.ID) {
 		return errors.New("id is invalid")
 	}
@@ -349,6 +419,10 @@ func (reference EvidenceReference) Validate() error {
 	if count != 1 {
 		return errors.New("body is invalid")
 	}
+	return nil
+}
+
+func (reference EvidenceReference) validateKind() error {
 	switch reference.Kind {
 	case "gitDiff":
 		if reference.GitDiff == nil {
@@ -391,6 +465,9 @@ func (reference GitDiffEvidenceReference) Validate() error {
 	if reference.ContextLines < 0 || reference.ContextLines > 20 {
 		return errors.New("context lines are outside the limit")
 	}
+	if !validSHA256(reference.PatchSHA256) {
+		return errors.New("patch SHA-256 is invalid")
+	}
 	return reference.Hunk.Validate()
 }
 
@@ -411,6 +488,9 @@ func (reference TextEvidenceReference) Validate() error {
 	if !mediaTypePattern.MatchString(reference.MediaType) || !strings.HasPrefix(reference.MediaType, "text/") {
 		return errors.New("media type must be text")
 	}
+	if !validSHA256(reference.SourceSHA256) {
+		return errors.New("source SHA-256 is invalid")
+	}
 	return validateLineRange(reference.StartLine, reference.EndLine)
 }
 
@@ -420,6 +500,9 @@ func (reference JSONEvidenceReference) Validate() error {
 	}
 	if reference.Pointers == nil || len(reference.Pointers) > 64 {
 		return errors.New("JSON pointers are missing or exceed the limit")
+	}
+	if !validSHA256(reference.SourceSHA256) {
+		return errors.New("source SHA-256 is invalid")
 	}
 	seen := map[string]struct{}{}
 	for _, pointer := range reference.Pointers {
@@ -462,27 +545,34 @@ func validateRelations(relations []EvidenceRelation, evidence map[string]Evidenc
 		if _, exists := seen[relation.ID]; exists {
 			return fmt.Errorf("contracts: relation %q is repeated", relation.ID)
 		}
-		validSubjects, kindExists := subjects[relation.SubjectKind]
-		_, subjectExists := validSubjects[relation.SubjectID]
-		if !kindExists || !subjectExists {
-			return fmt.Errorf("contracts: relation %q references a missing subject", relation.ID)
-		}
-		reference, exists := evidence[relation.EvidenceID]
-		if !exists {
-			return fmt.Errorf("contracts: relation %q references missing evidence", relation.ID)
-		}
-		if !slices.Contains([]string{"supports", "challenges", "qualifies", "informs"}, relation.Role) {
-			return fmt.Errorf("contracts: relation %q role is unsupported", relation.ID)
-		}
-		if len(relation.Citations) > 64 {
-			return fmt.Errorf("contracts: relation %q citations exceed the limit", relation.ID)
-		}
-		for _, citation := range relation.Citations {
-			if err := citation.validate(reference.Kind); err != nil {
-				return fmt.Errorf("contracts: relation %q citation: %w", relation.ID, err)
-			}
+		if err := validateRelation(relation, evidence, subjects); err != nil {
+			return err
 		}
 		seen[relation.ID] = struct{}{}
+	}
+	return nil
+}
+
+func validateRelation(relation EvidenceRelation, evidence map[string]EvidenceReference, subjects map[string]map[string]struct{}) error {
+	validSubjects, kindExists := subjects[relation.SubjectKind]
+	_, subjectExists := validSubjects[relation.SubjectID]
+	if !kindExists || !subjectExists {
+		return fmt.Errorf("contracts: relation %q references a missing subject", relation.ID)
+	}
+	reference, exists := evidence[relation.EvidenceID]
+	if !exists {
+		return fmt.Errorf("contracts: relation %q references missing evidence", relation.ID)
+	}
+	if !slices.Contains([]string{"supports", "challenges", "qualifies", "informs"}, relation.Role) {
+		return fmt.Errorf("contracts: relation %q role is unsupported", relation.ID)
+	}
+	if len(relation.Citations) > 64 {
+		return fmt.Errorf("contracts: relation %q citations exceed the limit", relation.ID)
+	}
+	for _, citation := range relation.Citations {
+		if err := citation.validate(reference.Kind); err != nil {
+			return fmt.Errorf("contracts: relation %q citation: %w", relation.ID, err)
+		}
 	}
 	return nil
 }
@@ -490,21 +580,29 @@ func validateRelations(relations []EvidenceRelation, evidence map[string]Evidenc
 func (citation EvidenceCitation) validate(evidenceKind string) error {
 	switch citation.Kind {
 	case "lineRange":
-		if evidenceKind != "gitDiff" && evidenceKind != "text" {
-			return errors.New("line citation requires Git diff or text evidence")
-		}
-		if citation.StartLine == nil || citation.EndLine == nil || citation.Pointer != nil {
-			return errors.New("line citation body is invalid")
-		}
-		return validateLineRange(*citation.StartLine, *citation.EndLine)
+		return citation.validateLineRange(evidenceKind)
 	case "jsonPointer":
-		if evidenceKind != "json" || citation.Pointer == nil || citation.StartLine != nil || citation.EndLine != nil || !validJSONPointer(*citation.Pointer) {
-			return errors.New("JSON pointer citation body is invalid")
-		}
-		return nil
+		return citation.validateJSONPointer(evidenceKind)
 	default:
 		return errors.New("kind is unsupported")
 	}
+}
+
+func (citation EvidenceCitation) validateLineRange(evidenceKind string) error {
+	if evidenceKind != "gitDiff" && evidenceKind != "text" {
+		return errors.New("line citation requires Git diff or text evidence")
+	}
+	if citation.StartLine == nil || citation.EndLine == nil || citation.Pointer != nil {
+		return errors.New("line citation body is invalid")
+	}
+	return validateLineRange(*citation.StartLine, *citation.EndLine)
+}
+
+func (citation EvidenceCitation) validateJSONPointer(evidenceKind string) error {
+	if evidenceKind != "json" || citation.Pointer == nil || citation.StartLine != nil || citation.EndLine != nil || !validJSONPointer(*citation.Pointer) {
+		return errors.New("JSON pointer citation body is invalid")
+	}
+	return nil
 }
 
 func (provenance Provenance) Validate() error {
@@ -524,16 +622,26 @@ func (producer ProducerIdentity) Validate() error {
 	if err := validateRequiredText(producer.Name); err != nil {
 		return fmt.Errorf("producer name: %w", err)
 	}
-	if producer.Model != nil {
-		if err := validateRequiredText(*producer.Model); err != nil {
-			return fmt.Errorf("producer model: %w", err)
-		}
+	if err := validateOptionalProducerField(producer.Model, "model"); err != nil {
+		return err
 	}
-	if producer.Harness != nil {
-		if err := validateRequiredText(*producer.Harness); err != nil {
-			return fmt.Errorf("producer harness: %w", err)
-		}
+	if err := validateOptionalProducerField(producer.Harness, "harness"); err != nil {
+		return err
 	}
+	return validateProducerAgentFields(producer)
+}
+
+func validateOptionalProducerField(value *string, label string) error {
+	if value == nil {
+		return nil
+	}
+	if err := validateRequiredText(*value); err != nil {
+		return fmt.Errorf("producer %s: %w", label, err)
+	}
+	return nil
+}
+
+func validateProducerAgentFields(producer ProducerIdentity) error {
 	if producer.Kind == "agent" && (producer.Model == nil || producer.Harness == nil) {
 		return errors.New("agent producer requires model and harness")
 	}
@@ -544,6 +652,13 @@ func (producer ProducerIdentity) Validate() error {
 }
 
 func (assessment ExternalAssessment) Validate() error {
+	if err := assessment.validateCore(); err != nil {
+		return err
+	}
+	return assessment.validateCaveat()
+}
+
+func (assessment ExternalAssessment) validateCore() error {
 	if assessment.Version != ContractVersion || !validID(assessment.ID) || !validID(assessment.RequestID) || !validID(assessment.ClaimID) {
 		return errors.New("contracts: external assessment identity is invalid")
 	}
@@ -562,6 +677,10 @@ func (assessment ExternalAssessment) Validate() error {
 	if _, err := time.Parse(time.RFC3339Nano, assessment.CreatedAt); err != nil {
 		return errors.New("contracts: external assessment created time is invalid")
 	}
+	return nil
+}
+
+func (assessment ExternalAssessment) validateCaveat() error {
 	if assessment.Caveat != nil {
 		if err := validateRequiredText(*assessment.Caveat); err != nil {
 			return fmt.Errorf("contracts: external assessment caveat: %w", err)
@@ -577,6 +696,19 @@ func (assessment ExternalAssessment) Validate() error {
 }
 
 func (response ReviewResponse) Validate() error {
+	if err := response.validateHeader(); err != nil {
+		return err
+	}
+	if err := validateUnresolvedItems(response.Unresolved); err != nil {
+		return err
+	}
+	if err := validateAnnotations(response.Annotations); err != nil {
+		return err
+	}
+	return response.validateBody()
+}
+
+func (response ReviewResponse) validateHeader() error {
 	if response.Version != ContractVersion || !validID(response.ID) || !validID(response.RequestID) || !validSHA256(response.RequestSHA256) {
 		return errors.New("contracts: response identity is invalid")
 	}
@@ -589,10 +721,14 @@ func (response ReviewResponse) Validate() error {
 	if err := response.Provenance.Validate(); err != nil {
 		return fmt.Errorf("contracts: response provenance: %w", err)
 	}
-	if len(response.Unresolved) > maximumClaims+maximumOptions+maximumFactors {
+	return nil
+}
+
+func validateUnresolvedItems(items []UnresolvedItem) error {
+	if len(items) > maximumClaims+maximumOptions+maximumFactors {
 		return errors.New("contracts: unresolved items exceed the limit")
 	}
-	for _, item := range response.Unresolved {
+	for _, item := range items {
 		if !slices.Contains([]string{"request", "claim", "option", "factor"}, item.SubjectKind) || !validID(item.SubjectID) {
 			return errors.New("contracts: unresolved item subject is invalid")
 		}
@@ -600,9 +736,10 @@ func (response ReviewResponse) Validate() error {
 			return fmt.Errorf("contracts: unresolved item: %w", err)
 		}
 	}
-	if err := validateAnnotations(response.Annotations); err != nil {
-		return err
-	}
+	return nil
+}
+
+func (response ReviewResponse) validateBody() error {
 	switch response.Type {
 	case "completion":
 		if response.Completion == nil || response.Choice != nil {
@@ -625,33 +762,54 @@ func (response CompletionResponse) Validate() error {
 	}
 	seen := map[string]struct{}{}
 	for _, decision := range response.Decisions {
-		if !validID(decision.ClaimID) || !slices.Contains([]string{"accepted", "qualified", "rejected", "needsEvidence"}, decision.Decision) {
-			return errors.New("contracts: completion decision is invalid")
+		if err := validateCompletionDecisionIdentity(decision); err != nil {
+			return err
 		}
 		if _, exists := seen[decision.ClaimID]; exists {
 			return fmt.Errorf("contracts: completion decision for claim %q is repeated", decision.ClaimID)
 		}
-		if err := validateText(decision.Rationale); err != nil {
-			return fmt.Errorf("contracts: completion decision rationale: %w", err)
-		}
-		if decision.Qualification != nil {
-			if err := validateRequiredText(*decision.Qualification); err != nil {
-				return fmt.Errorf("contracts: completion qualification: %w", err)
-			}
-		}
-		if decision.Decision == "qualified" && decision.Qualification == nil {
-			return errors.New("contracts: qualified completion decision requires a qualification")
-		}
-		if decision.Decision != "qualified" && decision.Qualification != nil {
-			return errors.New("contracts: only a qualified completion decision can include a qualification")
+		if err := validateCompletionDecisionBody(decision); err != nil {
+			return err
 		}
 		seen[decision.ClaimID] = struct{}{}
 	}
 	return nil
 }
 
+func validateCompletionDecisionIdentity(decision CompletionDecision) error {
+	if !validID(decision.ClaimID) || !slices.Contains([]string{"accepted", "qualified", "rejected", "needsEvidence"}, decision.Decision) {
+		return errors.New("contracts: completion decision is invalid")
+	}
+	return nil
+}
+
+func validateCompletionDecisionBody(decision CompletionDecision) error {
+	if err := validateText(decision.Rationale); err != nil {
+		return fmt.Errorf("contracts: completion decision rationale: %w", err)
+	}
+	if decision.Qualification != nil {
+		if err := validateRequiredText(*decision.Qualification); err != nil {
+			return fmt.Errorf("contracts: completion qualification: %w", err)
+		}
+	}
+	if decision.Decision == "qualified" && decision.Qualification == nil {
+		return errors.New("contracts: qualified completion decision requires a qualification")
+	}
+	if decision.Decision != "qualified" && decision.Qualification != nil {
+		return errors.New("contracts: only a qualified completion decision can include a qualification")
+	}
+	return nil
+}
+
 func (response ChoiceResponse) Validate() error {
-	if !slices.Contains([]string{"selected", "ranked", "rejected", "qualified", "changesRequested"}, response.Outcome) {
+	if err := response.validateCollections(); err != nil {
+		return err
+	}
+	return response.validateOutcome()
+}
+
+func (response ChoiceResponse) validateCollections() error {
+	if !slices.Contains([]string{"selected", "rejected", "qualified", "changesRequested"}, response.Outcome) {
 		return errors.New("contracts: choice outcome is unsupported")
 	}
 	if response.OptionIDs == nil || response.Conditions == nil || response.SelectedArtifactEvidenceIDs == nil {
@@ -671,14 +829,14 @@ func (response ChoiceResponse) Validate() error {
 			return fmt.Errorf("contracts: choice response condition: %w", err)
 		}
 	}
+	return nil
+}
+
+func (response ChoiceResponse) validateOutcome() error {
 	switch response.Outcome {
 	case "selected":
 		if len(response.OptionIDs) == 0 {
 			return errors.New("contracts: selected choice has no option")
-		}
-	case "ranked":
-		if len(response.OptionIDs) < 2 {
-			return errors.New("contracts: ranked choice requires at least two options")
 		}
 	case "qualified":
 		if len(response.OptionIDs) == 0 || len(response.Conditions) == 0 {
@@ -698,21 +856,35 @@ func validateAnnotations(annotations []ArtifactAnnotation) error {
 	}
 	seen := map[string]struct{}{}
 	for _, annotation := range annotations {
-		if !validID(annotation.ID) || !validID(annotation.ArtifactEvidenceID) || !validSHA256(annotation.ArtifactSHA256) {
-			return errors.New("contracts: annotation identity is invalid")
+		if err := validateAnnotationIdentity(annotation); err != nil {
+			return err
 		}
 		if _, exists := seen[annotation.ID]; exists {
 			return fmt.Errorf("contracts: annotation %q is repeated", annotation.ID)
 		}
-		if len(annotation.Paths) == 0 || len(annotation.Paths) > maximumPaths {
-			return fmt.Errorf("contracts: annotation %q paths are missing or exceed the limit", annotation.ID)
-		}
-		for _, normalizedPath := range annotation.Paths {
-			if err := normalizedPath.Validate(); err != nil {
-				return fmt.Errorf("contracts: annotation %q: %w", annotation.ID, err)
-			}
+		if err := validateAnnotationPaths(annotation); err != nil {
+			return err
 		}
 		seen[annotation.ID] = struct{}{}
+	}
+	return nil
+}
+
+func validateAnnotationIdentity(annotation ArtifactAnnotation) error {
+	if !validID(annotation.ID) || !validID(annotation.ArtifactEvidenceID) || !validSHA256(annotation.ArtifactSHA256) {
+		return errors.New("contracts: annotation identity is invalid")
+	}
+	return nil
+}
+
+func validateAnnotationPaths(annotation ArtifactAnnotation) error {
+	if len(annotation.Paths) == 0 || len(annotation.Paths) > maximumPaths {
+		return fmt.Errorf("contracts: annotation %q paths are missing or exceed the limit", annotation.ID)
+	}
+	for _, normalizedPath := range annotation.Paths {
+		if err := normalizedPath.Validate(); err != nil {
+			return fmt.Errorf("contracts: annotation %q: %w", annotation.ID, err)
+		}
 	}
 	return nil
 }
@@ -725,11 +897,15 @@ func (normalizedPath NormalizedPath) Validate() error {
 		return errors.New("normalized path points are missing or exceed the limit")
 	}
 	for _, point := range normalizedPath.Points {
-		if !finite(point.X) || !finite(point.Y) || point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > 1 {
+		if !validNormalizedPoint(point) {
 			return errors.New("normalized path point is outside the artifact")
 		}
 	}
 	return nil
+}
+
+func validNormalizedPoint(point NormalizedPoint) bool {
+	return finite(point.X) && finite(point.Y) && point.X >= 0 && point.X <= 1 && point.Y >= 0 && point.Y <= 1
 }
 
 func (mutation ReviewMutation) Validate() error {
@@ -815,6 +991,21 @@ func (snapshot ReviewSnapshot) Validate() error {
 }
 
 func (snapshot RequestSnapshot) Validate() error {
+	if err := snapshot.validateHeader(); err != nil {
+		return err
+	}
+	if err := validateSnapshotAssessments(snapshot.Assessments, snapshot.Request); err != nil {
+		return err
+	}
+	if snapshot.Response != nil {
+		if err := validateResponseForRequest(*snapshot.Response, snapshot.Request, snapshot.SHA256); err != nil {
+			return err
+		}
+	}
+	return validateSnapshotEvidence(snapshot.Evidence, snapshot.Request.Evidence)
+}
+
+func (snapshot RequestSnapshot) validateHeader() error {
 	if err := validateRelativePath(snapshot.Path, false); err != nil {
 		return fmt.Errorf("request path: %w", err)
 	}
@@ -827,18 +1018,22 @@ func (snapshot RequestSnapshot) Validate() error {
 	if snapshot.Assessments == nil || len(snapshot.Assessments) > maximumAssessments {
 		return errors.New("assessments are missing or exceed the limit")
 	}
+	return nil
+}
+
+func validateSnapshotAssessments(assessments []ExternalAssessment, request ReviewRequest) error {
 	claimIDs := map[string]struct{}{}
-	if snapshot.Request.Completion != nil {
-		for _, claim := range snapshot.Request.Completion.Claims {
+	if request.Completion != nil {
+		for _, claim := range request.Completion.Claims {
 			claimIDs[claim.ID] = struct{}{}
 		}
 	}
 	assessmentIDs := map[string]struct{}{}
-	for _, assessment := range snapshot.Assessments {
+	for _, assessment := range assessments {
 		if err := assessment.Validate(); err != nil {
 			return err
 		}
-		if assessment.RequestID != snapshot.Request.ID {
+		if assessment.RequestID != request.ID {
 			return errors.New("assessment request identity does not match")
 		}
 		if _, exists := claimIDs[assessment.ClaimID]; !exists {
@@ -849,30 +1044,26 @@ func (snapshot RequestSnapshot) Validate() error {
 		}
 		assessmentIDs[assessment.ID] = struct{}{}
 	}
-	if snapshot.Response != nil {
-		if err := validateResponseForRequest(*snapshot.Response, snapshot.Request, snapshot.SHA256); err != nil {
-			return err
-		}
-	}
-	if len(snapshot.Evidence) != len(snapshot.Request.Evidence) {
+	return nil
+}
+
+func validateSnapshotEvidence(evidenceValues []ResolvedEvidence, references []EvidenceReference) error {
+	if len(evidenceValues) != len(references) {
 		return errors.New("resolved evidence does not cover every request reference")
 	}
+	admitted := make(map[string]struct{}, len(references))
+	for _, reference := range references {
+		admitted[reference.ID] = struct{}{}
+	}
 	resolved := map[string]struct{}{}
-	for _, evidence := range snapshot.Evidence {
+	for _, evidence := range evidenceValues {
 		if err := evidence.Validate(); err != nil {
 			return err
 		}
 		if _, exists := resolved[evidence.EvidenceID]; exists {
 			return fmt.Errorf("resolved evidence %q is repeated", evidence.EvidenceID)
 		}
-		found := false
-		for _, reference := range snapshot.Request.Evidence {
-			if reference.ID == evidence.EvidenceID {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if _, exists := admitted[evidence.EvidenceID]; !exists {
 			return fmt.Errorf("resolved evidence %q is not in the request", evidence.EvidenceID)
 		}
 		resolved[evidence.EvidenceID] = struct{}{}
@@ -887,89 +1078,148 @@ func validateResponseForRequest(response ReviewResponse, request ReviewRequest, 
 	if response.RequestID != request.ID || response.RequestSHA256 != requestSHA256 || response.Type != request.Type {
 		return errors.New("contracts: response does not match its immutable request")
 	}
-	evidence := map[string]EvidenceReference{}
-	for _, reference := range request.Evidence {
-		evidence[reference.ID] = reference
-	}
-	claims := map[string]struct{}{}
-	options := map[string]ChoiceOption{}
-	factors := map[string]struct{}{}
+	index := indexReviewRequest(request)
 	if response.Completion != nil {
-		for _, claim := range request.Completion.Claims {
-			claims[claim.ID] = struct{}{}
-		}
-		for _, decision := range response.Completion.Decisions {
-			if _, exists := claims[decision.ClaimID]; !exists {
-				return fmt.Errorf("contracts: response references missing claim %q", decision.ClaimID)
-			}
+		if err := validateCompletionResponseForRequest(*response.Completion, index.claims); err != nil {
+			return err
 		}
 	}
 	if response.Choice != nil {
+		if err := validateChoiceResponseForRequest(*response.Choice, index); err != nil {
+			return err
+		}
+	}
+	if err := validateUnresolvedForRequest(response.Unresolved, request.ID, index); err != nil {
+		return err
+	}
+	return validateResponseAnnotations(response.Annotations, index.evidence)
+}
+
+type reviewRequestIndex struct {
+	evidence map[string]EvidenceReference
+	claims   map[string]struct{}
+	options  map[string]ChoiceOption
+	factors  map[string]struct{}
+}
+
+func indexReviewRequest(request ReviewRequest) reviewRequestIndex {
+	index := reviewRequestIndex{
+		evidence: make(map[string]EvidenceReference, len(request.Evidence)),
+		claims:   map[string]struct{}{},
+		options:  map[string]ChoiceOption{},
+		factors:  map[string]struct{}{},
+	}
+	for _, reference := range request.Evidence {
+		index.evidence[reference.ID] = reference
+	}
+	if request.Completion != nil {
+		for _, claim := range request.Completion.Claims {
+			index.claims[claim.ID] = struct{}{}
+		}
+	}
+	if request.Choice != nil {
 		for _, option := range request.Choice.Options {
-			options[option.ID] = option
+			index.options[option.ID] = option
 		}
 		for _, factor := range request.Choice.Factors {
-			factors[factor.ID] = struct{}{}
+			index.factors[factor.ID] = struct{}{}
 		}
-		for _, optionID := range response.Choice.OptionIDs {
-			if _, exists := options[optionID]; !exists {
-				return fmt.Errorf("contracts: response references missing option %q", optionID)
-			}
+	}
+	return index
+}
+
+func validateCompletionResponseForRequest(response CompletionResponse, claims map[string]struct{}) error {
+	for _, decision := range response.Decisions {
+		if _, exists := claims[decision.ClaimID]; !exists {
+			return fmt.Errorf("contracts: response references missing claim %q", decision.ClaimID)
 		}
-		if request.Choice.ExpectedResponse == "ranking" && response.Choice.Outcome == "selected" {
-			return errors.New("contracts: ranking request cannot use a selected outcome")
+	}
+	return nil
+}
+
+func validateChoiceResponseForRequest(response ChoiceResponse, index reviewRequestIndex) error {
+	for _, optionID := range response.OptionIDs {
+		if _, exists := index.options[optionID]; !exists {
+			return fmt.Errorf("contracts: response references missing option %q", optionID)
 		}
-		if request.Choice.ExpectedResponse != "ranking" && response.Choice.Outcome == "ranked" {
-			return errors.New("contracts: non-ranking request cannot use a ranked outcome")
+	}
+	if err := validateSelectedArtifacts(response, index); err != nil {
+		return err
+	}
+	return validateSelectedOptionArtifacts(response, index.options)
+}
+
+func validateSelectedArtifacts(response ChoiceResponse, index reviewRequestIndex) error {
+	for _, evidenceID := range response.SelectedArtifactEvidenceIDs {
+		reference, exists := index.evidence[evidenceID]
+		if !exists || reference.Kind != "artifact" {
+			return fmt.Errorf("contracts: response references missing artifact %q", evidenceID)
 		}
-		for _, evidenceID := range response.Choice.SelectedArtifactEvidenceIDs {
-			reference, exists := evidence[evidenceID]
-			if !exists || reference.Kind != "artifact" {
-				return fmt.Errorf("contracts: response references missing artifact %q", evidenceID)
-			}
-			selected := false
-			for _, optionID := range response.Choice.OptionIDs {
-				if options[optionID].ArtifactEvidenceID != nil && *options[optionID].ArtifactEvidenceID == evidenceID {
-					selected = true
-					break
-				}
-			}
-			if !selected {
-				return fmt.Errorf("contracts: artifact %q does not belong to a selected option", evidenceID)
-			}
+		if !artifactBelongsToSelectedOption(evidenceID, response.OptionIDs, index.options) {
+			return fmt.Errorf("contracts: artifact %q does not belong to a selected option", evidenceID)
 		}
-		selectedArtifacts := map[string]struct{}{}
-		for _, evidenceID := range response.Choice.SelectedArtifactEvidenceIDs {
-			selectedArtifacts[evidenceID] = struct{}{}
+	}
+	return nil
+}
+
+func artifactBelongsToSelectedOption(evidenceID string, optionIDs []string, options map[string]ChoiceOption) bool {
+	for _, optionID := range optionIDs {
+		artifactID := options[optionID].ArtifactEvidenceID
+		if artifactID != nil && *artifactID == evidenceID {
+			return true
 		}
-		if response.Choice.Outcome == "selected" || response.Choice.Outcome == "ranked" || response.Choice.Outcome == "qualified" {
-			for _, optionID := range response.Choice.OptionIDs {
-				artifactID := options[optionID].ArtifactEvidenceID
-				if artifactID != nil {
-					if _, exists := selectedArtifacts[*artifactID]; !exists {
-						return fmt.Errorf("contracts: selected option %q is missing artifact %q", optionID, *artifactID)
-					}
-				}
+	}
+	return false
+}
+
+func validateSelectedOptionArtifacts(response ChoiceResponse, options map[string]ChoiceOption) error {
+	if !slices.Contains([]string{"selected", "qualified"}, response.Outcome) {
+		return nil
+	}
+	selected := make(map[string]struct{}, len(response.SelectedArtifactEvidenceIDs))
+	for _, evidenceID := range response.SelectedArtifactEvidenceIDs {
+		selected[evidenceID] = struct{}{}
+	}
+	for _, optionID := range response.OptionIDs {
+		artifactID := options[optionID].ArtifactEvidenceID
+		if artifactID != nil {
+			if _, exists := selected[*artifactID]; !exists {
+				return fmt.Errorf("contracts: selected option %q is missing artifact %q", optionID, *artifactID)
 			}
 		}
 	}
-	for _, unresolved := range response.Unresolved {
-		exists := false
-		switch unresolved.SubjectKind {
-		case "request":
-			exists = unresolved.SubjectID == request.ID
-		case "claim":
-			_, exists = claims[unresolved.SubjectID]
-		case "option":
-			_, exists = options[unresolved.SubjectID]
-		case "factor":
-			_, exists = factors[unresolved.SubjectID]
-		}
-		if !exists {
+	return nil
+}
+
+func validateUnresolvedForRequest(unresolvedItems []UnresolvedItem, requestID string, index reviewRequestIndex) error {
+	for _, unresolved := range unresolvedItems {
+		if !unresolvedSubjectExists(unresolved, requestID, index) {
 			return fmt.Errorf("contracts: unresolved item references missing %s %q", unresolved.SubjectKind, unresolved.SubjectID)
 		}
 	}
-	for _, annotation := range response.Annotations {
+	return nil
+}
+
+func unresolvedSubjectExists(unresolved UnresolvedItem, requestID string, index reviewRequestIndex) bool {
+	switch unresolved.SubjectKind {
+	case "request":
+		return unresolved.SubjectID == requestID
+	case "claim":
+		_, exists := index.claims[unresolved.SubjectID]
+		return exists
+	case "option":
+		_, exists := index.options[unresolved.SubjectID]
+		return exists
+	case "factor":
+		_, exists := index.factors[unresolved.SubjectID]
+		return exists
+	default:
+		return false
+	}
+}
+
+func validateResponseAnnotations(annotations []ArtifactAnnotation, evidence map[string]EvidenceReference) error {
+	for _, annotation := range annotations {
 		reference, exists := evidence[annotation.ArtifactEvidenceID]
 		if !exists || reference.Artifact == nil || reference.Artifact.SHA256 != annotation.ArtifactSHA256 {
 			return fmt.Errorf("contracts: annotation %q does not match an admitted artifact", annotation.ID)
@@ -1001,40 +1251,63 @@ func (evidence ResolvedEvidence) Validate() error {
 func (content ResolvedEvidenceContent) Validate() error {
 	switch content.Kind {
 	case "gitDiff":
-		if content.UnifiedDiff == nil || content.Truncated == nil || content.Text != nil || content.StartLine != nil || content.EndLine != nil || content.JSON != nil || content.Route != nil || content.MediaType != nil || content.ByteLength != nil || content.SHA256 != nil {
-			return errors.New("contracts: resolved Git diff content is invalid")
-		}
-		if err := validateResolvedText(*content.UnifiedDiff); err != nil {
-			return err
-		}
+		return validateResolvedGitDiffContent(content)
 	case "text":
-		if content.Text == nil || content.StartLine == nil || content.EndLine == nil || content.Truncated == nil || content.UnifiedDiff != nil || content.JSON != nil || content.Route != nil || content.MediaType != nil || content.ByteLength != nil || content.SHA256 != nil {
-			return errors.New("contracts: resolved text content is invalid")
-		}
-		if err := validateResolvedText(*content.Text); err != nil {
-			return err
-		}
-		if err := validateLineRange(*content.StartLine, *content.EndLine); err != nil {
-			return err
-		}
+		return validateResolvedTextContent(content)
 	case "json":
-		if content.JSON == nil || content.UnifiedDiff != nil || content.Text != nil || content.StartLine != nil || content.EndLine != nil || content.Route != nil || content.MediaType != nil || content.ByteLength != nil || content.SHA256 != nil || content.Truncated != nil {
-			return errors.New("contracts: resolved JSON content is invalid")
-		}
-		if err := validateRawJSON(content.JSON); err != nil {
-			return err
-		}
+		return validateResolvedJSONContent(content)
 	case "artifact":
-		if content.Route == nil || content.MediaType == nil || content.ByteLength == nil || content.SHA256 == nil || content.UnifiedDiff != nil || content.Text != nil || content.StartLine != nil || content.EndLine != nil || content.JSON != nil || content.Truncated != nil {
-			return errors.New("contracts: resolved artifact content is invalid")
-		}
-		if !strings.HasPrefix(*content.Route, "/") || strings.ContainsRune(*content.Route, '\x00') || len(*content.Route) > maximumPathBytes || !mediaTypePattern.MatchString(*content.MediaType) || *content.ByteLength < 0 || !validSHA256(*content.SHA256) {
-			return errors.New("contracts: resolved artifact metadata is invalid")
-		}
+		return validateResolvedArtifactContent(content)
 	default:
 		return errors.New("contracts: resolved evidence content kind is unsupported")
 	}
+}
+
+func validateResolvedGitDiffContent(content ResolvedEvidenceContent) error {
+	if content.UnifiedDiff == nil || content.Truncated == nil || anyFieldPresent(content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
+		return errors.New("contracts: resolved Git diff content is invalid")
+	}
+	return validateResolvedText(*content.UnifiedDiff)
+}
+
+func validateResolvedTextContent(content ResolvedEvidenceContent) error {
+	if content.Text == nil || content.StartLine == nil || content.EndLine == nil || content.Truncated == nil || anyFieldPresent(content.UnifiedDiff != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
+		return errors.New("contracts: resolved text content is invalid")
+	}
+	if err := validateResolvedText(*content.Text); err != nil {
+		return err
+	}
+	return validateLineRange(*content.StartLine, *content.EndLine)
+}
+
+func validateResolvedJSONContent(content ResolvedEvidenceContent) error {
+	if content.JSON == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil, content.Truncated != nil) {
+		return errors.New("contracts: resolved JSON content is invalid")
+	}
+	return validateRawJSON(content.JSON)
+}
+
+func validateResolvedArtifactContent(content ResolvedEvidenceContent) error {
+	if content.Route == nil || content.MediaType == nil || content.ByteLength == nil || content.SHA256 == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Truncated != nil) {
+		return errors.New("contracts: resolved artifact content is invalid")
+	}
+	return validateResolvedArtifactMetadata(*content.Route, *content.MediaType, *content.ByteLength, *content.SHA256)
+}
+
+func validateResolvedArtifactMetadata(route string, mediaType string, byteLength int64, sha256 string) error {
+	if !strings.HasPrefix(route, "/") || strings.ContainsRune(route, '\x00') || len(route) > maximumPathBytes || !mediaTypePattern.MatchString(mediaType) || byteLength < 0 || !validSHA256(sha256) {
+		return errors.New("contracts: resolved artifact metadata is invalid")
+	}
 	return nil
+}
+
+func anyFieldPresent(fields ...bool) bool {
+	for _, present := range fields {
+		if present {
+			return true
+		}
+	}
+	return false
 }
 
 func (packet ContinuationPacket) Validate() error {
@@ -1063,19 +1336,30 @@ func (packet ContinuationPacket) Validate() error {
 }
 
 func (document ExportDocument) Validate() error {
-	if document.Version != ContractVersion || !validID(document.ProjectID) {
-		return errors.New("contracts: export identity is invalid")
-	}
-	if document.Responses == nil || len(document.Responses) > maximumRequests || document.Continuations == nil || len(document.Continuations) > maximumRequests {
-		return errors.New("contracts: export collections are missing or exceed the limit")
+	if err := validateExportHeader(document); err != nil {
+		return err
 	}
 	for _, response := range document.Responses {
 		if err := response.Validate(); err != nil {
 			return err
 		}
 	}
-	for _, continuation := range document.Continuations {
-		if continuation.ProjectID != document.ProjectID {
+	return validateExportContinuations(document.ProjectID, document.Continuations)
+}
+
+func validateExportHeader(document ExportDocument) error {
+	if document.Version != ContractVersion || !validID(document.ProjectID) {
+		return errors.New("contracts: export identity is invalid")
+	}
+	if document.Responses == nil || len(document.Responses) > maximumRequests || document.Continuations == nil || len(document.Continuations) > maximumRequests {
+		return errors.New("contracts: export collections are missing or exceed the limit")
+	}
+	return nil
+}
+
+func validateExportContinuations(projectID string, continuations []ContinuationPacket) error {
+	for _, continuation := range continuations {
+		if continuation.ProjectID != projectID {
 			return errors.New("contracts: continuation project identity does not match export")
 		}
 		if err := continuation.Validate(); err != nil {
@@ -1163,10 +1447,18 @@ func validateRelativePath(value string, allowDot bool) error {
 	if value == "." && allowDot {
 		return nil
 	}
-	if value == "" || len(value) > maximumPathBytes || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') || strings.Contains(value, "\\") || strings.HasPrefix(value, "/") || path.Clean(value) != value || value == "." || value == ".." || strings.HasPrefix(value, "../") {
+	if invalidRelativePathText(value) || invalidRelativePathShape(value) {
 		return errors.New("must be a normalized relative path")
 	}
 	return nil
+}
+
+func invalidRelativePathText(value string) bool {
+	return value == "" || len(value) > maximumPathBytes || !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') || strings.Contains(value, "\\")
+}
+
+func invalidRelativePathShape(value string) bool {
+	return strings.HasPrefix(value, "/") || path.Clean(value) != value || value == "." || value == ".." || strings.HasPrefix(value, "../")
 }
 
 func validateRequiredText(value string) error {

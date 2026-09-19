@@ -1,3 +1,5 @@
+import { eventBus } from "./event_bus";
+
 export type CheckoutEvent = {
   schemaVersion: 3;
   emittedAt: string;

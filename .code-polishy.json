@@ -211,8 +211,11 @@
       "apps/realtime/src/main.tsx",
       "apps/realtime/vitest.setup.ts",
       "apps/review/backend/cmd/review/main.go",
+      "apps/review/examples/review-playground/fixture/repository-base/event_v3.ts",
+      "apps/review/examples/review-playground/fixture/repository-current/event_v3.ts",
       "apps/review/src/main.tsx",
       "apps/review/vitest.setup.ts",
+      "docs/setta-experiment-lens-mockup.js",
       "docs/setta-product-mockups.js",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
@@ -240,6 +243,7 @@
       "apps/review/vitest.config.ts",
       "apps/review/vitest.setup.ts",
       "apps/review/scripts/**",
+      "docs/setta-experiment-lens-mockup.js",
       "docs/setta-product-mockups.js",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
@@ -259,6 +263,7 @@
         "packages/workspace/**",
         "scripts/**",
         "fixtures/**",
+        "docs/setta-experiment-lens-mockup.js",
         "docs/setta-product-mockups.js"
       ]
     },
@@ -458,7 +463,6 @@
       "apps/realtime/src/**/*.test.ts",
       "apps/realtime/src/**/*.test.tsx",
       "apps/review/backend/**/*_test.go",
-      "apps/review/*.test.mjs",
       "apps/review/src/**/*.test.ts",
       "apps/review/src/**/*.test.tsx",
       "packages/setta-runtime/tests/**",
@@ -521,7 +525,6 @@
       },
       {
         "paths": [
-          "apps/review/*.test.mjs",
           "apps/review/src/**/*.test.ts",
           "apps/review/src/**/*.test.tsx"
         ],
@@ -653,7 +656,6 @@
         "cost": "quick",
         "modules": ["review-frontend"],
         "paths": [
-          "apps/review/*.test.mjs",
           "apps/review/src/**/*.test.ts",
           "apps/review/src/**/*.test.tsx"
         ],

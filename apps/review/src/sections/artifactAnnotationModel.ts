@@ -28,6 +28,58 @@ function samePoint(
   return first.x === second.x && first.y === second.y;
 }
 
+function positiveFinite(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+function validBounds(bounds: AnnotationBounds): boolean {
+  return (
+    Number.isFinite(bounds.left) &&
+    Number.isFinite(bounds.top) &&
+    positiveFinite(bounds.width) &&
+    positiveFinite(bounds.height)
+  );
+}
+
+function pointWithinBounds(
+  clientX: number,
+  clientY: number,
+  bounds: AnnotationBounds,
+): boolean {
+  return (
+    clientX >= bounds.left &&
+    clientX <= bounds.left + bounds.width &&
+    clientY >= bounds.top &&
+    clientY <= bounds.top + bounds.height
+  );
+}
+
+export function containedImageBounds(
+  bounds: AnnotationBounds,
+  naturalWidth: number,
+  naturalHeight: number,
+): AnnotationBounds | null {
+  if (
+    !validBounds(bounds) ||
+    !positiveFinite(naturalWidth) ||
+    !positiveFinite(naturalHeight)
+  ) {
+    return null;
+  }
+  const scale = Math.min(
+    bounds.width / naturalWidth,
+    bounds.height / naturalHeight,
+  );
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+  return {
+    height,
+    left: bounds.left + (bounds.width - width) / 2,
+    top: bounds.top + (bounds.height - height) / 2,
+    width,
+  };
+}
+
 export function normalizeAnnotationPoint(
   clientX: number,
   clientY: number,
@@ -36,12 +88,8 @@ export function normalizeAnnotationPoint(
   if (
     !Number.isFinite(clientX) ||
     !Number.isFinite(clientY) ||
-    !Number.isFinite(bounds.left) ||
-    !Number.isFinite(bounds.top) ||
-    !Number.isFinite(bounds.width) ||
-    !Number.isFinite(bounds.height) ||
-    bounds.width <= 0 ||
-    bounds.height <= 0
+    !validBounds(bounds) ||
+    !pointWithinBounds(clientX, clientY, bounds)
   ) {
     return null;
   }

@@ -18,6 +18,7 @@ import (
 const (
 	stateVersion      = 1
 	statePath         = ".local/review/state.json"
+	stateLockPath     = ".local/review/state.lock"
 	maximumStateBytes = 16 << 20
 )
 
@@ -38,9 +39,14 @@ type Document struct {
 type Store struct {
 	mu          sync.Mutex
 	root        *os.Root
+	projectID   string
 	document    Document
 	subscribers map[chan Document]struct{}
 	closed      bool
+}
+
+type advisoryLock struct {
+	file *os.File
 }
 
 func Open(projectRoot string, projectID string) (*Store, error) {
@@ -51,32 +57,16 @@ func Open(projectRoot string, projectID string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reviewstate: open project root: %w", err)
 	}
-	store := &Store{root: root, subscribers: make(map[chan Document]struct{})}
-	if err := store.ensureDirectory(); err != nil {
+	store := &Store{root: root, projectID: projectID, subscribers: make(map[chan Document]struct{})}
+	var document Document
+	err = store.withAdvisoryLock(func() error {
+		var initializeErr error
+		document, initializeErr = store.loadOrInitialize(projectID)
+		return initializeErr
+	})
+	if err != nil {
 		_ = root.Close()
 		return nil, err
-	}
-	document, err := store.load()
-	if errors.Is(err, os.ErrNotExist) {
-		document = Document{
-			Version: stateVersion, ProjectID: projectID, Revision: 0,
-			Assessments: []contracts.ExternalAssessment{}, Responses: []contracts.ReviewResponse{},
-		}
-		if err := document.Validate(); err != nil {
-			_ = root.Close()
-			return nil, err
-		}
-		if err := store.write(document); err != nil {
-			_ = root.Close()
-			return nil, err
-		}
-	} else if err != nil {
-		_ = root.Close()
-		return nil, err
-	}
-	if document.ProjectID != projectID {
-		_ = root.Close()
-		return nil, ErrIdentityConflict
 	}
 	store.document = document
 	return store, nil
@@ -92,19 +82,30 @@ func (document Document) Validate() error {
 	if document.Assessments == nil || document.Responses == nil {
 		return errors.New("reviewstate: assessment and response collections are required")
 	}
-	assessmentIDs := make(map[string]struct{}, len(document.Assessments))
-	for _, assessment := range document.Assessments {
+	if err := validateAssessments(document.Assessments); err != nil {
+		return err
+	}
+	return validateResponses(document.Responses)
+}
+
+func validateAssessments(assessments []contracts.ExternalAssessment) error {
+	identities := make(map[string]struct{}, len(assessments))
+	for _, assessment := range assessments {
 		if err := assessment.Validate(); err != nil {
 			return fmt.Errorf("reviewstate: assessment %q: %w", assessment.ID, err)
 		}
-		if _, exists := assessmentIDs[assessment.ID]; exists {
+		if _, exists := identities[assessment.ID]; exists {
 			return fmt.Errorf("reviewstate: assessment %q is repeated", assessment.ID)
 		}
-		assessmentIDs[assessment.ID] = struct{}{}
+		identities[assessment.ID] = struct{}{}
 	}
-	responseIDs := make(map[string]struct{}, len(document.Responses))
-	requestIDs := make(map[string]struct{}, len(document.Responses))
-	for _, response := range document.Responses {
+	return nil
+}
+
+func validateResponses(responses []contracts.ReviewResponse) error {
+	responseIDs := make(map[string]struct{}, len(responses))
+	requestIDs := make(map[string]struct{}, len(responses))
+	for _, response := range responses {
 		if err := response.Validate(); err != nil {
 			return fmt.Errorf("reviewstate: response %q: %w", response.ID, err)
 		}
@@ -135,10 +136,10 @@ func (store *Store) Replace(expectedRevision uint64, candidate Document) (Docume
 	if store.closed {
 		return Document{}, ErrClosed
 	}
-	if candidate.ProjectID != store.document.ProjectID {
+	if candidate.ProjectID != store.projectID {
 		return Document{}, ErrIdentityConflict
 	}
-	if expectedRevision != store.document.Revision || candidate.Revision != expectedRevision+1 {
+	if candidate.Revision != expectedRevision+1 {
 		return Document{}, ErrRevisionConflict
 	}
 	if err := candidate.Validate(); err != nil {
@@ -148,12 +149,19 @@ func (store *Store) Replace(expectedRevision uint64, candidate Document) (Docume
 	if err != nil {
 		return Document{}, err
 	}
-	if err := store.write(cloned); err != nil {
+	var observed Document
+	err = store.withAdvisoryLock(func() error {
+		var replaceErr error
+		observed, replaceErr = store.replaceDurable(expectedRevision, cloned)
+		return replaceErr
+	})
+	if observed.ProjectID == store.projectID {
+		store.acceptObservedLocked(observed)
+	}
+	if err != nil {
 		return Document{}, err
 	}
-	store.document = cloned
-	store.publishLocked(cloned)
-	return clone(cloned)
+	return clone(observed)
 }
 
 func (store *Store) Subscribe(ctx context.Context) (<-chan Document, error) {
@@ -193,6 +201,96 @@ func (store *Store) Close() error {
 	}
 	store.subscribers = nil
 	return store.root.Close()
+}
+
+func (store *Store) loadOrInitialize(projectID string) (Document, error) {
+	document, err := store.load()
+	if errors.Is(err, os.ErrNotExist) {
+		document = Document{
+			Version: stateVersion, ProjectID: projectID, Revision: 0,
+			Assessments: []contracts.ExternalAssessment{}, Responses: []contracts.ReviewResponse{},
+		}
+		if err := document.Validate(); err != nil {
+			return Document{}, err
+		}
+		if err := store.write(document); err != nil {
+			return Document{}, err
+		}
+	} else if err != nil {
+		return Document{}, err
+	}
+	if document.ProjectID != projectID {
+		return Document{}, ErrIdentityConflict
+	}
+	return document, nil
+}
+
+func (store *Store) replaceDurable(expectedRevision uint64, candidate Document) (Document, error) {
+	durable, err := store.load()
+	if err != nil {
+		return Document{}, err
+	}
+	if durable.ProjectID != store.projectID {
+		return Document{}, ErrIdentityConflict
+	}
+	if expectedRevision != durable.Revision || candidate.Revision != expectedRevision+1 {
+		return durable, ErrRevisionConflict
+	}
+	if err := store.write(candidate); err != nil {
+		return durable, err
+	}
+	return candidate, nil
+}
+
+func (store *Store) acceptObservedLocked(document Document) {
+	changed := document.Revision != store.document.Revision
+	store.document = document
+	if changed {
+		store.publishLocked(document)
+	}
+}
+
+func (store *Store) withAdvisoryLock(operation func() error) error {
+	lock, err := store.acquireAdvisoryLock()
+	if err != nil {
+		return err
+	}
+	operationErr := operation()
+	releaseErr := lock.release()
+	return errors.Join(operationErr, releaseErr)
+}
+
+func (store *Store) acquireAdvisoryLock() (*advisoryLock, error) {
+	if err := store.ensureDirectory(); err != nil {
+		return nil, err
+	}
+	file, err := store.root.OpenFile(stateLockPath, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("reviewstate: open state lock: %w", err)
+	}
+	pathInfo, pathErr := store.root.Lstat(stateLockPath)
+	fileInfo, fileErr := file.Stat()
+	if pathErr != nil || fileErr != nil || pathInfo.Mode()&os.ModeSymlink != 0 || !pathInfo.Mode().IsRegular() || !fileInfo.Mode().IsRegular() || !os.SameFile(pathInfo, fileInfo) {
+		_ = file.Close()
+		return nil, errors.New("reviewstate: state lock is not an admitted regular file")
+	}
+	if err := lockFile(file); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("reviewstate: acquire state lock: %w", err)
+	}
+	return &advisoryLock{file: file}, nil
+}
+
+func (lock *advisoryLock) release() error {
+	unlockErr := unlockFile(lock.file)
+	closeErr := lock.file.Close()
+	if unlockErr != nil {
+		unlockErr = fmt.Errorf("reviewstate: release state lock: %w", unlockErr)
+	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("reviewstate: close state lock: %w", closeErr)
+	}
+	return errors.Join(unlockErr, closeErr)
 }
 
 func (store *Store) ensureDirectory() error {
@@ -245,13 +343,9 @@ func (store *Store) write(document Document) error {
 	if err := store.ensureDirectory(); err != nil {
 		return err
 	}
-	encoded, err := json.MarshalIndent(document, "", "  ")
+	encoded, err := encodeDocument(document)
 	if err != nil {
-		return fmt.Errorf("reviewstate: encode state: %w", err)
-	}
-	encoded = append(encoded, '\n')
-	if len(encoded) > maximumStateBytes {
-		return errors.New("reviewstate: state exceeds the size limit")
+		return err
 	}
 	name, err := temporaryName()
 	if err != nil {
@@ -269,6 +363,29 @@ func (store *Store) write(document Document) error {
 			_ = store.root.Remove(temporary)
 		}
 	}()
+	if err := writeReplacement(file, encoded); err != nil {
+		return err
+	}
+	if err := store.root.Rename(temporary, statePath); err != nil {
+		return fmt.Errorf("reviewstate: install replacement: %w", err)
+	}
+	installed = true
+	return store.syncStateDirectory()
+}
+
+func encodeDocument(document Document) ([]byte, error) {
+	encoded, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("reviewstate: encode state: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if len(encoded) > maximumStateBytes {
+		return nil, errors.New("reviewstate: state exceeds the size limit")
+	}
+	return encoded, nil
+}
+
+func writeReplacement(file *os.File, encoded []byte) error {
 	if _, err := file.Write(encoded); err != nil {
 		return fmt.Errorf("reviewstate: write replacement: %w", err)
 	}
@@ -278,10 +395,10 @@ func (store *Store) write(document Document) error {
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("reviewstate: close replacement: %w", err)
 	}
-	if err := store.root.Rename(temporary, statePath); err != nil {
-		return fmt.Errorf("reviewstate: install replacement: %w", err)
-	}
-	installed = true
+	return nil
+}
+
+func (store *Store) syncStateDirectory() error {
 	directory, err := store.root.Open(".local/review")
 	if err != nil {
 		return fmt.Errorf("reviewstate: open state directory: %w", err)

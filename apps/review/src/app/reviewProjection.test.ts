@@ -43,6 +43,7 @@ const snapshot: ReviewSnapshot = {
               endLine: 4,
               mediaType: "text/plain",
               path: "results/run.log",
+              sourceSha256: "a".repeat(64),
               startLine: 2,
             },
           },

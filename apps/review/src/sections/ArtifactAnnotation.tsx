@@ -45,6 +45,83 @@ function releaseCapture(activeStroke: ActiveStroke): void {
   }
 }
 
+function annotationSurfaceState(
+  drawMode: boolean,
+  style: CSSProperties | undefined,
+) {
+  if (drawMode) {
+    return {
+      description:
+        "Draw with a pointer. Press Escape to cancel the current stroke. Press Delete or Backspace to clear annotations.",
+      focusable: "true",
+      style: {
+        ...style,
+        cursor: "crosshair",
+        pointerEvents: "auto",
+        touchAction: "none",
+        userSelect: "none",
+      } satisfies CSSProperties,
+      tabIndex: 0,
+    } as const;
+  }
+  return {
+    description: "Drawing mode is off.",
+    focusable: "false",
+    style: {
+      ...style,
+      cursor: "default",
+      pointerEvents: "none",
+      touchAction: style?.touchAction,
+      userSelect: "none",
+    } satisfies CSSProperties,
+    tabIndex: -1,
+  } as const;
+}
+
+function AnnotationPaths({
+  draftPoints,
+  strokeColor,
+  strokeWidth,
+  strokes,
+}: Readonly<{
+  draftPoints: readonly NormalizedAnnotationPoint[] | null;
+  strokeColor: string;
+  strokeWidth: number;
+  strokes: readonly ArtifactAnnotationStroke[];
+}>) {
+  return (
+    <>
+      {strokes.map((stroke) => (
+        <path
+          d={annotationPath(stroke.points)}
+          data-annotation-stroke={stroke.id}
+          fill="none"
+          key={stroke.id}
+          pointerEvents="none"
+          stroke={stroke.color ?? strokeColor}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={stroke.width ?? strokeWidth}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+      {draftPoints ? (
+        <path
+          d={annotationPath(draftPoints)}
+          data-annotation-draft="true"
+          fill="none"
+          pointerEvents="none"
+          stroke={strokeColor}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function ArtifactAnnotation({
   artifactId,
   artifactLabel = artifactId,
@@ -211,20 +288,17 @@ export function ArtifactAnnotation({
     [artifactId, cancelActiveStroke, drawMode, onClear, strokes.length],
   );
 
-  const label = `Annotation canvas for ${artifactLabel}`;
-  const instructions = drawMode
-    ? "Draw with a pointer. Press Escape to cancel the current stroke. Press Delete or Backspace to clear annotations."
-    : "Drawing mode is off.";
+  const surface = annotationSurfaceState(drawMode, style);
 
   return (
     <svg
-      aria-description={instructions}
+      aria-description={surface.description}
       aria-disabled={!drawMode}
       aria-keyshortcuts="Escape Delete Backspace"
-      aria-label={label}
+      aria-label={`Annotation canvas for ${artifactLabel}`}
       className={className}
       data-artifact-annotation={artifactId}
-      focusable={drawMode ? "true" : "false"}
+      focusable={surface.focusable}
       height="100%"
       onKeyDown={handleKeyDown}
       onLostPointerCapture={handleLostPointerCapture}
@@ -234,44 +308,17 @@ export function ArtifactAnnotation({
       onPointerUp={handlePointerUp}
       preserveAspectRatio="none"
       role="img"
-      style={{
-        ...style,
-        cursor: drawMode ? "crosshair" : "default",
-        pointerEvents: drawMode ? "auto" : "none",
-        touchAction: drawMode ? "none" : style?.touchAction,
-        userSelect: "none",
-      }}
-      tabIndex={drawMode ? 0 : -1}
+      style={surface.style}
+      tabIndex={surface.tabIndex}
       viewBox="0 0 1 1"
       width="100%"
     >
-      {strokes.map((stroke) => (
-        <path
-          d={annotationPath(stroke.points)}
-          data-annotation-stroke={stroke.id}
-          fill="none"
-          key={stroke.id}
-          pointerEvents="none"
-          stroke={stroke.color ?? strokeColor}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={stroke.width ?? strokeWidth}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-      {draftPoints ? (
-        <path
-          d={annotationPath(draftPoints)}
-          data-annotation-draft="true"
-          fill="none"
-          pointerEvents="none"
-          stroke={strokeColor}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={strokeWidth}
-          vectorEffect="non-scaling-stroke"
-        />
-      ) : null}
+      <AnnotationPaths
+        draftPoints={draftPoints}
+        strokeColor={strokeColor}
+        strokeWidth={strokeWidth}
+        strokes={strokes}
+      />
     </svg>
   );
 }

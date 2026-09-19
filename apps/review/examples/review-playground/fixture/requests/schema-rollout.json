@@ -16,10 +16,11 @@
         "contextLines": 3,
         "hunk": {
           "oldStart": 1,
-          "oldLines": 9,
+          "oldLines": 11,
           "newStart": 1,
-          "newLines": 10
-        }
+          "newLines": 12
+        },
+        "patchSha256": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -33,7 +34,8 @@
           "/mismatches",
           "/rollback_rehearsal",
           "/window_hours"
-        ]
+        ],
+        "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     },
     {
@@ -46,7 +48,8 @@
           "/v3_compatible",
           "/requires_v2",
           "/dual_read_validated"
-        ]
+        ],
+        "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
       }
     }
   ],
@@ -123,24 +126,100 @@
       }
     ],
     "factors": [
-      { "id": "mismatch", "label": "Mismatch", "description": "Observed output difference during shadow reads." },
-      { "id": "consumers", "label": "v2 consumers", "description": "Consumers that cannot yet accept v3." },
-      { "id": "rollout", "label": "Rollout", "description": "Time until v3 becomes authoritative." },
-      { "id": "rollback", "label": "Rollback", "description": "Ability to restore v2 after a failed rollout." }
+      {
+        "id": "mismatch",
+        "label": "Mismatch",
+        "description": "Observed output difference during shadow reads."
+      },
+      {
+        "id": "consumers",
+        "label": "v2 consumers",
+        "description": "Consumers that cannot yet accept v3."
+      },
+      {
+        "id": "rollout",
+        "label": "Rollout",
+        "description": "Time until v3 becomes authoritative."
+      },
+      {
+        "id": "rollback",
+        "label": "Rollback",
+        "description": "Ability to restore v2 after a failed rollout."
+      }
     ],
     "tradeoffs": [
-      { "optionId": "immediate", "factorId": "mismatch", "value": "0.02% exposed", "tone": "risk" },
-      { "optionId": "immediate", "factorId": "consumers", "value": "2 incompatible", "tone": "risk" },
-      { "optionId": "immediate", "factorId": "rollout", "value": "Now", "tone": "support" },
-      { "optionId": "immediate", "factorId": "rollback", "value": "Rehearsed · 0.5% threshold", "tone": "support" },
-      { "optionId": "dual-read", "factorId": "mismatch", "value": "0.02% shadowed", "tone": "support" },
-      { "optionId": "dual-read", "factorId": "consumers", "value": "2 remain online", "tone": "support" },
-      { "optionId": "dual-read", "factorId": "rollout", "value": "7 days", "tone": "tradeoff" },
-      { "optionId": "dual-read", "factorId": "rollback", "value": "Rehearsed · 0.5% threshold", "tone": "support" },
-      { "optionId": "remain-v2", "factorId": "mismatch", "value": "None", "tone": "neutral" },
-      { "optionId": "remain-v2", "factorId": "consumers", "value": "Unchanged", "tone": "neutral" },
-      { "optionId": "remain-v2", "factorId": "rollout", "value": "Not scheduled", "tone": "risk" },
-      { "optionId": "remain-v2", "factorId": "rollback", "value": "Not needed", "tone": "neutral" }
+      {
+        "optionId": "immediate",
+        "factorId": "mismatch",
+        "value": "0.02% exposed",
+        "tone": "risk"
+      },
+      {
+        "optionId": "immediate",
+        "factorId": "consumers",
+        "value": "2 incompatible",
+        "tone": "risk"
+      },
+      {
+        "optionId": "immediate",
+        "factorId": "rollout",
+        "value": "Now",
+        "tone": "support"
+      },
+      {
+        "optionId": "immediate",
+        "factorId": "rollback",
+        "value": "Rehearsed · 0.5% threshold",
+        "tone": "support"
+      },
+      {
+        "optionId": "dual-read",
+        "factorId": "mismatch",
+        "value": "0.02% shadowed",
+        "tone": "support"
+      },
+      {
+        "optionId": "dual-read",
+        "factorId": "consumers",
+        "value": "2 remain online",
+        "tone": "support"
+      },
+      {
+        "optionId": "dual-read",
+        "factorId": "rollout",
+        "value": "7 days",
+        "tone": "tradeoff"
+      },
+      {
+        "optionId": "dual-read",
+        "factorId": "rollback",
+        "value": "Rehearsed · 0.5% threshold",
+        "tone": "support"
+      },
+      {
+        "optionId": "remain-v2",
+        "factorId": "mismatch",
+        "value": "None",
+        "tone": "neutral"
+      },
+      {
+        "optionId": "remain-v2",
+        "factorId": "consumers",
+        "value": "Unchanged",
+        "tone": "neutral"
+      },
+      {
+        "optionId": "remain-v2",
+        "factorId": "rollout",
+        "value": "Not scheduled",
+        "tone": "risk"
+      },
+      {
+        "optionId": "remain-v2",
+        "factorId": "rollback",
+        "value": "Not needed",
+        "tone": "neutral"
+      }
     ],
     "recommendation": {
       "optionId": "dual-read",

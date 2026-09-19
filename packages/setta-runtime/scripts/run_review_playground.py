@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -9,15 +11,18 @@ import sys
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_ROOT = ROOT / "apps" / "review" / "examples" / "review-playground" / "fixture"
 WORKSPACE_ROOT = ROOT / "tmp" / "review-playground" / "review-project"
 BACKEND_ROOT = ROOT / "apps" / "review" / "backend"
 ZERO_REVISION = "0" * 40
+ZERO_SHA256 = "0" * 64
 SEED_MARKER = Path(".local/review/playground-seeded-v1")
 SEED_STATE = Path(".local/review/state.json")
 PROJECT_FILES = (
+    Path("go.mod"),
     Path("review.json"),
     Path("seed-assessments.json"),
     Path("requests/checkout-completion.json"),
@@ -31,14 +36,20 @@ PROJECT_FILES = (
     Path("artifacts/orbital.svg"),
     Path("artifacts/signal.svg"),
     Path("repository/event_v3.ts"),
+    Path("repository/event_bus.ts"),
     Path("repository/retry_policy.go"),
+    Path("repository/support.go"),
 )
 FIXTURE_FILES = (
     *(path for path in PROJECT_FILES if path.parts[0] != "repository"),
     Path("repository-base/event_v3.ts"),
+    Path("repository-base/event_bus.ts"),
     Path("repository-base/retry_policy.go"),
+    Path("repository-base/support.go"),
     Path("repository-current/event_v3.ts"),
+    Path("repository-current/event_bus.ts"),
     Path("repository-current/retry_policy.go"),
+    Path("repository-current/support.go"),
 )
 REVISION_REQUESTS = (
     Path("requests/checkout-completion.json"),
@@ -52,10 +63,28 @@ GIT_ENVIRONMENT = {
     "GIT_COMMITTER_EMAIL": "playground@setta.local",
     "GIT_COMMITTER_NAME": "Setta Playground",
 }
+HUNK_HEADER = re.compile(rb"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 class PlaygroundError(RuntimeError):
     pass
+
+
+def _string_map(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    normalized: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        normalized[key] = item
+    return normalized
+
+
+def _object_list(value: object) -> list[object] | None:
+    if not isinstance(value, list):
+        return None
+    return list(value)
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -86,7 +115,7 @@ def prepare_workspace() -> Path:
             shutil.copytree(FIXTURE_ROOT, staging, symlinks=True, dirs_exist_ok=True)
             _validate_fixture(staging)
             _initialize_repository(staging)
-            _install_base_revision(staging)
+            _install_evidence_identities(staging)
             shutil.rmtree(staging / "repository-base")
             shutil.rmtree(staging / "repository-current")
             _validate_project(staging, "staged playground project")
@@ -141,26 +170,165 @@ def _initialize_repository(project: Path) -> None:
         ) from error
 
 
-def _install_base_revision(project: Path) -> None:
+def _install_evidence_identities(project: Path) -> None:
     revision = _git_output(("rev-parse", "HEAD"), project / "repository")
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise PlaygroundError("evidence repository returned an invalid base revision")
     for relative in REVISION_REQUESTS:
         path = project / relative
         try:
-            source = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as error:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise PlaygroundError(f"cannot read revision request {relative}") from error
-        if source.count(ZERO_REVISION) != 1:
+        document = _string_map(loaded)
+        evidence_values = (
+            None if document is None else _object_list(document.get("evidence"))
+        )
+        if document is None or evidence_values is None:
             raise PlaygroundError(
-                f"revision request must contain one base placeholder: {relative}"
+                f"revision request has an invalid evidence collection: {relative}"
             )
+        normalized_evidence: list[object] = []
+        for evidence_value in evidence_values:
+            evidence = _string_map(evidence_value)
+            if evidence is None:
+                raise PlaygroundError(
+                    f"invalid evidence in revision request {relative}"
+                )
+            _install_evidence_identity(project, revision, evidence, relative)
+            normalized_evidence.append(evidence)
+        document["evidence"] = normalized_evidence
         try:
-            path.write_text(source.replace(ZERO_REVISION, revision), encoding="utf-8")
+            path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
         except OSError as error:
             raise PlaygroundError(
-                f"cannot update revision request {relative}"
+                f"cannot update evidence identities in {relative}"
             ) from error
+
+
+def _install_evidence_identity(
+    project: Path,
+    revision: str,
+    evidence: dict[str, object],
+    request_path: Path,
+) -> None:
+    kind = evidence.get("kind")
+    if not isinstance(kind, str):
+        raise PlaygroundError(f"invalid evidence in revision request {request_path}")
+    if kind == "gitDiff":
+        _install_diff_identity(project, revision, evidence, request_path)
+        return
+    if kind == "text":
+        _install_file_identity(project, "text", evidence, request_path)
+    elif kind == "json":
+        _install_file_identity(project, "json", evidence, request_path)
+
+
+def _install_diff_identity(
+    project: Path, revision: str, evidence: dict[str, object], request_path: Path
+) -> None:
+    payload = _string_map(evidence.get("gitDiff"))
+    if payload is None:
+        raise PlaygroundError(
+            f"invalid Git evidence in revision request {request_path}"
+        )
+    if (
+        payload.get("baseRevision") != ZERO_REVISION
+        or payload.get("patchSha256") != ZERO_SHA256
+    ):
+        raise PlaygroundError(
+            f"Git evidence placeholders are invalid in revision request {request_path}"
+        )
+    path = payload.get("path")
+    context_lines = payload.get("contextLines")
+    target = payload.get("targetRevision")
+    hunk = _string_map(payload.get("hunk"))
+    if not isinstance(path, str) or not isinstance(context_lines, int) or hunk is None:
+        raise PlaygroundError(
+            f"invalid Git evidence in revision request {request_path}"
+        )
+    arguments = [
+        "diff",
+        "--no-ext-diff",
+        "--no-color",
+        f"--unified={context_lines}",
+        revision,
+    ]
+    if isinstance(target, str):
+        arguments.append(target)
+    arguments.extend(["--", path])
+    patch = _select_diff_hunk(
+        _git_bytes(arguments, project / "repository"), hunk, request_path
+    )
+    payload["baseRevision"] = revision
+    payload["patchSha256"] = hashlib.sha256(patch).hexdigest()
+    evidence["gitDiff"] = payload
+
+
+def _select_diff_hunk(
+    patch: bytes, hunk: dict[str, object], request_path: Path
+) -> bytes:
+    wanted = tuple(
+        hunk.get(key) for key in ("oldStart", "oldLines", "newStart", "newLines")
+    )
+    if any(not isinstance(value, int) or isinstance(value, bool) for value in wanted):
+        raise PlaygroundError(f"invalid Git hunk in revision request {request_path}")
+    lines = patch.removesuffix(b"\n").split(b"\n")
+    preamble_end: int | None = None
+    selected_start: int | None = None
+    selected_end = len(lines)
+    for index, line in enumerate(lines):
+        match = HUNK_HEADER.match(line)
+        if match is None:
+            continue
+        if preamble_end is None:
+            preamble_end = index
+        if selected_start is not None:
+            selected_end = index
+            break
+        observed = (
+            int(match.group(1)),
+            1 if match.group(2) is None else int(match.group(2)),
+            int(match.group(3)),
+            1 if match.group(4) is None else int(match.group(4)),
+        )
+        if observed == wanted:
+            selected_start = index
+    if preamble_end is None or selected_start is None:
+        raise PlaygroundError(
+            f"Git evidence hunk is missing in revision request {request_path}"
+        )
+    return (
+        b"\n".join([*lines[:preamble_end], *lines[selected_start:selected_end]]) + b"\n"
+    )
+
+
+def _install_file_identity(
+    project: Path,
+    kind: Literal["json", "text"],
+    evidence: dict[str, object],
+    request_path: Path,
+) -> None:
+    payload = _string_map(evidence.get(kind))
+    if payload is None or payload.get("sourceSha256") != ZERO_SHA256:
+        raise PlaygroundError(
+            f"file evidence placeholder is invalid in revision request {request_path}"
+        )
+    relative = payload.get("path")
+    if not isinstance(relative, str):
+        raise PlaygroundError(
+            f"invalid file evidence in revision request {request_path}"
+        )
+    evidence_path = Path(relative)
+    _require_regular_path(project, evidence_path, "playground evidence")
+    try:
+        content = (project / evidence_path).read_bytes()
+    except OSError as error:
+        raise PlaygroundError(
+            f"cannot read file evidence in revision request {request_path}"
+        ) from error
+    payload["sourceSha256"] = hashlib.sha256(content).hexdigest()
+    evidence[kind] = payload
 
 
 def _apply_seed(workspace: Path) -> None:
@@ -211,14 +379,19 @@ def _validate_fixture(root: Path) -> None:
         _require_regular_path(root, relative, "playground fixture")
     for relative in REVISION_REQUESTS:
         try:
-            source = (root / relative).read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as error:
+            document = json.loads((root / relative).read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise PlaygroundError(
                 f"playground fixture file is unreadable: {relative}"
             ) from error
-        if source.count(ZERO_REVISION) != 1:
+        revisions, digests = _placeholder_counts(document)
+        if revisions != 1:
             raise PlaygroundError(
                 f"playground fixture base placeholder is invalid: {relative}"
+            )
+        if digests != 3:
+            raise PlaygroundError(
+                f"playground fixture evidence placeholders are invalid: {relative}"
             )
 
 
@@ -228,12 +401,17 @@ def _validate_project(root: Path, label: str) -> None:
         _require_regular_path(root, relative, label)
     for relative in REVISION_REQUESTS:
         try:
-            source = (root / relative).read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as error:
+            document = json.loads((root / relative).read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise PlaygroundError(f"{label} file is unreadable: {relative}") from error
-        if ZERO_REVISION in source:
+        revisions, digests = _placeholder_counts(document)
+        if revisions != 0:
             raise PlaygroundError(
                 f"{label} has an unresolved base revision: {relative}"
+            )
+        if digests != 0:
+            raise PlaygroundError(
+                f"{label} has an unresolved evidence identity: {relative}"
             )
     revision = _git_output(("rev-parse", "HEAD"), root / "repository")
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
@@ -242,6 +420,31 @@ def _validate_project(root: Path, label: str) -> None:
         ("status", "--porcelain", "--untracked-files=no"), root / "repository"
     ):
         raise PlaygroundError(f"{label} evidence repository has no submitted changes")
+
+
+def _placeholder_counts(document: object) -> tuple[int, int]:
+    document_map = _string_map(document)
+    evidence_values = (
+        None if document_map is None else _object_list(document_map.get("evidence"))
+    )
+    if evidence_values is None:
+        return -1, -1
+    revisions = 0
+    digests = 0
+    for evidence_value in evidence_values:
+        evidence = _string_map(evidence_value)
+        if evidence is None:
+            continue
+        kind = evidence.get("kind")
+        payload = _string_map(evidence.get(kind)) if isinstance(kind, str) else None
+        if payload is None:
+            continue
+        if kind == "gitDiff":
+            revisions += int(payload.get("baseRevision") == ZERO_REVISION)
+            digests += int(payload.get("patchSha256") == ZERO_SHA256)
+        elif kind in {"text", "json"}:
+            digests += int(payload.get("sourceSha256") == ZERO_SHA256)
+    return revisions, digests
 
 
 def _require_regular_path(root: Path, relative: Path, label: str) -> None:
@@ -259,6 +462,27 @@ def _run_git(arguments: Sequence[str], repository: Path) -> None:
 def _git_output(arguments: Sequence[str], repository: Path) -> str:
     completed = _git_process(arguments, repository, capture=True)
     return completed.stdout.strip()
+
+
+def _git_bytes(arguments: Sequence[str], repository: Path) -> bytes:
+    git = shutil.which("git")
+    if git is None:
+        raise PlaygroundError("git is required")
+    environment = os.environ.copy()
+    environment.update(GIT_ENVIRONMENT)
+    try:
+        completed = subprocess.run(
+            [git, "-c", "core.autocrlf=false", *arguments],
+            cwd=repository,
+            env=environment,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise PlaygroundError(
+            f"evidence repository command failed: git {arguments[0]}"
+        ) from error
+    return completed.stdout
 
 
 def _git_process(

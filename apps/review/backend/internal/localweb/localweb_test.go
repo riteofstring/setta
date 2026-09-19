@@ -360,9 +360,13 @@ func TestPublicFunctionsRejectMissingDependencies(t *testing.T) {
 	if err := Serve(context.Background(), nil, http.NotFoundHandler()); err == nil {
 		t.Fatal("Serve(nil listener) error = nil")
 	}
-	if err := Serve(nil, listener, http.NotFoundHandler()); err == nil {
+	if err := Serve(nilContext(), listener, http.NotFoundHandler()); err == nil {
 		t.Fatal("Serve(nil context) error = nil")
 	}
+}
+
+func nilContext() context.Context {
+	return nil
 }
 
 func openTestAssets(t *testing.T) *Assets {

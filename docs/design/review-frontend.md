@@ -37,7 +37,7 @@ A choice matrix is one section whose title is the submitted question, options ar
 are columns, and cells are tradeoffs. Its width follows content up to a bounded maximum and then
 scrolls. Selecting an option is provisional until confirmation. Selecting a factor highlights its
 column, semantic edge, evidence section, and exact citation. The response supports selection,
-ranking, rejection, qualification, and a focused request-changes form.
+rejection, qualification, and a focused request-changes form.
 
 Artifact comparison is another projection of the same request and response contract. Candidate
 sections render admitted images, text, or JSON at useful fidelity in managed windows. Selection is

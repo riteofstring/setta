@@ -178,6 +178,22 @@ describe("ArtifactAnnotation", () => {
     expect(inactiveSurface.getAttribute("aria-disabled")).toBe("true");
   });
 
+  it("rejects pointer starts outside the visible artifact bounds", () => {
+    const surface = render();
+    const capture = configureSurface(surface);
+
+    const event = dispatchPointer(surface, "pointerdown", {
+      clientX: 9,
+      clientY: 70,
+    });
+    dispatchPointer(surface, "pointermove", { clientX: 110, clientY: 70 });
+    dispatchPointer(surface, "pointerup", { clientX: 210, clientY: 120 });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(capture.setPointerCapture).not.toHaveBeenCalled();
+    expect(onStrokeComplete).not.toHaveBeenCalled();
+  });
+
   it("cancels the draft when the pointer is canceled", () => {
     const surface = render();
     const capture = configureSurface(surface);

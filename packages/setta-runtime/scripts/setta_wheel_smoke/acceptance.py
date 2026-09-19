@@ -34,12 +34,12 @@ from .models import (
     REALTIME_APP_ID,
     REALTIME_RUNTIME_SESSION_SCHEMA,
     REALTIME_SCHEMA,
-    REVIEW_APP_ID,
-    REVIEW_RUNTIME_SESSION_SCHEMA,
-    REVIEW_SCHEMA,
     REQUIRED_OFFLINE_SCHEMA_COMMANDS,
     REQUIRED_REALTIME_SCHEMA_COMMANDS,
     REQUIRED_REVIEW_SCHEMAS,
+    REVIEW_APP_ID,
+    REVIEW_RUNTIME_SESSION_SCHEMA,
+    REVIEW_SCHEMA,
     RUN_ALLOWANCE_MILLISECONDS,
     RUN_TIMEOUT_SECONDS,
     RUNTIME_SESSION_SCHEMA,
@@ -607,7 +607,9 @@ def _review_request() -> dict[str, object]:
         "id": "packaged-review",
         "type": "completion",
         "title": "Verify the packaged Review app",
-        "requestedDecision": "Confirm that the packaged Review app can read this request.",
+        "requestedDecision": (
+            "Confirm that the packaged Review app can read this request."
+        ),
         "evidence": [],
         "relations": [],
         "provenance": {

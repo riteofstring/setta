@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   annotationPath,
+  containedImageBounds,
   normalizeAnnotationPoint,
   settleAnnotationStroke,
 } from "./artifactAnnotationModel";
@@ -14,15 +15,34 @@ describe("artifact annotation model", () => {
     width: 200,
   };
 
-  it("normalizes client coordinates and clamps them to the artifact", () => {
+  it("normalizes coordinates inside the artifact and rejects its margins", () => {
     expect(normalizeAnnotationPoint(110, 70, bounds)).toEqual({
       x: 0.5,
       y: 0.5,
     });
-    expect(normalizeAnnotationPoint(-10, 140, bounds)).toEqual({
-      x: 0,
+    expect(normalizeAnnotationPoint(10, 20, bounds)).toEqual({ x: 0, y: 0 });
+    expect(normalizeAnnotationPoint(210, 120, bounds)).toEqual({
+      x: 1,
       y: 1,
     });
+    expect(normalizeAnnotationPoint(9, 70, bounds)).toBeNull();
+    expect(normalizeAnnotationPoint(110, 121, bounds)).toBeNull();
+  });
+
+  it("fits the annotation bounds to contained image pixels", () => {
+    expect(containedImageBounds(bounds, 1_600, 800)).toEqual({
+      height: 100,
+      left: 10,
+      top: 20,
+      width: 200,
+    });
+    expect(containedImageBounds(bounds, 100, 100)).toEqual({
+      height: 100,
+      left: 60,
+      top: 20,
+      width: 100,
+    });
+    expect(containedImageBounds(bounds, 0, 100)).toBeNull();
   });
 
   it("rejects coordinates that cannot be normalized", () => {

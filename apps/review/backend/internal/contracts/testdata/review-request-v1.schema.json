@@ -144,7 +144,6 @@
         "expectedResponse": {
           "enum": [
             "selection",
-            "ranking",
             "approval"
           ]
         },
@@ -225,7 +224,6 @@
         "outcome": {
           "enum": [
             "selected",
-            "ranked",
             "rejected",
             "qualified",
             "changesRequested"
@@ -499,6 +497,10 @@
                 "hunk": {
                   "$ref": "#/$defs/gitHunk"
                 },
+                "patchSha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
                 "path": {
                   "maxLength": 1024,
                   "minLength": 1,
@@ -536,7 +538,8 @@
                 "targetRevision",
                 "path",
                 "contextLines",
-                "hunk"
+                "hunk",
+                "patchSha256"
               ],
               "type": "object"
             },
@@ -582,6 +585,10 @@
                   "pattern": "^(?!/)(?!.*//)(?!\\.\\.?(?:/|$))(?!.*\\/\\.\\.?(?:/|$))[^\\\\\\x00]+$",
                   "type": "string"
                 },
+                "sourceSha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
                 "startLine": {
                   "minimum": 1,
                   "type": "integer"
@@ -591,7 +598,8 @@
                 "path",
                 "mediaType",
                 "startLine",
-                "endLine"
+                "endLine",
+                "sourceSha256"
               ],
               "type": "object"
             }
@@ -628,11 +636,16 @@
                   "maxItems": 64,
                   "minItems": 0,
                   "type": "array"
+                },
+                "sourceSha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
                 }
               },
               "required": [
                 "path",
-                "pointers"
+                "pointers",
+                "sourceSha256"
               ],
               "type": "object"
             },

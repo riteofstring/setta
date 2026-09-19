@@ -16,16 +16,16 @@ export type JsonValue =
   | Array<JsonValue>
   | { [key: string]: JsonValue };
 
-export type ProducerIdentity =
+type ProducerIdentity =
   | { kind: "agent"; name: string; model: string; harness: string }
   | { kind: "human" | "application" | "script"; name: string };
 
-export type Provenance = {
+type Provenance = {
   producer: ProducerIdentity;
   createdAt: string;
 };
 
-export type GitHunk = {
+type GitHunk = {
   oldStart: number;
   oldLines: number;
   newStart: number;
@@ -43,14 +43,25 @@ export type EvidenceReference =
         path: string;
         contextLines: number;
         hunk: GitHunk;
+        patchSha256: string;
       };
     }
   | {
       id: string;
       kind: "text";
-      text: { path: string; mediaType: string; startLine: number; endLine: number };
+      text: {
+        path: string;
+        mediaType: string;
+        startLine: number;
+        endLine: number;
+        sourceSha256: string;
+      };
     }
-  | { id: string; kind: "json"; json: { path: string; pointers: Array<string> } }
+  | {
+      id: string;
+      kind: "json";
+      json: { path: string; pointers: Array<string>; sourceSha256: string };
+    }
   | {
       id: string;
       kind: "artifact";
@@ -79,9 +90,9 @@ export type ChoiceOption = {
   artifactEvidenceId: string | null;
 };
 
-export type ChoiceFactor = { id: string; label: string; description: string };
+type ChoiceFactor = { id: string; label: string; description: string };
 
-export type ChoiceTradeoff = {
+type ChoiceTradeoff = {
   optionId: string;
   factorId: string;
   value: string;
@@ -111,7 +122,7 @@ export type ReviewRequest =
       provenance: Provenance;
       choice: {
         presentation: "matrix" | "artifacts";
-        expectedResponse: "selection" | "ranking" | "approval";
+        expectedResponse: "selection" | "approval";
         options: Array<ChoiceOption>;
         factors: Array<ChoiceFactor>;
         tradeoffs: Array<ChoiceTradeoff>;
@@ -119,7 +130,7 @@ export type ReviewRequest =
       };
     };
 
-export type AssessmentProducer = { model: string; harness: string };
+type AssessmentProducer = { model: string; harness: string };
 
 export type ExternalAssessment = {
   version: 1;
@@ -133,7 +144,7 @@ export type ExternalAssessment = {
   createdAt: string;
 };
 
-export type UnresolvedItem = {
+type UnresolvedItem = {
   subjectKind: "request" | "claim" | "option" | "factor";
   subjectId: string;
   reason: string;
@@ -141,7 +152,7 @@ export type UnresolvedItem = {
 
 export type NormalizedPoint = { x: number; y: number };
 
-export type NormalizedPath = {
+type NormalizedPath = {
   color: string;
   width: number;
   points: Array<NormalizedPoint>;
@@ -161,8 +172,8 @@ export type CompletionDecision = {
   qualification: string | null;
 };
 
-export type ChoiceResponse = {
-  outcome: "selected" | "ranked" | "rejected" | "qualified" | "changesRequested";
+type ChoiceResponse = {
+  outcome: "selected" | "rejected" | "qualified" | "changesRequested";
   optionIds: Array<string>;
   conditions: Array<string>;
   selectedArtifactEvidenceIds: Array<string>;
@@ -205,7 +216,7 @@ export type ResolvedEvidence =
   | { evidenceId: string; status: "resolved"; content: ResolvedEvidenceContent; error: null }
   | { evidenceId: string; status: "failed"; content: null; error: StructuredError };
 
-export type ProjectManifest = {
+type ProjectManifest = {
   version: 1;
   id: string;
   name: string;
@@ -228,7 +239,7 @@ export type ReviewSnapshot = {
   requests: Array<RequestSnapshot>;
 };
 
-export type ReviewOperation =
+type ReviewOperation =
   | { op: "importAssessment"; assessment: ExternalAssessment }
   | { op: "setResponse"; response: ReviewResponse }
   | { op: "deleteResponse"; requestId: string };
@@ -239,7 +250,7 @@ export type ReviewMutation = {
   operations: Array<ReviewOperation>;
 };
 
-export type ContinuationPacket = {
+type ContinuationPacket = {
   version: 1;
   projectId: string;
   request: ReviewRequest;
@@ -248,7 +259,7 @@ export type ContinuationPacket = {
   evidence: Array<ResolvedEvidence>;
 };
 
-export type ExportDocument = {
+type ExportDocument = {
   version: 1;
   projectId: string;
   revision: number;

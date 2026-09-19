@@ -232,26 +232,39 @@ func parseOption(arguments []string, index int, specification map[string]optionK
 	}
 	switch kind {
 	case flagOption:
-		if hasInline {
-			return index, usageError(fmt.Sprintf("%s does not accept a value", name))
-		}
-		options.flags[name] = true
+		return index, parseFlagOption(name, hasInline, options)
 	case booleanValueOption:
-		if !hasInline || inline != "true" && inline != "false" {
-			return index, usageError(fmt.Sprintf("%s requires true or false", name))
-		}
-		options.values[name] = inline
+		return index, parseBooleanOption(name, inline, hasInline, options)
 	case valueOption:
-		value, next, err := parseOptionValue(arguments, index, name, inline, hasInline)
-		if err != nil {
-			return index, err
-		}
-		options.values[name] = value
-		return next, nil
+		return parseValueOption(arguments, index, name, inline, hasInline, options)
 	default:
 		return index, usageError(fmt.Sprintf("unexpected Review argument %q", token))
 	}
-	return index, nil
+}
+
+func parseFlagOption(name string, hasInline bool, options *parsedOptions) error {
+	if hasInline {
+		return usageError(fmt.Sprintf("%s does not accept a value", name))
+	}
+	options.flags[name] = true
+	return nil
+}
+
+func parseBooleanOption(name string, inline string, hasInline bool, options *parsedOptions) error {
+	if !hasInline || inline != "true" && inline != "false" {
+		return usageError(fmt.Sprintf("%s requires true or false", name))
+	}
+	options.values[name] = inline
+	return nil
+}
+
+func parseValueOption(arguments []string, index int, name string, inline string, hasInline bool, options *parsedOptions) (int, error) {
+	value, next, err := parseOptionValue(arguments, index, name, inline, hasInline)
+	if err != nil {
+		return index, err
+	}
+	options.values[name] = value
+	return next, nil
 }
 
 func parseOptionValue(arguments []string, index int, name string, inline string, hasInline bool) (string, int, error) {

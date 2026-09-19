@@ -121,7 +121,7 @@ func schemaDefinitions() map[string]any {
 	})
 	definitions["choiceRequest"] = closed([]string{"presentation", "expectedResponse", "options", "factors", "tradeoffs", "recommendation"}, map[string]any{
 		"presentation":     enumSchema("matrix", "artifacts"),
-		"expectedResponse": enumSchema("selection", "ranking", "approval"),
+		"expectedResponse": enumSchema("selection", "approval"),
 		"options":          arraySchema(ref("choiceOption"), 2, maximumOptions),
 		"factors":          arraySchema(ref("choiceFactor"), 0, maximumFactors),
 		"tradeoffs":        arraySchema(ref("choiceTradeoff"), 0, maximumOptions*maximumFactors),
@@ -163,7 +163,7 @@ func schemaDefinitions() map[string]any {
 		"decisions": arraySchema(ref("completionDecision"), 0, maximumClaims),
 	})
 	definitions["choiceResponse"] = closed([]string{"outcome", "optionIds", "conditions", "selectedArtifactEvidenceIds"}, map[string]any{
-		"outcome":                     enumSchema("selected", "ranked", "rejected", "qualified", "changesRequested"),
+		"outcome":                     enumSchema("selected", "rejected", "qualified", "changesRequested"),
 		"optionIds":                   arraySchema(idSchema(), 0, maximumOptions),
 		"conditions":                  arraySchema(requiredTextSchema(), 0, maximumClaims),
 		"selectedArtifactEvidenceIds": arraySchema(idSchema(), 0, maximumOptions),
@@ -226,21 +226,21 @@ func producerIdentitySchema() map[string]any {
 func evidenceReferenceSchema() map[string]any {
 	gitDiff := closed([]string{"id", "kind", "gitDiff"}, map[string]any{
 		"id": idSchema(), "kind": map[string]any{"const": "gitDiff"},
-		"gitDiff": closed([]string{"repositoryPath", "baseRevision", "targetRevision", "path", "contextLines", "hunk"}, map[string]any{
+		"gitDiff": closed([]string{"repositoryPath", "baseRevision", "targetRevision", "path", "contextLines", "hunk", "patchSha256"}, map[string]any{
 			"repositoryPath": relativeOrDotPathSchema(), "baseRevision": gitRevisionSchema(), "targetRevision": nullable(gitRevisionSchema()), "path": relativePathSchema(),
-			"contextLines": map[string]any{"type": "integer", "minimum": 0, "maximum": 20}, "hunk": ref("gitHunk"),
+			"contextLines": map[string]any{"type": "integer", "minimum": 0, "maximum": 20}, "hunk": ref("gitHunk"), "patchSha256": sha256Schema(),
 		}),
 	})
 	text := closed([]string{"id", "kind", "text"}, map[string]any{
 		"id": idSchema(), "kind": map[string]any{"const": "text"},
-		"text": closed([]string{"path", "mediaType", "startLine", "endLine"}, map[string]any{
-			"path": relativePathSchema(), "mediaType": map[string]any{"type": "string", "pattern": `^text/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$`}, "startLine": positiveInteger(), "endLine": positiveInteger(),
+		"text": closed([]string{"path", "mediaType", "startLine", "endLine", "sourceSha256"}, map[string]any{
+			"path": relativePathSchema(), "mediaType": map[string]any{"type": "string", "pattern": `^text/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$`}, "startLine": positiveInteger(), "endLine": positiveInteger(), "sourceSha256": sha256Schema(),
 		}),
 	})
 	jsonReference := closed([]string{"id", "kind", "json"}, map[string]any{
 		"id": idSchema(), "kind": map[string]any{"const": "json"},
-		"json": closed([]string{"path", "pointers"}, map[string]any{
-			"path": relativePathSchema(), "pointers": arraySchema(jsonPointerSchema(), 0, 64),
+		"json": closed([]string{"path", "pointers", "sourceSha256"}, map[string]any{
+			"path": relativePathSchema(), "pointers": arraySchema(jsonPointerSchema(), 0, 64), "sourceSha256": sha256Schema(),
 		}),
 	})
 	artifact := closed([]string{"id", "kind", "artifact"}, map[string]any{

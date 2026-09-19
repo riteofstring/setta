@@ -21,7 +21,7 @@ export function findRequestSnapshot(
   return request;
 }
 
-export function responseId(requestId: string): string {
+function responseId(requestId: string): string {
   return `response:${requestId}`;
 }
 
@@ -36,38 +36,71 @@ export function completionResponse(
   snapshot: RequestSnapshot,
   decision: CompletionDecision,
 ): ReviewResponse {
-  if (snapshot.request.type !== "completion") {
-    throw new Error("A completion decision requires a completion request.");
-  }
-  const existing =
-    snapshot.response?.type === "completion"
-      ? snapshot.response.completion.decisions
-      : [];
-  const decisions = [
-    ...existing.filter((candidate) => candidate.claimId !== decision.claimId),
-    decision,
-  ];
+  const request = completionRequest(snapshot);
+  const decisions = mergeCompletionDecision(snapshot, decision);
   const decided = new Set(decisions.map((candidate) => candidate.claimId));
-  const unresolved = snapshot.request.completion.claims
+  const unresolved = request.completion.claims
     .filter((claim) => !decided.has(claim.id))
     .map((claim) => ({
       reason: "No human decision recorded.",
       subjectId: claim.id,
       subjectKind: "claim" as const,
     }));
+  const preserved = preservedResponseFields(snapshot);
   return {
-    annotations: snapshot.response?.annotations ?? [],
+    annotations: preserved.annotations,
     completion: { decisions },
-    id: snapshot.response?.id ?? responseId(snapshot.request.id),
+    id: preserved.id,
     provenance: humanProvenance(),
-    rationale: snapshot.response?.rationale ?? "",
-    requestId: snapshot.request.id,
+    rationale: preserved.rationale,
+    requestId: request.id,
     requestSha256: snapshot.sha256,
-    status: unresolved.length === 0 ? "final" : "draft",
+    status: completionStatus(unresolved.length),
     type: "completion",
     unresolved,
     version: 1,
   };
+}
+
+function completionRequest(snapshot: RequestSnapshot) {
+  if (snapshot.request.type !== "completion") {
+    throw new Error("A completion decision requires a completion request.");
+  }
+  return snapshot.request;
+}
+
+function mergeCompletionDecision(
+  snapshot: RequestSnapshot,
+  decision: CompletionDecision,
+): CompletionDecision[] {
+  const existing =
+    snapshot.response?.type === "completion"
+      ? snapshot.response.completion.decisions
+      : [];
+  return [
+    ...existing.filter((candidate) => candidate.claimId !== decision.claimId),
+    decision,
+  ];
+}
+
+function preservedResponseFields(snapshot: RequestSnapshot) {
+  const response = snapshot.response;
+  if (!response) {
+    return {
+      annotations: [],
+      id: responseId(snapshot.request.id),
+      rationale: "",
+    };
+  }
+  return {
+    annotations: response.annotations,
+    id: response.id,
+    rationale: response.rationale,
+  };
+}
+
+function completionStatus(unresolvedCount: number): "draft" | "final" {
+  return unresolvedCount === 0 ? "final" : "draft";
 }
 
 function selectedArtifacts(

@@ -149,50 +149,62 @@ function isJsonValue(value: unknown): boolean {
   return isRecord(value) && Object.values(value).every(isJsonValue);
 }
 
+function isGitDiffContent(value: UnknownRecord): boolean {
+  return (
+    isClosedRecord(value, ["kind", "unifiedDiff", "truncated"]) &&
+    typeof value.unifiedDiff === "string" &&
+    typeof value.truncated === "boolean"
+  );
+}
+
+function isTextContent(value: UnknownRecord): boolean {
+  return (
+    isClosedRecord(value, [
+      "kind",
+      "text",
+      "startLine",
+      "endLine",
+      "truncated",
+    ]) &&
+    typeof value.text === "string" &&
+    Number.isSafeInteger(value.startLine) &&
+    Number(value.startLine) > 0 &&
+    Number.isSafeInteger(value.endLine) &&
+    Number(value.endLine) > 0 &&
+    typeof value.truncated === "boolean"
+  );
+}
+
+function isArtifactContent(value: UnknownRecord): boolean {
+  return (
+    isClosedRecord(value, [
+      "kind",
+      "route",
+      "mediaType",
+      "byteLength",
+      "sha256",
+    ]) &&
+    typeof value.route === "string" &&
+    value.route.startsWith("/") &&
+    isRequiredText(value.mediaType) &&
+    isNonNegativeInteger(value.byteLength) &&
+    isSha256(value.sha256)
+  );
+}
+
 function isResolvedEvidenceContent(value: unknown): boolean {
   if (!isRecord(value) || typeof value.kind !== "string") {
     return false;
   }
   switch (value.kind) {
     case "gitDiff":
-      return (
-        isClosedRecord(value, ["kind", "unifiedDiff", "truncated"]) &&
-        typeof value.unifiedDiff === "string" &&
-        typeof value.truncated === "boolean"
-      );
+      return isGitDiffContent(value);
     case "text":
-      return (
-        isClosedRecord(value, [
-          "kind",
-          "text",
-          "startLine",
-          "endLine",
-          "truncated",
-        ]) &&
-        typeof value.text === "string" &&
-        Number.isSafeInteger(value.startLine) &&
-        Number(value.startLine) > 0 &&
-        Number.isSafeInteger(value.endLine) &&
-        Number(value.endLine) > 0 &&
-        typeof value.truncated === "boolean"
-      );
+      return isTextContent(value);
     case "json":
       return isClosedRecord(value, ["kind", "json"]) && isJsonValue(value.json);
     case "artifact":
-      return (
-        isClosedRecord(value, [
-          "kind",
-          "route",
-          "mediaType",
-          "byteLength",
-          "sha256",
-        ]) &&
-        typeof value.route === "string" &&
-        value.route.startsWith("/") &&
-        isRequiredText(value.mediaType) &&
-        isNonNegativeInteger(value.byteLength) &&
-        isSha256(value.sha256)
-      );
+      return isArtifactContent(value);
     default:
       return false;
   }
@@ -214,61 +226,120 @@ function isResolvedEvidence(value: unknown): value is ResolvedEvidence {
   return false;
 }
 
-function isContinuation(value: unknown, projectId: string): boolean {
-  if (
-    !isClosedRecord(value, [
+function isContinuationEnvelope(
+  value: unknown,
+  projectId: string,
+): value is UnknownRecord {
+  return (
+    isClosedRecord(value, [
       "version",
       "projectId",
       "request",
       "requestSha256",
       "response",
       "evidence",
-    ]) ||
-    value.version !== 1 ||
-    value.projectId !== projectId ||
+    ]) &&
+    value.version === 1 &&
+    value.projectId === projectId
+  );
+}
+
+function hasMatchingContinuationContracts(value: UnknownRecord): boolean {
+  if (
     !validateReviewRequest(value.request) ||
     !isSha256(value.requestSha256) ||
-    !validateReviewResponse(value.response) ||
-    value.response.requestId !== value.request.id ||
-    value.response.requestSha256 !== value.requestSha256 ||
-    !Array.isArray(value.evidence) ||
-    !value.evidence.every(isResolvedEvidence)
+    !validateReviewResponse(value.response)
   ) {
     return false;
   }
-  return true;
+  return (
+    value.response.requestId === value.request.id &&
+    value.response.requestSha256 === value.requestSha256
+  );
 }
 
-function assertExportResult(
-  value: unknown,
-  includeContinuations: boolean,
-): ExportResult {
-  if (
-    !isClosedRecord(value, ["version", "export"]) ||
-    value.version !== 1 ||
-    !isClosedRecord(value.export, [
+function hasResolvedContinuationEvidence(value: UnknownRecord): boolean {
+  return (
+    Array.isArray(value.evidence) && value.evidence.every(isResolvedEvidence)
+  );
+}
+
+function isContinuation(value: unknown, projectId: string): boolean {
+  return (
+    isContinuationEnvelope(value, projectId) &&
+    hasMatchingContinuationContracts(value) &&
+    hasResolvedContinuationEvidence(value)
+  );
+}
+
+type ExportEnvelope = UnknownRecord & { export: UnknownRecord };
+
+function isExportEnvelope(value: unknown): value is ExportEnvelope {
+  return (
+    isClosedRecord(value, ["version", "export"]) &&
+    value.version === 1 &&
+    isClosedRecord(value.export, [
       "version",
       "projectId",
       "revision",
       "responses",
       "continuations",
     ])
-  ) {
+  );
+}
+
+function hasValidExportIdentity(document: UnknownRecord): boolean {
+  return (
+    document.version === 1 &&
+    isIdentifier(document.projectId) &&
+    isNonNegativeInteger(document.revision)
+  );
+}
+
+function hasValidExportResponses(document: UnknownRecord): boolean {
+  return (
+    Array.isArray(document.responses) &&
+    document.responses.every(validateReviewResponse)
+  );
+}
+
+function hasValidExportContinuations(
+  document: UnknownRecord,
+  includeContinuations: boolean,
+): boolean {
+  if (!Array.isArray(document.continuations)) {
+    return false;
+  }
+  if (!includeContinuations && document.continuations.length !== 0) {
+    return false;
+  }
+  if (!isIdentifier(document.projectId)) {
+    return false;
+  }
+  return document.continuations.every((continuation) =>
+    isContinuation(continuation, document.projectId as string),
+  );
+}
+
+function isExportDocument(
+  document: UnknownRecord,
+  includeContinuations: boolean,
+): boolean {
+  return (
+    hasValidExportIdentity(document) &&
+    hasValidExportResponses(document) &&
+    hasValidExportContinuations(document, includeContinuations)
+  );
+}
+
+function assertExportResult(
+  value: unknown,
+  includeContinuations: boolean,
+): ExportResult {
+  if (!isExportEnvelope(value)) {
     throw invalidResponse("Review received an invalid export result.");
   }
-  const document = value.export;
-  if (
-    document.version !== 1 ||
-    !isIdentifier(document.projectId) ||
-    !isNonNegativeInteger(document.revision) ||
-    !Array.isArray(document.responses) ||
-    !document.responses.every(validateReviewResponse) ||
-    !Array.isArray(document.continuations) ||
-    (!includeContinuations && document.continuations.length !== 0) ||
-    !document.continuations.every((continuation) =>
-      isContinuation(continuation, document.projectId as string),
-    )
-  ) {
+  if (!isExportDocument(value.export, includeContinuations)) {
     throw invalidResponse("Review received an invalid export result.");
   }
   return value as ExportResult;

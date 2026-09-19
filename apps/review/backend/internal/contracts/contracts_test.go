@@ -53,6 +53,11 @@ func TestCompletionRequestValidatesExactEvidenceRelations(t *testing.T) {
 	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "citation body is invalid") {
 		t.Fatalf("Validate(citation kind) error = %v", err)
 	}
+	request = fixtureCompletionRequest()
+	request.Evidence[0].Text.SourceSHA256 = "changed"
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "source SHA-256") {
+		t.Fatalf("Validate(source identity) error = %v", err)
+	}
 }
 
 func TestChoiceRequestValidatesCompleteMatrixAndArtifactCandidates(t *testing.T) {
@@ -71,6 +76,16 @@ func TestChoiceRequestValidatesCompleteMatrixAndArtifactCandidates(t *testing.T)
 	artifacts.Choice.Options[0].ArtifactEvidenceID = nil
 	if err := artifacts.Validate(); err == nil || !strings.Contains(err.Error(), "has no artifact") {
 		t.Fatalf("Validate(missing candidate artifact) error = %v", err)
+	}
+	matrix = fixtureChoiceRequest("matrix")
+	matrix.Choice.ExpectedResponse = "ranking"
+	if err := matrix.Validate(); err == nil || !strings.Contains(err.Error(), "expected response is unsupported") {
+		t.Fatalf("Validate(ranking) error = %v", err)
+	}
+	response := fixtureChoiceResponse(matrix.ID)
+	response.Choice.Outcome = "ranked"
+	if err := response.Validate(); err == nil || !strings.Contains(err.Error(), "outcome is unsupported") {
+		t.Fatalf("Validate(ranked outcome) error = %v", err)
 	}
 }
 
@@ -232,7 +247,7 @@ func fixtureCompletionRequest() ReviewRequest {
 		Version: ContractVersion, ID: "completion-request", Type: "completion", Title: "Make checkout retries idempotent",
 		RequestedDecision: "Confirm the completion claims.", Provenance: fixtureProvenance(),
 		Evidence: []EvidenceReference{{
-			ID: "test-log", Kind: "text", Text: &TextEvidenceReference{Path: "evidence/test.log", MediaType: "text/plain", StartLine: 1, EndLine: 8},
+			ID: "test-log", Kind: "text", Text: &TextEvidenceReference{Path: "evidence/test.log", MediaType: "text/plain", StartLine: 1, EndLine: 8, SourceSHA256: fixtureRequestSHA},
 		}},
 		Relations: []EvidenceRelation{{
 			ID: "claim-tests", SubjectKind: "claim", SubjectID: "parallel-converges", EvidenceID: "test-log", Role: "supports",

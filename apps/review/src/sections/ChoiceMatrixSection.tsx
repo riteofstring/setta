@@ -1,9 +1,41 @@
 import type { WorkspaceSection } from "@setta/workspace";
 
-import { useReview } from "../app/reviewContext";
+import { useReview, type ReviewSubjectSelection } from "../app/reviewContext";
 import { findRequestSnapshot } from "../app/reviewModel";
+import type {
+  RequestSnapshot,
+  ReviewResponse,
+} from "../backend/generatedContract";
 import { ChoiceActions } from "./ChoiceActions";
 import { sectionRequestId } from "./sectionModel";
+
+function matrixChoice(snapshot: RequestSnapshot, requestId: string) {
+  const request = snapshot.request;
+  if (request.type !== "choice" || request.choice.presentation !== "matrix") {
+    throw new Error(`Review request ${requestId} is not a matrix choice.`);
+  }
+  return request.choice;
+}
+
+function selectedFactorId(
+  selection: ReviewSubjectSelection | null,
+  requestId: string,
+): string | null {
+  if (
+    selection?.requestId !== requestId ||
+    selection.subjectKind !== "factor"
+  ) {
+    return null;
+  }
+  return selection.subjectId;
+}
+
+function confirmedOptionId(response: ReviewResponse | null): string | null {
+  if (response?.type !== "choice") {
+    return null;
+  }
+  return response.choice.optionIds[0] ?? null;
+}
 
 export function ChoiceMatrixSection({
   section,
@@ -14,20 +46,10 @@ export function ChoiceMatrixSection({
   const requestId = sectionRequestId(section);
   const snapshot = findRequestSnapshot(review.snapshot.requests, requestId);
   const request = snapshot.request;
-  if (request.type !== "choice" || request.choice.presentation !== "matrix") {
-    throw new Error(`Review request ${requestId} is not a matrix choice.`);
-  }
-  const choice = request.choice;
+  const choice = matrixChoice(snapshot, requestId);
   const selectedOption = review.selectedOptions[requestId] ?? null;
-  const selectedFactor =
-    review.selection?.requestId === requestId &&
-    review.selection.subjectKind === "factor"
-      ? review.selection.subjectId
-      : null;
-  const responseOption =
-    snapshot.response?.type === "choice"
-      ? (snapshot.response.choice.optionIds[0] ?? null)
-      : null;
+  const selectedFactor = selectedFactorId(review.selection, requestId);
+  const responseOption = confirmedOptionId(snapshot.response);
 
   return (
     <div className="review-choice review-choice-matrix-wrap">

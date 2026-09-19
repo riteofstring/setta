@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-import shutil
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -41,6 +41,17 @@ class ReviewPlaygroundRunnerTests(unittest.TestCase):
             source = (workspace / relative).read_text(encoding="utf-8")
             self.assertIn(revision, source)
             self.assertNotIn(run_review_playground.ZERO_REVISION, source)
+            request = json.loads(source)
+            identities = []
+            for evidence in request["evidence"]:
+                if evidence["kind"] == "gitDiff":
+                    identities.append(evidence["gitDiff"]["patchSha256"])
+                elif evidence["kind"] in {"text", "json"}:
+                    identities.append(evidence[evidence["kind"]]["sourceSha256"])
+            self.assertEqual(len(identities), 3)
+            for identity in identities:
+                self.assertRegex(identity, r"^[0-9a-f]{64}$")
+                self.assertNotEqual(identity, run_review_playground.ZERO_SHA256)
         self.assertEqual(
             run_review_playground._git_output(
                 ("show", "HEAD:event_v3.ts"), workspace / "repository"
@@ -123,7 +134,44 @@ def _write_fixture(root: Path) -> None:
         path.write_text("{}\n", encoding="utf-8")
     for relative in run_review_playground.REVISION_REQUESTS:
         (root / relative).write_text(
-            '{"baseRevision":"' + run_review_playground.ZERO_REVISION + '"}\n',
+            json.dumps(
+                {
+                    "evidence": [
+                        {
+                            "kind": "gitDiff",
+                            "gitDiff": {
+                                "baseRevision": run_review_playground.ZERO_REVISION,
+                                "contextLines": 3,
+                                "hunk": {
+                                    "newLines": 1,
+                                    "newStart": 1,
+                                    "oldLines": 1,
+                                    "oldStart": 1,
+                                },
+                                "patchSha256": run_review_playground.ZERO_SHA256,
+                                "path": "event_v3.ts",
+                                "targetRevision": None,
+                            },
+                        },
+                        {
+                            "kind": "text",
+                            "text": {
+                                "path": "evidence/checkout-run.log",
+                                "sourceSha256": run_review_playground.ZERO_SHA256,
+                            },
+                        },
+                        {
+                            "json": {
+                                "path": "evidence/checkout-results.json",
+                                "sourceSha256": run_review_playground.ZERO_SHA256,
+                            },
+                            "kind": "json",
+                        },
+                    ]
+                },
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
     (root / "repository-base" / "event_v3.ts").write_text(

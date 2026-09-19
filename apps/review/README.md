@@ -66,10 +66,12 @@ my-review/
 request contains options and either a tradeoff matrix or artifact candidates. Both can relate a
 claim, factor, or option to an exact Git hunk, UTF-8 line range, JSON pointer, or content-addressed
 local artifact with one of four meanings: `supports`, `challenges`, `qualifies`, or `informs`.
+Diff, text, and JSON references include the submitted content digest, so a later file change cannot
+silently alter what an existing request means.
 
 The backend validates every request before admission and resolves each evidence item independently.
 A missing or changed item becomes visible failed evidence rather than making unrelated material
-disappear. Request bytes and artifact digests anchor exported responses to what the human actually
+disappear. Request bytes and evidence digests anchor exported responses to what the human actually
 reviewed.
 
 External reviewers remain optional. Any harness can submit a recorded assessment through `apply`:

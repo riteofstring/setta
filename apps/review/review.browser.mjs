@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import {
   copyFileSync,
@@ -45,22 +46,112 @@ const shadowEvidenceSectionId = `review:evidence:${matrixRequestId}:shadow-read`
 const consumerEvidenceSectionId = `review:evidence:${matrixRequestId}:consumer-compatibility`;
 const apertureEvidenceSectionId = `review:evidence:${artifactRequestId}:poster-aperture`;
 
+function commandEnvironment(options) {
+  return options.env ?? process.env;
+}
+
+function commandStdio(options) {
+  return options.capture ? ["ignore", "pipe", "pipe"] : "inherit";
+}
+
+function commandFailure(result) {
+  return `${result.stderr ?? ""}${result.stdout ?? ""}`;
+}
+
+function commandOutput(result) {
+  return result.stdout?.trim() ?? "";
+}
+
 function runCommand(command, arguments_, cwd, options = {}) {
   const result = spawnSync(command, arguments_, {
     cwd,
     encoding: "utf8",
-    env: options.env ?? process.env,
-    stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    env: commandEnvironment(options),
+    stdio: commandStdio(options),
   });
   if (result.error !== undefined) {
     throw result.error;
   }
   if (result.status !== 0) {
     throw new Error(
-      `${command} ${arguments_.join(" ")} exited with ${String(result.status)}.\n${result.stderr ?? ""}${result.stdout ?? ""}`,
+      `${command} ${arguments_.join(" ")} exited with ${String(result.status)}.\n${commandFailure(result)}`,
     );
   }
-  return result.stdout?.trim() ?? "";
+  return commandOutput(result);
+}
+
+function runCommandBytes(command, arguments_, cwd) {
+  const result = spawnSync(command, arguments_, {
+    cwd,
+    encoding: null,
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${arguments_.join(" ")} exited with ${String(result.status)}.\n${result.stderr?.toString("utf8") ?? ""}`,
+    );
+  }
+  return result.stdout;
+}
+
+function sha256(data) {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+function diffHunkRange(line) {
+  const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/u.exec(line);
+  if (match === null) {
+    return null;
+  }
+  return {
+    newLines: match[4] === undefined ? 1 : Number(match[4]),
+    newStart: Number(match[3]),
+    oldLines: match[2] === undefined ? 1 : Number(match[2]),
+    oldStart: Number(match[1]),
+  };
+}
+
+function sameHunk(first, second) {
+  return (
+    first.newLines === second.newLines &&
+    first.newStart === second.newStart &&
+    first.oldLines === second.oldLines &&
+    first.oldStart === second.oldStart
+  );
+}
+
+function selectDiffHunk(patch, wanted) {
+  const lines = patch.toString("utf8").replace(/\n$/u, "").split("\n");
+  let preambleEnd = null;
+  let selectedStart = null;
+  let selectedEnd = lines.length;
+  for (const [index, line] of lines.entries()) {
+    const observed = diffHunkRange(line);
+    if (observed === null) {
+      continue;
+    }
+    preambleEnd ??= index;
+    if (selectedStart !== null) {
+      selectedEnd = index;
+      break;
+    }
+    if (sameHunk(observed, wanted)) {
+      selectedStart = index;
+    }
+  }
+  assert.notEqual(preambleEnd, null);
+  assert.notEqual(selectedStart, null);
+  return Buffer.from(
+    [
+      ...lines.slice(0, preambleEnd),
+      ...lines.slice(selectedStart, selectedEnd),
+    ].join("\n") + "\n",
+    "utf8",
+  );
 }
 
 function lockedCodePolishyRelease() {
@@ -178,7 +269,7 @@ function buildSurface(binaryPath) {
   );
 }
 
-function updateGitRevisions(projectRoot, revision) {
+function updateEvidenceIdentities(projectRoot, revision) {
   const manifest = JSON.parse(
     readFileSync(path.join(projectRoot, "review.json"), "utf8"),
   );
@@ -187,7 +278,33 @@ function updateGitRevisions(projectRoot, revision) {
     const request = JSON.parse(readFileSync(absolute, "utf8"));
     for (const evidence of request.evidence) {
       if (evidence.kind === "gitDiff") {
-        evidence.gitDiff.baseRevision = revision;
+        const reference = evidence.gitDiff;
+        reference.baseRevision = revision;
+        const arguments_ = [
+          "diff",
+          "--no-ext-diff",
+          "--no-color",
+          `--unified=${String(reference.contextLines)}`,
+          revision,
+        ];
+        if (typeof reference.targetRevision === "string") {
+          arguments_.push(reference.targetRevision);
+        }
+        arguments_.push("--", reference.path);
+        const patch = selectDiffHunk(
+          runCommandBytes(
+            "git",
+            arguments_,
+            path.join(projectRoot, reference.repositoryPath),
+          ),
+          reference.hunk,
+        );
+        reference.patchSha256 = sha256(patch);
+      } else if (evidence.kind === "text" || evidence.kind === "json") {
+        const reference = evidence[evidence.kind];
+        reference.sourceSha256 = sha256(
+          readFileSync(path.join(projectRoot, reference.path)),
+        );
       }
     }
     writeFileSync(absolute, `${JSON.stringify(request, null, 2)}\n`, "utf8");
@@ -200,15 +317,17 @@ function seedProject(projectRoot, binaryPath) {
   mkdirSync(repository);
   const baseDirectory = path.join(projectRoot, "repository-base");
   const currentDirectory = path.join(projectRoot, "repository-current");
-  for (const name of ["event_v3.ts", "retry_policy.go"]) {
+  const repositoryFiles = [
+    "event_bus.ts",
+    "event_v3.ts",
+    "retry_policy.go",
+    "support.go",
+  ];
+  for (const name of repositoryFiles) {
     copyFileSync(path.join(baseDirectory, name), path.join(repository, name));
   }
   runCommand("git", ["init", "--quiet", "--object-format=sha1"], repository);
-  runCommand(
-    "git",
-    ["add", "--", "event_v3.ts", "retry_policy.go"],
-    repository,
-  );
+  runCommand("git", ["add", "--", ...repositoryFiles], repository);
   runCommand(
     "git",
     [
@@ -229,13 +348,12 @@ function seedProject(projectRoot, binaryPath) {
     capture: true,
   });
   assert.match(revision, /^[0-9a-f]{40}$/u);
-  for (const name of ["event_v3.ts", "retry_policy.go"]) {
+  for (const name of repositoryFiles) {
     copyFileSync(
       path.join(currentDirectory, name),
       path.join(repository, name),
     );
   }
-  updateGitRevisions(projectRoot, revision);
   writeFileSync(
     path.join(projectRoot, "evidence", "checkout-run.log"),
     [
@@ -254,6 +372,7 @@ function seedProject(projectRoot, binaryPath) {
     ].join("\n") + "\n",
     "utf8",
   );
+  updateEvidenceIdentities(projectRoot, revision);
   const applied = JSON.parse(
     runCommand(
       binaryPath,
@@ -645,6 +764,37 @@ function requestSnapshot(snapshot, requestId) {
   return request;
 }
 
+function isNormalizedAnnotationPoint(point) {
+  return point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1;
+}
+
+function hasApertureAnnotation(response) {
+  const annotation = response.annotations[0];
+  const points = annotation?.paths[0]?.points ?? [];
+  return (
+    annotation?.artifactEvidenceId === "poster-aperture" &&
+    points.length >= 2 &&
+    points.every(isNormalizedAnnotationPoint)
+  );
+}
+
+function isArtifactRevisionResponse(response, rationale) {
+  return (
+    response?.type === "choice" &&
+    response.choice.outcome === "changesRequested" &&
+    response.rationale === rationale &&
+    hasApertureAnnotation(response)
+  );
+}
+
+function isArtifactRevisionSnapshot(snapshot, expectedRevision, rationale) {
+  const response = requestSnapshot(snapshot, artifactRequestId).response;
+  return (
+    snapshot.revision === expectedRevision &&
+    isArtifactRevisionResponse(response, rationale)
+  );
+}
+
 async function waitForSnapshot(origin, description, accept) {
   return waitForValue(
     description,
@@ -745,6 +895,119 @@ async function drawArtifactStroke(client) {
   );
 }
 
+async function artifactOverlayGeometry(client, rootSelector) {
+  return evaluate(
+    client,
+    `(() => {
+      const root = document.querySelector(${JSON.stringify(rootSelector)});
+      const stage = root?.querySelector(".review-artifact-stage");
+      const image = stage?.querySelector("img");
+      const overlay = stage?.querySelector('[data-artifact-annotation="poster-aperture"]');
+      if (!(stage instanceof HTMLElement) || !(image instanceof HTMLImageElement) ||
+        !(overlay instanceof SVGSVGElement) || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        return null;
+      }
+      const imageBox = image.getBoundingClientRect();
+      const overlayBox = overlay.getBoundingClientRect();
+      const stageBox = stage.getBoundingClientRect();
+      const scale = Math.min(
+        imageBox.width / image.naturalWidth,
+        imageBox.height / image.naturalHeight,
+      );
+      const expectedWidth = image.naturalWidth * scale;
+      const expectedHeight = image.naturalHeight * scale;
+      return {
+        actual: {
+          height: overlayBox.height,
+          left: overlayBox.left,
+          top: overlayBox.top,
+          width: overlayBox.width,
+        },
+        expected: {
+          height: expectedHeight,
+          left: imageBox.left + (imageBox.width - expectedWidth) / 2,
+          top: imageBox.top + (imageBox.height - expectedHeight) / 2,
+          width: expectedWidth,
+        },
+        margin: Math.max(
+          overlayBox.left - stageBox.left,
+          overlayBox.top - stageBox.top,
+          stageBox.right - overlayBox.right,
+          stageBox.bottom - overlayBox.bottom,
+        ),
+      };
+    })()`,
+  );
+}
+
+function assertArtifactOverlayGeometry(geometry, description) {
+  assert.ok(
+    geometry !== null,
+    `${description} omitted its annotation overlay.`,
+  );
+  for (const property of ["height", "left", "top", "width"]) {
+    assert.ok(
+      Math.abs(geometry.actual[property] - geometry.expected[property]) < 1.5,
+      `${description} ${property} did not track the contained image: ${JSON.stringify(geometry)}.`,
+    );
+  }
+}
+
+async function attemptLetterboxStroke(client) {
+  const selector = `${sectionSelector(apertureEvidenceSectionId)} .review-artifact-stage`;
+  const point = await evaluate(
+    client,
+    `(() => {
+      const stage = document.querySelector(${JSON.stringify(selector)});
+      const overlay = stage?.querySelector('[data-artifact-annotation="poster-aperture"]');
+      if (!(stage instanceof HTMLElement) || !(overlay instanceof SVGSVGElement)) {
+        return null;
+      }
+      const stageBox = stage.getBoundingClientRect();
+      const overlayBox = overlay.getBoundingClientRect();
+      if (overlayBox.left - stageBox.left > 4) {
+        return { x: (stageBox.left + overlayBox.left) / 2, y: stageBox.top + stageBox.height / 2 };
+      }
+      if (overlayBox.top - stageBox.top > 4) {
+        return { x: stageBox.left + stageBox.width / 2, y: (stageBox.top + overlayBox.top) / 2 };
+      }
+      return null;
+    })()`,
+  );
+  assert.ok(
+    point !== null,
+    "The aperture section did not expose a letterbox margin.",
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    type: "mouseMoved",
+    x: point.x + 2,
+    y: point.y + 2,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: point.x + 2,
+    y: point.y + 2,
+  });
+  const drew = await evaluate(
+    client,
+    `document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-annotation-stroke], ${sectionSelector(apertureEvidenceSectionId)} [data-annotation-draft]`)}) !== null`,
+  );
+  assert.equal(drew, false, "A letterbox gesture created artifact feedback.");
+}
+
 async function captureScreenshot(client, outputPath) {
   const screenshot = await client.send("Page.captureScreenshot", {
     captureBeyondViewport: false,
@@ -786,7 +1049,6 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) !== null &&
       document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null`,
   );
-
   const initial = await jsonRequest(origin, "/api/v1/review");
   assert.equal(initial.revision, 1);
   assert.equal(initial.requests.length, 3);
@@ -794,10 +1056,13 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     initial.requests.flatMap((request) => request.assessments).length,
     6,
   );
-  assert.ok(
-    initial.requests
-      .flatMap((request) => request.evidence)
-      .every((evidence) => evidence.status === "resolved"),
+  const unresolvedEvidence = initial.requests
+    .flatMap((request) => request.evidence)
+    .filter((evidence) => evidence.status !== "resolved");
+  assert.deepEqual(
+    unresolvedEvidence,
+    [],
+    `Review fixture evidence did not resolve: ${JSON.stringify(unresolvedEvidence)}`,
   );
 
   await clickSectionButton(
@@ -930,6 +1195,20 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
     })()`,
   );
+  const canvasGeometry = await waitForValue(
+    "the contained aperture annotation geometry",
+    () =>
+      artifactOverlayGeometry(
+        client,
+        sectionSelector(apertureEvidenceSectionId),
+      ),
+    (geometry) => geometry !== null,
+  );
+  assertArtifactOverlayGeometry(canvasGeometry, "The canvas artifact");
+  assert.ok(
+    canvasGeometry.margin > 4,
+    "The canvas artifact did not exercise letterboxing.",
+  );
   const apertureSource = await evaluate(
     client,
     `(() => {
@@ -962,6 +1241,16 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         image.currentSrc === ${JSON.stringify(apertureSource)} && placeholder !== null;
     })()`,
   );
+  const floatingGeometry = await waitForValue(
+    "the resized floating annotation geometry",
+    () =>
+      artifactOverlayGeometry(
+        client,
+        'article[aria-label="Window C · Aperture"]',
+      ),
+    (geometry) => geometry !== null,
+  );
+  assertArtifactOverlayGeometry(floatingGeometry, "The floating artifact");
   const floatingWindowScreenshot = path.join(
     resultDirectory,
     "review-floating-window.png",
@@ -985,6 +1274,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     })()`,
   );
   await clickSectionButton(client, apertureEvidenceSectionId, "Draw feedback");
+  await attemptLetterboxStroke(client);
   await drawArtifactStroke(client);
   await clickSectionButton(client, apertureEvidenceSectionId, "Finish drawing");
   await clickSectionButton(client, artifactChoiceSectionId, "Request changes");
@@ -999,22 +1289,12 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   const afterArtifact = await waitForSnapshot(
     origin,
     "the artifact-anchored revision request",
-    (snapshot) => {
-      const response = requestSnapshot(snapshot, artifactRequestId).response;
-      const points = response?.annotations?.[0]?.paths?.[0]?.points ?? [];
-      return (
-        snapshot.revision === afterMatrix.revision + 1 &&
-        response?.type === "choice" &&
-        response.choice.outcome === "changesRequested" &&
-        response.rationale === revisionText &&
-        response.annotations[0]?.artifactEvidenceId === "poster-aperture" &&
-        points.length >= 2 &&
-        points.every(
-          (point) =>
-            point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1,
-        )
-      );
-    },
+    (snapshot) =>
+      isArtifactRevisionSnapshot(
+        snapshot,
+        afterMatrix.revision + 1,
+        revisionText,
+      ),
   );
 
   const normalScreenshot = path.join(resultDirectory, "review-normal.png");

@@ -58,10 +58,14 @@ func New(root string) (*Resolver, error) {
 func (resolver *Resolver) Resolve(requestID string, reference contracts.EvidenceReference) contracts.ResolvedEvidence {
 	content, err := resolver.resolve(requestID, reference)
 	if err == nil {
-		return contracts.ResolvedEvidence{
-			EvidenceID: reference.ID,
-			Status:     "resolved",
-			Content:    &content,
+		if validationErr := content.Validate(); validationErr == nil {
+			return contracts.ResolvedEvidence{
+				EvidenceID: reference.ID,
+				Status:     "resolved",
+				Content:    &content,
+			}
+		} else {
+			err = fmt.Errorf("evidence: resolved content is invalid: %w", validationErr)
 		}
 	}
 	message := err.Error()
@@ -137,19 +141,11 @@ func (resolver *Resolver) resolve(requestID string, reference contracts.Evidence
 }
 
 func (resolver *Resolver) resolveText(reference contracts.TextEvidenceReference) (contracts.ResolvedEvidenceContent, error) {
-	path, info, err := resolver.regularFile(reference.Path)
+	source, err := resolver.readVerifiedFile(reference.Path, reference.SourceSHA256, maximumTextBytes)
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
-	if info.Size() > maximumTextBytes {
-		return contracts.ResolvedEvidenceContent{}, errEvidenceTooLarge
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return contracts.ResolvedEvidenceContent{}, fmt.Errorf("evidence: open text: %w", err)
-	}
-	defer file.Close()
-	text, err := lineRange(file, reference.StartLine, reference.EndLine)
+	text, err := lineRange(bytes.NewReader(source), reference.StartLine, reference.EndLine)
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
@@ -166,19 +162,11 @@ func (resolver *Resolver) resolveText(reference contracts.TextEvidenceReference)
 }
 
 func (resolver *Resolver) resolveJSON(reference contracts.JSONEvidenceReference) (contracts.ResolvedEvidenceContent, error) {
-	path, info, err := resolver.regularFile(reference.Path)
+	source, err := resolver.readVerifiedFile(reference.Path, reference.SourceSHA256, maximumJSONBytes)
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
-	if info.Size() > maximumJSONBytes {
-		return contracts.ResolvedEvidenceContent{}, errEvidenceTooLarge
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return contracts.ResolvedEvidenceContent{}, fmt.Errorf("evidence: open json: %w", err)
-	}
-	defer file.Close()
-	decoder := json.NewDecoder(io.LimitReader(file, maximumJSONBytes+1))
+	decoder := json.NewDecoder(bytes.NewReader(source))
 	decoder.UseNumber()
 	var document any
 	if err := decoder.Decode(&document); err != nil {
@@ -241,38 +229,83 @@ func (resolver *Resolver) resolveDiff(reference contracts.GitDiffEvidenceReferen
 	if _, _, err := regularFileWithin(repository, path); err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
-	if !validRevision(reference.BaseRevision) || reference.TargetRevision != nil && !validRevision(*reference.TargetRevision) {
-		return contracts.ResolvedEvidenceContent{}, errInvalidRevision
+	if err := validateDiffRevisions(reference); err != nil {
+		return contracts.ResolvedEvidenceContent{}, err
 	}
+	patch, err := resolver.runGitDiff(diffArguments(repository, path, reference))
+	if err != nil {
+		return contracts.ResolvedEvidenceContent{}, err
+	}
+	patch, err = selectHunk(patch, reference.Hunk)
+	if err != nil {
+		return contracts.ResolvedEvidenceContent{}, err
+	}
+	if digestBytes([]byte(patch)) != reference.PatchSHA256 {
+		return contracts.ResolvedEvidenceContent{}, errEvidenceChanged
+	}
+	truncated := false
+	return contracts.ResolvedEvidenceContent{Kind: "gitDiff", UnifiedDiff: &patch, Truncated: &truncated}, nil
+}
+
+func (resolver *Resolver) readVerifiedFile(relative string, expectedSHA256 string, maximum int) ([]byte, error) {
+	path, info, err := resolver.regularFile(relative)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > int64(maximum) {
+		return nil, errEvidenceTooLarge
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("evidence: open source: %w", err)
+	}
+	defer file.Close()
+	source, err := io.ReadAll(io.LimitReader(file, int64(maximum)+1))
+	if err != nil {
+		return nil, fmt.Errorf("evidence: read source: %w", err)
+	}
+	if len(source) > maximum {
+		return nil, errEvidenceTooLarge
+	}
+	if digestBytes(source) != expectedSHA256 {
+		return nil, errEvidenceChanged
+	}
+	return source, nil
+}
+
+func validateDiffRevisions(reference contracts.GitDiffEvidenceReference) error {
+	if !validRevision(reference.BaseRevision) || reference.TargetRevision != nil && !validRevision(*reference.TargetRevision) {
+		return errInvalidRevision
+	}
+	return nil
+}
+
+func diffArguments(repository string, path string, reference contracts.GitDiffEvidenceReference) []string {
 	arguments := []string{"-C", repository, "diff", "--no-ext-diff", "--no-color", "--unified=" + strconv.Itoa(reference.ContextLines), reference.BaseRevision}
 	if reference.TargetRevision != nil {
 		arguments = append(arguments, *reference.TargetRevision)
 	}
-	arguments = append(arguments, "--", filepath.ToSlash(path))
+	return append(arguments, "--", filepath.ToSlash(path))
+}
+
+func (resolver *Resolver) runGitDiff(arguments []string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, resolver.git, arguments...)
-	var stdout boundedBuffer
-	stdout.maximum = maximumDiffBytes
-	var stderr boundedBuffer
-	stderr.maximum = 64 << 10
+	stdout := boundedBuffer{maximum: maximumDiffBytes}
+	stderr := boundedBuffer{maximum: 64 << 10}
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
 		if ctx.Err() != nil {
-			return contracts.ResolvedEvidenceContent{}, errGitTimeout
+			return "", errGitTimeout
 		}
 		if stdout.exceeded || stderr.exceeded {
-			return contracts.ResolvedEvidenceContent{}, errEvidenceTooLarge
+			return "", errEvidenceTooLarge
 		}
-		return contracts.ResolvedEvidenceContent{}, fmt.Errorf("%w: %s", errGitFailure, strings.TrimSpace(stderr.String()))
+		return "", fmt.Errorf("%w: %s", errGitFailure, strings.TrimSpace(stderr.String()))
 	}
-	patch, err := selectHunk(stdout.String(), reference.Hunk)
-	if err != nil {
-		return contracts.ResolvedEvidenceContent{}, err
-	}
-	truncated := false
-	return contracts.ResolvedEvidenceContent{Kind: "gitDiff", UnifiedDiff: &patch, Truncated: &truncated}, nil
+	return stdout.String(), nil
 }
 
 func (resolver *Resolver) regularFile(relative string) (string, os.FileInfo, error) {
@@ -400,27 +433,36 @@ func resolvePointer(document any, pointer string) (any, bool) {
 	current := document
 	for _, raw := range strings.Split(pointer[1:], "/") {
 		token := strings.ReplaceAll(strings.ReplaceAll(raw, "~1", "/"), "~0", "~")
-		switch value := current.(type) {
-		case map[string]any:
-			var found bool
-			current, found = value[token]
-			if !found {
-				return nil, false
-			}
-		case []any:
-			if token == "" || token[0] == '+' || len(token) > 1 && token[0] == '0' {
-				return nil, false
-			}
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 || index >= len(value) {
-				return nil, false
-			}
-			current = value[index]
-		default:
+		var found bool
+		current, found = resolvePointerToken(current, token)
+		if !found {
 			return nil, false
 		}
 	}
 	return current, true
+}
+
+func resolvePointerToken(current any, token string) (any, bool) {
+	switch value := current.(type) {
+	case map[string]any:
+		selected, found := value[token]
+		return selected, found
+	case []any:
+		return resolveArrayToken(value, token)
+	default:
+		return nil, false
+	}
+}
+
+func resolveArrayToken(values []any, token string) (any, bool) {
+	if token == "" || token[0] == '+' || len(token) > 1 && token[0] == '0' {
+		return nil, false
+	}
+	index, err := strconv.Atoi(token)
+	if err != nil || index < 0 || index >= len(values) {
+		return nil, false
+	}
+	return values[index], true
 }
 
 func digestReader(reader io.Reader) (string, error) {
@@ -429,6 +471,11 @@ func digestReader(reader io.Reader) (string, error) {
 		return "", fmt.Errorf("evidence: hash artifact: %w", err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func digestBytes(data []byte) string {
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
 }
 
 func validRevision(revision string) bool {
@@ -498,6 +545,7 @@ func (buffer *boundedBuffer) Write(data []byte) (int, error) {
 
 var (
 	errArtifactChanged  = errors.New("evidence: artifact bytes do not match the admitted identity")
+	errEvidenceChanged  = errors.New("evidence: source bytes do not match the admitted identity")
 	errEvidenceTooLarge = errors.New("evidence: content exceeds the admitted size limit")
 	errGitFailure       = errors.New("evidence: git could not resolve the requested diff")
 	errGitTimeout       = errors.New("evidence: git resolution timed out")
@@ -520,6 +568,8 @@ func errorCode(err error) string {
 	switch {
 	case errors.Is(err, errArtifactChanged):
 		return "artifact_changed"
+	case errors.Is(err, errEvidenceChanged):
+		return "evidence_changed"
 	case errors.Is(err, errEvidenceTooLarge):
 		return "evidence_too_large"
 	case errors.Is(err, errGitFailure), errors.Is(err, errGitTimeout), errors.Is(err, errGitUnavailable):

@@ -28,7 +28,9 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
       await review.actions.confirmChoice(requestId, "");
     } catch (error) {
       setFormError(
-        error instanceof Error ? error.message : "Unable to confirm the choice.",
+        error instanceof Error
+          ? error.message
+          : "Unable to confirm the choice.",
       );
     }
   };
