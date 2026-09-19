@@ -434,78 +434,6 @@ const setupCandidateStage = (element) => {
   }
 };
 
-const setupContextStage = (element) => {
-  const contextStage = element.querySelector(".context-pack-stage");
-  if (contextStage) {
-    const renderContextSource = (source) => {
-      contextStage.dataset.contextSource = source;
-      contextStage
-        .querySelectorAll("[data-context-source-option]")
-        .forEach((button) => {
-          button.setAttribute(
-            "aria-pressed",
-            String(button.dataset.contextSourceOption === source),
-          );
-        });
-      contextStage
-        .querySelectorAll("[data-context-source-row]")
-        .forEach((row) => {
-          row.toggleAttribute(
-            "data-selected",
-            row.dataset.contextSourceRow === source,
-          );
-        });
-      contextStage.querySelectorAll("[data-context-edge]").forEach((edge) => {
-        edge.toggleAttribute(
-          "data-active",
-          edge.dataset.contextEdge === source,
-        );
-      });
-      contextStage
-        .querySelectorAll("[data-context-target-port]")
-        .forEach((port) => {
-          port.toggleAttribute(
-            "data-active",
-            port.dataset.contextTargetPort === source,
-          );
-        });
-      contextStage
-        .querySelectorAll("[data-context-evidence-port]")
-        .forEach((port) => {
-          port.toggleAttribute(
-            "data-active",
-            port.dataset.contextEvidencePort === source,
-          );
-        });
-      contextStage
-        .querySelectorAll("[data-context-evidence-for]")
-        .forEach((section) => {
-          section.toggleAttribute(
-            "data-evidence-active",
-            section.dataset.contextEvidenceFor === source,
-          );
-        });
-      contextStage
-        .querySelectorAll("[data-context-citation]")
-        .forEach((line) => {
-          line.toggleAttribute(
-            "data-cited",
-            line.dataset.contextCitation === source,
-          );
-        });
-    };
-
-    contextStage
-      .querySelectorAll("[data-context-source-option]")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          renderContextSource(button.dataset.contextSourceOption);
-        });
-      });
-    renderContextSource(contextStage.dataset.contextSource || "implementation");
-  }
-};
-
 customElements.define(
   "setta-workspace",
   class extends HTMLElement {
@@ -513,7 +441,6 @@ customElements.define(
       renderWorkspace(this);
       setupChoiceStage(this);
       setupCandidateStage(this);
-      setupContextStage(this);
     }
   },
 );

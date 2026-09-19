@@ -87,30 +87,21 @@ contract, persistence boundary, and failure semantics.
 Each score is out of five. A higher **Simplicity** score means a smaller, easier-to-bound first
 version.
 
-| Product boundary                    | Leverage | Simplicity | Agentic value | Novelty | Decision                  |
-| ----------------------------------- | -------: | ---------: | ------------: | ------: | ------------------------- |
-| Setta Review                        |        5 |          4 |             5 |       4 | Build first               |
-| Setta Context Pack                  |        5 |          4 |             5 |       4 | Build second or alongside |
-| Agent Context and Replay Bench      |        5 |          2 |             5 |       4 | Defer                     |
-| Multi-format general evidence audit |        5 |          2 |             5 |       3 | Defer generalization      |
-| Generic evaluation dashboard        |        4 |          2 |             4 |       1 | Do not build              |
-| Generic visual runbook              |        4 |          1 |             2 |       1 | Do not build              |
-| Broad investigation workspace       |        5 |          1 |             3 |       2 | Do not build              |
-| Generic MCP inspector               |        3 |          4 |             4 |       1 | Do not build as an app    |
+| Product boundary                    | Leverage | Simplicity | Agentic value | Novelty | Decision               |
+| ----------------------------------- | -------: | ---------: | ------------: | ------: | ---------------------- |
+| Setta Review                        |        5 |          4 |             5 |       4 | Build                  |
+| Agent Context and Replay Bench      |        5 |          2 |             5 |       4 | Defer                  |
+| Multi-format general evidence audit |        5 |          2 |             5 |       3 | Defer generalization   |
+| Generic evaluation dashboard        |        4 |          2 |             4 |       1 | Do not build           |
+| Generic visual runbook              |        4 |          1 |             2 |       1 | Do not build           |
+| Broad investigation workspace       |        5 |          1 |             3 |       2 | Do not build           |
+| Generic MCP inspector               |        3 |          4 |             4 |       1 | Do not build as an app |
 
-The recommended portfolio contains **two applications**. Setta Review owns immutable
-requests and review responses. Setta Context Pack owns authored, revisable context bundles. They
-share provenance and portable-file conventions, but their mutation rules and durable records are
-different.
+The recommended direction contains **one application: Setta Review**. It owns immutable requests
+and separate review responses. Completion and choice review are presentations over that same
+durable boundary, not separate applications.
 
-| Boundary         | Setta Review                            | Setta Context Pack                 |
-| ---------------- | --------------------------------------- | ---------------------------------- |
-| Canonical record | Frozen request plus separate response   | Authored, versioned context bundle |
-| Primary action   | Decide without rewriting the submission | Add, remove, and scope sources     |
-| Main output      | Review Response                         | Materialized bundle and manifest   |
-| Typical moment   | A producer needs judgment or authority  | A consumer needs bounded context   |
-
-## Recommended flagship: Setta Review
+## Recommended application: Setta Review
 
 Open the [Completion](setta-product-mockups.html#review-completion),
 [Choice matrix](setta-product-mockups.html#review-choice),
@@ -196,54 +187,6 @@ or push Git changes, contact providers, authenticate remote services, or infer w
 true. Permission and policy changes can arrive as ordinary configuration diffs in completion
 review; Review does not own a portable permission model or enforcement adapters.
 
-## Second application: Setta Context Pack
-
-[Open the Setta Context Pack Build mockup](setta-product-mockups.html#context-pack-build).
-
-Setta Context Pack should create and inspect **portable, exact context bundles**. Its recurring
-question is:
-
-> What information will the next agent or application receive, where did it come from, and can the
-> bundle be handed off without this app?
-
-An agent or person starts with one task and selects local files, exact text ranges, Git revisions or
-diffs, and artifacts. Context Pack records provenance and materializes a
-self-contained bundle that another agent or ordinary program can consume.
-
-### Durable concepts
-
-- A **task** states the requested outcome and constraints.
-- A **source reference** identifies exact content by path and revision, range, or content hash.
-- A **context relationship** states why a source is included and which task or other source it
-  supports.
-- A **materialized bundle** contains a manifest plus portable content, rather than links into
-  private application state.
-- A **bundle revision** records an intentional change to included context without mutating an
-  already handed-off revision.
-
-### Existing Setta leverage
-
-Historical file browsing, universal previews, Git reads, attachments, context edges, profiles, and
-tool allowlists provide the main ingredients. Workspace graph families, attention, saved views,
-standalone surfaces, and typed controls can expose inclusion and provenance without inventing a new
-canvas system.
-
-### Bounded first version
-
-1. Create one task or import it through the CLI.
-2. Add local UTF-8 files, exact ranges, Git diffs, and admitted file artifacts.
-3. Inspect included content, provenance, duplication, missing sources, and bundle size.
-4. Export a directory containing a versioned JSON manifest, a readable Markdown summary, and
-   materialized content using relative paths and hashes.
-
-The first version has no chat, model execution, embeddings, semantic retrieval, crawling, OCR,
-automatic summarization, or provider-specific prompt assembly. It packages context; it does not
-decide how a consumer should reason about it.
-
-Context Pack is a prerequisite-shaped product for a later replay bench. It proves exact context
-materialization and arbitrary-app handoff before Setta assumes responsibility for running or
-comparing agents.
-
 ## Deferred directions
 
 ### Agent Context and Replay Bench
@@ -253,8 +196,8 @@ Freezing materialized context, normalizing different agent runtimes, replaying t
 event streams, capturing artifacts, and explaining environmental differences together form an
 execution platform.
 
-A future agent Bench should consume Context Pack bundles, Review responses, and a proven portable
-run envelope. It should not invent all three contracts inside its first release.
+A future agent Bench should consume Review responses and a proven portable run envelope. It should
+not invent its review and execution contracts together inside its first release.
 
 ### Agent Intervention
 
@@ -296,12 +239,12 @@ Realtime:
 - no requirement for a model provider merely to create, inspect, or consume the durable record;
 - the producing agent remains outside Setta's process boundary and keeps ownership of its session,
   tools, credentials, and execution loop;
-- exported bundles that remain useful without Setta installed; and
+- exported responses and artifacts that remain useful without Setta installed; and
 - deep links as optional conveniences rather than the only way to resolve content.
 
 Shared framing and content-reference conventions are useful, but each app should retain its own
-small canonical model. Cross-app handoff should happen through admitted, documented bundles rather
-than imports from another app's frontend or backend internals.
+small canonical model. Cross-app handoff should happen through admitted, documented files and
+artifacts rather than imports from another app's frontend or backend internals.
 
 ## Suggested order
 
@@ -310,8 +253,7 @@ than imports from another app's frontend or backend internals.
 2. Build completion review around a real agent or application handoff.
 3. Add choice review with matrix and artifact-comparison presentations without introducing a
    generic review-type plug-in system.
-4. Build Context Pack around exact input-side materialization and reuse compatible bundle framing.
-5. Reconsider Bench only after context, evidence, artifacts, and review records already move
+4. Reconsider Bench only after evidence, artifacts, and review records already move
    cleanly between independent producers and consumers.
 
 ## Product guardrail

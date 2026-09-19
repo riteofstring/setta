@@ -3095,8 +3095,7 @@ h1 {
 }
 
 .review-candidate-actions button,
-.review-candidate-revision-form button,
-.context-bundle-footer button {
+.review-candidate-revision-form button {
   min-height: 28px;
   appearance: none;
   padding: 4px 9px;
@@ -3112,8 +3111,7 @@ h1 {
 }
 
 .review-candidate-actions button[data-action="primary"],
-.review-candidate-revision-form button[data-action="primary"],
-.context-bundle-footer button[data-action="primary"] {
+.review-candidate-revision-form button[data-action="primary"] {
   border-color: rgb(59 130 246);
   background: rgb(30 58 138 / 65%);
   color: rgb(239 246 255);
@@ -3166,181 +3164,6 @@ h1 {
 .review-candidate-decision-sent .setta-icon {
   width: 13px;
   height: 13px;
-}
-
-.context-pack-edge {
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-
-.context-pack-edge[data-active] {
-  opacity: 1;
-}
-
-.context-pack-edge .setta-workspace-graph-edge-path {
-  fill: none;
-  stroke: rgb(96 165 250 / 72%);
-  stroke-linecap: round;
-  stroke-width: 1.5;
-}
-
-.context-pack-target-port,
-.context-pack-evidence-port {
-  position: absolute;
-  z-index: 6;
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgb(15 23 42);
-  border-radius: 50%;
-  opacity: 0;
-  background: rgb(96 165 250);
-  box-shadow: 0 0 0 1px rgb(96 165 250 / 68%);
-  transition: opacity 140ms ease;
-}
-
-.context-pack-target-port {
-  bottom: -7px;
-}
-
-.context-pack-evidence-port {
-  top: -7px;
-}
-
-.context-pack-target-port[data-active],
-.context-pack-evidence-port[data-active] {
-  opacity: 1;
-}
-
-.context-bundle-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.context-bundle-table th,
-.context-bundle-table td {
-  border-block-end: 1px solid rgb(40 50 68);
-  color: rgb(150 164 192);
-  font-size: 9px;
-}
-
-.context-bundle-table thead th {
-  padding: 7px 10px;
-  color: rgb(117 136 174);
-  font-weight: 500;
-  text-align: start;
-}
-
-.context-bundle-table tbody th,
-.context-bundle-table tbody td {
-  padding: 6px 10px;
-}
-
-.context-bundle-table tbody th button {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  appearance: none;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgb(203 213 225);
-  cursor: pointer;
-  font: inherit;
-  font-weight: 600;
-  text-align: start;
-}
-
-.context-bundle-table tbody th button span {
-  display: grid;
-  width: 14px;
-  height: 14px;
-  place-items: center;
-  border: 1px solid rgb(86 105 143);
-  border-radius: 50%;
-}
-
-.context-source-node .setta-section-kind {
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.context-source-node[data-evidence-active] {
-  border-color: rgb(59 130 246 / 72%);
-  box-shadow: 0 0 0 1px rgb(59 130 246 / 22%);
-}
-
-.context-source-node[data-evidence-active] .setta-section-title {
-  color: rgb(96 165 250);
-}
-
-.context-pack-stage .context-bundle-node {
-  top: 24px;
-  left: 50%;
-  width: 760px;
-  transform: translateX(-50%);
-}
-
-.context-bundle-table th:first-child {
-  width: 45%;
-}
-
-.context-bundle-table th:nth-child(2) {
-  width: 28%;
-}
-
-.context-bundle-table th:nth-child(3) {
-  width: 27%;
-}
-
-.context-bundle-table tbody tr[data-selected] {
-  background: rgb(30 58 138 / 18%);
-  box-shadow: inset 3px 0 0 rgb(96 165 250);
-}
-
-.context-bundle-table tbody th button[aria-pressed="true"] span {
-  border-color: rgb(96 165 250);
-  background: rgb(96 165 250);
-  box-shadow: inset 0 0 0 3px rgb(23 42 77);
-}
-
-.context-bundle-footer {
-  display: flex;
-  min-height: 50px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  padding: 7px 10px;
-  background: rgb(15 21 31);
-}
-
-.context-pack-target-port {
-  left: var(--context-target-left);
-}
-
-.context-pack-evidence-port {
-  left: var(--context-evidence-port-left);
-}
-
-.context-pack-stage .context-contract-node {
-  top: 390px;
-  left: 32px;
-  width: 350px;
-}
-
-.context-pack-stage .context-implementation-node {
-  top: 390px;
-  left: 425px;
-  width: 350px;
-}
-
-.context-pack-stage .context-trace-node {
-  top: 390px;
-  left: 822px;
-  width: 420px;
 }
 
 @media (max-width: 960px) {

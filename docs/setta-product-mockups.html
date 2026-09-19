@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Workspace-native product mockups for Setta Review and Setta Context Pack."
+      content="Workspace-native product mockups for Setta Review."
     />
-    <title>Setta Review and Context Pack mockups</title>
+    <title>Setta Review mockups</title>
     <link rel="stylesheet" href="setta-product-mockups.css" />
   </head>
   <body>
@@ -92,7 +92,6 @@
         <nav class="site-nav" aria-label="Page navigation">
           <a href="#review-completion">Review</a>
           <a href="#review-choice">Choice</a>
-          <a href="#context-pack-build">Context Pack</a>
           <a href="#boundary">Boundary</a>
           <a href="app-ideas.md">Assessment</a>
         </nav>
@@ -102,12 +101,11 @@
     <main id="top">
       <section class="page-shell hero" aria-labelledby="hero-title">
         <div>
-          <div class="eyebrow">Two focused apps · one Workspace language</div>
-          <h1 id="hero-title">Review decisions. Package context.</h1>
+          <div class="eyebrow">One focused app · two review workflows</div>
+          <h1 id="hero-title">Review agent work. Return clear decisions.</h1>
           <p class="hero-lede">
             Setta Review turns agent work, questions, proposals, and candidates
-            into portable decisions. Setta Context Pack authors the exact
-            material another tool should receive.
+            into portable decisions without running or controlling the producer.
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#review-completion"
@@ -119,11 +117,11 @@
           </div>
         </div>
 
-        <article class="hero-summary-card" aria-label="Recommended product set">
+        <article class="hero-summary-card" aria-label="Recommended product">
           <div class="summary-head">
             <div class="summary-title">
               <span class="live-dot"></span>
-              Recommended product set
+              Recommended direction
             </div>
             <div class="summary-id">WORKSPACE NATIVE</div>
           </div>
@@ -135,17 +133,10 @@
               </div>
               <div class="status">flagship</div>
             </div>
-            <div class="summary-row">
-              <div>
-                <strong>Setta Context Pack</strong>
-                <span>authored, inspectable context bundles</span>
-              </div>
-              <div class="status">high leverage</div>
-            </div>
           </div>
           <div class="summary-foot">
             <div class="summary-stat">
-              <strong>2</strong><span>focused apps</span>
+              <strong>1</strong><span>focused app</span>
             </div>
             <div class="summary-stat">
               <strong>2</strong><span>review workflows</span>
@@ -174,8 +165,8 @@
             <div class="loop-index">01 / INGEST</div>
             <h3>Accept producer-neutral material</h3>
             <p>
-              Review requests and editable context bundles arrive as ordinary
-              files without requiring a person to retype them.
+              Review requests arrive as ordinary files without requiring a
+              person to retype them.
             </p>
             <div class="loop-proof">
               <span>JSON</span><span>files</span><span>agent output</span>
@@ -183,10 +174,10 @@
           </article>
           <article>
             <div class="loop-index">02 / INSPECT</div>
-            <h3>Review or author visually</h3>
+            <h3>Review visually</h3>
             <p>
-              Review preserves the submitted request while recording a response.
-              Context Pack intentionally edits a new bundle revision.
+              Review preserves the submitted request while recording a separate
+              response.
             </p>
             <div class="loop-proof">
               <span>provenance</span><span>attention</span
@@ -197,12 +188,12 @@
             <div class="loop-index">03 / HAND OFF</div>
             <h3>Export a durable boundary</h3>
             <p>
-              Both apps emit small, versioned artifacts rather than trapping
-              useful results in a dashboard or conversation transcript.
+              Review emits a small, versioned response rather than trapping the
+              decision in a dashboard or conversation transcript.
             </p>
             <div class="loop-proof">
               <span>manifest</span><span>hashes</span
-              ><span>portable bundle</span>
+              ><span>response packet</span>
             </div>
           </article>
         </div>
@@ -212,7 +203,7 @@
         <section id="review-completion" class="page-shell product-showcase">
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">App 01 · Workflow 01</div>
+              <div class="showcase-number">Workflow 01</div>
               <h2>Review · Completion</h2>
               <p>
                 The request is the claim section title, so each lane starts with
@@ -666,9 +657,7 @@
         <section id="review-choice" class="page-shell product-showcase">
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">
-                App 01 · Workflow 02 · Matrix view
-              </div>
+              <div class="showcase-number">Workflow 02 · Matrix view</div>
               <h2>Review · Choice matrix</h2>
               <p>
                 The structured presentation keeps options, tradeoffs, and human
@@ -1207,9 +1196,7 @@
         >
           <div class="showcase-head showcase-head-simple">
             <div>
-              <div class="showcase-number">
-                App 01 · Workflow 02 · Artifact view
-              </div>
+              <div class="showcase-number">Workflow 02 · Artifact view</div>
               <h2>Review · Choice comparison</h2>
               <p>
                 The same choice contract switches to managed windows when the
@@ -1514,350 +1501,6 @@
             </setta-workspace>
           </div>
         </section>
-
-        <section id="context-pack-build" class="page-shell product-showcase">
-          <div class="showcase-head showcase-head-simple">
-            <div>
-              <div class="showcase-number">App 02 · Build view</div>
-              <h2>Context Pack · Build</h2>
-              <p>
-                Bundle membership is the main section. Selecting a source shows
-                its exact content and one relationship, while source modes and
-                export stay where the bundle is edited.
-              </p>
-            </div>
-          </div>
-
-          <div class="app-frame">
-            <setta-workspace
-              heading="Context for the payment retry fix"
-              meta="Bundle CP-88"
-              inspector-title="Details"
-              inspector-open="false"
-            >
-              <div data-region="outline">
-                <div class="setta-workspace-outline">
-                  <div class="setta-workspace-outline-item">
-                    <div class="setta-workspace-outline-row">
-                      <span class="setta-workspace-outline-disclosure"
-                        ><svg class="setta-icon">
-                          <use href="#icon-chevron"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Payment retry fix</span
-                      >
-                    </div>
-                  </div>
-                  <div
-                    class="setta-workspace-outline-item"
-                    aria-selected="true"
-                  >
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #5d7cff"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-layers"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Fix duplicate payment capture</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #51d6c7"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Retry contract · §2</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #51d6c7"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-document"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Current implementation</span
-                      >
-                    </div>
-                  </div>
-                  <div class="setta-workspace-outline-item">
-                    <div
-                      class="setta-workspace-outline-row"
-                      style="--outline-depth: 14px; --outline-color: #f2bc66"
-                    >
-                      <span class="setta-workspace-outline-kind-icon"
-                        ><svg class="setta-icon">
-                          <use href="#icon-panel"></use></svg
-                      ></span>
-                      <span class="setta-workspace-outline-label"
-                        >Observed failure</span
-                      >
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                data-region="canvas"
-                class="canvas-stage context-pack-stage"
-                data-context-source="implementation"
-              >
-                <svg
-                  class="setta-workspace-graph-layer"
-                  viewBox="0 0 1290 638"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <g class="context-pack-edge" data-context-edge="contract">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M493 221 C493 316 277 316 277 390"
-                    />
-                  </g>
-                  <g
-                    class="context-pack-edge"
-                    data-context-edge="implementation"
-                    data-active="true"
-                  >
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M645 221 V390"
-                    />
-                  </g>
-                  <g class="context-pack-edge" data-context-edge="trace">
-                    <path
-                      class="setta-workspace-graph-edge-path"
-                      d="M797 221 C797 316 864 316 864 390"
-                    />
-                  </g>
-                </svg>
-
-                <article
-                  class="setta-section-card context-bundle-node"
-                  data-section-active="true"
-                >
-                  <span
-                    class="context-pack-target-port"
-                    style="--context-target-left: 30%"
-                    data-context-target-port="contract"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    class="context-pack-target-port"
-                    style="--context-target-left: 50%"
-                    data-context-target-port="implementation"
-                    data-active="true"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    class="context-pack-target-port"
-                    style="--context-target-left: 70%"
-                    data-context-target-port="trace"
-                    aria-hidden="true"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-layers"></use></svg></span
-                    ><span class="setta-section-title"
-                      >Fix duplicate payment capture</span
-                    ><span class="setta-section-kind">CP-88</span>
-                  </div>
-                  <div class="section-body context-bundle-body">
-                    <table class="context-bundle-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Source</th>
-                          <th scope="col">Included content</th>
-                          <th scope="col">Pinned at</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr data-context-source-row="contract">
-                          <th scope="row">
-                            <button
-                              type="button"
-                              data-context-source-option="contract"
-                              aria-pressed="false"
-                            >
-                              <span aria-hidden="true"></span>
-                              Retry contract · §2
-                            </button>
-                          </th>
-                          <td>Selection</td>
-                          <td>contract.md</td>
-                        </tr>
-                        <tr
-                          data-context-source-row="implementation"
-                          data-selected="true"
-                        >
-                          <th scope="row">
-                            <button
-                              type="button"
-                              data-context-source-option="implementation"
-                              aria-pressed="true"
-                            >
-                              <span aria-hidden="true"></span>
-                              Current implementation
-                            </button>
-                          </th>
-                          <td>Lines 84–117</td>
-                          <td>94d71e</td>
-                        </tr>
-                        <tr data-context-source-row="trace">
-                          <th scope="row">
-                            <button
-                              type="button"
-                              data-context-source-option="trace"
-                              aria-pressed="false"
-                            >
-                              <span aria-hidden="true"></span>
-                              Observed failure
-                            </button>
-                          </th>
-                          <td>Full trace</td>
-                          <td>trace 771</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div class="context-bundle-footer">
-                      <button type="button">Add source</button>
-                      <button type="button" data-action="primary">
-                        Export bundle
-                      </button>
-                    </div>
-                  </div>
-                </article>
-
-                <article
-                  class="setta-section-card context-source-node context-contract-node"
-                  data-context-evidence-for="contract"
-                >
-                  <span
-                    class="context-pack-evidence-port"
-                    style="--context-evidence-port-left: 70%"
-                    data-context-evidence-port="contract"
-                    aria-hidden="true"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-document"></use></svg></span
-                    ><span class="setta-section-title"
-                      >Retry contract · §2</span
-                    >
-                    <span class="setta-section-kind">contract.md</span>
-                  </div>
-                  <div class="section-body">
-                    <div
-                      class="document-excerpt"
-                      data-context-citation="contract"
-                    >
-                      A retried capture
-                      <mark>must reuse the original payment intent</mark> until
-                      a terminal result is recorded.
-                    </div>
-                  </div>
-                </article>
-
-                <article
-                  class="setta-section-card context-source-node context-implementation-node"
-                  data-context-evidence-for="implementation"
-                  data-evidence-active="true"
-                >
-                  <span
-                    class="context-pack-evidence-port"
-                    style="--context-evidence-port-left: 63%"
-                    data-context-evidence-port="implementation"
-                    data-active="true"
-                    aria-hidden="true"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-code"></use></svg></span
-                    ><span class="setta-section-title"
-                      >Current implementation</span
-                    ><span class="setta-section-kind">retry.go</span>
-                  </div>
-                  <div class="section-body review-code-preview">
-                    <div class="review-code-line">
-                      <span>84</span
-                      ><code><b>func Capture(req Request)</b> {</code>
-                    </div>
-                    <div
-                      class="review-code-line"
-                      data-context-citation="implementation"
-                      data-cited="true"
-                    >
-                      <span>85</span><code><i>intent := NewIntent()</i></code>
-                    </div>
-                    <div class="review-code-line">
-                      <span>86</span><code>return gateway.Send(intent)</code>
-                    </div>
-                    <div class="review-code-line">
-                      <span>87</span><code>}</code>
-                    </div>
-                  </div>
-                </article>
-
-                <article
-                  class="setta-section-card context-source-node context-trace-node"
-                  data-context-evidence-for="trace"
-                >
-                  <span
-                    class="context-pack-evidence-port"
-                    style="--context-evidence-port-left: 10%"
-                    data-context-evidence-port="trace"
-                    aria-hidden="true"
-                  ></span>
-                  <div class="setta-section-header">
-                    <span class="setta-section-kind-icon" aria-hidden="true"
-                      ><svg class="setta-icon">
-                        <use href="#icon-code"></use></svg></span
-                    ><span class="setta-section-title">Observed failure</span>
-                    <span class="setta-section-kind">trace-771.json</span>
-                  </div>
-                  <div class="section-body review-code-preview">
-                    <div class="review-code-line">
-                      <span>1</span><code>{</code>
-                    </div>
-                    <div class="review-code-line" data-context-citation="trace">
-                      <span>2</span
-                      ><code><b>"attempt_1"</b>: <em>"pi_7c4a"</em>,</code>
-                    </div>
-                    <div class="review-code-line" data-context-citation="trace">
-                      <span>3</span
-                      ><code><b>"attempt_2"</b>: <em>"pi_9d21"</em>,</code>
-                    </div>
-                    <div class="review-code-line">
-                      <span>4</span
-                      ><code><b>"result"</b>: <i>"duplicate"</i></code>
-                    </div>
-                    <div class="review-code-line">
-                      <span>5</span><code>}</code>
-                    </div>
-                  </div>
-                </article>
-              </div>
-
-              <div data-region="inspector"></div>
-            </setta-workspace>
-          </div>
-        </section>
       </section>
 
       <section
@@ -1867,12 +1510,13 @@
       >
         <div class="section-kicker">Shared implementation boundary</div>
         <h2 id="boundary-title" class="section-heading">
-          Two applications, several purpose-built views.
+          One application, several purpose-built views.
         </h2>
         <p class="section-copy">
-          The differentiator lives in a few custom section bodies and portable
-          schemas. Navigation, canvas behavior, graph semantics, inspection,
-          attention, saved views, and window management remain Workspace-owned.
+          The differentiator lives in a few custom review section bodies and a
+          portable response schema. Navigation, canvas behavior, graph
+          semantics, inspection, attention, saved views, and window management
+          remain Workspace-owned.
         </p>
         <div class="architecture-grid">
           <article class="architecture-column">
@@ -1888,9 +1532,7 @@
           <article class="architecture-column center">
             <div class="architecture-label">Shared product substrate</div>
             <h3>Setta Workspace</h3>
-            <p>
-              One shell and interaction model across every focused workflow.
-            </p>
+            <p>One shell and interaction model across both review workflows.</p>
             <div class="architecture-list">
               <div class="architecture-item">outline · canvas · inspector</div>
               <div class="architecture-item">typed data + agentic edges</div>
@@ -1907,7 +1549,7 @@
             </p>
             <div class="architecture-list">
               <div class="architecture-item">review-response.json</div>
-              <div class="architecture-item">context-pack.tar.zst</div>
+              <div class="architecture-item">continuation-packet.json</div>
               <div class="architecture-item">
                 selected artifacts · decisions
               </div>
@@ -1918,11 +1560,10 @@
 
       <section class="page-shell closing">
         <div class="section-kicker">Design direction</div>
-        <h2>The workflow changes. The Workspace muscle memory does not.</h2>
+        <h2>The decision changes. The Workspace muscle memory does not.</h2>
         <p>
-          Review changes presentation to match the decision. Context Pack
-          changes presentation to match the source. Both remain recognizably
-          Setta and finish with portable artifacts.
+          Review changes presentation to match the decision while remaining
+          recognizably Setta and finishing with portable response artifacts.
         </p>
         <a class="primary-link" href="app-ideas.md">Return to app ideas</a>
       </section>
