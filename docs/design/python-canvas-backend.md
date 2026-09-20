@@ -17,6 +17,13 @@ that owner together. External JSON is decoded strictly at delivery boundaries in
 application types; unknown fields, incompatible union members, and derived-state fields are
 rejected rather than retained for later interpretation.
 
+The shared `local-backend/strictjson` lexical rules apply to project files, CLI operations and
+responses, HTTP requests, terminal control, and interpreter probes before Python Canvas performs
+closed-shape and semantic validation. `local-backend/httpjson` owns bounded JSON request and
+canonical response mechanics, and `local-backend/sse` frames and flushes unnamed complete-project
+events. Python Canvas retains routes, statuses, typed errors, subscription decisions, and terminal
+and WebSocket semantics.
+
 ## Durable mutation transaction
 
 A provider-dependent mutation uses one serialized transaction:

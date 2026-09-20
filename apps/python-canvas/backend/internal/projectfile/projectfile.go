@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
@@ -533,16 +534,8 @@ func decodeParameter(raw json.RawMessage, label string) (aggregate.Parameter, er
 }
 
 func decodeSingleJSON(content []byte) (json.RawMessage, error) {
-	decoder := json.NewDecoder(bytes.NewReader(content))
 	var raw json.RawMessage
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return nil, errors.New("multiple JSON values")
-		}
+	if err := strictjson.Decode(content, &raw); err != nil {
 		return nil, err
 	}
 	return raw, nil

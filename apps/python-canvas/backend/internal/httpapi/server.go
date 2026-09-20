@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/setta/local-backend/httpjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/coordinator"
@@ -588,10 +589,9 @@ func requireMutationMethod(response http.ResponseWriter, request *http.Request) 
 }
 
 func requireMethod(response http.ResponseWriter, request *http.Request, method string) bool {
-	if request.Method == method {
+	if httpjson.RequireMethod(response, request, method) {
 		return true
 	}
-	response.Header().Set("Allow", method)
 	writeError(response, http.StatusMethodNotAllowed, contracts.APIErrorCodeMethodNotAllowedV2, "Method is not allowed.")
 	return false
 }

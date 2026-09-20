@@ -339,6 +339,13 @@ Acceptance criteria:
 
 ### B5. Align strict JSON and HTTP/SSE mechanics
 
+Completion (2026-09-22): `local-backend/strictjson` now supplies the common lexical boundary for
+CLI, HTTP, project-file, evidence, interpreter-probe, and worker-protocol inputs across the four
+applications. `local-backend/httpjson` owns method and JSON media-type checks, bounded body reads,
+and canonical JSON responses; `local-backend/sse` owns support checks, headers, framing, flushing,
+and request-lifetime termination. Product validation, status and error selection, routes, event
+names, and publication policy remain application-owned. The cutover added no external dependency.
+
 Define one strict JSON baseline: bounded bytes, valid UTF-8, bounded nesting and token sizes,
 unique object keys, unknown-field rejection, exactly one value, and application semantic
 validation after decoding. Resolve current differences deliberately and update affected public

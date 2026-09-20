@@ -77,6 +77,12 @@ supervised through the shared Setta runtime and has no experiment scheduler, pro
 agent process, tracker client, source mutation, arbitrary URL resolver, dynamic section discovery,
 or plug-in loader.
 
+The shared `local-backend/strictjson` boundary applies the documented lexical rules to project,
+state, command, and HTTP inputs before Lens's closed-shape and semantic checks.
+`local-backend/httpjson` owns bounded JSON request and response mechanics, while
+`local-backend/sse` frames and flushes Lens's named `snapshot` events. Lens retains route, origin,
+status, structured-error, subscription, and event-name decisions.
+
 ## Contract generation
 
 Go definitions own the public JSON Schemas. Generated TypeScript declarations and standalone Ajv

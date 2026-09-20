@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/setta/local-backend/projectfs"
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/review/backend/internal/contracts"
 )
 
@@ -168,14 +169,17 @@ func (resolver *Resolver) resolveJSON(reference contracts.JSONEvidenceReference)
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
+	if err := strictjson.Validate(source); err != nil {
+		if errors.Is(err, strictjson.ErrMultipleValues) {
+			return contracts.ResolvedEvidenceContent{}, errJSONTrailing
+		}
+		return contracts.ResolvedEvidenceContent{}, fmt.Errorf("evidence: decode json: %w", err)
+	}
 	decoder := json.NewDecoder(bytes.NewReader(source))
 	decoder.UseNumber()
 	var document any
 	if err := decoder.Decode(&document); err != nil {
 		return contracts.ResolvedEvidenceContent{}, fmt.Errorf("evidence: decode json: %w", err)
-	}
-	if err := requireJSONEnd(decoder); err != nil {
-		return contracts.ResolvedEvidenceContent{}, err
 	}
 	selected := document
 	if len(reference.Pointers) > 0 {
@@ -427,17 +431,6 @@ func lineRange(reader io.Reader, start int, end int) (string, error) {
 		return "", errLineRangeMissing
 	}
 	return strings.Join(lines, "\n"), nil
-}
-
-func requireJSONEnd(decoder *json.Decoder) error {
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errJSONTrailing
-		}
-		return fmt.Errorf("evidence: decode trailing json: %w", err)
-	}
-	return nil
 }
 
 func resolvePointer(document any, pointer string) (any, bool) {

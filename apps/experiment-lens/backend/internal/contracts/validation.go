@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"mime"
 	"path"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/setta/local-backend/strictjson"
 )
 
 const (
@@ -33,18 +34,7 @@ var (
 )
 
 func DecodeStrict(data []byte, target any) error {
-	if len(data) == 0 {
-		return errors.New("contract: document is empty")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("contract: decode: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return errors.New("contract: document contains trailing content")
-	}
-	return nil
+	return strictjson.Decode(data, target)
 }
 
 func (identity ProducerIdentity) Validate() error {

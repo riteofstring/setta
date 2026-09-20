@@ -1,11 +1,9 @@
 package httpapi
 
 import (
-	"encoding/json"
-	"io"
-	"mime"
 	"net/http"
 
+	"github.com/setta/local-backend/httpjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
@@ -16,20 +14,12 @@ func decodeJSONBody(response http.ResponseWriter, request *http.Request, destina
 }
 
 func decodeJSONBodyWithLimit(response http.ResponseWriter, request *http.Request, destination any, limit int64) bool {
-	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
+	if !httpjson.HasJSONMediaType(request) {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body must be JSON.")
 		return false
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, limit))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
+	if err := httpjson.DecodeRequest(response, request, limit, destination); err != nil {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body is invalid.")
-		return false
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV2, "Request body must contain one JSON value.")
 		return false
 	}
 	return true
@@ -49,7 +39,5 @@ func writeRevisionConflict(response http.ResponseWriter, expected int, current i
 }
 
 func writeJSON(response http.ResponseWriter, status int, value any) {
-	response.Header().Set("Content-Type", "application/json; charset=utf-8")
-	response.WriteHeader(status)
-	_ = json.NewEncoder(response).Encode(value)
+	_ = httpjson.Write(response, status, value)
 }

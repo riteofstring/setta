@@ -1,12 +1,10 @@
 package contracts
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"path"
 	"regexp"
@@ -14,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/setta/local-backend/strictjson"
 )
 
 const (
@@ -32,7 +32,6 @@ const (
 	maximumTextBytes     = 1 << 20
 	maximumPathBytes     = 1024
 	maximumEvidenceLines = 10000
-	maximumJSONDepth     = 32
 )
 
 var (
@@ -44,103 +43,7 @@ var (
 )
 
 func DecodeStrict(data []byte, target any) error {
-	if !utf8.Valid(data) {
-		return errors.New("contracts: JSON is not valid UTF-8")
-	}
-	if err := validateUniqueJSON(data); err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("contracts: multiple JSON values")
-		}
-		return err
-	}
-	return nil
-}
-
-func validateUniqueJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := consumeUniqueJSONValue(decoder, 0); err != nil {
-		return err
-	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("contracts: multiple JSON values")
-		}
-		return err
-	}
-	return nil
-}
-
-func consumeUniqueJSONValue(decoder *json.Decoder, depth int) error {
-	if depth > maximumJSONDepth {
-		return errors.New("contracts: JSON exceeds the nesting limit")
-	}
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, compound := token.(json.Delim)
-	if !compound {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		return consumeUniqueJSONObject(decoder, depth)
-	case '[':
-		return consumeUniqueJSONArray(decoder, depth)
-	default:
-		return errors.New("contracts: JSON compound value is invalid")
-	}
-}
-
-func consumeUniqueJSONObject(decoder *json.Decoder, depth int) error {
-	fields := map[string]struct{}{}
-	for decoder.More() {
-		nameToken, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		name, ok := nameToken.(string)
-		if !ok {
-			return errors.New("contracts: JSON object field name is invalid")
-		}
-		if _, exists := fields[name]; exists {
-			return fmt.Errorf("contracts: JSON object repeats field %q", name)
-		}
-		fields[name] = struct{}{}
-		if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
-			return err
-		}
-	}
-	return consumeClosingDelimiter(decoder, '}')
-}
-
-func consumeUniqueJSONArray(decoder *json.Decoder, depth int) error {
-	for decoder.More() {
-		if err := consumeUniqueJSONValue(decoder, depth+1); err != nil {
-			return err
-		}
-	}
-	return consumeClosingDelimiter(decoder, ']')
-}
-
-func consumeClosingDelimiter(decoder *json.Decoder, expected byte) error {
-	closing, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	if closing != json.Delim(expected) {
-		return errors.New("contracts: JSON compound value is not closed")
-	}
-	return nil
+	return strictjson.Decode(data, target)
 }
 
 func (manifest ProjectManifest) Validate() error {
@@ -1460,7 +1363,8 @@ func validateRawJSON(raw json.RawMessage) error {
 	if len(raw) == 0 || len(raw) > maximumResolvedBytes {
 		return errors.New("contracts: JSON value is missing or exceeds the limit")
 	}
-	return validateUniqueJSON(raw)
+	var value any
+	return strictjson.Decode(raw, &value)
 }
 
 func validateResolvedText(value string) error {

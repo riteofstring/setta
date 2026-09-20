@@ -66,6 +66,11 @@ and `invoke` address its live coordinator. Without a live session, the same comm
 through a bounded local coordinator. `schema` is offline and is the authoritative description of
 commands, operations, results, errors, and generated contracts.
 
+Project, CLI, HTTP, WebSocket, and worker JSON inputs share one strict lexical contract: valid
+UTF-8, one JSON value, unique object keys, at most 32 nested containers, and at most 8 MiB per
+decoded string, field name, or number, within each boundary's smaller byte limit. Closed contract
+documents also reject unknown fields before Realtime applies semantic validation.
+
 A project uses ordinary files:
 
 ```text

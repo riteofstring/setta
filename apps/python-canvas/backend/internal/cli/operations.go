@@ -3,11 +3,11 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"sort"
-	"unicode/utf8"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
@@ -678,33 +678,20 @@ func operationDefinitionByName(name string) (operationDefinition, bool) {
 }
 
 func decodeJSONObject(content []byte) (map[string]json.RawMessage, error) {
-	if !utf8.Valid(content) {
-		return nil, fmt.Errorf("operation document is not valid UTF-8")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(content))
 	var fields map[string]json.RawMessage
-	if err := decoder.Decode(&fields); err != nil {
+	if err := strictjson.Decode(content, &fields); err != nil {
+		if errors.Is(err, strictjson.ErrInvalidUTF8) {
+			return nil, fmt.Errorf("operation document is not valid UTF-8")
+		}
+		if errors.Is(err, strictjson.ErrMultipleValues) {
+			return nil, fmt.Errorf("operation document must contain exactly one JSON value")
+		}
 		return nil, fmt.Errorf("operation document is not valid JSON: %w", err)
 	}
 	if fields == nil {
 		return nil, fmt.Errorf("operation document must be an object")
 	}
-	if err := requireJSONEOF(decoder); err != nil {
-		return nil, err
-	}
 	return fields, nil
-}
-
-func requireJSONEOF(decoder *json.Decoder) error {
-	var extra any
-	err := decoder.Decode(&extra)
-	if err == io.EOF {
-		return nil
-	}
-	if err == nil {
-		return fmt.Errorf("operation document must contain exactly one JSON value")
-	}
-	return fmt.Errorf("operation document has invalid trailing JSON: %w", err)
 }
 
 func requireExactOperationFields(fields map[string]json.RawMessage, definition operationDefinition) error {
@@ -763,12 +750,7 @@ func requiredStrictField(fields map[string]json.RawMessage, name string, destina
 	if bytes.Equal(bytes.TrimSpace(content), []byte("null")) {
 		return fmt.Errorf("operation field %s must not be null", name)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return fmt.Errorf("operation field %s is invalid: %w", name, err)
-	}
-	if err := requireJSONEOF(decoder); err != nil {
+	if err := strictjson.Decode(content, destination); err != nil {
 		return fmt.Errorf("operation field %s is invalid: %w", name, err)
 	}
 	return nil
@@ -782,12 +764,7 @@ func optionalStrictField(fields map[string]json.RawMessage, name string, destina
 	if bytes.Equal(bytes.TrimSpace(content), []byte("null")) {
 		return false, fmt.Errorf("operation field %s must not be null", name)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return false, fmt.Errorf("operation field %s is invalid: %w", name, err)
-	}
-	if err := requireJSONEOF(decoder); err != nil {
+	if err := strictjson.Decode(content, destination); err != nil {
 		return false, fmt.Errorf("operation field %s is invalid: %w", name, err)
 	}
 	return true, nil

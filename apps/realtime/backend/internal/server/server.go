@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,7 +15,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/setta/local-backend/httpjson"
 	"github.com/setta/local-backend/localweb"
+	"github.com/setta/local-backend/sse"
 	"github.com/setta/realtime/backend/internal/content"
 	"github.com/setta/realtime/backend/internal/contracts"
 	"github.com/setta/realtime/backend/internal/project"
@@ -103,7 +104,7 @@ func (handler *Handler) apply(response http.ResponseWriter, request *http.Reques
 		return
 	}
 	var command contracts.ApplyRequest
-	if err := decodeRequest(request, &command); err != nil {
+	if err := decodeRequest(response, request, &command); err != nil {
 		writeFailure(response, err)
 		return
 	}
@@ -119,8 +120,7 @@ func (handler *Handler) projectEvents(response http.ResponseWriter, request *htt
 	if !exactRequest(response, request, http.MethodGet, false) {
 		return
 	}
-	flusher, ok := response.(http.Flusher)
-	if !ok {
+	if !sse.Supported(response) {
 		writeError(response, http.StatusInternalServerError, "stream_unavailable", "Streaming is unavailable.")
 		return
 	}
@@ -129,24 +129,7 @@ func (handler *Handler) projectEvents(response http.ResponseWriter, request *htt
 		writeFailure(response, err)
 		return
 	}
-	response.Header().Set("Content-Type", "text/event-stream")
-	response.Header().Set("Connection", "keep-alive")
-	for {
-		select {
-		case <-request.Context().Done():
-			return
-		case snapshot, open := <-stream:
-			if !open {
-				return
-			}
-			encoded, err := json.Marshal(snapshot)
-			if err != nil {
-				return
-			}
-			_, _ = fmt.Fprintf(response, "data: %s\n\n", encoded)
-			flusher.Flush()
-		}
-	}
+	_ = sse.Serve(response, request, stream, "")
 }
 
 func (handler *Handler) runtime(response http.ResponseWriter, request *http.Request) {
@@ -173,7 +156,7 @@ func (handler *Handler) runtimeSource(response http.ResponseWriter, request *htt
 	case http.MethodPut:
 		handler.applyRuntimeSource(response, request)
 	default:
-		response.Header().Set("Allow", http.MethodGet+", "+http.MethodPut)
+		httpjson.RequireMethod(response, request, http.MethodGet, http.MethodPut)
 		writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.")
 	}
 }
@@ -199,7 +182,7 @@ func (handler *Handler) applyRuntimeSource(response http.ResponseWriter, request
 		return
 	}
 	var command contracts.ApplyRuntimeSourceRequest
-	if err := decodeRequest(request, &command); err != nil {
+	if err := decodeRequest(response, request, &command); err != nil {
 		writeFailure(response, err)
 		return
 	}
@@ -328,7 +311,7 @@ func (handler *Handler) invoke(response http.ResponseWriter, request *http.Reque
 		return
 	}
 	var command contracts.DirectInvokeRequest
-	if err := decodeRequest(request, &command); err != nil {
+	if err := decodeRequest(response, request, &command); err != nil {
 		writeFailure(response, err)
 		return
 	}
@@ -404,8 +387,7 @@ func (handler *Handler) mutationRequest(response http.ResponseWriter, request *h
 		return false
 	}
 	if jsonBody {
-		mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-		if err != nil || mediaType != "application/json" {
+		if !httpjson.HasJSONMediaType(request) {
 			writeError(response, http.StatusUnsupportedMediaType, "invalid_media_type", "Content-Type must be application/json.")
 			return false
 		}
@@ -422,8 +404,7 @@ func (handler *Handler) writeRuntimeError(ctx context.Context, connection *webso
 }
 
 func exactRequest(response http.ResponseWriter, request *http.Request, method string, allowBody bool) bool {
-	if request.Method != method {
-		response.Header().Set("Allow", method)
+	if !httpjson.RequireMethod(response, request, method) {
 		writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.")
 		return false
 	}
@@ -441,26 +422,14 @@ func exactRequest(response http.ResponseWriter, request *http.Request, method st
 	return true
 }
 
-func decodeRequest(request *http.Request, target any) error {
-	data, err := io.ReadAll(http.MaxBytesReader(nil, request.Body, maximumJSONBytes))
-	if err != nil {
-		return err
-	}
-	if len(bytes.TrimSpace(data)) == 0 {
-		return errors.New("request body is empty")
-	}
-	return contracts.DecodeStrict(data, target)
+func decodeRequest(response http.ResponseWriter, request *http.Request, target any) error {
+	return httpjson.DecodeRequest(response, request, maximumJSONBytes, target)
 }
 
 func writeJSON(response http.ResponseWriter, status int, value any) {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		writeError(response, http.StatusInternalServerError, "encoding_failure", "The response could not be encoded.")
-		return
+	if err := httpjson.Write(response, status, value); err != nil {
+		_ = httpjson.Write(response, http.StatusInternalServerError, contracts.StructuredError{Code: "encoding_failure", Message: "The response could not be encoded."})
 	}
-	response.Header().Set("Content-Type", "application/json")
-	response.WriteHeader(status)
-	_, _ = response.Write(append(encoded, '\n'))
 }
 
 func writeFailure(response http.ResponseWriter, err error) {

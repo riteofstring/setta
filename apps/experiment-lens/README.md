@@ -44,6 +44,11 @@ one exists and otherwise operate locally. Every mutation names the experiment, e
 observation-source digests, and observed revision. Lens never silently rebases a stale selection or
 retries an indeterminate write.
 
+Project, CLI, HTTP, and state inputs share one strict lexical contract: valid UTF-8, one JSON value,
+unique object keys, at most 32 nested containers, and at most 8 MiB per decoded string, field name,
+or number, within each boundary's smaller byte limit. Closed contract documents also reject unknown
+fields before Lens applies semantic validation.
+
 ## Project format
 
 An Experiment Lens project is ordinary, portable files:

@@ -99,6 +99,13 @@ documents. Generated browser declarations and Ajv standalone validators derive f
 Go strictly decodes the same closed shapes. The offline `realtime schema` document includes the
 source read, apply request, and apply result schemas beside the other public contracts.
 
+The shared `local-backend/strictjson` lexical rules apply to project, command, HTTP, WebSocket, and
+worker-protocol JSON before Realtime's closed-shape and semantic validation.
+`local-backend/httpjson` owns bounded JSON request and canonical response mechanics, and
+`local-backend/sse` frames and flushes unnamed complete-project events. Realtime retains routes,
+origins, statuses, error documents, authored-project subscription decisions, and its distinct
+resynchronizing runtime WebSocket stream.
+
 ## Live entrypoint source
 
 The `GET /api/v1/runtime/source` response is the closed document

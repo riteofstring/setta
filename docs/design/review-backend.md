@@ -68,6 +68,12 @@ non-blocking newest-value coalescing, cancellation, and subscriber close. Review
 through the shared Setta runtime and has no provider credentials, agent process, test runner,
 source mutation, remote fetch, arbitrary URL resolver, or plug-in loader.
 
+The shared `local-backend/strictjson` boundary applies the documented lexical rules to project,
+state, command, HTTP, and JSON-evidence inputs before Review's closed-shape and semantic checks.
+`local-backend/httpjson` owns bounded JSON request and response mechanics, while
+`local-backend/sse` frames and flushes Review's named `snapshot` events. Review retains route,
+origin, status, structured-error, subscription, and event-name decisions.
+
 ## Contract generation
 
 Go definitions own the public JSON Schemas. Generated TypeScript declarations and standalone Ajv

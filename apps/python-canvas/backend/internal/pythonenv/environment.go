@@ -3,16 +3,16 @@ package pythonenv
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/setta/local-backend/strictjson"
 )
 
 const (
@@ -308,18 +308,9 @@ func parseProbe(output []byte) (parsedProbe, error) {
 }
 
 func decodeProbe(output []byte) (interpreterProbe, error) {
-	decoder := json.NewDecoder(bytes.NewReader(output))
-	decoder.DisallowUnknownFields()
 	var payload interpreterProbe
-	if err := decoder.Decode(&payload); err != nil {
+	if err := strictjson.Decode(output, &payload); err != nil {
 		return interpreterProbe{}, fmt.Errorf("%w: decode JSON: %v", ErrInvalidProbe, err)
-	}
-	var extra json.RawMessage
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return interpreterProbe{}, fmt.Errorf("%w: multiple JSON values", ErrInvalidProbe)
-		}
-		return interpreterProbe{}, fmt.Errorf("%w: trailing data: %v", ErrInvalidProbe, err)
 	}
 	return payload, nil
 }

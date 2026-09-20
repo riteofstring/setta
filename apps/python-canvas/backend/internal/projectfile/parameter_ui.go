@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
@@ -66,13 +66,8 @@ func decodeExactUIConfiguration(raw json.RawMessage, destination any, label stri
 	if isNull(raw) || len(bytes.TrimSpace(raw)) == 0 || bytes.TrimSpace(raw)[0] != '{' {
 		return invalidFile("%s configuration must be an object", label)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
+	if err := strictjson.Decode(raw, destination); err != nil {
 		return invalidFile("%s configuration is invalid: %v", label, err)
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		return invalidFile("%s configuration must contain one JSON value", label)
 	}
 	return nil
 }

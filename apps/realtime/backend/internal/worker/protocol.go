@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"path/filepath"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/realtime/backend/internal/contracts"
 )
 
@@ -60,17 +60,9 @@ type wireMessage struct {
 }
 
 func decodeWireMessage(data []byte) (wireMessage, error) {
-	if err := validateUniqueJSON(data); err != nil {
-		return wireMessage{}, fmt.Errorf("%w: %v", ErrProtocol, err)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
 	var message wireMessage
-	if err := decoder.Decode(&message); err != nil {
+	if err := strictjson.Decode(data, &message); err != nil {
 		return wireMessage{}, fmt.Errorf("%w: decode JSON-RPC message: %v", ErrProtocol, err)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return wireMessage{}, fmt.Errorf("%w: JSON-RPC message has trailing content", ErrProtocol)
 	}
 	if message.JSONRPC != "2.0" {
 		return wireMessage{}, fmt.Errorf("%w: JSON-RPC version is invalid", ErrProtocol)
@@ -79,79 +71,7 @@ func decodeWireMessage(data []byte) (wireMessage, error) {
 }
 
 func validateUniqueJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := consumeUniqueJSONValue(decoder); err != nil {
-		return err
-	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("JSON message has trailing content")
-		}
-		return err
-	}
-	return nil
-}
-
-func consumeUniqueJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, compound := token.(json.Delim)
-	if !compound {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		return consumeUniqueJSONObject(decoder)
-	case '[':
-		return consumeUniqueJSONArray(decoder)
-	default:
-		return errors.New("JSON compound value is invalid")
-	}
-}
-
-func consumeUniqueJSONObject(decoder *json.Decoder) error {
-	fields := make(map[string]struct{})
-	for decoder.More() {
-		nameToken, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		name, ok := nameToken.(string)
-		if !ok {
-			return errors.New("JSON object field name is invalid")
-		}
-		if _, exists := fields[name]; exists {
-			return fmt.Errorf("JSON object repeats field %q", name)
-		}
-		fields[name] = struct{}{}
-		if err := consumeUniqueJSONValue(decoder); err != nil {
-			return err
-		}
-	}
-	return consumeJSONClosing(decoder, '}', "JSON object is not closed")
-}
-
-func consumeUniqueJSONArray(decoder *json.Decoder) error {
-	for decoder.More() {
-		if err := consumeUniqueJSONValue(decoder); err != nil {
-			return err
-		}
-	}
-	return consumeJSONClosing(decoder, ']', "JSON array is not closed")
-}
-
-func consumeJSONClosing(decoder *json.Decoder, expected json.Delim, message string) error {
-	closing, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	if closing != expected {
-		return errors.New(message)
-	}
-	return nil
+	return strictjson.Validate(data)
 }
 
 func responseKey(id json.RawMessage) (string, error) {

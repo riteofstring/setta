@@ -34,6 +34,12 @@ cancellation, lock release, process termination, and other cleanup operations ar
 repeated. A failure is returned to the owning application rather than hidden or converted into a
 product response.
 
+The strict JSON boundary accepts one valid UTF-8 value, rejects duplicate decoded object keys,
+limits nesting to 32 containers and decoded string, field-name, and number tokens to 8 MiB, and
+caps the complete document at 64 MiB. Callers retain any smaller boundary-specific byte limit.
+`Validate` applies those lexical rules to open JSON values; `Decode` additionally rejects unknown
+fields in closed Go shapes. Application semantic validation always follows decoding.
+
 ## Package ownership
 
 - `localweb` owns production asset admission, closed local HTTP hosting mechanics, exact Host and
@@ -64,6 +70,14 @@ Lens use it below their state-to-snapshot coordinators, Realtime uses it for aut
 snapshots, and Python Canvas uses it for coordinator snapshots. Realtime runtime envelopes retain
 their application-owned bounded event stream because overflow deliberately discards queued events
 and sends a resynchronizing runtime snapshot, which is not latest-value publication.
+
+`httpjson` recognizes the parsed `application/json` media type, applies the caller's request-byte
+bound before strict decoding, writes one newline-terminated response with the canonical
+`application/json; charset=utf-8` type, and owns `Allow` header mechanics for method checks. `sse`
+checks flush capability and owns standard no-cache, keep-alive, anti-buffering headers, optional
+event names, JSON data framing, initial and per-event flushes, and termination with the request
+context or source channel. The application obtains the stream and maps failures before transport
+starts; `latestvalue` supplies initial-current and coalescing semantics.
 
 ## Verification
 

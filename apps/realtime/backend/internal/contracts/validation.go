@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/setta/local-backend/strictjson"
 )
 
 const (
@@ -34,108 +36,7 @@ var (
 )
 
 func DecodeStrict(data []byte, target any) error {
-	if !utf8.Valid(data) {
-		return errors.New("contracts: JSON is not valid UTF-8")
-	}
-	if err := validateUniqueJSON(data); err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("contracts: multiple JSON values")
-		}
-		return err
-	}
-	return nil
-}
-
-func validateUniqueJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := consumeUniqueJSONValue(decoder); err != nil {
-		return err
-	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("contracts: multiple JSON values")
-		}
-		return err
-	}
-	return nil
-}
-
-func consumeUniqueJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, compound := token.(json.Delim)
-	if !compound {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		return consumeUniqueJSONObject(decoder)
-	case '[':
-		return consumeUniqueJSONArray(decoder)
-	default:
-		return errors.New("contracts: JSON compound value is invalid")
-	}
-}
-
-func consumeUniqueJSONObject(decoder *json.Decoder) error {
-	fields := make(map[string]struct{})
-	for decoder.More() {
-		name, err := consumeUniqueJSONField(decoder, fields)
-		if err != nil {
-			return err
-		}
-		fields[name] = struct{}{}
-		if err := consumeUniqueJSONValue(decoder); err != nil {
-			return err
-		}
-	}
-	return consumeJSONClosingDelimiter(decoder, '}', "contracts: JSON object is not closed")
-}
-
-func consumeUniqueJSONField(decoder *json.Decoder, fields map[string]struct{}) (string, error) {
-	nameToken, err := decoder.Token()
-	if err != nil {
-		return "", err
-	}
-	name, ok := nameToken.(string)
-	if !ok {
-		return "", errors.New("contracts: JSON object field name is invalid")
-	}
-	if _, exists := fields[name]; exists {
-		return "", fmt.Errorf("contracts: JSON object repeats field %q", name)
-	}
-	return name, nil
-}
-
-func consumeUniqueJSONArray(decoder *json.Decoder) error {
-	for decoder.More() {
-		if err := consumeUniqueJSONValue(decoder); err != nil {
-			return err
-		}
-	}
-	return consumeJSONClosingDelimiter(decoder, ']', "contracts: JSON array is not closed")
-}
-
-func consumeJSONClosingDelimiter(decoder *json.Decoder, expected byte, message string) error {
-	closing, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	if closing != json.Delim(expected) {
-		return errors.New(message)
-	}
-	return nil
+	return strictjson.Decode(data, target)
 }
 
 func (project Project) Validate() error {

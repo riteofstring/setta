@@ -133,7 +133,7 @@ func TestIdentityIsExactAndRejectsQuery(t *testing.T) {
 	defer cleanup()
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v2/runtime/session", nil))
-	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/json" {
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/json; charset=utf-8" {
 		t.Fatalf("identity response = %d %q", response.Code, response.Body.String())
 	}
 	var document map[string]string

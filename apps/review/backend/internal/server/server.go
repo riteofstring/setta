@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"net/http"
 	"net/url"
@@ -14,7 +12,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/setta/local-backend/httpjson"
 	"github.com/setta/local-backend/localweb"
+	"github.com/setta/local-backend/sse"
 	"github.com/setta/review/backend/internal/contracts"
 	"github.com/setta/review/backend/internal/coordinator"
 )
@@ -78,7 +78,7 @@ func (handler *Handler) apply(response http.ResponseWriter, request *http.Reques
 		return
 	}
 	var mutation contracts.ReviewMutation
-	if err := decodeJSON(request, &mutation); err != nil {
+	if err := decodeJSON(response, request, &mutation); err != nil {
 		writeError(response, http.StatusBadRequest, "invalid_request", err.Error(), nil, nil)
 		return
 	}
@@ -98,8 +98,7 @@ func (handler *Handler) events(response http.ResponseWriter, request *http.Reque
 	if !exactMethod(response, request, http.MethodGet) {
 		return
 	}
-	flusher, ok := response.(http.Flusher)
-	if !ok {
+	if !sse.Supported(response) {
 		writeError(response, http.StatusInternalServerError, "stream_unavailable", "Streaming is unavailable.", nil, nil)
 		return
 	}
@@ -108,28 +107,7 @@ func (handler *Handler) events(response http.ResponseWriter, request *http.Reque
 		writeFailure(response, err)
 		return
 	}
-	response.Header().Set("Content-Type", "text/event-stream")
-	response.Header().Set("Connection", "keep-alive")
-	response.WriteHeader(http.StatusOK)
-	flusher.Flush()
-	for {
-		select {
-		case <-request.Context().Done():
-			return
-		case snapshot, open := <-stream:
-			if !open {
-				return
-			}
-			encoded, err := json.Marshal(snapshot)
-			if err != nil {
-				return
-			}
-			if _, err := fmt.Fprintf(response, "event: snapshot\ndata: %s\n\n", encoded); err != nil {
-				return
-			}
-			flusher.Flush()
-		}
-	}
+	_ = sse.Serve(response, request, stream, "snapshot")
 }
 
 func (handler *Handler) export(response http.ResponseWriter, request *http.Request) {
@@ -157,8 +135,7 @@ func (handler *Handler) export(response http.ResponseWriter, request *http.Reque
 }
 
 func (handler *Handler) artifact(response http.ResponseWriter, request *http.Request) {
-	if request.Method != http.MethodGet && request.Method != http.MethodHead {
-		response.Header().Set("Allow", "GET, HEAD")
+	if !httpjson.RequireMethod(response, request, http.MethodGet, http.MethodHead) {
 		writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.", nil, nil)
 		return
 	}
@@ -220,8 +197,7 @@ func (handler *Handler) mutationRequest(response http.ResponseWriter, request *h
 		return false
 	}
 	if request.URL.Path == "/api/v1/review/apply" {
-		mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-		if err != nil || mediaType != "application/json" {
+		if !httpjson.HasJSONMediaType(request) {
 			writeError(response, http.StatusUnsupportedMediaType, "unsupported_media_type", "The request must contain application/json.", nil, nil)
 			return false
 		}
@@ -230,27 +206,15 @@ func (handler *Handler) mutationRequest(response http.ResponseWriter, request *h
 }
 
 func exactMethod(response http.ResponseWriter, request *http.Request, method string) bool {
-	if request.Method == method {
+	if httpjson.RequireMethod(response, request, method) {
 		return true
 	}
-	response.Header().Set("Allow", method)
 	writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.", nil, nil)
 	return false
 }
 
-func decodeJSON(request *http.Request, target any) error {
-	defer request.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(request.Body, maximumJSONBytes+1))
-	if err != nil {
-		return fmt.Errorf("server: read request: %w", err)
-	}
-	if len(data) > maximumJSONBytes {
-		return errors.New("server: request exceeds the size limit")
-	}
-	if len(data) == 0 {
-		return errors.New("server: request body is empty")
-	}
-	return contracts.DecodeStrict(data, target)
+func decodeJSON(response http.ResponseWriter, request *http.Request, target any) error {
+	return httpjson.DecodeRequest(response, request, maximumJSONBytes, target)
 }
 
 func artifactIdentity(path string) (string, string, bool) {
@@ -316,7 +280,5 @@ func writeError(response http.ResponseWriter, status int, code string, message s
 }
 
 func writeJSON(response http.ResponseWriter, status int, value any) {
-	response.Header().Set("Content-Type", "application/json; charset=utf-8")
-	response.WriteHeader(status)
-	_ = json.NewEncoder(response).Encode(value)
+	_ = httpjson.Write(response, status, value)
 }

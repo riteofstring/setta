@@ -64,6 +64,11 @@ Successful commands write one JSON document to stdout. Typed input or applicatio
 JSON to stderr and exit `2`; operational failures exit `1`. `run` also writes completed Python
 failures as results and exits `3` for a nonzero exit, signal, timeout, or output limit.
 
+Project, CLI, HTTP, terminal-control, and interpreter-probe JSON inputs share one strict lexical
+contract: valid UTF-8, one JSON value, unique object keys, at most 32 nested containers, and at most
+8 MiB per decoded string, field name, or number, within each boundary's smaller byte limit. Closed
+contract documents also reject unknown fields before Python Canvas applies semantic validation.
+
 Generated Python runs locally and unsandboxed with your user permissions. AI clients should inspect
 `schema`, apply the smallest intended mutation, confirm the returned snapshot, and use bounded
 `run` for noninteractive execution.

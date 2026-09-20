@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 )
 
@@ -701,22 +701,7 @@ func typedV2Failure(content []byte) *commandFailure {
 }
 
 func decodeStrictJSON(content []byte, destination any) error {
-	if !utf8.Valid(content) {
-		return errors.New("JSON is not valid UTF-8")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		if err == nil {
-			return errors.New("multiple JSON documents")
-		}
-		return err
-	}
-	return nil
+	return strictjson.Decode(content, destination)
 }
 
 func validAPIError(value contracts.APIErrorV2) bool {

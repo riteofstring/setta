@@ -1,12 +1,9 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -15,6 +12,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/setta/local-backend/httpjson"
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/runner"
@@ -242,8 +241,7 @@ func (routes *terminalRoutes) handleTicket(response http.ResponseWriter, request
 }
 
 func (routes *terminalRoutes) handleStream(response http.ResponseWriter, request *http.Request) {
-	if request.Method != http.MethodGet {
-		response.Header().Set("Allow", http.MethodGet)
+	if !httpjson.RequireMethod(response, request, http.MethodGet) {
 		writeError(response, http.StatusMethodNotAllowed, contracts.APIErrorCodeMethodNotAllowedV2, "Method is not allowed.")
 		return
 	}
@@ -331,14 +329,8 @@ func (routes *terminalRoutes) readStreamInput(ctx context.Context, connection *w
 }
 
 func decodeTerminalResize(data []byte) (contracts.TerminalStreamResizeV2, bool) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
 	var resize contracts.TerminalStreamResizeV2
-	if err := decoder.Decode(&resize); err != nil {
-		return contracts.TerminalStreamResizeV2{}, false
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+	if err := strictjson.Decode(data, &resize); err != nil {
 		return contracts.TerminalStreamResizeV2{}, false
 	}
 	return resize, resize.Validate() == nil

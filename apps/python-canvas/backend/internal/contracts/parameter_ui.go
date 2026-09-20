@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 
+	"github.com/setta/local-backend/strictjson"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 )
 
@@ -111,13 +111,8 @@ func (ui ParameterUIV2) Aggregate() (aggregate.ParameterUI, error) {
 }
 
 func decodeExactParameterUIConfiguration(content json.RawMessage, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
+	if err := strictjson.Decode(content, destination); err != nil {
 		return fmt.Errorf("parameter UI configuration is invalid: %w", err)
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		return fmt.Errorf("parameter UI configuration must contain one JSON value")
 	}
 	return nil
 }
