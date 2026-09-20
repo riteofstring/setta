@@ -9,7 +9,6 @@
     "contract:check": "go -C backend run -mod=readonly ./cmd/generate-contract -check && node scripts/compile-validators.mjs --check",
     "contract:generate": "go -C backend run -mod=readonly ./cmd/generate-contract && node scripts/compile-validators.mjs",
     "dev": "vite",
-    "fixture:generate": "node examples/battery-playground/generate-fixture.mjs",
     "test": "pnpm --filter @setta/workspace run build && vitest run"
   },
   "dependencies": {
