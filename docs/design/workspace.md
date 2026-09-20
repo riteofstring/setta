@@ -161,6 +161,12 @@ rendering, non-scaling SVG paths, and Workspace gesture isolation. Applications 
 strokes and styles and retain annotation identity, artifact or chart binding, intent, text,
 selection semantics, validation, and persistence. No annotation domain shape enters the document.
 
+Passive artifact and output previews remain application-owned. Their apparent media-element
+overlap does not form one presentation contract: admission allowlists, load-failure policy,
+download authority, structured-value rendering, runtime reference resolution, and domain actions
+remain different. Workspace does not interpret MIME types or introduce an artifact model to hide
+those distinctions.
+
 Package mutations validate the complete request, construct one next canonical value, and publish
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other

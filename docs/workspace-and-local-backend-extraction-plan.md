@@ -1,6 +1,6 @@
 # Workspace and local backend extraction plan
 
-Status: proposed
+Status: active
 
 This plan moves repeated, application-neutral presentation behavior into `@setta/workspace` and
 introduces a small shared Go module for local application backend infrastructure. Python Canvas,
@@ -155,6 +155,11 @@ Verification:
 
 ### A3. Gate a controlled normalized-stroke surface
 
+Gate result (2026-09-22): passed. `WorkspaceNormalizedStrokeSurface` now owns the shared normalized
+pointer, capture, cancellation, draft, passive-rendering, and gesture-boundary contract. Review and
+Experiment Lens retain their distinct annotation models, settlement collections, selection, and
+persistence.
+
 Compare the Review and Experiment Lens gesture contracts after A1 and A2. Proceed only if both can
 use one controlled component without product-specific modes in Workspace.
 
@@ -176,6 +181,12 @@ Acceptance criteria if extracted:
 - No domain annotation shape enters `WorkspaceDocument` or a Workspace public type.
 
 ### A4. Gate a passive content preview
+
+Gate result (2026-09-22): no extraction. Review uses an exact admitted-media allowlist and a
+non-download file card. Experiment Lens owns media failure state, JSON, text, series, and an
+authorized download route. Realtime resolves runtime content references and otherwise formats
+arbitrary values. Combining these would move trust or product policy into Workspace or yield a
+component dominated by application branches, so the current renderers remain app-owned.
 
 Proceed only if Review, Experiment Lens, and Realtime can supply an already admitted URL or value
 to one passive renderer without moving trust decisions into Workspace.
