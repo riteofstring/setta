@@ -153,7 +153,7 @@ function DiffEvidence({
         options={{
           diffStyle: "unified",
           disableFileHeader: true,
-          hunkSeparators: "line-info",
+          hunkSeparators: "simple",
           overflow: "wrap",
           theme: REVIEW_DIFF_THEME,
           themeType: "system",

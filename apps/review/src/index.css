@@ -675,10 +675,6 @@ button {
   flex-direction: column;
 }
 
-.review-evidence[data-focused] {
-  box-shadow: inset 0 0 0 2px rgb(79 134 247 / 65%);
-}
-
 .review-evidence-context {
   position: sticky;
   top: 0;
