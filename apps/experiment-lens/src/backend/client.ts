@@ -1,18 +1,26 @@
 import {
+  isExperimentManifest,
+  isExportResult,
   isLensMutation,
   isLensSnapshot,
+  isMutationResult,
+  isObservationSource,
   isSelectionPacket,
+  isSeriesDocument,
+  isStructuredError,
+  type ExperimentManifest,
   type ExportResult,
   type LensMutation,
   type LensSnapshot,
   type MutationResult,
+  type ObservationSource,
   type StructuredError,
 } from "./generatedContract";
 
 export const LENS_PATH = "/api/v1/experiment-lens";
 export const LENS_APPLY_PATH = "/api/v1/experiment-lens/apply";
 export const LENS_EVENTS_PATH = "/api/v1/experiment-lens/events";
-export const LENS_EXPORT_PATH = "/api/v1/experiment-lens/export";
+const LENS_EXPORT_PATH = "/api/v1/experiment-lens/export";
 
 export class LensClientError extends Error {
   public constructor(
@@ -26,25 +34,6 @@ export class LensClientError extends Error {
     super(message);
     this.name = "LensClientError";
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isStructuredError(value: unknown): value is StructuredError {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const keys = ["artifactId", "code", "field", "message"];
-  return (
-    Object.keys(value).length === keys.length &&
-    keys.every((key) => Object.hasOwn(value, key)) &&
-    typeof value.code === "string" &&
-    typeof value.message === "string" &&
-    (value.field === null || typeof value.field === "string") &&
-    (value.artifactId === null || typeof value.artifactId === "string")
-  );
 }
 
 function invalidResponse(message: string, cause?: unknown): LensClientError {
@@ -113,10 +102,29 @@ async function request(
 }
 
 function assertSnapshot(value: unknown): LensSnapshot {
-  if (!isLensSnapshot(value)) {
+  if (!isLensSnapshot(value) || !snapshotPartsAreValid(value)) {
     throw invalidResponse("Experiment Lens received an invalid snapshot.");
   }
   return value;
+}
+
+function snapshotPartsAreValid(snapshot: LensSnapshot): boolean {
+  const experiment: ExperimentManifest = snapshot.experiment;
+  const observationSource: ObservationSource = {
+    experimentId: experiment.id,
+    observations: snapshot.observations,
+    version: 1,
+  };
+  return (
+    isExperimentManifest(experiment) &&
+    isObservationSource(observationSource) &&
+    snapshot.artifacts.every(
+      (artifact) =>
+        artifact.status !== "resolved" ||
+        artifact.content.kind !== "series" ||
+        isSeriesDocument(artifact.content.series),
+    )
+  );
 }
 
 function assertMutationResult(
@@ -124,10 +132,7 @@ function assertMutationResult(
   mutation: LensMutation,
 ): MutationResult {
   if (
-    !isRecord(value) ||
-    Object.keys(value).length !== 2 ||
-    value.version !== 1 ||
-    !isLensSnapshot(value.snapshot) ||
+    !isMutationResult(value) ||
     value.snapshot.experiment.id !== mutation.experimentId ||
     value.snapshot.manifestSha256 !== mutation.manifestSha256 ||
     value.snapshot.observationSourceSha256 !==
@@ -142,12 +147,7 @@ function assertMutationResult(
 }
 
 function assertExportResult(value: unknown): ExportResult {
-  if (
-    !isRecord(value) ||
-    Object.keys(value).length !== 2 ||
-    value.version !== 1 ||
-    !isSelectionPacket(value.packet)
-  ) {
+  if (!isExportResult(value) || !isSelectionPacket(value.packet)) {
     throw invalidResponse("Experiment Lens received an invalid export result.");
   }
   return value as ExportResult;

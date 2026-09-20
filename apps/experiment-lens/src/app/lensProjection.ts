@@ -14,9 +14,9 @@ export const LENS_TABLE_SECTION_KIND = "experiment-lens.table";
 export const LENS_SERIES_SECTION_KIND = "experiment-lens.series";
 export const LENS_ARTIFACT_SECTION_KIND = "experiment-lens.artifact";
 
-export const LENS_FACETS_SECTION_ID = "lens:facets";
-export const LENS_SCATTER_SECTION_ID = "lens:scatter";
-export const LENS_PARALLEL_SECTION_ID = "lens:parallel";
+const LENS_FACETS_SECTION_ID = "lens:facets";
+const LENS_SCATTER_SECTION_ID = "lens:scatter";
+const LENS_PARALLEL_SECTION_ID = "lens:parallel";
 export const LENS_TABLE_SECTION_ID = "lens:table";
 export const LENS_SERIES_SECTION_ID = "lens:series";
 export const LENS_ARTIFACT_SECTION_ID = "lens:artifact";
@@ -149,10 +149,7 @@ function inspectLayoutFor(
   return result;
 }
 
-export function projectLensDocument(
-  snapshot: LensSnapshot,
-  { compact = false }: { compact?: boolean } = {},
-): WorkspaceDocumentInput {
+function projectLensSections(snapshot: LensSnapshot) {
   const numericFactors = snapshot.experiment.fields.filter(
     (field) => field.role === "factor" && field.valueType === "number",
   );
@@ -216,6 +213,14 @@ export function projectLensDocument(
       "#f8b551",
     );
   }
+  return { artifactKinds, sections };
+}
+
+export function projectLensDocument(
+  snapshot: LensSnapshot,
+  { compact = false }: { compact?: boolean } = {},
+): WorkspaceDocumentInput {
+  const { artifactKinds, sections } = projectLensSections(snapshot);
   const present = SECTION_IDS.filter((id) => sections[id] !== undefined);
   const presentSet = new Set<string>(present);
   const atlasLayouts = atlasLayoutFor(presentSet);

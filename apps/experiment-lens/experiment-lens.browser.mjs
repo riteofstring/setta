@@ -102,43 +102,66 @@ function startServer(binaryPath, projectRoot) {
   return { child, nonce, output, projectRoot };
 }
 
+function throwIfServerExited(server) {
+  if (server.child.exitCode === null) {
+    return;
+  }
+  throw new Error(
+    `Experiment Lens host exited with ${String(server.child.exitCode)}.\n${server.output.stderr || server.output.stdout}`,
+  );
+}
+
+function readServerReadiness(server) {
+  const lineEnd = server.output.stdout.indexOf("\n");
+  if (lineEnd < 0) {
+    return null;
+  }
+  const readiness = JSON.parse(server.output.stdout.slice(0, lineEnd));
+  assert.equal(readiness.app, "experiment-lens");
+  assert.equal(readiness.nonce, server.nonce);
+  assert.equal(readiness.project, realpathSync(server.projectRoot));
+  assert.match(readiness.url, /^http:\/\/127\.0\.0\.1:[0-9]+$/u);
+  return readiness;
+}
+
+function assertRuntimeSession(server, session) {
+  assert.deepEqual(session, {
+    appId: "experiment-lens",
+    instanceNonce: server.nonce,
+    projectPath: realpathSync(server.projectRoot),
+    schemaVersion: "experiment-lens-session/v1",
+  });
+}
+
+async function serverAcceptsRequests(server, readiness) {
+  try {
+    const response = await fetch(`${readiness.url}/api/v2/runtime/session`, {
+      signal: AbortSignal.timeout(1_000),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    assertRuntimeSession(server, await response.json());
+    return true;
+  } catch (error) {
+    if (error instanceof TypeError || error?.name === "TimeoutError") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function waitForServer(server) {
   const deadline = Date.now() + timeoutMilliseconds;
   let readiness = null;
   while (Date.now() < deadline) {
-    if (server.child.exitCode !== null) {
-      throw new Error(
-        `Experiment Lens host exited with ${String(server.child.exitCode)}.\n${server.output.stderr || server.output.stdout}`,
-      );
-    }
-    const lineEnd = server.output.stdout.indexOf("\n");
-    if (readiness === null && lineEnd >= 0) {
-      readiness = JSON.parse(server.output.stdout.slice(0, lineEnd));
-      assert.equal(readiness.app, "experiment-lens");
-      assert.equal(readiness.nonce, server.nonce);
-      assert.equal(readiness.project, realpathSync(server.projectRoot));
-      assert.match(readiness.url, /^http:\/\/127\.0\.0\.1:[0-9]+$/u);
-    }
-    if (readiness !== null) {
-      try {
-        const response = await fetch(
-          `${readiness.url}/api/v2/runtime/session`,
-          { signal: AbortSignal.timeout(1_000) },
-        );
-        if (response.ok) {
-          assert.deepEqual(await response.json(), {
-            appId: "experiment-lens",
-            instanceNonce: server.nonce,
-            projectPath: realpathSync(server.projectRoot),
-            schemaVersion: "experiment-lens-session/v1",
-          });
-          return readiness.url;
-        }
-      } catch (error) {
-        if (!(error instanceof TypeError || error?.name === "TimeoutError")) {
-          throw error;
-        }
-      }
+    throwIfServerExited(server);
+    readiness ??= readServerReadiness(server);
+    if (
+      readiness !== null &&
+      (await serverAcceptsRequests(server, readiness))
+    ) {
+      return readiness.url;
     }
     await delay(50);
   }

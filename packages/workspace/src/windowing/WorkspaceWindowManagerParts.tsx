@@ -356,6 +356,7 @@ function WorkspaceManagedWindow({
       data-workspace-window-maximized={isMaximized || undefined}
       data-workspace-window-snap-preset={snapPreset ?? undefined}
       onClick={() => globalThis.setTimeout(() => onFocus(window.id), 0)}
+      onKeyDown={() => globalThis.setTimeout(() => onFocus(window.id), 0)}
     >
       <WorkspaceManagedWindowFrame
         actions={getWindowActions(window, onAction)}

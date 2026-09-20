@@ -22,7 +22,7 @@ const SERIES_COLORS = [
   "#94a3b8",
 ];
 
-export type LensChartPalette = Readonly<{
+type LensChartPalette = Readonly<{
   axis: string;
   grid: string;
   muted: string;

@@ -16,11 +16,16 @@ import {
   ParallelComponent,
   TooltipComponent,
 } from "echarts/components";
-import { init, use, type ECharts, type EChartsCoreOption } from "echarts/core";
+import {
+  init,
+  use as registerECharts,
+  type ECharts,
+  type EChartsCoreOption,
+} from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
-use([
+registerECharts([
   AriaComponent,
   AxisPointerComponent,
   BrushComponent,
@@ -36,11 +41,11 @@ use([
   TooltipComponent,
 ]);
 
-export type EChartEventHandlers = Readonly<
+type EChartEventHandlers = Readonly<
   Record<string, (event: unknown, chart: ECharts) => void>
 >;
 
-export type EChartPointerEvent = Readonly<{
+type EChartPointerEvent = Readonly<{
   offsetX?: number;
   offsetY?: number;
   zrX?: number;

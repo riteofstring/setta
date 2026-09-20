@@ -21,7 +21,7 @@ export type FieldExtent = Readonly<{
   minimum: number;
 }>;
 
-export type FieldChoice = Readonly<{
+type FieldChoice = Readonly<{
   count: number;
   value: JsonScalar;
 }>;
@@ -38,89 +38,6 @@ export function nearestSeriesSampleX(
       ? sample
       : current,
   ).x;
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return [...new Set(values)];
-}
-
-function observationIds(snapshot: LensSnapshot): Set<string> {
-  return new Set(snapshot.observations.map((observation) => observation.id));
-}
-
-function artifactIds(snapshot: LensSnapshot): Set<string> {
-  return new Set(snapshot.experiment.artifacts.map((artifact) => artifact.id));
-}
-
-function rangeIds(ranges: readonly ArtifactRange[]): Set<string> {
-  return new Set(ranges.map((range) => range.id));
-}
-
-function validNote(
-  note: SelectionNote,
-  observations: ReadonlySet<string>,
-  artifacts: ReadonlySet<string>,
-  ranges: ReadonlySet<string>,
-): boolean {
-  return (
-    note.text.trim() !== "" &&
-    (note.observationId === null || observations.has(note.observationId)) &&
-    (note.artifactId === null || artifacts.has(note.artifactId)) &&
-    (note.rangeId === null || ranges.has(note.rangeId))
-  );
-}
-
-export function normalizeLensSelection(
-  snapshot: LensSnapshot,
-  selection: LensSelection,
-): LensSelection {
-  const observations = observationIds(snapshot);
-  const artifacts = artifactIds(snapshot);
-  const selectedObservationIds = uniqueStrings(
-    selection.selectedObservationIds.filter((id) => observations.has(id)),
-  );
-  const ranges = selection.ranges.filter(
-    (range) =>
-      artifacts.has(range.artifactId) &&
-      Number.isFinite(range.start) &&
-      Number.isFinite(range.end) &&
-      range.start <= range.end,
-  );
-  const validRanges = rangeIds(ranges);
-  const firstObservationId = snapshot.observations[0]?.id ?? null;
-  return {
-    filters: selection.filters.filter((filter) =>
-      snapshot.experiment.fields.some((field) => field.id === filter.fieldId),
-    ),
-    focusedObservationId:
-      selection.focusedObservationId !== null &&
-      observations.has(selection.focusedObservationId)
-        ? selection.focusedObservationId
-        : selection.focusedObservationId === null
-          ? null
-          : firstObservationId,
-    selectedObservationIds,
-    selectedArtifactIds: uniqueStrings(
-      selection.selectedArtifactIds.filter((id) => artifacts.has(id)),
-    ),
-    ranges,
-    notes: selection.notes.filter((note) =>
-      validNote(note, observations, artifacts, validRanges),
-    ),
-  };
-}
-
-export function findField(
-  snapshot: LensSnapshot,
-  fieldId: string,
-): FieldDefinition | undefined {
-  return snapshot.experiment.fields.find((field) => field.id === fieldId);
-}
-
-export function numericFields(snapshot: LensSnapshot): FieldDefinition[] {
-  return snapshot.experiment.fields.filter(
-    (field) => field.valueType === "number",
-  );
 }
 
 export function categoricalFactorFields(
@@ -293,7 +210,7 @@ export function focusedObservation(
   );
 }
 
-export function artifactsForObservation(
+function artifactsForObservation(
   snapshot: LensSnapshot,
   observationId: string | null,
 ): ResolvedArtifact[] {
@@ -322,7 +239,7 @@ export function seriesArtifactForObservation(
   );
 }
 
-export function displayArtifactForObservation(
+function displayArtifactForObservation(
   snapshot: LensSnapshot,
   observationId: string | null,
 ): ResolvedArtifact | null {
@@ -331,6 +248,24 @@ export function displayArtifactForObservation(
       (artifact) =>
         artifact.reference.mediaType !== "application/vnd.setta.series+json",
     ) ?? null
+  );
+}
+
+type ArtifactRelation = LensSnapshot["experiment"]["relations"][number];
+
+function relationAtCursor(
+  relations: readonly ArtifactRelation[],
+  cursor: number | null,
+): ArtifactRelation | null {
+  const timed = relations.filter((relation) => relation.timeline !== null);
+  if (cursor === null || timed.length === 0) {
+    return timed[0] ?? relations[0] ?? null;
+  }
+  return timed.reduce((nearest, relation) =>
+    Math.abs((relation.timeline?.value ?? 0) - cursor) <
+    Math.abs((nearest.timeline?.value ?? 0) - cursor)
+      ? relation
+      : nearest,
   );
 }
 
@@ -345,16 +280,7 @@ export function displayArtifactAtCursor(
   const relations = snapshot.experiment.relations.filter(
     (relation) => relation.observationId === observationId,
   );
-  const timed = relations.filter((relation) => relation.timeline !== null);
-  const selectedRelation =
-    cursor === null || timed.length === 0
-      ? (timed[0] ?? relations[0] ?? null)
-      : timed.reduce((nearest, relation) =>
-          Math.abs((relation.timeline?.value ?? 0) - cursor) <
-          Math.abs((nearest.timeline?.value ?? 0) - cursor)
-            ? relation
-            : nearest,
-        );
+  const selectedRelation = relationAtCursor(relations, cursor);
   if (!selectedRelation) {
     return null;
   }
@@ -385,23 +311,40 @@ export function artifactTimeline(
   if (!relation?.timeline) {
     return null;
   }
-  const matchingAxis = snapshot.artifacts.find(
-    (candidate) =>
-      candidate.status === "resolved" &&
-      candidate.content.kind === "series" &&
-      candidate.content.series.axis.id === relation.timeline?.axisId,
-  );
-  const axis =
-    matchingAxis?.status === "resolved" &&
-    matchingAxis.content.kind === "series"
-      ? matchingAxis.content.series.axis
-      : null;
+  const axis = seriesAxis(snapshot, relation.timeline.axisId);
   return {
     axisId: relation.timeline.axisId,
     label: axis?.label ?? relation.timeline.axisId,
     unit: axis?.unit ?? null,
     value: relation.timeline.value,
   };
+}
+
+function seriesAxis(snapshot: LensSnapshot, axisId: string) {
+  const matchingArtifact = snapshot.artifacts.find(
+    (candidate) =>
+      candidate.status === "resolved" &&
+      candidate.content.kind === "series" &&
+      candidate.content.series.axis.id === axisId,
+  );
+  if (
+    matchingArtifact?.status !== "resolved" ||
+    matchingArtifact.content.kind !== "series"
+  ) {
+    return null;
+  }
+  return matchingArtifact.content.series.axis;
+}
+
+function formatNumber(value: number, unit?: string | null): string {
+  const magnitude = Math.abs(value);
+  const formatted =
+    magnitude !== 0 && magnitude < 0.01
+      ? value.toPrecision(3)
+      : new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: magnitude < 10 ? 3 : 1,
+        }).format(value);
+  return unit ? `${formatted} ${unit}` : formatted;
 }
 
 export function formatScalar(
@@ -412,14 +355,7 @@ export function formatScalar(
     return "—";
   }
   if (typeof value === "number") {
-    const magnitude = Math.abs(value);
-    const formatted =
-      magnitude !== 0 && magnitude < 0.01
-        ? value.toPrecision(3)
-        : new Intl.NumberFormat(undefined, {
-            maximumFractionDigits: magnitude < 10 ? 3 : 1,
-          }).format(value);
-    return field?.unit ? `${formatted} ${field.unit}` : formatted;
+    return formatNumber(value, field?.unit);
   }
   if (typeof value === "boolean") {
     return value ? "Yes" : "No";

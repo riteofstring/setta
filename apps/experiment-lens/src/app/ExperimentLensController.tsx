@@ -20,6 +20,7 @@ import type {
   ArtifactRange,
   LensSelection,
   LensSnapshot,
+  SelectionPacket,
 } from "../backend/generatedContract";
 import { ExperimentLensView } from "./ExperimentLensView";
 import { LensContext, type LensActions } from "./lensContext";
@@ -56,7 +57,7 @@ function errorMessage(error: unknown): string {
   return "Experiment Lens could not complete the operation.";
 }
 
-function downloadPacket(snapshot: LensSnapshot, packet: unknown): void {
+function downloadPacket(snapshot: LensSnapshot, packet: SelectionPacket): void {
   const blob = new Blob([JSON.stringify(packet, null, 2), "\n"], {
     type: "application/json",
   });

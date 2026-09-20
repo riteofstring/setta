@@ -21,6 +21,27 @@ function filterFor(
   return filters.find((filter) => filter.fieldId === fieldId);
 }
 
+function rangeBoundsFor(
+  filters: readonly FieldFilter[],
+  fieldId: string,
+): { maximum: number | null; minimum: number | null } {
+  const current = filterFor(filters, fieldId);
+  if (current?.operator !== "range") {
+    return { maximum: null, minimum: null };
+  }
+  return { maximum: current.maximum, minimum: current.minimum };
+}
+
+function commitChangedNumber(
+  value: number,
+  current: number,
+  commit: (value: number) => void,
+) {
+  if (Number.isFinite(value) && value !== current) {
+    commit(value);
+  }
+}
+
 function ChoiceFacet({ field }: { field: FieldDefinition }) {
   const lens = useLens();
   const choices = useMemo(
@@ -85,9 +106,9 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
   if (!extent) {
     return null;
   }
-  const current = filterFor(lens.selection.filters, field.id);
-  const minimum = current?.operator === "range" ? current.minimum : null;
-  const maximum = current?.operator === "range" ? current.maximum : null;
+  const { maximum, minimum } = rangeBoundsFor(lens.selection.filters, field.id);
+  const displayedMinimum = minimum ?? extent.minimum;
+  const displayedMaximum = maximum ?? extent.maximum;
   const commit = (nextMinimum: number | null, nextMaximum: number | null) =>
     lens.actions.setRangeFilter(field.id, nextMinimum, nextMaximum, extent);
   return (
@@ -97,19 +118,17 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
         <span>From</span>
         <input
           aria-label={`${field.label} minimum`}
-          defaultValue={minimum ?? extent.minimum}
-          key={`minimum:${String(minimum)}`}
-          max={maximum ?? extent.maximum}
+          defaultValue={displayedMinimum}
+          key={`minimum:${String(displayedMinimum)}`}
+          max={displayedMaximum}
           min={extent.minimum}
-          onBlur={(event) => {
-            const value = event.currentTarget.valueAsNumber;
-            if (
-              Number.isFinite(value) &&
-              value !== (minimum ?? extent.minimum)
-            ) {
-              commit(value, maximum);
-            }
-          }}
+          onBlur={(event) =>
+            commitChangedNumber(
+              event.currentTarget.valueAsNumber,
+              displayedMinimum,
+              (value) => commit(value, maximum),
+            )
+          }
           step="any"
           type="number"
         />
@@ -119,19 +138,17 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
         <span>To</span>
         <input
           aria-label={`${field.label} maximum`}
-          defaultValue={maximum ?? extent.maximum}
-          key={`maximum:${String(maximum)}`}
+          defaultValue={displayedMaximum}
+          key={`maximum:${String(displayedMaximum)}`}
           max={extent.maximum}
-          min={minimum ?? extent.minimum}
-          onBlur={(event) => {
-            const value = event.currentTarget.valueAsNumber;
-            if (
-              Number.isFinite(value) &&
-              value !== (maximum ?? extent.maximum)
-            ) {
-              commit(minimum, value);
-            }
-          }}
+          min={displayedMinimum}
+          onBlur={(event) =>
+            commitChangedNumber(
+              event.currentTarget.valueAsNumber,
+              displayedMaximum,
+              (value) => commit(minimum, value),
+            )
+          }
           step="any"
           type="number"
         />
@@ -152,18 +169,16 @@ export function FacetSection() {
     );
     return [...categorical.slice(0, 1), ...numericChoices.slice(0, 2)];
   }, [lens.snapshot]);
-  const chosenIds = new Set(choiceFields.map((field) => field.id));
-  const rangeField = useMemo(
-    () =>
-      numericFactorFields(lens.snapshot)
-        .filter((field) => !chosenIds.has(field.id))
-        .sort(
-          (left, right) =>
-            fieldChoices(lens.snapshot.observations, right.id).length -
-            fieldChoices(lens.snapshot.observations, left.id).length,
-        )[0],
-    [chosenIds, lens.snapshot],
-  );
+  const rangeField = useMemo(() => {
+    const chosenIds = new Set(choiceFields.map((field) => field.id));
+    return numericFactorFields(lens.snapshot)
+      .filter((field) => !chosenIds.has(field.id))
+      .sort(
+        (left, right) =>
+          fieldChoices(lens.snapshot.observations, right.id).length -
+          fieldChoices(lens.snapshot.observations, left.id).length,
+      )[0];
+  }, [choiceFields, lens.snapshot]);
   return (
     <div className="lens-facets" data-lens-section="facets">
       <div className="lens-facet-grid">

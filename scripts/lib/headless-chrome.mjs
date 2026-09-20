@@ -59,6 +59,33 @@ export function startHeadlessChrome(explicitBinaryPath = null) {
   return { child, output, profileDirectory };
 }
 
+function throwIfHeadlessChromeExited(browser) {
+  if (browser.child.exitCode === null) {
+    return;
+  }
+  throw new Error(
+    `Headless Chrome exited with ${String(browser.child.exitCode)}.\n` +
+      `${browser.output.stderr || browser.output.stdout}`,
+  );
+}
+
+function readDevToolsPort(portFile) {
+  if (!existsSync(portFile)) {
+    return null;
+  }
+  const [rawPort, webSocketPath] = readFileSync(portFile, "utf8").split("\n");
+  if (!rawPort?.trim() || !webSocketPath?.trim()) {
+    return null;
+  }
+  const port = Number(rawPort);
+  if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+    throw new Error(
+      `Headless Chrome wrote an invalid DevTools port: ${String(rawPort)}.`,
+    );
+  }
+  return port;
+}
+
 export async function waitForHeadlessChrome(
   browser,
   timeoutMs = DEFAULT_START_TIMEOUT_MS,
@@ -66,26 +93,9 @@ export async function waitForHeadlessChrome(
   const portFile = path.join(browser.profileDirectory, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (browser.child.exitCode !== null) {
-      throw new Error(
-        `Headless Chrome exited with ${String(browser.child.exitCode)}.\n` +
-          `${browser.output.stderr || browser.output.stdout}`,
-      );
-    }
-    if (existsSync(portFile)) {
-      const [rawPort, webSocketPath] = readFileSync(portFile, "utf8").split(
-        "\n",
-      );
-      if (!rawPort?.trim() || !webSocketPath?.trim()) {
-        await delay(50);
-        continue;
-      }
-      const port = Number(rawPort);
-      if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
-        throw new Error(
-          `Headless Chrome wrote an invalid DevTools port: ${String(rawPort)}.`,
-        );
-      }
+    throwIfHeadlessChromeExited(browser);
+    const port = readDevToolsPort(portFile);
+    if (port !== null) {
       return port;
     }
     await delay(50);
