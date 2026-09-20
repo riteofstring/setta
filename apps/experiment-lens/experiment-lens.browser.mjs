@@ -1195,6 +1195,11 @@ function resultDirectory() {
   );
 }
 
+if (process.argv.includes("--generate-fixture")) {
+  await import("./examples/battery-playground/generate-fixture.mjs");
+  process.exit(0);
+}
+
 const temporaryDirectory = mkdtempSync(
   path.join(os.tmpdir(), "setta-experiment-lens-browser-"),
 );
