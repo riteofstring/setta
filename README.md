@@ -1,3 +1,6 @@
+![Setta logo](images/setta-github-light.png#gh-light-mode-only)
+![Setta logo](images/setta-github-dark.png#gh-dark-mode-only)
+
 # Setta
 
 **Visual tools for local Python projects, reviews, and experiments.**
