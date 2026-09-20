@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/review/backend/internal/contracts"
 )
 
@@ -31,11 +29,12 @@ type Catalog struct {
 }
 
 func Open(root string) (*Catalog, error) {
-	canonical, err := canonicalRoot(root)
+	projectRoot, err := projectfs.Open(root)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("project: open root: %w", projectFileError(err))
 	}
-	manifestBytes, err := readConfinedRegular(canonical, "review.json", maximumRequestBytes)
+	defer projectRoot.Close()
+	manifestBytes, err := readConfinedRegular(projectRoot, "review.json", maximumRequestBytes)
 	if err != nil {
 		return nil, fmt.Errorf("project: read manifest: %w", err)
 	}
@@ -47,13 +46,13 @@ func Open(root string) (*Catalog, error) {
 		return nil, fmt.Errorf("project: validate manifest: %w", err)
 	}
 	catalog := &Catalog{
-		root:       canonical,
+		root:       projectRoot.Path(),
 		manifest:   manifest,
 		requestIDs: make([]string, 0, len(manifest.Requests)),
 		requests:   make(map[string]AdmittedRequest, len(manifest.Requests)),
 	}
 	for _, path := range manifest.Requests {
-		request, err := admitRequest(canonical, path)
+		request, err := admitRequest(projectRoot, path)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +112,7 @@ func (request AdmittedRequest) Bytes() []byte {
 	return append([]byte(nil), request.bytes...)
 }
 
-func admitRequest(root string, path string) (AdmittedRequest, error) {
+func admitRequest(root *projectfs.Root, path string) (AdmittedRequest, error) {
 	data, err := readConfinedRegular(root, path, maximumRequestBytes)
 	if err != nil {
 		return AdmittedRequest{}, fmt.Errorf("project: read request %q: %w", path, err)
@@ -134,83 +133,24 @@ func admitRequest(root string, path string) (AdmittedRequest, error) {
 	}, nil
 }
 
-func canonicalRoot(root string) (string, error) {
-	if root == "" || root != strings.TrimSpace(root) || strings.ContainsRune(root, '\x00') {
-		return "", errors.New("project: root is invalid")
-	}
-	absolute, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("project: resolve root: %w", err)
-	}
-	canonical, err := filepath.EvalSymlinks(absolute)
-	if err != nil {
-		return "", fmt.Errorf("project: canonicalize root: %w", err)
-	}
-	info, err := os.Stat(canonical)
-	if err != nil || !info.IsDir() {
-		return "", errors.New("project: root is not a directory")
-	}
-	return canonical, nil
+func readConfinedRegular(root *projectfs.Root, relative string, maximum int64) ([]byte, error) {
+	data, err := root.ReadRegular(relative, maximum)
+	return data, projectFileError(err)
 }
 
-func readConfinedRegular(root string, relative string, maximum int64) ([]byte, error) {
-	cleaned, err := cleanRelative(relative)
-	if err != nil {
-		return nil, err
+func projectFileError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, projectfs.ErrInvalidPath):
+		return fmt.Errorf("project: path escapes the project root: %w", err)
+	case errors.Is(err, projectfs.ErrIrregularPath):
+		return fmt.Errorf("project: symlink or irregular path is not admitted: %w", err)
+	case errors.Is(err, projectfs.ErrMaximumSize):
+		return fmt.Errorf("project: file exceeds the admitted size limit: %w", err)
+	default:
+		return err
 	}
-	current := root
-	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
-		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
-		if err != nil {
-			return nil, err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return nil, errors.New("project: symlink paths are not admitted")
-		}
-	}
-	info, err := os.Lstat(current)
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.New("project: path is not a regular file")
-	}
-	if info.Size() > maximum {
-		return nil, errors.New("project: file exceeds the admitted size limit")
-	}
-	file, err := os.Open(current)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	data, err := readBounded(file, maximum)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func cleanRelative(relative string) (string, error) {
-	if relative == "" || relative != strings.TrimSpace(relative) || filepath.IsAbs(relative) || strings.ContainsRune(relative, '\x00') {
-		return "", errors.New("project: path escapes the project root")
-	}
-	cleaned := filepath.Clean(relative)
-	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
-		return "", errors.New("project: path escapes the project root")
-	}
-	return cleaned, nil
-}
-
-func readBounded(file *os.File, maximum int64) ([]byte, error) {
-	data, err := io.ReadAll(io.LimitReader(file, maximum+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > maximum {
-		return nil, errors.New("project: file exceeds the admitted size limit")
-	}
-	return data, nil
 }
 
 func cloneAdmitted(request AdmittedRequest) (AdmittedRequest, error) {

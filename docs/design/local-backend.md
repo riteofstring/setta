@@ -51,6 +51,14 @@ semantics, validation, commands, route classification, response documents, worke
 terminal behavior. `setta-runtime` retains application registration, packaging, live identity
 verification, and outer native-server supervision.
 
+Review and Experiment Lens use `projectfs` for immutable project inputs and their revisioned state
+files. Realtime uses it for its project document and for staging the declared entrypoint before the
+application-owned version recheck. Streaming content stores, retained materializations, and worker
+artifact staging keep their domain-specific byte and identity transactions. Python Canvas keeps its
+authored/generated-file transaction application-owned because provider synchronization and
+generated-file rollback span the authored commit; `projectfs` does not pretend that multi-file
+protocol is an ordinary single-file replacement.
+
 ## Verification
 
 The module's quick suite uses temporary roots, local listeners, and deterministic helper

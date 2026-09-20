@@ -2,17 +2,15 @@ package lensstate
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/setta/experiment-lens/backend/internal/contracts"
+	"github.com/setta/local-backend/projectfs"
 )
 
 const (
@@ -45,22 +43,18 @@ type Document struct {
 
 type Store struct {
 	mu          sync.Mutex
-	root        *os.Root
+	root        *projectfs.Root
 	identity    Identity
 	document    Document
 	subscribers map[chan Document]struct{}
 	closed      bool
 }
 
-type advisoryLock struct {
-	file *os.File
-}
-
 func Open(projectRoot string, identity Identity) (*Store, error) {
 	if strings.TrimSpace(projectRoot) == "" || strings.TrimSpace(identity.ExperimentID) == "" || strings.TrimSpace(identity.ManifestSHA256) == "" || strings.TrimSpace(identity.ObservationSourceSHA256) == "" {
 		return nil, errors.New("lensstate: project root and identity are required")
 	}
-	root, err := os.OpenRoot(projectRoot)
+	root, err := projectfs.Open(projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("lensstate: open project root: %w", err)
 	}
@@ -235,69 +229,23 @@ func (store *Store) acceptObservedLocked(document Document) {
 }
 
 func (store *Store) withAdvisoryLock(operation func() error) error {
-	lock, err := store.acquireAdvisoryLock()
-	if err != nil {
+	if err := store.ensureDirectory(); err != nil {
 		return err
 	}
-	operationErr := operation()
-	releaseErr := lock.release()
-	return errors.Join(operationErr, releaseErr)
-}
-
-func (store *Store) acquireAdvisoryLock() (*advisoryLock, error) {
-	if err := store.ensureDirectory(); err != nil {
-		return nil, err
-	}
-	file, err := store.root.OpenFile(stateLockPath, os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf("lensstate: open state lock: %w", err)
-	}
-	pathInfo, pathErr := store.root.Lstat(stateLockPath)
-	fileInfo, fileErr := file.Stat()
-	if pathErr != nil || fileErr != nil || pathInfo.Mode()&os.ModeSymlink != 0 || !pathInfo.Mode().IsRegular() || !fileInfo.Mode().IsRegular() || !os.SameFile(pathInfo, fileInfo) {
-		_ = file.Close()
-		return nil, errors.New("lensstate: state lock is not an admitted regular file")
-	}
-	if err := lockFile(file); err != nil {
-		_ = file.Close()
-		return nil, fmt.Errorf("lensstate: acquire state lock: %w", err)
-	}
-	return &advisoryLock{file: file}, nil
-}
-
-func (lock *advisoryLock) release() error {
-	return errors.Join(unlockFile(lock.file), lock.file.Close())
+	return store.root.WithLock(context.Background(), stateLockPath, operation)
 }
 
 func (store *Store) ensureDirectory() error {
-	if err := store.root.MkdirAll(".local/experiment-lens", 0o755); err != nil {
+	if err := store.root.EnsureDirectory(".local/experiment-lens", 0o755); err != nil {
 		return fmt.Errorf("lensstate: create state directory: %w", err)
-	}
-	for _, name := range []string{".local", ".local/experiment-lens"} {
-		info, err := store.root.Lstat(name)
-		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return errors.New("lensstate: state directory is not admitted")
-		}
 	}
 	return nil
 }
 
 func (store *Store) load() (Document, error) {
-	info, err := store.root.Lstat(statePath)
+	data, err := store.root.ReadRegular(statePath, maximumStateBytes)
 	if err != nil {
-		return Document{}, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return Document{}, errors.New("lensstate: state path is not admitted")
-	}
-	file, err := store.root.Open(statePath)
-	if err != nil {
-		return Document{}, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, maximumStateBytes+1))
-	if err != nil || len(data) > maximumStateBytes {
-		return Document{}, errors.New("lensstate: state exceeds the size limit")
+		return Document{}, fmt.Errorf("lensstate: read state: %w", err)
 	}
 	var document Document
 	if err := contracts.DecodeStrict(data, &document); err != nil {
@@ -324,41 +272,7 @@ func (store *Store) write(document Document) error {
 	if len(encoded) > maximumStateBytes {
 		return errors.New("lensstate: state exceeds the size limit")
 	}
-	random := make([]byte, 16)
-	if _, err := rand.Read(random); err != nil {
-		return err
-	}
-	temporary := ".local/experiment-lens/.state-" + hex.EncodeToString(random) + ".json"
-	file, err := store.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return err
-	}
-	installed := false
-	defer func() {
-		_ = file.Close()
-		if !installed {
-			_ = store.root.Remove(temporary)
-		}
-	}()
-	if _, err := file.Write(encoded); err != nil {
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		return err
-	}
-	if err := file.Close(); err != nil {
-		return err
-	}
-	if err := store.root.Rename(temporary, statePath); err != nil {
-		return err
-	}
-	installed = true
-	directory, err := store.root.Open(".local/experiment-lens")
-	if err != nil {
-		return err
-	}
-	defer directory.Close()
-	return directory.Sync()
+	return store.root.Replace(statePath, encoded, maximumStateBytes, 0o600)
 }
 
 func clone(document Document) (Document, error) {

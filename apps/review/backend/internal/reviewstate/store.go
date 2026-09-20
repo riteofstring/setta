@@ -2,16 +2,14 @@ package reviewstate
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/review/backend/internal/contracts"
 )
 
@@ -38,22 +36,18 @@ type Document struct {
 
 type Store struct {
 	mu          sync.Mutex
-	root        *os.Root
+	root        *projectfs.Root
 	projectID   string
 	document    Document
 	subscribers map[chan Document]struct{}
 	closed      bool
 }
 
-type advisoryLock struct {
-	file *os.File
-}
-
 func Open(projectRoot string, projectID string) (*Store, error) {
 	if strings.TrimSpace(projectRoot) == "" || strings.TrimSpace(projectID) == "" {
 		return nil, errors.New("reviewstate: project root and identity are required")
 	}
-	root, err := os.OpenRoot(projectRoot)
+	root, err := projectfs.Open(projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("reviewstate: open project root: %w", err)
 	}
@@ -251,83 +245,23 @@ func (store *Store) acceptObservedLocked(document Document) {
 }
 
 func (store *Store) withAdvisoryLock(operation func() error) error {
-	lock, err := store.acquireAdvisoryLock()
-	if err != nil {
+	if err := store.ensureDirectory(); err != nil {
 		return err
 	}
-	operationErr := operation()
-	releaseErr := lock.release()
-	return errors.Join(operationErr, releaseErr)
-}
-
-func (store *Store) acquireAdvisoryLock() (*advisoryLock, error) {
-	if err := store.ensureDirectory(); err != nil {
-		return nil, err
-	}
-	file, err := store.root.OpenFile(stateLockPath, os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf("reviewstate: open state lock: %w", err)
-	}
-	pathInfo, pathErr := store.root.Lstat(stateLockPath)
-	fileInfo, fileErr := file.Stat()
-	if pathErr != nil || fileErr != nil || pathInfo.Mode()&os.ModeSymlink != 0 || !pathInfo.Mode().IsRegular() || !fileInfo.Mode().IsRegular() || !os.SameFile(pathInfo, fileInfo) {
-		_ = file.Close()
-		return nil, errors.New("reviewstate: state lock is not an admitted regular file")
-	}
-	if err := lockFile(file); err != nil {
-		_ = file.Close()
-		return nil, fmt.Errorf("reviewstate: acquire state lock: %w", err)
-	}
-	return &advisoryLock{file: file}, nil
-}
-
-func (lock *advisoryLock) release() error {
-	unlockErr := unlockFile(lock.file)
-	closeErr := lock.file.Close()
-	if unlockErr != nil {
-		unlockErr = fmt.Errorf("reviewstate: release state lock: %w", unlockErr)
-	}
-	if closeErr != nil {
-		closeErr = fmt.Errorf("reviewstate: close state lock: %w", closeErr)
-	}
-	return errors.Join(unlockErr, closeErr)
+	return store.root.WithLock(context.Background(), stateLockPath, operation)
 }
 
 func (store *Store) ensureDirectory() error {
-	if err := store.root.MkdirAll(".local/review", 0o755); err != nil {
+	if err := store.root.EnsureDirectory(".local/review", 0o755); err != nil {
 		return fmt.Errorf("reviewstate: create state directory: %w", err)
-	}
-	for _, name := range []string{".local", ".local/review"} {
-		info, err := store.root.Lstat(name)
-		if err != nil {
-			return fmt.Errorf("reviewstate: inspect state directory: %w", err)
-		}
-		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return errors.New("reviewstate: state directory is not an admitted directory")
-		}
 	}
 	return nil
 }
 
 func (store *Store) load() (Document, error) {
-	info, err := store.root.Lstat(statePath)
-	if err != nil {
-		return Document{}, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return Document{}, errors.New("reviewstate: state path is not an admitted regular file")
-	}
-	file, err := store.root.Open(statePath)
-	if err != nil {
-		return Document{}, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, maximumStateBytes+1))
+	data, err := store.root.ReadRegular(statePath, maximumStateBytes)
 	if err != nil {
 		return Document{}, fmt.Errorf("reviewstate: read state: %w", err)
-	}
-	if len(data) > maximumStateBytes {
-		return Document{}, errors.New("reviewstate: state exceeds the size limit")
 	}
 	var document Document
 	if err := contracts.DecodeStrict(data, &document); err != nil {
@@ -347,30 +281,10 @@ func (store *Store) write(document Document) error {
 	if err != nil {
 		return err
 	}
-	name, err := temporaryName()
-	if err != nil {
-		return err
-	}
-	temporary := ".local/review/" + name
-	file, err := store.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return fmt.Errorf("reviewstate: create replacement: %w", err)
-	}
-	installed := false
-	defer func() {
-		_ = file.Close()
-		if !installed {
-			_ = store.root.Remove(temporary)
-		}
-	}()
-	if err := writeReplacement(file, encoded); err != nil {
-		return err
-	}
-	if err := store.root.Rename(temporary, statePath); err != nil {
+	if err := store.root.Replace(statePath, encoded, maximumStateBytes, 0o600); err != nil {
 		return fmt.Errorf("reviewstate: install replacement: %w", err)
 	}
-	installed = true
-	return store.syncStateDirectory()
+	return nil
 }
 
 func encodeDocument(document Document) ([]byte, error) {
@@ -383,31 +297,6 @@ func encodeDocument(document Document) ([]byte, error) {
 		return nil, errors.New("reviewstate: state exceeds the size limit")
 	}
 	return encoded, nil
-}
-
-func writeReplacement(file *os.File, encoded []byte) error {
-	if _, err := file.Write(encoded); err != nil {
-		return fmt.Errorf("reviewstate: write replacement: %w", err)
-	}
-	if err := file.Sync(); err != nil {
-		return fmt.Errorf("reviewstate: sync replacement: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("reviewstate: close replacement: %w", err)
-	}
-	return nil
-}
-
-func (store *Store) syncStateDirectory() error {
-	directory, err := store.root.Open(".local/review")
-	if err != nil {
-		return fmt.Errorf("reviewstate: open state directory: %w", err)
-	}
-	defer directory.Close()
-	if err := directory.Sync(); err != nil {
-		return fmt.Errorf("reviewstate: sync state directory: %w", err)
-	}
-	return nil
 }
 
 func (store *Store) publishLocked(document Document) {
@@ -426,14 +315,6 @@ func (store *Store) publishLocked(document Document) {
 			channel <- snapshot
 		}
 	}
-}
-
-func temporaryName() (string, error) {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("reviewstate: create replacement identity: %w", err)
-	}
-	return ".state-" + hex.EncodeToString(bytes) + ".json", nil
 }
 
 func clone(document Document) (Document, error) {

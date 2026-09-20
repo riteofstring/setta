@@ -109,6 +109,7 @@ func New(projectRoot string, projects *project.Store, contentStore *content.Stor
 	materializations, err := materialization.Open(filepath.Join(projectRoot, ".local", "realtime", "materializations"))
 	if err != nil {
 		configured.Close()
+		_ = sources.Close()
 		return nil, err
 	}
 	coordinator := &Coordinator{
@@ -789,7 +790,7 @@ func (coordinator *Coordinator) Close() error {
 	workerErr := coordinator.worker.Close()
 	<-coordinator.updatesDone
 	<-coordinator.logsDone
-	return workerErr
+	return errors.Join(workerErr, coordinator.sources.Close())
 }
 
 func (coordinator *Coordinator) identityLocked(runID string, bindingID string, sequence uint64) (contracts.InvocationIdentity, error) {

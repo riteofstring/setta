@@ -12,6 +12,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/realtime/backend/internal/contracts"
 )
 
@@ -26,7 +27,7 @@ var (
 
 type Store struct {
 	mu   sync.Mutex
-	root string
+	root *projectfs.Root
 }
 
 type currentFile struct {
@@ -39,15 +40,11 @@ func Open(projectRoot string) (*Store, error) {
 	if strings.TrimSpace(projectRoot) == "" || projectRoot != strings.TrimSpace(projectRoot) || !filepath.IsAbs(projectRoot) || strings.ContainsRune(projectRoot, '\x00') {
 		return nil, ErrUnavailable
 	}
-	resolved, err := filepath.EvalSymlinks(filepath.Clean(projectRoot))
+	root, err := projectfs.Open(projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("%w: resolve project root", ErrUnavailable)
 	}
-	information, err := os.Stat(resolved)
-	if err != nil || !information.IsDir() {
-		return nil, ErrUnavailable
-	}
-	return &Store{root: resolved}, nil
+	return &Store{root: root}, nil
 }
 
 func (store *Store) Read(project contracts.Project) (contracts.RuntimeSourceDocument, error) {
@@ -91,20 +88,24 @@ func (store *Store) Apply(project contracts.Project, request contracts.ApplyRunt
 	return sourceDocument(project, []byte(request.Source)), nil
 }
 
+func (store *Store) Close() error {
+	if store == nil {
+		return nil
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return store.root.Close()
+}
+
 func (store *Store) readCurrent(declaration contracts.RuntimeDeclaration) (currentFile, error) {
-	path, information, err := store.resolve(declaration)
-	if err != nil {
+	if err := declaration.Validate(); err != nil {
 		return currentFile{}, err
 	}
-	file, err := os.Open(path)
+	file, information, err := store.root.OpenRegular(declaration.Entrypoint)
 	if err != nil {
 		return currentFile{}, ErrUnavailable
 	}
 	defer file.Close()
-	opened, err := file.Stat()
-	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(information, opened) {
-		return currentFile{}, ErrUnavailable
-	}
 	content, err := io.ReadAll(io.LimitReader(file, MaximumBytes+1))
 	if err != nil {
 		return currentFile{}, fmt.Errorf("%w: read entrypoint", ErrUnavailable)
@@ -112,60 +113,15 @@ func (store *Store) readCurrent(declaration contracts.RuntimeDeclaration) (curre
 	if err := validateSource(content); err != nil {
 		return currentFile{}, err
 	}
-	return currentFile{path: path, mode: opened.Mode().Perm(), content: content}, nil
-}
-
-func (store *Store) resolve(declaration contracts.RuntimeDeclaration) (string, os.FileInfo, error) {
-	if err := declaration.Validate(); err != nil {
-		return "", nil, err
-	}
-	path := filepath.Join(store.root, declaration.Entrypoint)
-	if !withinRoot(store.root, path) {
-		return "", nil, ErrUnavailable
-	}
-	current := store.root
-	parts := strings.Split(declaration.Entrypoint, string(filepath.Separator))
-	for index, part := range parts {
-		current = filepath.Join(current, part)
-		information, err := os.Lstat(current)
-		if err != nil || information.Mode()&os.ModeSymlink != 0 {
-			return "", nil, ErrUnavailable
-		}
-		if index < len(parts)-1 && !information.IsDir() {
-			return "", nil, ErrUnavailable
-		}
-		if index == len(parts)-1 {
-			if !information.Mode().IsRegular() {
-				return "", nil, ErrUnavailable
-			}
-			return current, information, nil
-		}
-	}
-	return "", nil, ErrUnavailable
+	return currentFile{path: declaration.Entrypoint, mode: information.Mode().Perm(), content: content}, nil
 }
 
 func (store *Store) replace(current currentFile, expectedVersion string, content []byte) error {
-	file, err := os.CreateTemp(filepath.Dir(current.path), ".setta-runtime-source-*")
+	replacement, err := store.root.StageReplacement(current.path, content, MaximumBytes, current.mode)
 	if err != nil {
 		return fmt.Errorf("source: stage replacement: %w", err)
 	}
-	temporary := file.Name()
-	defer os.Remove(temporary)
-	if err := file.Chmod(current.mode); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("source: set replacement mode: %w", err)
-	}
-	if _, err := file.Write(content); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("source: write replacement: %w", err)
-	}
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("source: sync replacement: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("source: close replacement: %w", err)
-	}
+	defer replacement.Discard()
 	latest, err := store.readPath(current.path)
 	if err != nil {
 		return err
@@ -173,27 +129,14 @@ func (store *Store) replace(current currentFile, expectedVersion string, content
 	if sourceVersion(latest) != expectedVersion {
 		return ErrConflict
 	}
-	if err := os.Rename(temporary, current.path); err != nil {
+	if err := replacement.Commit(); err != nil {
 		return fmt.Errorf("source: install replacement: %w", err)
 	}
-	return syncDirectory(filepath.Dir(current.path))
+	return nil
 }
 
 func (store *Store) readPath(path string) ([]byte, error) {
-	information, err := os.Lstat(path)
-	if err != nil || information.Mode()&os.ModeSymlink != 0 || !information.Mode().IsRegular() {
-		return nil, ErrUnavailable
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, ErrUnavailable
-	}
-	defer file.Close()
-	opened, err := file.Stat()
-	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(information, opened) {
-		return nil, ErrUnavailable
-	}
-	content, err := io.ReadAll(io.LimitReader(file, MaximumBytes+1))
+	content, err := store.root.ReadRegular(path, MaximumBytes)
 	if err != nil {
 		return nil, fmt.Errorf("%w: read entrypoint", ErrUnavailable)
 	}
@@ -218,23 +161,6 @@ func validateSource(content []byte) error {
 	}
 	if !utf8.Valid(content) || strings.ContainsRune(string(content), '\x00') {
 		return ErrInvalidText
-	}
-	return nil
-}
-
-func withinRoot(root string, candidate string) bool {
-	relative, err := filepath.Rel(root, candidate)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
-}
-
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("source: open directory: %w", err)
-	}
-	defer directory.Close()
-	if err := directory.Sync(); err != nil {
-		return fmt.Errorf("source: sync directory: %w", err)
 	}
 	return nil
 }

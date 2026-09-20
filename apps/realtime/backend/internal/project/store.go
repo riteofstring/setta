@@ -12,8 +12,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/realtime/backend/internal/contracts"
 )
+
+const maximumProjectBytes = 16 << 20
 
 var (
 	ErrClosed           = errors.New("project: store is closed")
@@ -24,7 +27,8 @@ var (
 
 type Store struct {
 	mu          sync.Mutex
-	path        string
+	root        *projectfs.Root
+	file        string
 	project     contracts.Project
 	subscribers map[chan contracts.Project]struct{}
 	closed      bool
@@ -39,19 +43,29 @@ func Open(path string, create bool) (*Store, error) {
 		if err := os.MkdirAll(filepath.Dir(resolved), 0o755); err != nil {
 			return nil, fmt.Errorf("project: create directory: %w", err)
 		}
+	}
+	root, err := projectfs.Open(filepath.Dir(resolved))
+	if err != nil {
+		return nil, fmt.Errorf("project: open directory: %w", err)
+	}
+	file := filepath.Base(resolved)
+	if create {
 		candidate, err := NewProject("Realtime App")
 		if err != nil {
+			_ = root.Close()
 			return nil, err
 		}
-		if err := writeExclusive(resolved, candidate); err != nil {
+		if err := writeExclusive(root, file, candidate); err != nil {
+			_ = root.Close()
 			return nil, err
 		}
 	}
-	loaded, err := load(resolved)
+	loaded, err := load(root, file)
 	if err != nil {
+		_ = root.Close()
 		return nil, err
 	}
-	return &Store{path: resolved, project: loaded, subscribers: make(map[chan contracts.Project]struct{})}, nil
+	return &Store{root: root, file: file, project: loaded, subscribers: make(map[chan contracts.Project]struct{})}, nil
 }
 
 func NewProject(name string) (contracts.Project, error) {
@@ -107,7 +121,7 @@ func (store *Store) Apply(request contracts.ApplyRequest) (contracts.Project, er
 	if err != nil {
 		return contracts.Project{}, err
 	}
-	if err := replace(store.path, candidate); err != nil {
+	if err := replace(store.root, store.file, candidate); err != nil {
 		return contracts.Project{}, err
 	}
 	store.project = candidate
@@ -151,7 +165,7 @@ func (store *Store) Close() error {
 		close(channel)
 	}
 	store.subscribers = nil
-	return nil
+	return store.root.Close()
 }
 
 func (store *Store) publishLocked(project contracts.Project) {
@@ -183,8 +197,8 @@ func validatePath(path string) (string, error) {
 	return resolved, nil
 }
 
-func load(path string) (contracts.Project, error) {
-	data, err := os.ReadFile(path)
+func load(root *projectfs.Root, file string) (contracts.Project, error) {
+	data, err := root.ReadRegular(file, maximumProjectBytes)
 	if err != nil {
 		return contracts.Project{}, fmt.Errorf("project: read: %w", err)
 	}
@@ -198,65 +212,30 @@ func load(path string) (contracts.Project, error) {
 	return project, nil
 }
 
-func writeExclusive(path string, project contracts.Project) error {
+func writeExclusive(root *projectfs.Root, file string, project contracts.Project) error {
 	encoded, err := encode(project)
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	err = root.WriteExclusive(file, encoded, maximumProjectBytes, 0o644)
 	if errors.Is(err, os.ErrExist) {
 		return ErrAlreadyExists
 	}
 	if err != nil {
 		return fmt.Errorf("project: create: %w", err)
 	}
-	if _, err := file.Write(encoded); err != nil {
-		_ = file.Close()
-		_ = os.Remove(path)
-		return fmt.Errorf("project: write new: %w", err)
-	}
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		_ = os.Remove(path)
-		return fmt.Errorf("project: sync new: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(path)
-		return fmt.Errorf("project: close new: %w", err)
-	}
-	return syncDirectory(filepath.Dir(path))
+	return nil
 }
 
-func replace(path string, project contracts.Project) error {
+func replace(root *projectfs.Root, file string, project contracts.Project) error {
 	encoded, err := encode(project)
 	if err != nil {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".realtime-project-*.json")
-	if err != nil {
-		return fmt.Errorf("project: stage replacement: %w", err)
-	}
-	temporary := file.Name()
-	defer os.Remove(temporary)
-	if err := file.Chmod(0o644); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("project: set replacement mode: %w", err)
-	}
-	if _, err := file.Write(encoded); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("project: write replacement: %w", err)
-	}
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("project: sync replacement: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("project: close replacement: %w", err)
-	}
-	if err := os.Rename(temporary, path); err != nil {
+	if err := root.Replace(file, encoded, maximumProjectBytes, 0o644); err != nil {
 		return fmt.Errorf("project: install replacement: %w", err)
 	}
-	return syncDirectory(filepath.Dir(path))
+	return nil
 }
 
 func encode(project contracts.Project) ([]byte, error) {
@@ -268,18 +247,6 @@ func encode(project contracts.Project) ([]byte, error) {
 		return nil, fmt.Errorf("project: encode: %w", err)
 	}
 	return append(data, '\n'), nil
-}
-
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("project: open directory: %w", err)
-	}
-	defer directory.Close()
-	if err := directory.Sync(); err != nil {
-		return fmt.Errorf("project: sync directory: %w", err)
-	}
-	return nil
 }
 
 func randomID(prefix string) (string, error) {

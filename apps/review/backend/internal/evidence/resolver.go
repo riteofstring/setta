@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/review/backend/internal/contracts"
 )
 
@@ -36,20 +37,9 @@ type Resolver struct {
 }
 
 func New(root string) (*Resolver, error) {
-	if strings.TrimSpace(root) == "" || root != strings.TrimSpace(root) || strings.ContainsRune(root, '\x00') {
-		return nil, errors.New("evidence: project root is invalid")
-	}
-	absolute, err := filepath.Abs(root)
-	if err != nil {
-		return nil, fmt.Errorf("evidence: resolve project root: %w", err)
-	}
-	canonical, err := filepath.EvalSymlinks(absolute)
+	canonical, err := projectfs.CanonicalRoot(root)
 	if err != nil {
 		return nil, fmt.Errorf("evidence: canonicalize project root: %w", err)
-	}
-	info, err := os.Stat(canonical)
-	if err != nil || !info.IsDir() {
-		return nil, errors.New("evidence: project root is not a directory")
 	}
 	git, _ := exec.LookPath("git")
 	return &Resolver{root: canonical, git: git}, nil
@@ -86,16 +76,13 @@ func (resolver *Resolver) OpenArtifact(reference contracts.EvidenceReference) (*
 	if reference.Kind != "artifact" || reference.Artifact == nil {
 		return nil, errors.New("evidence: reference is not an artifact")
 	}
-	path, info, err := resolver.regularFile(reference.Artifact.Path)
+	file, info, err := resolver.openRegular(reference.Artifact.Path)
 	if err != nil {
 		return nil, err
 	}
 	if info.Size() != reference.Artifact.ByteLength {
+		_ = file.Close()
 		return nil, errArtifactChanged
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("evidence: open artifact: %w", err)
 	}
 	digest, err := digestReader(file)
 	if err != nil {
@@ -241,7 +228,7 @@ func (resolver *Resolver) resolveDiff(reference contracts.GitDiffEvidenceReferen
 	if err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
-	if _, _, err := regularFileWithin(repository, path); err != nil {
+	if err := validateRegularWithin(repository, path); err != nil {
 		return contracts.ResolvedEvidenceContent{}, err
 	}
 	if err := validateDiffRevisions(reference); err != nil {
@@ -263,24 +250,14 @@ func (resolver *Resolver) resolveDiff(reference contracts.GitDiffEvidenceReferen
 }
 
 func (resolver *Resolver) readVerifiedFile(relative string, expectedSHA256 string, maximum int) ([]byte, error) {
-	path, info, err := resolver.regularFile(relative)
+	root, err := projectfs.Open(resolver.root)
 	if err != nil {
-		return nil, err
+		return nil, projectFileError(err)
 	}
-	if info.Size() > int64(maximum) {
-		return nil, errEvidenceTooLarge
-	}
-	file, err := os.Open(path)
+	defer root.Close()
+	source, err := root.ReadRegular(relative, int64(maximum))
 	if err != nil {
-		return nil, fmt.Errorf("evidence: open source: %w", err)
-	}
-	defer file.Close()
-	source, err := io.ReadAll(io.LimitReader(file, int64(maximum)+1))
-	if err != nil {
-		return nil, fmt.Errorf("evidence: read source: %w", err)
-	}
-	if len(source) > maximum {
-		return nil, errEvidenceTooLarge
+		return nil, projectFileError(err)
 	}
 	if digestBytes(source) != expectedSHA256 {
 		return nil, errEvidenceChanged
@@ -323,8 +300,36 @@ func (resolver *Resolver) runGitDiff(arguments []string) (string, error) {
 	return stdout.String(), nil
 }
 
-func (resolver *Resolver) regularFile(relative string) (string, os.FileInfo, error) {
-	return regularFileWithin(resolver.root, relative)
+func (resolver *Resolver) openRegular(relative string) (*os.File, os.FileInfo, error) {
+	root, err := projectfs.Open(resolver.root)
+	if err != nil {
+		return nil, nil, projectFileError(err)
+	}
+	file, info, openErr := root.OpenRegular(relative)
+	closeErr := root.Close()
+	if openErr != nil {
+		return nil, nil, projectFileError(openErr)
+	}
+	if closeErr != nil {
+		_ = file.Close()
+		return nil, nil, closeErr
+	}
+	return file, info, nil
+}
+
+func projectFileError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, projectfs.ErrInvalidPath):
+		return errUnsafePath
+	case errors.Is(err, projectfs.ErrIrregularPath):
+		return errSymlink
+	case errors.Is(err, projectfs.ErrMaximumSize):
+		return errEvidenceTooLarge
+	default:
+		return err
+	}
 }
 
 func (resolver *Resolver) directory(relative string) (string, error) {
@@ -346,23 +351,20 @@ func (resolver *Resolver) directory(relative string) (string, error) {
 	return joined, nil
 }
 
-func regularFileWithin(root string, relative string) (string, os.FileInfo, error) {
-	cleaned, err := cleanRelative(relative)
+func validateRegularWithin(root string, relative string) error {
+	projectRoot, err := projectfs.Open(root)
 	if err != nil {
-		return "", nil, err
+		return projectFileError(err)
 	}
-	if err := ensureNoSymlink(root, cleaned); err != nil {
-		return "", nil, err
+	file, _, openErr := projectRoot.OpenRegular(relative)
+	if file != nil {
+		_ = file.Close()
 	}
-	joined := filepath.Join(root, cleaned)
-	info, err := os.Lstat(joined)
-	if err != nil {
-		return "", nil, fmt.Errorf("evidence: inspect file: %w", err)
+	closeErr := projectRoot.Close()
+	if openErr != nil {
+		return projectFileError(openErr)
 	}
-	if !info.Mode().IsRegular() {
-		return "", nil, errNotRegular
-	}
-	return joined, info, nil
+	return closeErr
 }
 
 func cleanRelative(relative string) (string, error) {
@@ -573,7 +575,6 @@ var (
 	errJSONTrailing     = errors.New("evidence: json file contains trailing content")
 	errLineRangeMissing = errors.New("evidence: line range exceeds the file")
 	errNotDirectory     = errors.New("evidence: path is not a directory")
-	errNotRegular       = errors.New("evidence: path is not a regular file")
 	errSymlink          = errors.New("evidence: symlink paths are not admitted")
 	errUnsafePath       = errors.New("evidence: path escapes the project root")
 	errUnsupportedKind  = errors.New("evidence: kind is unsupported")
@@ -595,7 +596,7 @@ func errorCode(err error) string {
 		return "line_range_invalid"
 	case errors.Is(err, errJSONPointer):
 		return "json_pointer_missing"
-	case errors.Is(err, errNotDirectory), errors.Is(err, errNotRegular), errors.Is(err, os.ErrNotExist):
+	case errors.Is(err, errNotDirectory), errors.Is(err, os.ErrNotExist):
 		return "evidence_missing"
 	case errors.Is(err, errSymlink), errors.Is(err, errUnsafePath):
 		return "unsafe_path"

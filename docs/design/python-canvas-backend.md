@@ -70,7 +70,9 @@ and disposable materialization state; it never edits the authored project.
 Project creation is exclusive. Loading accepts only the current strict format and never guesses a
 legacy format or substitutes an empty project. Replacement bytes are fully encoded, synced, and
 staged in the target directory before an atomic rename, preserving the required same-filesystem
-boundary.
+boundary. This adapter remains application-owned: the authored stage participates in the
+coordinator's generated-file install, provider synchronization, and rollback protocol, while the
+shared `local-backend/projectfs` replacement is intentionally a single-file commit.
 
 Python selection happens once at startup. The nearest valid `.venv` above the project wins;
 otherwise the exact launcher Python is used. The selected interpreter is verified by a bounded

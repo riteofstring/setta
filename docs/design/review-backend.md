@@ -59,10 +59,12 @@ stderr, and stable exit semantics.
 
 The shared `local-backend/localweb` boundary owns loopback binding, exact listener Host admission,
 common response headers, canonical production-asset confinement, SPA fallback exclusion, and
-bounded serving shutdown. Review retains its route tree, readiness identity, mutation origin
-requirement, and project-file policy. It is supervised through the shared Setta runtime and has no
-provider credentials, agent process, test runner, source mutation, remote fetch, arbitrary URL
-resolver, or plug-in loader.
+bounded serving shutdown. The shared `local-backend/projectfs` boundary owns canonical-root
+handles, confined bounded regular-file access, synchronized atomic replacement, parent-directory
+sync, and the state advisory lock. Review retains project admission, immutable evidence identity,
+state validation, project/revision conflict rules, and accepted publication. It is supervised
+through the shared Setta runtime and has no provider credentials, agent process, test runner, source
+mutation, remote fetch, arbitrary URL resolver, or plug-in loader.
 
 ## Contract generation
 

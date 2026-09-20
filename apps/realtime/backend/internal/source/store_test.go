@@ -21,6 +21,7 @@ func TestStoreReadsAndAtomicallyAppliesCurrentEntrypoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer store.Close()
 	project := sourceProject()
 	before, err := store.Read(project)
 	if err != nil {
@@ -83,6 +84,7 @@ func TestStoreConflictsLeaveEntrypointUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer store.Close()
 	project := sourceProject()
 	for _, request := range []contracts.ApplyRuntimeSourceRequest{
 		{ProjectID: project.ID, Entrypoint: "app.py", ExpectedVersion: strings.Repeat("0", 64), Source: "changed\n"},
@@ -125,6 +127,7 @@ func TestStoreRejectsInvalidAndOversizedText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer store.Close()
 	project := sourceProject()
 	if _, err := store.Read(project); !errors.Is(err, ErrInvalidText) {
 		t.Fatalf("Read(invalid UTF-8) error = %v", err)
@@ -165,6 +168,7 @@ func TestStoreRejectsSymlinkAndNonregularEntrypoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer store.Close()
 	if _, err := store.Read(sourceProject()); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("Read(symlink) error = %v", err)
 	}
@@ -203,6 +207,7 @@ func TestStoreSerializesVersionedWriters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer store.Close()
 	project := sourceProject()
 	document, err := store.Read(project)
 	if err != nil {

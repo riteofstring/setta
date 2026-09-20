@@ -47,7 +47,9 @@ Creation is exclusive. Loading rejects unknown fields, invalid unions, incompati
 missing required state. A mutation checks project identity and expected revision, constructs and
 validates one complete candidate, writes replacement bytes through a synced sibling on the same
 filesystem, and atomically renames it. Success increments the revision once and publishes the
-complete snapshot once; conflict and persistence failure leave canonical state unchanged.
+complete snapshot once; conflict and persistence failure leave canonical state unchanged. The
+shared `local-backend/projectfs` boundary owns the confined, bounded, synchronized file mechanics;
+Realtime retains the project aggregate, validation, revision, and publication rules.
 
 Each binding names one exact handler, resolved argument expressions, logical outputs, a scheduling
 policy, an optional materialization policy, and one closed trigger variant: source-section `event`,
@@ -108,7 +110,9 @@ encoding, size overflow, entrypoint mismatch, and path or symlink escape leave t
 unchanged. An accepted compare-and-swap saves the source before activation. Its result reports the
 saved source document separately from the `activated` or `rejected` activation outcome. Runtime
 WebSocket state independently reports `starting`, `ready`, or `failed`; persistence success never
-implies that the new code is live.
+implies that the new code is live. `projectfs` supplies confinement, staging, replacement, and
+directory synchronization while Realtime performs the authoritative version recheck between stage
+and commit.
 
 ## Scheduling and runtime state
 

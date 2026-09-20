@@ -67,10 +67,13 @@ structured JSON errors on stderr, and stable exit semantics.
 
 The shared `local-backend/localweb` boundary owns loopback binding, exact listener Host admission,
 common response headers, canonical production-asset confinement, SPA fallback exclusion, and
-bounded serving shutdown. Experiment Lens retains its route tree, readiness identity, mutation
-origin requirement, and project-file policy. It is supervised through the shared Setta runtime and
-has no experiment scheduler, provider credentials, agent process, tracker client, source mutation,
-arbitrary URL resolver, dynamic section discovery, or plug-in loader.
+bounded serving shutdown. The shared `local-backend/projectfs` boundary owns canonical-root
+handles, confined bounded regular-file access, synchronized atomic replacement, parent-directory
+sync, and the state advisory lock. Experiment Lens retains manifest and artifact identity,
+selection validation, identity/revision conflict rules, and accepted publication. It is supervised
+through the shared Setta runtime and has no experiment scheduler, provider credentials, agent
+process, tracker client, source mutation, arbitrary URL resolver, dynamic section discovery, or
+plug-in loader.
 
 ## Contract generation
 

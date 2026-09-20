@@ -271,6 +271,15 @@ Verification:
 
 ### B3. Extract confined durable file mechanics
 
+Completion (2026-09-22): `local-backend/projectfs` now owns canonical-root handles, confined
+regular-file access, bounded reads, synchronized exclusive creation and sibling replacement,
+parent-directory synchronization, and cancellation-aware advisory locks on Unix and Windows.
+Review and Experiment Lens use it for admitted project inputs and revisioned state; Realtime uses it
+for its project document and staged entrypoint compare-and-swap. Python Canvas retains its
+application-owned authored/generated-file transaction because its staged authored commit is
+coordinated with generated-file install, provider synchronization, and rollback; replacing that
+protocol with a single-file primitive would change its failure semantics.
+
 Move canonical-root validation, relative-path confinement, regular non-symlink file opening,
 bounded reads, synchronized sibling staging, atomic replacement, directory synchronization, and
 cross-platform advisory locking into `projectfs`.
