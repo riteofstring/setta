@@ -30,7 +30,7 @@ import {
   type EChartsCoreOption,
 } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 registerECharts([
   AriaComponent,
@@ -51,9 +51,15 @@ registerECharts([
   VisualMapComponent,
 ]);
 
-type EChartEventHandlers = Readonly<
+export type EChartEventHandlers = Readonly<
   Record<string, (event: unknown, chart: ECharts) => void>
 >;
+
+export type LensChart = ECharts;
+
+export type EChartSurfaceHandle = Readonly<{
+  getChart: () => LensChart | null;
+}>;
 
 type EChartPointerEvent = Readonly<{
   offsetX?: number;
@@ -67,23 +73,36 @@ export type EChartPointerHandler = (
   chart: ECharts,
 ) => void;
 
-export function EChartSurface({
-  ariaLabel,
-  className = "",
-  events = {},
-  onPointer,
-  option,
-  ownsWheel = false,
-}: {
+export type EChartSurfaceProps = Readonly<{
   ariaLabel: string;
   className?: string;
   events?: EChartEventHandlers;
   onPointer?: EChartPointerHandler;
   option: EChartsCoreOption;
   ownsWheel?: boolean;
-}) {
+}>;
+
+export const EChartSurface = forwardRef<
+  EChartSurfaceHandle,
+  EChartSurfaceProps
+>(function EChartSurface(
+  {
+    ariaLabel,
+    className = "",
+    events = {},
+    onPointer,
+    option,
+    ownsWheel = false,
+  },
+  forwardedRef,
+) {
   const elementRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ECharts | null>(null);
+  useImperativeHandle(
+    forwardedRef,
+    () => ({ getChart: () => chartRef.current }),
+    [],
+  );
 
   useEffect(() => {
     const element = elementRef.current;
@@ -165,4 +184,4 @@ export function EChartSurface({
       role="img"
     />
   );
-}
+});

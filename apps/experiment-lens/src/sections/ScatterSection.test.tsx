@@ -16,19 +16,21 @@ vi.mock("@setta/workspace", () => ({
   ) => selector({ darkMode: true }),
 }));
 
-vi.mock("../charts/EChartSurface", () => ({
-  EChartSurface: ({ ariaLabel }: { ariaLabel: string }) => (
+vi.mock("../charts/AnnotatedChartSurface", () => ({
+  AnnotatedChartSurface: ({ ariaLabel }: { ariaLabel: string }) => (
     <div aria-label={ariaLabel} data-lens-chart="true" />
   ),
 }));
 
 function actions(): LensActions {
   return {
-    addNote: vi.fn(),
     clearFilters: vi.fn(),
+    deleteAnnotation: vi.fn(),
     exportSelection: vi.fn(async () => {}),
     focusObservation: vi.fn(),
     openComparison: vi.fn(),
+    saveAnnotation: vi.fn(),
+    selectObservations: vi.fn(),
     setCategoricalFilter: vi.fn(),
     setRange: vi.fn(),
     setRangeFilter: vi.fn(),

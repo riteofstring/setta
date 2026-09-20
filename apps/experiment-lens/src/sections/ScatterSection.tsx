@@ -8,13 +8,16 @@ import {
   presentationSection,
 } from "../app/presentationSection";
 import {
-  EChartSurface,
+  type LensChart,
   type EChartPointerHandler,
 } from "../charts/EChartSurface";
+import {
+  AnnotatedChartSurface,
+  type ChartSelectionGesture,
+} from "../charts/AnnotatedChartSurface";
 import { chartPalette, scatterOption } from "../charts/chartOptions";
 
 type ChartPointerEvent = Parameters<EChartPointerHandler>[0];
-type LensChart = Parameters<EChartPointerHandler>[1];
 
 function chartCoordinate(
   event: ChartPointerEvent,
@@ -67,6 +70,74 @@ function nearestObservation(
     }
   }
   return nearest;
+}
+
+function observationsInGesture(
+  lens: ReturnType<typeof useLens>,
+  xFieldId: string,
+  yFieldId: string,
+  gesture: ChartSelectionGesture,
+  chart: LensChart,
+): string[] {
+  const width = chart.getWidth();
+  const height = chart.getHeight();
+  const bounds = {
+    bottom: gesture.bounds.bottom * height,
+    left: gesture.bounds.left * width,
+    right: gesture.bounds.right * width,
+    top: gesture.bounds.top * height,
+  };
+  const click =
+    bounds.right - bounds.left < 8 && bounds.bottom - bounds.top < 8;
+  const center = {
+    x: (bounds.left + bounds.right) / 2,
+    y: (bounds.top + bounds.bottom) / 2,
+  };
+  const candidates = lens.visible.flatMap((observation) => {
+    const x = observation.values[xFieldId];
+    const y = observation.values[yFieldId];
+    if (typeof x !== "number" || typeof y !== "number") {
+      return [];
+    }
+    const pixel = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
+      x,
+      y,
+    ]);
+    if (
+      !Array.isArray(pixel) ||
+      typeof pixel[0] !== "number" ||
+      typeof pixel[1] !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        distance: Math.hypot(pixel[0] - center.x, pixel[1] - center.y),
+        id: observation.id,
+        x: pixel[0],
+        y: pixel[1],
+      },
+    ];
+  });
+  if (click) {
+    const nearest = candidates.reduce<(typeof candidates)[number] | null>(
+      (current, candidate) =>
+        current === null || candidate.distance < current.distance
+          ? candidate
+          : current,
+      null,
+    );
+    return nearest && nearest.distance <= 18 ? [nearest.id] : [];
+  }
+  return candidates
+    .filter(
+      (candidate) =>
+        candidate.x >= bounds.left &&
+        candidate.x <= bounds.right &&
+        candidate.y >= bounds.top &&
+        candidate.y <= bounds.bottom,
+    )
+    .map((candidate) => candidate.id);
 }
 
 export function ScatterSection({ sectionId }: { sectionId: string }) {
@@ -138,6 +209,13 @@ export function ScatterSection({ sectionId }: { sectionId: string }) {
     },
     [lens, xField, yField],
   );
+  const selectionResolver = useCallback(
+    (gesture: ChartSelectionGesture, chart: LensChart) =>
+      xField && yField
+        ? observationsInGesture(lens, xField.id, yField.id, gesture, chart)
+        : [],
+    [lens, xField, yField],
+  );
   if (!xField || !yField) {
     throw new Error(`Scatter section ${sectionId} has invalid field bindings.`);
   }
@@ -175,11 +253,18 @@ export function ScatterSection({ sectionId }: { sectionId: string }) {
         {category ? <span>Color · {category.label}</span> : null}
         <span className="lens-chart-count">{lens.visible.length} visible</span>
       </div>
-      <EChartSurface
+      <AnnotatedChartSurface
         ariaLabel={`${yField.label} by ${xField.label}`}
+        chartFieldIds={[
+          xField.id,
+          yField.id,
+          ...(category ? [category.id] : []),
+        ]}
         events={events}
         onPointer={handlePointer}
         option={option}
+        sectionId={sectionId}
+        selectionResolver={selectionResolver}
       />
     </div>
   );

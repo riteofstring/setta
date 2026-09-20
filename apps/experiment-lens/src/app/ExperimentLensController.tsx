@@ -25,12 +25,14 @@ import type {
 import { ExperimentLensView } from "./ExperimentLensView";
 import { LensContext, type LensActions } from "./lensContext";
 import {
+  deleteSelectionAnnotation,
   focusObservation,
   focusedObservation,
+  selectObservations,
   setArtifactRange,
   setInFilter,
   setRangeFilter,
-  setSelectionNote,
+  setSelectionAnnotation,
   toggleSelectedObservation,
   visibleObservations,
   type FieldExtent,
@@ -242,23 +244,12 @@ export function ExperimentLensController() {
 
   const actions = useMemo<LensActions>(
     () => ({
-      addNote: (observationId, artifact, text) =>
-        replaceSelection((current) => {
-          const rangeId =
-            current.ranges.find(
-              (range) => range.artifactId === timeline.artifactId,
-            )?.id ?? null;
-          return setSelectionNote(current, {
-            artifactId: artifact?.reference.id ?? null,
-            artifactSha256: artifact?.reference.sha256 ?? null,
-            id: `note.${observationId}.${artifact?.reference.id ?? "observation"}`,
-            observationId,
-            rangeId,
-            text,
-          });
-        }),
       clearFilters: () =>
         replaceSelection((current) => ({ ...current, filters: [] })),
+      deleteAnnotation: (annotationId) =>
+        replaceSelection((current) =>
+          deleteSelectionAnnotation(current, annotationId),
+        ),
       exportSelection: async () => {
         await mutationChainRef.current;
         const current = readyRef.current;
@@ -289,6 +280,14 @@ export function ExperimentLensController() {
       openComparison: () => {
         window.setTimeout(() => setComparisonRequest((value) => value + 1), 0);
       },
+      saveAnnotation: (annotation) =>
+        replaceSelection((current) =>
+          setSelectionAnnotation(current, annotation),
+        ),
+      selectObservations: (observationIds, additive) =>
+        replaceSelection((current) =>
+          selectObservations(current, observationIds, additive),
+        ),
       setCategoricalFilter: (fieldId, values, allValues) =>
         replaceSelection((current) =>
           setInFilter(current, fieldId, values, allValues),
@@ -317,7 +316,7 @@ export function ExperimentLensController() {
           toggleSelectedObservation(current, observationId),
         ),
     }),
-    [replaceSelection, timeline.artifactId],
+    [replaceSelection],
   );
 
   if (!ready || !selection) {

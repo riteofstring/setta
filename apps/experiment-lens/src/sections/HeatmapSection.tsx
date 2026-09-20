@@ -8,7 +8,7 @@ import {
   presentationFields,
   presentationSection,
 } from "../app/presentationSection";
-import { EChartSurface } from "../charts/EChartSurface";
+import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
 import { chartPalette, heatmapOption } from "../charts/chartOptions";
 
 export function HeatmapSection({ sectionId }: { sectionId: string }) {
@@ -121,10 +121,12 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
         <span className="lens-chart-count">click a cell to filter</span>
       </div>
       <div className="lens-heatmap-stage" style={stageStyle}>
-        <EChartSurface
+        <AnnotatedChartSurface
           ariaLabel={`${valueField.label} by ${xField.label} and ${yField.label}`}
+          chartFieldIds={[xField.id, yField.id, valueField.id]}
           events={events}
           option={option}
+          sectionId={sectionId}
         />
       </div>
     </div>

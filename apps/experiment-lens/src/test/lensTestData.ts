@@ -286,7 +286,7 @@ export function lensTestSnapshot(): LensSnapshot {
     selection: {
       filters: [],
       focusedObservationId: "observation-a",
-      notes: [],
+      annotations: [],
       ranges: [],
       selectedArtifactIds: [],
       selectedObservationIds: [],

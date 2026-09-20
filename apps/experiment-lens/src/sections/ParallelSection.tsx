@@ -11,7 +11,7 @@ import {
   presentationFields,
   presentationSection,
 } from "../app/presentationSection";
-import { EChartSurface } from "../charts/EChartSurface";
+import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
 import { chartPalette, parallelOption } from "../charts/chartOptions";
 
 function axisCandidate(event: unknown): {
@@ -119,10 +119,12 @@ export function ParallelSection({ sectionId }: { sectionId: string }) {
         <span>Brush an axis to narrow the cohort</span>
         <span className="lens-chart-count">{fields.length} dimensions</span>
       </div>
-      <EChartSurface
+      <AnnotatedChartSurface
         ariaLabel="Parallel coordinates for the visible experiment cohort"
+        chartFieldIds={fields.map((field) => field.id)}
         events={events}
         option={option}
+        sectionId={sectionId}
       />
     </div>
   );

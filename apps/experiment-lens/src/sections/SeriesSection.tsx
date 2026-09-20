@@ -20,10 +20,8 @@ import {
   presentationFields,
   presentationSection,
 } from "../app/presentationSection";
-import {
-  EChartSurface,
-  type EChartPointerHandler,
-} from "../charts/EChartSurface";
+import { type EChartPointerHandler } from "../charts/EChartSurface";
+import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
 import { chartPalette, seriesOption } from "../charts/chartOptions";
 
 type ChartPointerEvent = Parameters<EChartPointerHandler>[0];
@@ -232,6 +230,7 @@ function useTimelineModel(sectionId: string) {
     handlePointer,
     option,
     reference,
+    sectionId,
   };
 }
 
@@ -244,6 +243,7 @@ function ResolvedTimeline({
   focused,
   handlePointer,
   option,
+  sectionId,
 }: {
   activeRange: ArtifactRange | null;
   cursor: number | null;
@@ -253,6 +253,7 @@ function ResolvedTimeline({
   focused: Observation;
   handlePointer: EChartPointerHandler;
   option: ReturnType<typeof seriesOption>;
+  sectionId: string;
 }) {
   const cursorLabel =
     cursor === null
@@ -275,12 +276,14 @@ function ResolvedTimeline({
           </div>
         ))}
       </div>
-      <EChartSurface
+      <AnnotatedChartSurface
         ariaLabel={`Recorded series for ${focused.id}`}
+        chartFieldIds={details.map((field) => field.id)}
         events={events}
         onPointer={handlePointer}
         option={option}
         ownsWheel
+        sectionId={sectionId}
       />
       <div className="lens-timeline-status">
         <span>{cursorLabel}</span>
@@ -327,6 +330,7 @@ function TimelineResult(model: ReturnType<typeof useTimelineModel>) {
       focused={model.focused}
       handlePointer={model.handlePointer}
       option={model.option}
+      sectionId={model.sectionId}
     />
   );
 }

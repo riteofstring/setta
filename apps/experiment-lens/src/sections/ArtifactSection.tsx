@@ -10,14 +10,14 @@ import type {
   JsonValue,
   ResolvedArtifact,
   ResolvedArtifactContent,
-  SelectionNote,
+  SelectionAnnotation,
 } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
 import {
+  artifactAnnotationFor,
   artifactsForObservationRoles,
   artifactTimeline,
   formatScalar,
-  noteFor,
 } from "../app/lensModel";
 import { presentationSection } from "../app/presentationSection";
 
@@ -164,50 +164,95 @@ function ArtifactToolbar({
   );
 }
 
-function ArtifactNoteForm({
+function annotationID(): string {
+  return `annotation-${window.crypto.randomUUID()}`;
+}
+
+function ArtifactAnnotationForm({
   artifact,
-  existingNote,
+  existingAnnotation,
   observationId,
+  rangeId,
+  onDelete,
   onSave,
 }: {
   artifact: ResolvedArtifact;
-  existingNote: SelectionNote | null;
+  existingAnnotation: SelectionAnnotation | null;
   observationId: string;
-  onSave: (
-    observationId: string,
-    artifact: ResolvedArtifact,
-    text: string,
-  ) => void;
+  rangeId: string | null;
+  onDelete: (annotationId: string) => void;
+  onSave: (annotation: SelectionAnnotation) => void;
 }) {
-  const existingText = existingNote?.text ?? "";
-  const [note, setNote] = useState(existingText);
-  const noteRef = useRef(existingText);
+  const existingText = existingAnnotation?.text ?? "";
+  const [text, setText] = useState(existingText);
+  const [intent, setIntent] = useState<SelectionAnnotation["intent"]>(
+    existingAnnotation?.intent ?? "context",
+  );
+  const textRef = useRef(existingText);
   useEffect(() => {
-    noteRef.current = existingText;
-    setNote(existingText);
-  }, [existingNote?.id, existingText]);
+    textRef.current = existingText;
+    setText(existingText);
+    setIntent(existingAnnotation?.intent ?? "context");
+  }, [existingAnnotation?.id, existingAnnotation?.intent, existingText]);
   return (
     <form
       className="lens-note-form"
       onSubmit={(event) => {
         event.preventDefault();
-        onSave(observationId, artifact, noteRef.current);
+        onSave({
+          artifactId: artifact.reference.id,
+          artifactSha256: artifact.reference.sha256,
+          chartFieldIds: [],
+          filters: [],
+          id: existingAnnotation?.id ?? annotationID(),
+          intent,
+          kind: "artifact",
+          observationIds: [observationId],
+          rangeId,
+          sectionId: null,
+          strokes: [],
+          text: textRef.current,
+          viewId: null,
+        });
       }}
     >
+      <select
+        aria-label="Artifact annotation intent"
+        onChange={(event) =>
+          setIntent(event.target.value as SelectionAnnotation["intent"])
+        }
+        value={intent}
+      >
+        <option value="context">Add context</option>
+        <option value="question">Ask agent</option>
+        <option value="follow-up">Request follow-up</option>
+      </select>
       <input
-        aria-label="Selection note"
+        aria-label="Artifact annotation"
         defaultValue={existingText}
-        key={`${artifact.reference.id}:${existingNote?.id ?? "new"}:${existingText}`}
+        key={`${artifact.reference.id}:${existingAnnotation?.id ?? "new"}:${existingText}`}
         onChange={(event) => {
           const value = event.currentTarget.value;
-          noteRef.current = value;
-          window.setTimeout(() => setNote(value), 0);
+          textRef.current = value;
+          window.setTimeout(() => setText(value), 0);
         }}
-        placeholder="Add a note for the next person or agent"
+        placeholder="Add context or instructions for the next agent"
       />
-      <button disabled={note.trim() === existingText} type="submit">
-        Save note
+      <button
+        disabled={
+          text.trim() === "" ||
+          (text.trim() === existingText &&
+            intent === (existingAnnotation?.intent ?? "context"))
+        }
+        type="submit"
+      >
+        Save annotation
       </button>
+      {existingAnnotation ? (
+        <button onClick={() => onDelete(existingAnnotation.id)} type="button">
+          Delete
+        </button>
+      ) : null}
     </form>
   );
 }
@@ -225,7 +270,7 @@ function ArtifactDetails({
   const included = lens.selection.selectedArtifactIds.includes(
     artifact.reference.id,
   );
-  const existingNote = noteFor(
+  const existingAnnotation = artifactAnnotationFor(
     lens.selection,
     observationId,
     artifact.reference.id,
@@ -254,11 +299,17 @@ function ArtifactDetails({
       >
         <ArtifactContent artifact={artifact} />
       </div>
-      <ArtifactNoteForm
+      <ArtifactAnnotationForm
         artifact={artifact}
-        existingNote={existingNote}
+        existingAnnotation={existingAnnotation}
         observationId={observationId}
-        onSave={lens.actions.addNote}
+        onDelete={lens.actions.deleteAnnotation}
+        onSave={lens.actions.saveAnnotation}
+        rangeId={
+          lens.selection.ranges.find(
+            (range) => range.artifactId === artifact.reference.id,
+          )?.id ?? null
+        }
       />
     </div>
   );

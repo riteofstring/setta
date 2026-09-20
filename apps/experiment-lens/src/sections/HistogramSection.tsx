@@ -8,7 +8,7 @@ import {
   presentationFields,
   presentationSection,
 } from "../app/presentationSection";
-import { EChartSurface } from "../charts/EChartSurface";
+import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
 import { chartPalette, histogramOption } from "../charts/chartOptions";
 
 function histogramBins(
@@ -98,10 +98,12 @@ export function HistogramSection({ sectionId }: { sectionId: string }) {
           {formatScalar(values.length)} values · click a bar to filter
         </span>
       </div>
-      <EChartSurface
+      <AnnotatedChartSurface
         ariaLabel={`Distribution of ${field.label}`}
+        chartFieldIds={[field.id]}
         events={events}
         option={option}
+        sectionId={sectionId}
       />
     </div>
   );

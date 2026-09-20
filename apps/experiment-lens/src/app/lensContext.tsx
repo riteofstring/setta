@@ -6,20 +6,21 @@ import type {
   LensSelection,
   LensSnapshot,
   Observation,
-  ResolvedArtifact,
+  SelectionAnnotation,
 } from "../backend/generatedContract";
 import type { FieldExtent, TimelineState } from "./lensModel";
 
 export type LensActions = Readonly<{
-  addNote: (
-    observationId: string,
-    artifact: ResolvedArtifact | null,
-    text: string,
-  ) => void;
   clearFilters: () => void;
+  deleteAnnotation: (annotationId: string) => void;
   exportSelection: () => Promise<void>;
   focusObservation: (observationId: string) => void;
   openComparison: () => void;
+  saveAnnotation: (annotation: SelectionAnnotation) => void;
+  selectObservations: (
+    observationIds: readonly string[],
+    additive: boolean,
+  ) => void;
   setCategoricalFilter: (
     fieldId: string,
     values: readonly JsonScalar[],

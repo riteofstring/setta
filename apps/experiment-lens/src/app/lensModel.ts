@@ -7,8 +7,8 @@ import type {
   LensSnapshot,
   Observation,
   ResolvedArtifact,
+  SelectionAnnotation,
   SeriesDocument,
-  SelectionNote,
 } from "../backend/generatedContract";
 
 export type TimelineState = Readonly<{
@@ -179,6 +179,25 @@ export function toggleSelectedObservation(
   }
   return {
     ...selection,
+    selectedObservationIds: [...selected],
+  };
+}
+
+export function selectObservations(
+  selection: LensSelection,
+  observationIds: readonly string[],
+  additive: boolean,
+): LensSelection {
+  const selected = additive
+    ? new Set(selection.selectedObservationIds)
+    : new Set<string>();
+  for (const observationId of observationIds) {
+    selected.add(observationId);
+  }
+  return {
+    ...selection,
+    focusedObservationId:
+      observationIds.at(-1) ?? selection.focusedObservationId,
     selectedObservationIds: [...selected],
   };
 }
@@ -384,28 +403,44 @@ export function formatScalar(
   return String(value);
 }
 
-export function noteFor(
+export function artifactAnnotationFor(
   selection: LensSelection,
   observationId: string,
   artifactId: string | null,
-): SelectionNote | null {
+): SelectionAnnotation | null {
   return (
-    selection.notes.find(
-      (note) =>
-        note.observationId === observationId && note.artifactId === artifactId,
+    selection.annotations.find(
+      (annotation) =>
+        annotation.kind === "artifact" &&
+        annotation.observationIds.includes(observationId) &&
+        annotation.artifactId === artifactId,
     ) ?? null
   );
 }
 
-export function setSelectionNote(
+export function setSelectionAnnotation(
   selection: LensSelection,
-  note: SelectionNote,
+  annotation: SelectionAnnotation,
 ): LensSelection {
-  const notes = selection.notes.filter((candidate) => candidate.id !== note.id);
-  if (note.text.trim() !== "") {
-    notes.push({ ...note, text: note.text.trim() });
+  const annotations = selection.annotations.filter(
+    (candidate) => candidate.id !== annotation.id,
+  );
+  if (annotation.text.trim() !== "") {
+    annotations.push({ ...annotation, text: annotation.text.trim() });
   }
-  return { ...selection, notes };
+  return { ...selection, annotations };
+}
+
+export function deleteSelectionAnnotation(
+  selection: LensSelection,
+  annotationId: string,
+): LensSelection {
+  return {
+    ...selection,
+    annotations: selection.annotations.filter(
+      (annotation) => annotation.id !== annotationId,
+    ),
+  };
 }
 
 export function setArtifactRange(

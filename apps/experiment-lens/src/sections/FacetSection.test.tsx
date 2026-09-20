@@ -12,11 +12,13 @@ import { FacetSection } from "./FacetSection";
 
 function actions(): LensActions {
   return {
-    addNote: vi.fn(),
     clearFilters: vi.fn(),
+    deleteAnnotation: vi.fn(),
     exportSelection: vi.fn(async () => {}),
     focusObservation: vi.fn(),
     openComparison: vi.fn(),
+    saveAnnotation: vi.fn(),
+    selectObservations: vi.fn(),
     setCategoricalFilter: vi.fn(),
     setRange: vi.fn(),
     setRangeFilter: vi.fn(),
