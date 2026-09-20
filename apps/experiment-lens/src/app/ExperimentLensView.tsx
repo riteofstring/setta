@@ -170,6 +170,11 @@ function LensWorkspace() {
 export function ExperimentLensView({ host }: { host: WorkspaceHost }) {
   const lens = useLens();
   const selectedCount = lens.selection.selectedObservationIds.length;
+  const canExport =
+    selectedCount > 0 ||
+    lens.selection.selectedArtifactIds.length > 0 ||
+    lens.selection.ranges.length > 0 ||
+    lens.selection.annotations.length > 0;
   return (
     <main className="lens-app">
       <header className="lens-app-bar">
@@ -197,7 +202,7 @@ export function ExperimentLensView({ host }: { host: WorkspaceHost }) {
           </button>
           <button
             className="lens-primary-action"
-            disabled={selectedCount === 0 || lens.busy}
+            disabled={!canExport || lens.busy}
             onClick={() => void lens.actions.exportSelection().catch(() => {})}
             type="button"
           >

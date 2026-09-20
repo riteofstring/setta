@@ -93,7 +93,7 @@ button {
 
 .lens-app-actions button,
 .lens-section-content button,
-.lens-note-form button {
+.lens-artifact-annotation-form button {
   min-height: 29px;
   padding: 5px 10px;
   border: 1px solid light-dark(#c4cfdf, #354258);
@@ -106,13 +106,13 @@ button {
 
 .lens-app-actions button:hover:not(:disabled),
 .lens-section-content button:hover:not(:disabled),
-.lens-note-form button:hover:not(:disabled) {
+.lens-artifact-annotation-form button:hover:not(:disabled) {
   border-color: #4f86f7;
 }
 
 .lens-app-actions button:disabled,
 .lens-section-content button:disabled,
-.lens-note-form button:disabled {
+.lens-artifact-annotation-form button:disabled {
   opacity: 0.42;
   cursor: not-allowed;
 }
@@ -328,8 +328,8 @@ button {
 
 .lens-range-facet input,
 .lens-chart-toolbar select,
-.lens-note-form select,
-.lens-note-form input {
+.lens-artifact-annotation-form select,
+.lens-artifact-annotation-form input {
   width: 100%;
   min-width: 0;
   min-height: 28px;
@@ -344,8 +344,8 @@ button {
 
 .lens-range-facet input:focus,
 .lens-chart-toolbar select:focus,
-.lens-note-form select:focus,
-.lens-note-form input:focus {
+.lens-artifact-annotation-form select:focus,
+.lens-artifact-annotation-form input:focus {
   border-color: #4f86f7;
   box-shadow: 0 0 0 2px rgb(79 134 247 / 14%);
 }
@@ -913,7 +913,7 @@ audio.lens-artifact-media {
   color: #ef7181;
 }
 
-.lens-note-form {
+.lens-artifact-annotation-form {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr) auto auto;
   gap: 7px;
@@ -1036,7 +1036,7 @@ button.lens-comparison-row:hover {
     grid-template-columns: 1fr;
   }
 
-  .lens-note-form {
+  .lens-artifact-annotation-form {
     grid-template-columns: 1fr;
   }
 

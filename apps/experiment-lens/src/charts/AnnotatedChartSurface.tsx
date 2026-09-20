@@ -1,9 +1,8 @@
 import {
-  getWorkspaceSavedViewsState,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-  useWorkspaceHost,
+  useWorkspaceDocumentSnapshot,
 } from "@setta/workspace";
 import {
   useMemo,
@@ -151,7 +150,10 @@ export function AnnotatedChartSurface({
   ...surfaceProps
 }: AnnotatedChartSurfaceProps) {
   const lens = useLens();
-  const host = useWorkspaceHost();
+  const workspace = useWorkspaceDocumentSnapshot();
+  const activeViewId =
+    workspace.savedViews?.activeViewId ??
+    lens.snapshot.experiment.presentation.initialViewId;
   const chartRef = useRef<EChartSurfaceHandle | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const startRef = useRef<AnnotationPoint | null>(null);
@@ -174,9 +176,11 @@ export function AnnotatedChartSurface({
     () =>
       lens.selection.annotations.filter(
         (annotation) =>
-          annotation.kind === "chart" && annotation.sectionId === sectionId,
+          annotation.kind === "chart" &&
+          annotation.sectionId === sectionId &&
+          annotation.viewId === activeViewId,
       ),
-    [lens.selection.annotations, sectionId],
+    [activeViewId, lens.selection.annotations, sectionId],
   );
   const renderedAnnotations = useMemo(
     () =>
@@ -209,7 +213,6 @@ export function AnnotatedChartSurface({
   };
 
   const saveAnnotation = () => {
-    const savedViews = getWorkspaceSavedViewsState(host);
     lens.actions.saveAnnotation({
       artifactId: null,
       artifactSha256: null,
@@ -226,9 +229,7 @@ export function AnnotatedChartSurface({
       sectionId,
       strokes,
       text,
-      viewId:
-        savedViews?.activeViewId ??
-        lens.snapshot.experiment.presentation.initialViewId,
+      viewId: activeViewId,
     });
     resetDraft();
     setOpen(false);

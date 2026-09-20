@@ -196,7 +196,7 @@ function ArtifactAnnotationForm({
   }, [existingAnnotation?.id, existingAnnotation?.intent, existingText]);
   return (
     <form
-      className="lens-note-form"
+      className="lens-artifact-annotation-form"
       onSubmit={(event) => {
         event.preventDefault();
         onSave({

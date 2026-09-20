@@ -23,16 +23,20 @@ Opening a project admits the exact manifest and observation bytes, validates eve
 against its declared fields, and records their SHA-256 identities. Mutable selection state lives in
 `.local/experiment-lens/state.json`. It is bound to the experiment identity and both admitted
 digests, carries one monotonic revision, and contains only durable filters, a focused observation,
-the selected comparison basket, selected artifacts, exact artifact ranges, and notes. Hover, chart
-zoom, playback position, and window geometry remain frontend state. Every mutation names the
+the selected comparison basket, selected artifacts, exact artifact ranges, and annotations. Hover,
+chart zoom, playback position, and window geometry remain frontend state. Every mutation names the
 observed experiment identity, both admitted digests, and revision, validates one complete
 replacement selection, and atomically replaces the state. Lens never rewrites the manifest,
 observations, or artifacts.
 
 Export materializes one versioned selection packet. The packet carries the exact source identities,
-filters, selections, selected observation values, ranges, notes, and the artifact references needed
-by those selections. It contains project-relative paths and never an absolute project path. Export
-revalidates every included artifact so changed evidence cannot enter a packet under an older
+filters, selections, selected observation values, ranges, annotations, and the artifact references
+needed by those selections. An annotation carries intent and text plus either an exact artifact
+anchor or chart section, view, field bindings, filter snapshot, selected observations, and bounded
+normalized vector strokes. Semantic admission verifies every referenced identity and coordinate;
+export materializes observations and artifacts referenced only by an annotation as well as the
+explicit basket. The packet contains project-relative paths and never an absolute project path.
+Export revalidates every included artifact so changed evidence cannot enter a packet under an older
 identity. Hashes identify immutable experiment input and reusable evidence; they are not used to
 detect mutable state changes.
 

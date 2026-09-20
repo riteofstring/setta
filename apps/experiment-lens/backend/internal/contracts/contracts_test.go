@@ -80,6 +80,29 @@ func TestChartAnnotationsValidateDataContextAndNormalizedStrokes(t *testing.T) {
 	}
 }
 
+func TestArtifactAnnotationRangeMatchesArtifactAnchor(t *testing.T) {
+	digest := strings.Repeat("a", 64)
+	artifactID := "artifact-b"
+	rangeID := "range-1"
+	selection := EmptySelection()
+	selection.Ranges = []ArtifactRange{{
+		ID: rangeID, ArtifactID: "artifact-a", ArtifactSHA256: digest,
+		AxisID: "cycle", Start: 1, End: 2,
+	}}
+	selection.Annotations = []SelectionAnnotation{{
+		ID: "annotation-1", Kind: "artifact", Intent: "context", Text: "Inspect this range.",
+		ObservationIDs: []string{"run-1"}, ArtifactID: &artifactID, ArtifactSHA256: &digest,
+		RangeID: &rangeID, Filters: []FieldFilter{}, ChartFieldIDs: []string{}, Strokes: []AnnotationStroke{},
+	}}
+	if err := selection.Validate(); err == nil || !strings.Contains(err.Error(), "range artifact identity") {
+		t.Fatalf("expected range artifact mismatch, got %v", err)
+	}
+	artifactID = "artifact-a"
+	if err := selection.Validate(); err != nil {
+		t.Fatalf("expected matching range artifact: %v", err)
+	}
+}
+
 func TestPresentationRejectsUnknownBindingsAndPlacements(t *testing.T) {
 	manifest := validManifest()
 	manifest.Presentation.Sections[0].FieldIDs = []string{"missing"}

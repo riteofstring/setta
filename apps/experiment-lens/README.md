@@ -24,7 +24,8 @@ pnpm experiment-lens:playground --no-open
 
 The launcher builds Experiment Lens, seeds `tmp/experiment-lens-playground/experiment-project`
 from the immutable fixture, and opens the app. Later launches preserve filters, focus, selections,
-ranges, and notes in that ignored working copy. Remove that working directory to reset the example.
+ranges, and annotations in that ignored working copy. Remove that working directory to reset the
+example.
 
 ## Commands
 
@@ -119,11 +120,14 @@ artifacts. These are examples, not fixed view names or layouts. The same section
 multiple views at a different position and size. Projects compose the nine built-ins but never
 supply executable section code.
 
-Filters, focus, the comparison basket, selected artifacts, ranges, and notes are shared durable
-state. Selecting a point or row focuses the same observation everywhere. A series pointer snaps to
-the nearest sample and drives any artifact related to that axis. Activating a declared view applies
-its section set, geometry, and viewport, while a managed window compares up to four selected
-trajectories and metrics. The full basket remains available for export.
+Filters, focus, the comparison basket, selected artifacts, ranges, and annotations are shared
+durable state. Selecting a point or row focuses the same observation everywhere. Scatter
+annotation mode can select one point or drag across several observations. Every chart can capture
+normalized freehand strokes plus text marked as context, a question, or a follow-up request.
+Artifact views accept the same typed annotations with an exact artifact anchor. A series pointer
+snaps to the nearest sample and drives any artifact related to that axis. Activating a declared
+view applies its section set, geometry, and viewport, while a managed window compares up to four
+selected trajectories and metrics. The full basket remains available for export.
 
 User changes to Workspace layout, chart hover, playback cursor, axis choices, and window geometry
 are local presentation state. A selected series range is durable and content-addressed with the
@@ -135,8 +139,10 @@ communicate through their shared selection directly.
 Mutable exploration state lives in `.local/experiment-lens/state.json`, separate from the immutable
 producer inputs. Projects should ignore `.local/experiment-lens/`; the checked-in playground keeps
 its mutable copy beneath the repository's ignored `tmp/` directory. `export` writes one versioned
-selection packet containing source identities, filters, every selected observation and its values,
-exact artifact references, ranges, and notes. Python Canvas or ordinary experiment code can produce
+selection packet containing source identities, filters, every selected or annotation-referenced
+observation and its values, exact artifact references, ranges, and structured annotations. Chart
+annotations include their originating section and view, field bindings, filters, observation IDs,
+intent, text, and normalized vector strokes. Python Canvas or ordinary experiment code can produce
 a project; Setta Review or any arbitrary tool can consume the packet.
 
 Experiment Lens does not execute project code, load third-party components, contact a tracker,

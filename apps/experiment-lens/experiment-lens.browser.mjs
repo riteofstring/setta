@@ -426,6 +426,74 @@ async function dragSelector(client, selector, deltaX, deltaY, description) {
   });
 }
 
+async function dragSurface(
+  client,
+  selector,
+  startXRatio,
+  startYRatio,
+  endXRatio,
+  endYRatio,
+  description,
+) {
+  const gesture = await evaluate(
+    client,
+    `(() => {
+      const surface = document.querySelector(${JSON.stringify(selector)});
+      if (!(surface instanceof SVGSVGElement)) {
+        return null;
+      }
+      const bounds = surface.getBoundingClientRect();
+      const start = {
+        x: bounds.left + bounds.width * ${String(startXRatio)},
+        y: bounds.top + bounds.height * ${String(startYRatio)},
+      };
+      const end = {
+        x: bounds.left + bounds.width * ${String(endXRatio)},
+        y: bounds.top + bounds.height * ${String(endYRatio)},
+      };
+      return surface.contains(document.elementFromPoint(start.x, start.y)) &&
+        surface.contains(document.elementFromPoint(end.x, end.y))
+        ? { end, start }
+        : null;
+    })()`,
+  );
+  assert.notEqual(
+    gesture,
+    null,
+    `${description} was not physically reachable.`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: gesture.start.x,
+    y: gesture.start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: gesture.start.x,
+    y: gesture.start.y,
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: gesture.start.x + ((gesture.end.x - gesture.start.x) * step) / 8,
+      y: gesture.start.y + ((gesture.end.y - gesture.start.y) * step) / 8,
+    });
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: gesture.end.x,
+    y: gesture.end.y,
+  });
+}
+
 async function assertBrowserResponsive(client, description) {
   const result = await evaluate(
     client,
@@ -713,7 +781,10 @@ async function typeInputValue(client, selector, value, description) {
     client,
     `(() => {
       const control = document.querySelector(${JSON.stringify(selector)});
-      if (!(control instanceof HTMLInputElement) || document.activeElement !== control) {
+      if (!(
+        control instanceof HTMLInputElement ||
+        control instanceof HTMLTextAreaElement
+      ) || document.activeElement !== control) {
         return false;
       }
       control.select();
@@ -757,8 +828,8 @@ async function clickCanvas(client, selector, xRatio, yRatio) {
     client,
     `(() => {
       const surface = document.querySelector(${JSON.stringify(selector)});
-      if (!(surface instanceof HTMLElement)) {
-        return false;
+      if (!(surface instanceof Element)) {
+        return null;
       }
       const bounds = surface.getBoundingClientRect();
       if (bounds.width < 100 || bounds.height < 100) {
@@ -1047,6 +1118,369 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `${sectionSelector("retention-population")} .lens-echart`,
     "the population chart pan handoff",
   );
+
+  const populationSelector = sectionSelector("retention-population");
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button`,
+    "Annotate",
+  );
+  const selectionSurface = `${populationSelector} svg[aria-label="Select chart observations"]`;
+  await waitFor(
+    client,
+    "the population selection surface",
+    `document.querySelector(${JSON.stringify(selectionSurface)}) !== null`,
+  );
+  await dragSurface(
+    client,
+    selectionSurface,
+    0.12,
+    0.13,
+    0.19,
+    0.22,
+    "the population selection rectangle",
+  );
+  const chartSelected = await waitForSnapshot(
+    origin,
+    "the data-aware chart selection",
+    (snapshot) =>
+      snapshot.revision === restoredOverview.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length > 0 &&
+      snapshot.selection.selectedObservationIds.length <
+        snapshot.observations.length,
+  );
+  assert.ok(
+    chartSelected.selection.selectedObservationIds.length > 1,
+    "The chart rectangle did not select multiple observations.",
+  );
+  await clickCanvas(client, selectionSurface, 0.16, 0.18);
+  const chartPointSelected = await waitForSnapshot(
+    origin,
+    "the exact chart point selection",
+    (snapshot) =>
+      snapshot.revision === chartSelected.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 1,
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button`,
+    "Draw",
+  );
+  const drawingSurface = `${populationSelector} svg[aria-label="Draw chart annotation"]`;
+  await waitFor(
+    client,
+    "the population drawing surface",
+    `document.querySelector(${JSON.stringify(drawingSurface)}) !== null`,
+  );
+  await dragSurface(
+    client,
+    drawingSurface,
+    0.23,
+    0.31,
+    0.68,
+    0.52,
+    "the population annotation stroke",
+  );
+  await changeSelectValue(
+    client,
+    `${populationSelector} select[aria-label="Annotation intent"]`,
+    "follow-up",
+    "the chart annotation intent",
+  );
+  const chartAnnotation =
+    "Run a follow-up around this early-cycle degradation cluster.";
+  await typeInputValue(
+    client,
+    `${populationSelector} textarea[aria-label="Chart annotation text"]`,
+    chartAnnotation,
+    "the chart annotation text",
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-composer button`,
+    "Save annotation",
+  );
+  const chartAnnotated = await waitForSnapshot(
+    origin,
+    "the chart annotation",
+    (snapshot) =>
+      snapshot.revision === chartPointSelected.revision + 1 &&
+      snapshot.selection.annotations.some(
+        (annotation) =>
+          annotation.kind === "chart" &&
+          annotation.sectionId === "retention-population" &&
+          annotation.viewId === "overview" &&
+          annotation.intent === "follow-up" &&
+          annotation.text === chartAnnotation &&
+          annotation.observationIds.length ===
+            chartPointSelected.selection.selectedObservationIds.length &&
+          annotation.strokes.length === 1 &&
+          annotation.strokes[0].points.every(
+            (point) =>
+              point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1,
+          ),
+      ),
+  );
+  const savedChartAnnotation = chartAnnotated.selection.annotations.find(
+    (annotation) =>
+      annotation.kind === "chart" && annotation.text === chartAnnotation,
+  );
+  assert.notEqual(savedChartAnnotation, undefined);
+  const annotatedScreenshot = path.join(
+    resultDirectory,
+    "experiment-lens-chart-annotation.png",
+  );
+  await captureScreenshot(client, annotatedScreenshot);
+
+  const annotationVisualBeforeResize = await evaluate(
+    client,
+    `(() => {
+      const stroke = document.querySelector(${JSON.stringify(
+        `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+      )});
+      const overlay = stroke?.closest("svg");
+      const section = document.querySelector(${JSON.stringify(populationSelector)});
+      const bounds = overlay?.getBoundingClientRect();
+      const sectionBounds = section?.getBoundingClientRect();
+      return stroke instanceof SVGPolylineElement && bounds && sectionBounds
+        ? {
+            height: bounds.height,
+            points: stroke.getAttribute("points"),
+            sectionHeight: sectionBounds.height,
+            sectionWidth: sectionBounds.width,
+            width: bounds.width,
+          }
+        : null;
+    })()`,
+  );
+  assert.notEqual(annotationVisualBeforeResize, null);
+  await dragSelector(
+    client,
+    `${populationSelector} .section-resize-handle-bottom-right`,
+    96,
+    54,
+    "the annotated chart resize handle",
+  );
+  await waitFor(
+    client,
+    "the resized annotated chart",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(populationSelector)})?.getBoundingClientRect();
+      return bounds !== undefined &&
+        bounds.width > ${String(annotationVisualBeforeResize.sectionWidth + 35)} &&
+        bounds.height > ${String(annotationVisualBeforeResize.sectionHeight + 20)};
+    })()`,
+  );
+  const annotationVisualAfterResize = await evaluate(
+    client,
+    `(() => {
+      const stroke = document.querySelector(${JSON.stringify(
+        `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+      )});
+      const bounds = stroke?.closest("svg")?.getBoundingClientRect();
+      return stroke instanceof SVGPolylineElement && bounds
+        ? { height: bounds.height, points: stroke.getAttribute("points"), width: bounds.width }
+        : null;
+    })()`,
+  );
+  assert.notEqual(annotationVisualAfterResize, null);
+  assert.equal(
+    annotationVisualAfterResize.points,
+    annotationVisualBeforeResize.points,
+  );
+  assert.ok(
+    annotationVisualAfterResize.width > annotationVisualBeforeResize.width &&
+      annotationVisualAfterResize.height > annotationVisualBeforeResize.height,
+    "The normalized annotation overlay did not follow the chart resize.",
+  );
+
+  const annotationReloaded = client.waitForEvent(
+    "Page.loadEventFired",
+    timeoutMilliseconds,
+  );
+  await client.send("Page.reload", { ignoreCache: true });
+  await annotationReloaded;
+  await waitFor(
+    client,
+    "the persisted chart annotation",
+    `document.querySelector(${JSON.stringify(
+      `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+    )}) !== null`,
+  );
+  await physicalClickSelector(
+    client,
+    '[data-workspace-outline-item="retention-population"]',
+    "the annotated population outline item",
+  );
+  await waitFor(
+    client,
+    "the centered annotated population section",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(populationSelector)})?.getBoundingClientRect();
+      return bounds !== undefined && bounds.top >= 0 && bounds.bottom <= innerHeight;
+    })()`,
+  );
+  await delay(300);
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button`,
+    "Annotate 1",
+  );
+  await waitFor(
+    client,
+    "the persisted annotation editor",
+    `document.querySelector(${JSON.stringify(
+      `${populationSelector} [aria-label="Saved chart annotations"]`,
+    )}) !== null`,
+  );
+  await delay(300);
+  await physicalClickMatching(
+    client,
+    `${populationSelector} [aria-label="Saved chart annotations"] button`,
+    "Edit",
+  );
+  await waitFor(
+    client,
+    "the annotation edit context",
+    `document.querySelector(${JSON.stringify(
+      `${populationSelector} textarea[aria-label="Chart annotation text"]`,
+    )})?.value === ${JSON.stringify(chartAnnotation)}`,
+  );
+  const chartEditing = await jsonRequest(origin, "/api/v1/experiment-lens");
+  assert.equal(chartEditing.revision, chartAnnotated.revision);
+  const editedChartAnnotation =
+    "Ask whether the early-cycle degradation cluster reproduces.";
+  await changeSelectValue(
+    client,
+    `${populationSelector} select[aria-label="Annotation intent"]`,
+    "question",
+    "the edited chart annotation intent",
+  );
+  await typeInputValue(
+    client,
+    `${populationSelector} textarea[aria-label="Chart annotation text"]`,
+    editedChartAnnotation,
+    "the edited chart annotation text",
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-composer button`,
+    "Update annotation",
+  );
+  const chartUpdated = await waitForSnapshot(
+    origin,
+    "the updated chart annotation",
+    (snapshot) =>
+      snapshot.revision === chartEditing.revision + 1 &&
+      snapshot.selection.annotations.some(
+        (annotation) =>
+          annotation.id === savedChartAnnotation.id &&
+          annotation.intent === "question" &&
+          annotation.text === editedChartAnnotation,
+      ),
+  );
+  await physicalClickSelector(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button:first-child`,
+    "the updated annotation control",
+  );
+  await waitFor(
+    client,
+    "the updated annotation editor",
+    `document.querySelector(${JSON.stringify(
+      `${populationSelector} [aria-label="Saved chart annotations"]`,
+    )}) !== null`,
+  );
+  await delay(300);
+  await physicalClickMatching(
+    client,
+    `${populationSelector} [aria-label="Saved chart annotations"] button`,
+    "Delete",
+  );
+  const chartDeleted = await waitForSnapshot(
+    origin,
+    "the deleted chart annotation",
+    (snapshot) =>
+      snapshot.revision === chartUpdated.revision + 1 &&
+      !snapshot.selection.annotations.some(
+        (annotation) => annotation.id === savedChartAnnotation.id,
+      ),
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button`,
+    "Draw",
+  );
+  await dragSurface(
+    client,
+    drawingSurface,
+    0.28,
+    0.35,
+    0.72,
+    0.56,
+    "the replacement chart annotation stroke",
+  );
+  await changeSelectValue(
+    client,
+    `${populationSelector} select[aria-label="Annotation intent"]`,
+    "follow-up",
+    "the replacement chart annotation intent",
+  );
+  await typeInputValue(
+    client,
+    `${populationSelector} textarea[aria-label="Chart annotation text"]`,
+    chartAnnotation,
+    "the replacement chart annotation text",
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-composer button`,
+    "Save annotation",
+  );
+  const chartRecreated = await waitForSnapshot(
+    origin,
+    "the replacement chart annotation",
+    (snapshot) =>
+      snapshot.revision === chartDeleted.revision + 1 &&
+      snapshot.selection.annotations.some(
+        (annotation) =>
+          annotation.kind === "chart" &&
+          annotation.text === chartAnnotation &&
+          annotation.strokes.length === 1,
+      ),
+  );
+  await physicalClickSelector(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button:first-child`,
+    "the chart selection reset control",
+  );
+  await physicalClickMatching(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button`,
+    "Select points",
+  );
+  await clickCanvas(client, selectionSurface, 0.98, 0.98);
+  const chartSelectionCleared = await waitForSnapshot(
+    origin,
+    "the cleared chart selection",
+    (snapshot) =>
+      snapshot.revision === chartRecreated.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 0,
+  );
+  assert.equal(
+    await evaluate(
+      client,
+      `document.querySelector(".lens-primary-action")?.disabled`,
+    ),
+    false,
+    "A chart annotation without a comparison basket was not exportable.",
+  );
+  await physicalClickSelector(
+    client,
+    `${populationSelector} .lens-chart-annotation-toolbar button:first-child`,
+    "the closed annotation control",
+  );
+
   await assertCanvasPan(client, "the initial Overview");
   await physicalClickSelector(
     client,
@@ -1161,7 +1595,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the durable cycle range",
     (snapshot) =>
-      snapshot.revision === restoredOverview.revision + 1 &&
+      snapshot.revision === chartSelectionCleared.revision + 1 &&
       snapshot.selection.filters.some(
         (filter) =>
           filter.fieldId === "cycle" &&
@@ -1377,25 +1811,33 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await captureScreenshot(client, timelineScreenshot);
 
   const note = "Recheck the accelerated capacity loss around this checkpoint.";
+  await changeSelectValue(
+    client,
+    `${sectionSelector("thermal-gallery")} [data-timeline-active] select[aria-label="Artifact annotation intent"]`,
+    "follow-up",
+    "the artifact annotation intent",
+  );
   await typeInputValue(
     client,
-    `${sectionSelector("thermal-gallery")} [data-timeline-active] input[aria-label="Selection note"]`,
+    `${sectionSelector("thermal-gallery")} [data-timeline-active] input[aria-label="Artifact annotation"]`,
     note,
-    "the selection note",
+    "the artifact annotation",
   );
   await physicalClickMatching(
     client,
     `${sectionSelector("thermal-gallery")} [data-timeline-active] button`,
-    "Save note",
+    "Save annotation",
   );
   const noted = await waitForSnapshot(
     origin,
-    "the artifact-anchored note",
+    "the artifact-anchored annotation",
     (snapshot) =>
       snapshot.revision === selectedSecond.revision + 1 &&
-      snapshot.selection.notes.some(
+      snapshot.selection.annotations.some(
         (candidate) =>
-          candidate.observationId === secondObservationId &&
+          candidate.kind === "artifact" &&
+          candidate.intent === "follow-up" &&
+          candidate.observationIds.includes(secondObservationId) &&
           candidate.text === note,
       ),
   );
@@ -1543,8 +1985,19 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   assert.equal(exported.revision, included.revision);
   assert.equal(exported.selection.selectedObservationIds.length, 2);
   assert.equal(exported.selection.selectedArtifactIds.length, 1);
-  assert.equal(exported.selection.notes[0].text, note);
-  assert.equal(exported.observations.length, 2);
+  assert.ok(
+    exported.selection.annotations.some(
+      (annotation) =>
+        annotation.kind === "artifact" && annotation.text === note,
+    ),
+  );
+  assert.ok(
+    exported.selection.annotations.some(
+      (annotation) =>
+        annotation.kind === "chart" && annotation.text === chartAnnotation,
+    ),
+  );
+  assert.ok(exported.observations.length > 2);
 
   const reloaded = client.waitForEvent(
     "Page.loadEventFired",
@@ -1566,6 +2019,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       narrowCohortScreenshot,
       overviewScreenshot,
       heatmapScreenshot,
+      annotatedScreenshot,
       inspectScreenshot,
       timelineScreenshot,
       comparisonScreenshot,

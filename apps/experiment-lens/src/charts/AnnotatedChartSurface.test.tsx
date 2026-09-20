@@ -19,11 +19,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@setta/workspace", () => ({
-  getWorkspaceSavedViewsState: () => ({ activeViewId: "overview" }),
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
   NO_WHEEL_CLASS_NAME: "nowheel",
-  useWorkspaceHost: () => ({}),
+  useWorkspaceDocumentSnapshot: () => ({
+    savedViews: { activeViewId: "overview" },
+  }),
 }));
 
 vi.mock("./EChartSurface", async () => {
@@ -279,9 +280,16 @@ describe("chart annotations", () => {
       text: "Why does this run diverge?",
       viewId: "overview",
     };
+    const otherViewAnnotation: SelectionAnnotation = {
+      ...annotation,
+      id: "annotation-b",
+      viewId: "compare",
+    };
     act(() => {
       root.render(
-        <LensContext.Provider value={contextValue(lensActions, [annotation])}>
+        <LensContext.Provider
+          value={contextValue(lensActions, [annotation, otherViewAnnotation])}
+        >
           <AnnotatedChartSurface
             ariaLabel="Population"
             chartFieldIds={["cycle", "retention"]}
@@ -294,6 +302,9 @@ describe("chart annotations", () => {
     expect(
       container.querySelector('[data-annotation-id="annotation-a"]'),
     ).not.toBeNull();
+    expect(
+      container.querySelector('[data-annotation-id="annotation-b"]'),
+    ).toBeNull();
     act(() => clickButton(container, "Annotate 1"));
     act(() => clickButton(container, "Edit"));
     expect(

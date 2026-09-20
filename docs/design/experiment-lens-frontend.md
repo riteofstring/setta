@@ -19,7 +19,7 @@ justify a safe extension boundary.
 
 The validated backend snapshot remains authoritative for immutable result identity, admitted
 artifact content, filters, focused observation, explicit selection basket, artifact inclusion,
-anchored ranges, notes, and revision. Workspace sections contain only the manifest presentation
+anchored ranges, annotations, and revision. Workspace sections contain only the manifest presentation
 section ID. A coherent interaction optimistically previews one complete selection replacement,
 submits it against the observed revision, and reconciles the accepted result or a newer server-sent
 snapshot. Changing exploration state never rewrites the Workspace document.
@@ -38,9 +38,17 @@ the series and artifact sections resolve that same observation. Series interacti
 shared time cursor and range, and a timed artifact view resolves the nearest admitted frame.
 
 The selection basket is explicit and independent of the visible cohort. Filtering never silently
-deletes a prior selection. A managed comparison window overlays the selected series and presents
-their primary metrics. Export requires a non-empty basket and records observation IDs, filters,
-the time range, notes, and exact artifact references.
+deletes a prior selection. Scatter annotation mode converts click and rectangular gestures through
+the live chart projection into exact observation IDs in that basket. A reusable layer around every
+ECharts section captures freehand strokes in normalized chart coordinates, so accepted drawings
+remain aligned when a Workspace section resizes. Each annotation records its intent, text,
+originating section and view, field bindings, filter snapshot, and selected observation IDs.
+Artifact annotations use the same durable collection with an exact artifact anchor. Passive saved
+overlays do not intercept chart or Workspace input; pointer boundaries apply only while selecting
+or drawing. A managed comparison window overlays the selected series and presents their primary
+metrics. Export becomes available when the durable state contains observations, artifacts, ranges,
+or annotations and records their IDs, filters, time range, annotation context, and exact artifact
+references.
 
 There are no semantic graph edges. Synchronization is one shared state relationship, and edges
 between every linked view would add visual noise without explaining provenance. Manifest-defined
@@ -83,5 +91,6 @@ selection packet input, and manifest-to-Workspace projection. Component tests co
 interaction and chart lifecycle with a controlled ECharts boundary. Headless browser acceptance
 uses a realistic 864-observation battery project whose three declared views exercise all nine
 built-ins. It verifies filtering, table overflow, bidirectional focus, selection across filters,
-timeline synchronization, managed comparison, exported packet content, light and dark rendering,
-and constrained viewport behavior. It records screenshots for manual visual review.
+timeline synchronization, chart point selection, drawing, resize alignment, persistence,
+annotation editing and deletion, managed comparison, exported packet content, light and dark
+rendering, and constrained viewport behavior. It records screenshots for manual visual review.

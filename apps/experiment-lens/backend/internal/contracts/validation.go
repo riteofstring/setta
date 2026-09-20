@@ -422,8 +422,8 @@ func validateOptionalIdentifier(value *string, label string) error {
 	return identifier(*value, label)
 }
 
-func validateArtifactRanges(ranges []ArtifactRange) (map[string]struct{}, error) {
-	rangeIDs := map[string]struct{}{}
+func validateArtifactRanges(ranges []ArtifactRange) (map[string]ArtifactRange, error) {
+	rangeIDs := map[string]ArtifactRange{}
 	for _, selectedRange := range ranges {
 		if err := selectedRange.Validate(); err != nil {
 			return nil, err
@@ -431,12 +431,12 @@ func validateArtifactRanges(ranges []ArtifactRange) (map[string]struct{}, error)
 		if _, exists := rangeIDs[selectedRange.ID]; exists {
 			return nil, fmt.Errorf("range %q is repeated", selectedRange.ID)
 		}
-		rangeIDs[selectedRange.ID] = struct{}{}
+		rangeIDs[selectedRange.ID] = selectedRange
 	}
 	return rangeIDs, nil
 }
 
-func validateSelectionAnnotations(annotations []SelectionAnnotation, rangeIDs map[string]struct{}) error {
+func validateSelectionAnnotations(annotations []SelectionAnnotation, ranges map[string]ArtifactRange) error {
 	annotationIDs := map[string]struct{}{}
 	for _, annotation := range annotations {
 		if err := annotation.Validate(); err != nil {
@@ -446,8 +446,12 @@ func validateSelectionAnnotations(annotations []SelectionAnnotation, rangeIDs ma
 			return fmt.Errorf("annotation %q is repeated", annotation.ID)
 		}
 		if annotation.RangeID != nil {
-			if _, exists := rangeIDs[*annotation.RangeID]; !exists {
+			selectedRange, exists := ranges[*annotation.RangeID]
+			if !exists {
 				return fmt.Errorf("annotation %q references unknown range %q", annotation.ID, *annotation.RangeID)
+			}
+			if annotation.ArtifactID == nil || annotation.ArtifactSHA256 == nil || selectedRange.ArtifactID != *annotation.ArtifactID || selectedRange.ArtifactSHA256 != *annotation.ArtifactSHA256 {
+				return fmt.Errorf("annotation %q range artifact identity does not match", annotation.ID)
 			}
 		}
 		annotationIDs[annotation.ID] = struct{}{}
