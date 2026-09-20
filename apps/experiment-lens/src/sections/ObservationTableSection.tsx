@@ -48,6 +48,7 @@ export function ObservationTableSection() {
     () => tableFields(lens.snapshot.experiment.fields),
     [lens.snapshot.experiment.fields],
   );
+  const data = useMemo(() => [...lens.visible], [lens.visible]);
   const columns = useMemo<ColumnDef<Observation>[]>(
     () => [
       {
@@ -95,7 +96,7 @@ export function ObservationTableSection() {
   );
   const table = useReactTable({
     columns,
-    data: [...lens.visible],
+    data,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (observation) => observation.id,
     getSortedRowModel: getSortedRowModel(),

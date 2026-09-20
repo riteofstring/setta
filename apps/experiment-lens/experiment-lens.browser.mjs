@@ -420,6 +420,30 @@ async function assertBrowserResponsive(client, description) {
   assert.equal(result, true, `${description} left the browser unresponsive.`);
 }
 
+async function browserTaskDuration(client) {
+  const { metrics } = await client.send("Performance.getMetrics");
+  const taskDuration = metrics.find(
+    (metric) => metric.name === "TaskDuration",
+  )?.value;
+  assert.equal(
+    typeof taskDuration,
+    "number",
+    "Chrome did not report renderer task duration.",
+  );
+  return taskDuration;
+}
+
+async function assertBrowserSettles(client, description) {
+  await delay(300);
+  const started = await browserTaskDuration(client);
+  await delay(750);
+  const elapsed = (await browserTaskDuration(client)) - started;
+  assert.ok(
+    elapsed < 0.25,
+    `${description} kept the renderer busy for ${elapsed.toFixed(3)} seconds during a 0.75 second idle window.`,
+  );
+}
+
 async function assertCanvasPan(client, description) {
   const start = await evaluate(
     client,
@@ -644,6 +668,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       .length,
     144,
   );
+  await assertBrowserSettles(client, "the initial Atlas");
 
   const atlasScreenshot = path.join(
     resultDirectory,
@@ -814,6 +839,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `document.querySelector('[data-lens-visible-count]')?.textContent === "576" &&
       document.body.textContent?.includes("1 outside cohort") === true`,
   );
+  await assertBrowserSettles(client, "the filtered Atlas");
   await assertCanvasPan(client, "the filtered Atlas");
   await physicalClickMatching(
     client,
@@ -1235,6 +1261,7 @@ try {
   await Promise.all([
     client.send("Page.enable"),
     client.send("Runtime.enable"),
+    client.send("Performance.enable"),
     client.send("Emulation.setDeviceMetricsOverride", {
       deviceScaleFactor: 1,
       height: 900,
