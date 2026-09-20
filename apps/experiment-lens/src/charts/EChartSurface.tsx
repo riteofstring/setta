@@ -51,7 +51,7 @@ registerECharts([
   VisualMapComponent,
 ]);
 
-export type EChartEventHandlers = Readonly<
+type EChartEventHandlers = Readonly<
   Record<string, (event: unknown, chart: ECharts) => void>
 >;
 

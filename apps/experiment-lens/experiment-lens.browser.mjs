@@ -426,15 +426,8 @@ async function dragSelector(client, selector, deltaX, deltaY, description) {
   });
 }
 
-async function dragSurface(
-  client,
-  selector,
-  startXRatio,
-  startYRatio,
-  endXRatio,
-  endYRatio,
-  description,
-) {
+async function dragSurface(client, selector, ratios, description) {
+  const { endX, endY, startX, startY } = ratios;
   const gesture = await evaluate(
     client,
     `(() => {
@@ -444,12 +437,12 @@ async function dragSurface(
       }
       const bounds = surface.getBoundingClientRect();
       const start = {
-        x: bounds.left + bounds.width * ${String(startXRatio)},
-        y: bounds.top + bounds.height * ${String(startYRatio)},
+        x: bounds.left + bounds.width * ${String(startX)},
+        y: bounds.top + bounds.height * ${String(startY)},
       };
       const end = {
-        x: bounds.left + bounds.width * ${String(endXRatio)},
-        y: bounds.top + bounds.height * ${String(endYRatio)},
+        x: bounds.left + bounds.width * ${String(endX)},
+        y: bounds.top + bounds.height * ${String(endY)},
       };
       return surface.contains(document.elementFromPoint(start.x, start.y)) &&
         surface.contains(document.elementFromPoint(end.x, end.y))
@@ -1134,10 +1127,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await dragSurface(
     client,
     selectionSurface,
-    0.12,
-    0.13,
-    0.19,
-    0.22,
+    { endX: 0.19, endY: 0.22, startX: 0.12, startY: 0.13 },
     "the population selection rectangle",
   );
   const chartSelected = await waitForSnapshot(
@@ -1175,10 +1165,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await dragSurface(
     client,
     drawingSurface,
-    0.23,
-    0.31,
-    0.68,
-    0.52,
+    { endX: 0.68, endY: 0.52, startX: 0.23, startY: 0.31 },
     "the population annotation stroke",
   );
   await changeSelectValue(
@@ -1414,10 +1401,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await dragSurface(
     client,
     drawingSurface,
-    0.28,
-    0.35,
-    0.72,
-    0.56,
+    { endX: 0.72, endY: 0.56, startX: 0.28, startY: 0.35 },
     "the replacement chart annotation stroke",
   );
   await changeSelectValue(

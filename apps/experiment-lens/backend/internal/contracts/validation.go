@@ -686,6 +686,19 @@ func (stroke AnnotationStroke) Validate() error {
 }
 
 func (annotation SelectionAnnotation) Validate() error {
+	if err := annotation.validateIdentity(); err != nil {
+		return err
+	}
+	if err := annotation.validateCollections(); err != nil {
+		return err
+	}
+	if annotation.Kind == "chart" {
+		return annotation.validateChartShape()
+	}
+	return annotation.validateArtifactShape()
+}
+
+func (annotation SelectionAnnotation) validateIdentity() error {
 	if err := identifier(annotation.ID, "annotation id"); err != nil {
 		return err
 	}
@@ -698,11 +711,12 @@ func (annotation SelectionAnnotation) Validate() error {
 	if err := requiredText(annotation.Text, 8000, "annotation text"); err != nil {
 		return err
 	}
-	if annotation.ObservationIDs == nil || annotation.Filters == nil || annotation.ChartFieldIDs == nil || annotation.Strokes == nil {
-		return errors.New("annotation collections are required")
-	}
-	if len(annotation.ObservationIDs) > maximumSelectionIDs || len(annotation.Filters) > maximumFields || len(annotation.ChartFieldIDs) > 20 || len(annotation.Strokes) > maximumStrokes {
-		return errors.New("annotation exceeds a size limit")
+	return nil
+}
+
+func (annotation SelectionAnnotation) validateCollections() error {
+	if err := annotation.validateCollectionShape(); err != nil {
+		return err
 	}
 	if err := uniqueIdentifiers(annotation.ObservationIDs, "annotation observation"); err != nil {
 		return err
@@ -713,15 +727,44 @@ func (annotation SelectionAnnotation) Validate() error {
 	if err := uniqueIdentifiers(annotation.ChartFieldIDs, "annotation chart field"); err != nil {
 		return err
 	}
-	for _, stroke := range annotation.Strokes {
+	return validateAnnotationStrokes(annotation.Strokes)
+}
+
+func (annotation SelectionAnnotation) validateCollectionShape() error {
+	if annotation.ObservationIDs == nil {
+		return errors.New("annotation collections are required")
+	}
+	if annotation.Filters == nil {
+		return errors.New("annotation collections are required")
+	}
+	if annotation.ChartFieldIDs == nil {
+		return errors.New("annotation collections are required")
+	}
+	if annotation.Strokes == nil {
+		return errors.New("annotation collections are required")
+	}
+	if len(annotation.ObservationIDs) > maximumSelectionIDs {
+		return errors.New("annotation exceeds a size limit")
+	}
+	if len(annotation.Filters) > maximumFields {
+		return errors.New("annotation exceeds a size limit")
+	}
+	if len(annotation.ChartFieldIDs) > 20 {
+		return errors.New("annotation exceeds a size limit")
+	}
+	if len(annotation.Strokes) > maximumStrokes {
+		return errors.New("annotation exceeds a size limit")
+	}
+	return nil
+}
+
+func validateAnnotationStrokes(strokes []AnnotationStroke) error {
+	for _, stroke := range strokes {
 		if err := stroke.Validate(); err != nil {
 			return err
 		}
 	}
-	if annotation.Kind == "chart" {
-		return annotation.validateChartShape()
-	}
-	return annotation.validateArtifactShape()
+	return nil
 }
 
 func (annotation SelectionAnnotation) validateChartShape() error {
@@ -744,12 +787,24 @@ func (annotation SelectionAnnotation) validateChartShape() error {
 }
 
 func (annotation SelectionAnnotation) validateArtifactShape() error {
-	if annotation.SectionID != nil || annotation.ViewID != nil || len(annotation.Filters) != 0 || len(annotation.ChartFieldIDs) != 0 || len(annotation.Strokes) != 0 {
+	if annotation.hasChartContext() {
 		return errors.New("artifact annotation contains chart context")
 	}
 	if len(annotation.ObservationIDs) != 1 {
 		return errors.New("artifact annotation requires one observation")
 	}
+	return annotation.validateArtifactAnchor()
+}
+
+func (annotation SelectionAnnotation) hasChartContext() bool {
+	return annotation.SectionID != nil ||
+		annotation.ViewID != nil ||
+		len(annotation.Filters) != 0 ||
+		len(annotation.ChartFieldIDs) != 0 ||
+		len(annotation.Strokes) != 0
+}
+
+func (annotation SelectionAnnotation) validateArtifactAnchor() error {
 	if annotation.ArtifactID == nil || annotation.ArtifactSHA256 == nil {
 		return errors.New("artifact annotation requires an artifact identity")
 	}

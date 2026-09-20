@@ -168,52 +168,93 @@ function annotationID(): string {
   return `annotation-${window.crypto.randomUUID()}`;
 }
 
-function ArtifactAnnotationForm({
-  artifact,
-  existingAnnotation,
-  observationId,
-  rangeId,
-  onDelete,
-  onSave,
-}: {
+type ArtifactAnnotationFormProps = Readonly<{
   artifact: ResolvedArtifact;
   existingAnnotation: SelectionAnnotation | null;
   observationId: string;
   rangeId: string | null;
   onDelete: (annotationId: string) => void;
   onSave: (annotation: SelectionAnnotation) => void;
-}) {
-  const existingText = existingAnnotation?.text ?? "";
-  const [text, setText] = useState(existingText);
-  const [intent, setIntent] = useState<SelectionAnnotation["intent"]>(
-    existingAnnotation?.intent ?? "context",
+}>;
+
+function annotationDraft(existingAnnotation: SelectionAnnotation | null): {
+  intent: SelectionAnnotation["intent"];
+  text: string;
+} {
+  return {
+    intent: existingAnnotation?.intent ?? "context",
+    text: existingAnnotation?.text ?? "",
+  };
+}
+
+function artifactAnnotation(
+  props: ArtifactAnnotationFormProps,
+  intent: SelectionAnnotation["intent"],
+  text: string,
+): SelectionAnnotation {
+  return {
+    artifactId: props.artifact.reference.id,
+    artifactSha256: props.artifact.reference.sha256,
+    chartFieldIds: [],
+    filters: [],
+    id: props.existingAnnotation?.id ?? annotationID(),
+    intent,
+    kind: "artifact",
+    observationIds: [props.observationId],
+    rangeId: props.rangeId,
+    sectionId: null,
+    strokes: [],
+    text,
+    viewId: null,
+  };
+}
+
+function annotationSaveDisabled(
+  text: string,
+  intent: SelectionAnnotation["intent"],
+  existing: ReturnType<typeof annotationDraft>,
+): boolean {
+  return (
+    text.trim() === "" ||
+    (text.trim() === existing.text && intent === existing.intent)
   );
-  const textRef = useRef(existingText);
+}
+
+function ArtifactAnnotationDelete({
+  annotation,
+  onDelete,
+}: {
+  annotation: SelectionAnnotation | null;
+  onDelete: (annotationId: string) => void;
+}) {
+  if (!annotation) {
+    return null;
+  }
+  return (
+    <button onClick={() => onDelete(annotation.id)} type="button">
+      Delete
+    </button>
+  );
+}
+
+function ArtifactAnnotationForm(props: ArtifactAnnotationFormProps) {
+  const existing = annotationDraft(props.existingAnnotation);
+  const [text, setText] = useState(existing.text);
+  const [intent, setIntent] = useState<SelectionAnnotation["intent"]>(
+    existing.intent,
+  );
+  const textRef = useRef(existing.text);
   useEffect(() => {
-    textRef.current = existingText;
-    setText(existingText);
-    setIntent(existingAnnotation?.intent ?? "context");
-  }, [existingAnnotation?.id, existingAnnotation?.intent, existingText]);
+    textRef.current = existing.text;
+    setText(existing.text);
+    setIntent(existing.intent);
+  }, [existing.intent, existing.text, props.existingAnnotation?.id]);
   return (
     <form
       className="lens-artifact-annotation-form"
       onSubmit={(event) => {
         event.preventDefault();
-        onSave({
-          artifactId: artifact.reference.id,
-          artifactSha256: artifact.reference.sha256,
-          chartFieldIds: [],
-          filters: [],
-          id: existingAnnotation?.id ?? annotationID(),
-          intent,
-          kind: "artifact",
-          observationIds: [observationId],
-          rangeId,
-          sectionId: null,
-          strokes: [],
-          text: textRef.current,
-          viewId: null,
-        });
+        props.onSave(artifactAnnotation(props, intent, textRef.current));
       }}
     >
       <select
@@ -229,8 +270,8 @@ function ArtifactAnnotationForm({
       </select>
       <input
         aria-label="Artifact annotation"
-        defaultValue={existingText}
-        key={`${artifact.reference.id}:${existingAnnotation?.id ?? "new"}:${existingText}`}
+        defaultValue={existing.text}
+        key={`${props.artifact.reference.id}:${props.existingAnnotation?.id ?? "new"}:${existing.text}`}
         onChange={(event) => {
           const value = event.currentTarget.value;
           textRef.current = value;
@@ -239,20 +280,15 @@ function ArtifactAnnotationForm({
         placeholder="Add context or instructions for the next agent"
       />
       <button
-        disabled={
-          text.trim() === "" ||
-          (text.trim() === existingText &&
-            intent === (existingAnnotation?.intent ?? "context"))
-        }
+        disabled={annotationSaveDisabled(text, intent, existing)}
         type="submit"
       >
         Save annotation
       </button>
-      {existingAnnotation ? (
-        <button onClick={() => onDelete(existingAnnotation.id)} type="button">
-          Delete
-        </button>
-      ) : null}
+      <ArtifactAnnotationDelete
+        annotation={props.existingAnnotation}
+        onDelete={props.onDelete}
+      />
     </form>
   );
 }

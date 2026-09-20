@@ -26,7 +26,7 @@ import {
 
 type AnnotationMode = "draw" | "select";
 
-export type NormalizedChartBounds = Readonly<{
+type NormalizedChartBounds = Readonly<{
   bottom: number;
   left: number;
   right: number;
@@ -38,7 +38,7 @@ export type ChartSelectionGesture = Readonly<{
   bounds: NormalizedChartBounds;
 }>;
 
-export type ChartSelectionResolver = (
+type ChartSelectionResolver = (
   gesture: ChartSelectionGesture,
   chart: LensChart,
 ) => readonly string[];
@@ -143,6 +143,302 @@ function AnnotationStrokes({
   );
 }
 
+function initialAnnotationMode(
+  selectionResolver: ChartSelectionResolver | undefined,
+): AnnotationMode {
+  return selectionResolver ? "select" : "draw";
+}
+
+function activeView(
+  workspaceViewId: string | undefined,
+  initialViewId: string,
+): string {
+  return workspaceViewId ?? initialViewId;
+}
+
+function chartInputActive(
+  open: boolean,
+  mode: AnnotationMode,
+  supportsSelection: boolean,
+): boolean {
+  return open && (mode === "draw" || supportsSelection);
+}
+
+function chartAnnotationCanSave(
+  text: string,
+  strokeCount: number,
+  selectedCount: number,
+): boolean {
+  return text.trim() !== "" && (strokeCount > 0 || selectedCount > 0);
+}
+
+function chartDraftStrokes(
+  strokes: readonly AnnotationStroke[],
+  activeStroke: readonly AnnotationPoint[],
+): AnnotationStroke[] {
+  return activeStroke.length >= 2
+    ? [...strokes, { points: [...activeStroke] }]
+    : [...strokes];
+}
+
+function annotationControlLabel(annotationCount: number): string {
+  return annotationCount > 0
+    ? `Annotate ${String(annotationCount)}`
+    : "Annotate";
+}
+
+function SelectionModeButton({
+  mode,
+  open,
+  supportsSelection,
+  onSelect,
+}: {
+  mode: AnnotationMode;
+  open: boolean;
+  supportsSelection: boolean;
+  onSelect: () => void;
+}) {
+  if (!open || !supportsSelection) {
+    return null;
+  }
+  return (
+    <button aria-pressed={mode === "select"} onClick={onSelect} type="button">
+      Select points
+    </button>
+  );
+}
+
+function DrawModeButton({
+  mode,
+  open,
+  onDraw,
+}: {
+  mode: AnnotationMode;
+  open: boolean;
+  onDraw: () => void;
+}) {
+  if (!open) {
+    return null;
+  }
+  return (
+    <button aria-pressed={mode === "draw"} onClick={onDraw} type="button">
+      Draw
+    </button>
+  );
+}
+
+function UndoStrokeButton({
+  open,
+  strokeCount,
+  onUndo,
+}: {
+  open: boolean;
+  strokeCount: number;
+  onUndo: () => void;
+}) {
+  if (!open || strokeCount === 0) {
+    return null;
+  }
+  return (
+    <button onClick={onUndo} type="button">
+      Undo stroke
+    </button>
+  );
+}
+
+function AnnotationToolbar({
+  annotationCount,
+  mode,
+  open,
+  strokeCount,
+  supportsSelection,
+  onDraw,
+  onSelect,
+  onToggle,
+  onUndo,
+}: {
+  annotationCount: number;
+  mode: AnnotationMode;
+  open: boolean;
+  strokeCount: number;
+  supportsSelection: boolean;
+  onDraw: () => void;
+  onSelect: () => void;
+  onToggle: () => void;
+  onUndo: () => void;
+}) {
+  return (
+    <div className="lens-chart-annotation-toolbar">
+      <button aria-expanded={open} onClick={onToggle} type="button">
+        {annotationControlLabel(annotationCount)}
+      </button>
+      <SelectionModeButton
+        mode={mode}
+        onSelect={onSelect}
+        open={open}
+        supportsSelection={supportsSelection}
+      />
+      <DrawModeButton mode={mode} onDraw={onDraw} open={open} />
+      <UndoStrokeButton onUndo={onUndo} open={open} strokeCount={strokeCount} />
+    </div>
+  );
+}
+
+function ChartAnnotationInput({
+  active,
+  mode,
+  selectionBox,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  active: boolean;
+  mode: AnnotationMode;
+  selectionBox: NormalizedChartBounds | null;
+  onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
+}) {
+  if (!active) {
+    return null;
+  }
+  return (
+    <svg
+      aria-label={
+        mode === "draw" ? "Draw chart annotation" : "Select chart observations"
+      }
+      className={`lens-chart-annotation-input lens-chart-annotation-input-${mode} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      preserveAspectRatio="none"
+      role="application"
+      viewBox="0 0 1 1"
+    >
+      {selectionBox ? (
+        <rect
+          className="lens-chart-selection-box"
+          height={selectionBox.bottom - selectionBox.top}
+          vectorEffect="non-scaling-stroke"
+          width={selectionBox.right - selectionBox.left}
+          x={selectionBox.left}
+          y={selectionBox.top}
+        />
+      ) : null}
+    </svg>
+  );
+}
+
+function SavedAnnotationList({
+  annotations,
+  onDelete,
+  onEdit,
+}: {
+  annotations: readonly SelectionAnnotation[];
+  onDelete: (annotationId: string) => void;
+  onEdit: (annotation: SelectionAnnotation) => void;
+}) {
+  if (annotations.length === 0) {
+    return null;
+  }
+  return (
+    <ul
+      aria-label="Saved chart annotations"
+      className="lens-chart-annotation-list"
+    >
+      {annotations.map((annotation) => (
+        <li key={annotation.id}>
+          <div>
+            <strong>{annotationLabel(annotation)}</strong>
+            <span>
+              {annotation.observationIds.length} points ·{" "}
+              {annotation.strokes.length} strokes
+            </span>
+            <p>{annotation.text}</p>
+          </div>
+          <button onClick={() => onEdit(annotation)} type="button">
+            Edit
+          </button>
+          <button onClick={() => onDelete(annotation.id)} type="button">
+            Delete
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ChartAnnotationPanel({
+  annotations,
+  busy,
+  canSave,
+  editingId,
+  intent,
+  open,
+  selectedCount,
+  strokeCount,
+  text,
+  onDelete,
+  onEdit,
+  onIntentChange,
+  onSave,
+  onTextChange,
+}: {
+  annotations: readonly SelectionAnnotation[];
+  busy: boolean;
+  canSave: boolean;
+  editingId: string | null;
+  intent: SelectionAnnotation["intent"];
+  open: boolean;
+  selectedCount: number;
+  strokeCount: number;
+  text: string;
+  onDelete: (annotationId: string) => void;
+  onEdit: (annotation: SelectionAnnotation) => void;
+  onIntentChange: (intent: SelectionAnnotation["intent"]) => void;
+  onSave: () => void;
+  onTextChange: (text: string) => void;
+}) {
+  if (!open) {
+    return null;
+  }
+  return (
+    <div className="lens-chart-annotation-panel">
+      <div className="lens-chart-annotation-composer">
+        <select
+          aria-label="Annotation intent"
+          onChange={(event) =>
+            onIntentChange(event.target.value as SelectionAnnotation["intent"])
+          }
+          value={intent}
+        >
+          <option value="context">Add context</option>
+          <option value="question">Ask agent</option>
+          <option value="follow-up">Request follow-up</option>
+        </select>
+        <textarea
+          aria-label="Chart annotation text"
+          onChange={(event) => onTextChange(event.target.value)}
+          placeholder="Explain what matters or request the next experiment"
+          value={text}
+        />
+        <span>
+          {selectedCount} selected · {strokeCount}{" "}
+          {strokeCount === 1 ? "stroke" : "strokes"}
+        </span>
+        <button disabled={!canSave || busy} onClick={onSave} type="button">
+          {editingId ? "Update annotation" : "Save annotation"}
+        </button>
+      </div>
+      <SavedAnnotationList
+        annotations={annotations}
+        onDelete={onDelete}
+        onEdit={onEdit}
+      />
+    </div>
+  );
+}
+
 export function AnnotatedChartSurface({
   chartFieldIds,
   sectionId,
@@ -151,9 +447,10 @@ export function AnnotatedChartSurface({
 }: AnnotatedChartSurfaceProps) {
   const lens = useLens();
   const workspace = useWorkspaceDocumentSnapshot();
-  const activeViewId =
-    workspace.savedViews?.activeViewId ??
-    lens.snapshot.experiment.presentation.initialViewId;
+  const activeViewId = activeView(
+    workspace.savedViews?.activeViewId,
+    lens.snapshot.experiment.presentation.initialViewId,
+  );
   const chartRef = useRef<EChartSurfaceHandle | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const startRef = useRef<AnnotationPoint | null>(null);
@@ -161,8 +458,8 @@ export function AnnotatedChartSurface({
   const strokeRef = useRef<AnnotationPoint[]>([]);
   const strokeFrameRef = useRef(0);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<AnnotationMode>(
-    selectionResolver ? "select" : "draw",
+  const [mode, setMode] = useState<AnnotationMode>(() =>
+    initialAnnotationMode(selectionResolver),
   );
   const [strokes, setStrokes] = useState<AnnotationStroke[]>([]);
   const [activeStroke, setActiveStroke] = useState<AnnotationPoint[]>([]);
@@ -295,27 +592,18 @@ export function AnnotatedChartSurface({
     }
   };
 
-  const handlePointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (pointerIdRef.current !== event.pointerId || startRef.current === null) {
-      return;
+  const finishActiveStroke = (end: AnnotationPoint) => {
+    const previous = strokeRef.current.at(-1);
+    if (
+      strokeRef.current.length < 1024 &&
+      (!previous || Math.hypot(end.x - previous.x, end.y - previous.y) > 0)
+    ) {
+      strokeRef.current = [...strokeRef.current, end];
     }
-    event.preventDefault();
-    const start = startRef.current;
-    const end = normalizedPoint(event);
-    pointerIdRef.current = null;
-    startRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    if (mode === "draw") {
-      const previous = strokeRef.current.at(-1);
-      if (
-        strokeRef.current.length < 1024 &&
-        (!previous || Math.hypot(end.x - previous.x, end.y - previous.y) > 0)
-      ) {
-        strokeRef.current = [...strokeRef.current, end];
-      }
-      flushActiveStroke();
-      return;
-    }
+    flushActiveStroke();
+  };
+
+  const finishSelection = (start: AnnotationPoint, end: AnnotationPoint) => {
     const chart = chartRef.current?.getChart();
     if (chart && selectionResolver) {
       const observationIds = selectionResolver(
@@ -327,162 +615,81 @@ export function AnnotatedChartSurface({
     setSelectionBox(null);
   };
 
-  const interactive =
-    open && (mode === "draw" || selectionResolver !== undefined);
-  const canSave =
-    text.trim() !== "" &&
-    (strokes.length > 0 || lens.selection.selectedObservationIds.length > 0);
+  const handlePointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (pointerIdRef.current !== event.pointerId || startRef.current === null) {
+      return;
+    }
+    event.preventDefault();
+    const start = startRef.current;
+    const end = normalizedPoint(event);
+    pointerIdRef.current = null;
+    startRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (mode === "draw") {
+      finishActiveStroke(end);
+      return;
+    }
+    finishSelection(start, end);
+  };
+
+  const selectedCount = lens.selection.selectedObservationIds.length;
+  const supportsSelection = selectionResolver !== undefined;
+  const interactive = chartInputActive(open, mode, supportsSelection);
+  const canSave = chartAnnotationCanSave(text, strokes.length, selectedCount);
+  const toggleOpen = () => {
+    if (open) {
+      resetDraft();
+    }
+    setOpen((current) => !current);
+  };
 
   return (
     <div
       className="lens-chart-annotation-shell"
       data-lens-annotation-section={sectionId}
     >
-      <div className="lens-chart-annotation-toolbar">
-        <button
-          aria-expanded={open}
-          onClick={() => {
-            if (open) {
-              resetDraft();
-            }
-            setOpen((current) => !current);
-          }}
-          type="button"
-        >
-          Annotate
-          {sectionAnnotations.length > 0
-            ? ` ${String(sectionAnnotations.length)}`
-            : ""}
-        </button>
-        {open && selectionResolver ? (
-          <button
-            aria-pressed={mode === "select"}
-            onClick={() => setMode("select")}
-            type="button"
-          >
-            Select points
-          </button>
-        ) : null}
-        {open ? (
-          <button
-            aria-pressed={mode === "draw"}
-            onClick={() => setMode("draw")}
-            type="button"
-          >
-            Draw
-          </button>
-        ) : null}
-        {open && strokes.length > 0 ? (
-          <button
-            onClick={() => setStrokes((current) => current.slice(0, -1))}
-            type="button"
-          >
-            Undo stroke
-          </button>
-        ) : null}
-      </div>
+      <AnnotationToolbar
+        annotationCount={sectionAnnotations.length}
+        mode={mode}
+        onDraw={() => setMode("draw")}
+        onSelect={() => setMode("select")}
+        onToggle={toggleOpen}
+        onUndo={() => setStrokes((current) => current.slice(0, -1))}
+        open={open}
+        strokeCount={strokes.length}
+        supportsSelection={supportsSelection}
+      />
       <div className="lens-chart-annotation-stage">
         <EChartSurface {...surfaceProps} ref={chartRef} />
         <AnnotationStrokes
           annotations={renderedAnnotations}
-          draft={[
-            ...strokes,
-            ...(activeStroke.length >= 2 ? [{ points: activeStroke }] : []),
-          ]}
+          draft={chartDraftStrokes(strokes, activeStroke)}
         />
-        {interactive ? (
-          <svg
-            aria-label={
-              mode === "draw"
-                ? "Draw chart annotation"
-                : "Select chart observations"
-            }
-            className={`lens-chart-annotation-input lens-chart-annotation-input-${mode} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            preserveAspectRatio="none"
-            role="application"
-            viewBox="0 0 1 1"
-          >
-            {selectionBox ? (
-              <rect
-                className="lens-chart-selection-box"
-                height={selectionBox.bottom - selectionBox.top}
-                vectorEffect="non-scaling-stroke"
-                width={selectionBox.right - selectionBox.left}
-                x={selectionBox.left}
-                y={selectionBox.top}
-              />
-            ) : null}
-          </svg>
-        ) : null}
+        <ChartAnnotationInput
+          active={interactive}
+          mode={mode}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          selectionBox={selectionBox}
+        />
       </div>
-      {open ? (
-        <div className="lens-chart-annotation-panel">
-          <div className="lens-chart-annotation-composer">
-            <select
-              aria-label="Annotation intent"
-              onChange={(event) =>
-                setIntent(event.target.value as SelectionAnnotation["intent"])
-              }
-              value={intent}
-            >
-              <option value="context">Add context</option>
-              <option value="question">Ask agent</option>
-              <option value="follow-up">Request follow-up</option>
-            </select>
-            <textarea
-              aria-label="Chart annotation text"
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Explain what matters or request the next experiment"
-              value={text}
-            />
-            <span>
-              {lens.selection.selectedObservationIds.length} selected ·{" "}
-              {strokes.length} {strokes.length === 1 ? "stroke" : "strokes"}
-            </span>
-            <button
-              disabled={!canSave || lens.busy}
-              onClick={saveAnnotation}
-              type="button"
-            >
-              {editingId ? "Update annotation" : "Save annotation"}
-            </button>
-          </div>
-          {sectionAnnotations.length > 0 ? (
-            <ul
-              aria-label="Saved chart annotations"
-              className="lens-chart-annotation-list"
-            >
-              {sectionAnnotations.map((annotation) => (
-                <li key={annotation.id}>
-                  <div>
-                    <strong>{annotationLabel(annotation)}</strong>
-                    <span>
-                      {annotation.observationIds.length} points ·{" "}
-                      {annotation.strokes.length} strokes
-                    </span>
-                    <p>{annotation.text}</p>
-                  </div>
-                  <button
-                    onClick={() => editAnnotation(annotation)}
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => lens.actions.deleteAnnotation(annotation.id)}
-                    type="button"
-                  >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+      <ChartAnnotationPanel
+        annotations={sectionAnnotations}
+        busy={lens.busy}
+        canSave={canSave}
+        editingId={editingId}
+        intent={intent}
+        onDelete={lens.actions.deleteAnnotation}
+        onEdit={editAnnotation}
+        onIntentChange={setIntent}
+        onSave={saveAnnotation}
+        onTextChange={setText}
+        open={open}
+        selectedCount={selectedCount}
+        strokeCount={strokes.length}
+        text={text}
+      />
     </div>
   );
 }

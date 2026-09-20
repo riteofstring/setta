@@ -76,17 +76,10 @@ func (coordinator *Coordinator) Apply(mutation contracts.LensMutation) (contract
 	if err != nil {
 		return contracts.MutationResult{}, err
 	}
-	if mutation.ExperimentID != current.ExperimentID || mutation.ManifestSHA256 != current.ManifestSHA256 || mutation.ObservationSourceSHA256 != current.ObservationSourceSHA256 {
-		return contracts.MutationResult{}, ErrExperimentIdentity
-	}
-	if mutation.ExpectedRevision != current.Revision {
-		return contracts.MutationResult{}, ErrRevisionConflict
-	}
-	manifest, err := coordinator.catalog.Manifest()
-	if err != nil {
+	if err := validateMutationTarget(mutation, current); err != nil {
 		return contracts.MutationResult{}, err
 	}
-	source, err := coordinator.catalog.Source()
+	manifest, source, err := coordinator.inputs()
 	if err != nil {
 		return contracts.MutationResult{}, err
 	}
@@ -99,13 +92,7 @@ func (coordinator *Coordinator) Apply(mutation contracts.LensMutation) (contract
 	}
 	replaced, err := coordinator.state.Replace(current.Revision, candidate)
 	if err != nil {
-		if errors.Is(err, lensstate.ErrRevisionConflict) {
-			return contracts.MutationResult{}, ErrRevisionConflict
-		}
-		if errors.Is(err, lensstate.ErrIdentityConflict) {
-			return contracts.MutationResult{}, ErrExperimentIdentity
-		}
-		return contracts.MutationResult{}, err
+		return contracts.MutationResult{}, normalizeReplaceError(err)
 	}
 	snapshot, err := coordinator.buildSnapshot(replaced)
 	if err != nil {
@@ -118,52 +105,49 @@ func (coordinator *Coordinator) Apply(mutation contracts.LensMutation) (contract
 	return result, nil
 }
 
+func validateMutationTarget(mutation contracts.LensMutation, current lensstate.Document) error {
+	if mutation.ExperimentID != current.ExperimentID || mutation.ManifestSHA256 != current.ManifestSHA256 || mutation.ObservationSourceSHA256 != current.ObservationSourceSHA256 {
+		return ErrExperimentIdentity
+	}
+	if mutation.ExpectedRevision != current.Revision {
+		return ErrRevisionConflict
+	}
+	return nil
+}
+
+func (coordinator *Coordinator) inputs() (contracts.ExperimentManifest, contracts.ObservationSource, error) {
+	manifest, err := coordinator.catalog.Manifest()
+	if err != nil {
+		return contracts.ExperimentManifest{}, contracts.ObservationSource{}, err
+	}
+	source, err := coordinator.catalog.Source()
+	if err != nil {
+		return contracts.ExperimentManifest{}, contracts.ObservationSource{}, err
+	}
+	return manifest, source, nil
+}
+
+func normalizeReplaceError(err error) error {
+	if errors.Is(err, lensstate.ErrRevisionConflict) {
+		return ErrRevisionConflict
+	}
+	if errors.Is(err, lensstate.ErrIdentityConflict) {
+		return ErrExperimentIdentity
+	}
+	return err
+}
+
 func (coordinator *Coordinator) Export() (contracts.ExportResult, error) {
 	snapshot, err := coordinator.Snapshot()
 	if err != nil {
 		return contracts.ExportResult{}, err
 	}
-	observationIDs := map[string]struct{}{}
-	for _, id := range snapshot.Selection.SelectedObservationIDs {
-		observationIDs[id] = struct{}{}
-	}
-	for _, annotation := range snapshot.Selection.Annotations {
-		for _, observationID := range annotation.ObservationIDs {
-			observationIDs[observationID] = struct{}{}
-		}
-	}
-	selectedObservations := make([]contracts.Observation, 0, len(observationIDs))
-	for _, observation := range snapshot.Observations {
-		if _, exists := observationIDs[observation.ID]; exists {
-			selectedObservations = append(selectedObservations, observation)
-		}
-	}
-	artifactIDs := map[string]struct{}{}
-	for _, id := range snapshot.Selection.SelectedArtifactIDs {
-		artifactIDs[id] = struct{}{}
-	}
-	for _, selectedRange := range snapshot.Selection.Ranges {
-		artifactIDs[selectedRange.ArtifactID] = struct{}{}
-	}
-	for _, annotation := range snapshot.Selection.Annotations {
-		if annotation.ArtifactID != nil {
-			artifactIDs[*annotation.ArtifactID] = struct{}{}
-		}
-	}
-	for _, relation := range snapshot.Experiment.Relations {
-		if _, exists := observationIDs[relation.ObservationID]; exists {
-			artifactIDs[relation.ArtifactID] = struct{}{}
-		}
-	}
-	selectedArtifacts := make([]contracts.ArtifactReference, 0, len(artifactIDs))
-	for _, reference := range snapshot.Experiment.Artifacts {
-		if _, exists := artifactIDs[reference.ID]; !exists {
-			continue
-		}
-		if err := coordinator.resolver.Verify(reference); err != nil {
-			return contracts.ExportResult{}, fmt.Errorf("%w: %s", ErrArtifactChanged, reference.ID)
-		}
-		selectedArtifacts = append(selectedArtifacts, reference)
+	observationIDs := selectionObservationIDs(snapshot.Selection)
+	selectedObservations := selectedObservations(snapshot.Observations, observationIDs)
+	artifactIDs := selectionArtifactIDs(snapshot, observationIDs)
+	selectedArtifacts, err := coordinator.selectedArtifacts(snapshot.Experiment.Artifacts, artifactIDs)
+	if err != nil {
+		return contracts.ExportResult{}, err
 	}
 	packet := contracts.SelectionPacket{
 		Version: contracts.ContractVersion,
@@ -183,6 +167,64 @@ func (coordinator *Coordinator) Export() (contracts.ExportResult, error) {
 		return contracts.ExportResult{}, err
 	}
 	return result, nil
+}
+
+func selectionObservationIDs(selection contracts.LensSelection) map[string]struct{} {
+	observationIDs := map[string]struct{}{}
+	for _, id := range selection.SelectedObservationIDs {
+		observationIDs[id] = struct{}{}
+	}
+	for _, annotation := range selection.Annotations {
+		for _, observationID := range annotation.ObservationIDs {
+			observationIDs[observationID] = struct{}{}
+		}
+	}
+	return observationIDs
+}
+
+func selectedObservations(observations []contracts.Observation, observationIDs map[string]struct{}) []contracts.Observation {
+	selectedObservations := make([]contracts.Observation, 0, len(observationIDs))
+	for _, observation := range observations {
+		if _, exists := observationIDs[observation.ID]; exists {
+			selectedObservations = append(selectedObservations, observation)
+		}
+	}
+	return selectedObservations
+}
+
+func selectionArtifactIDs(snapshot contracts.LensSnapshot, observationIDs map[string]struct{}) map[string]struct{} {
+	artifactIDs := map[string]struct{}{}
+	for _, id := range snapshot.Selection.SelectedArtifactIDs {
+		artifactIDs[id] = struct{}{}
+	}
+	for _, selectedRange := range snapshot.Selection.Ranges {
+		artifactIDs[selectedRange.ArtifactID] = struct{}{}
+	}
+	for _, annotation := range snapshot.Selection.Annotations {
+		if annotation.ArtifactID != nil {
+			artifactIDs[*annotation.ArtifactID] = struct{}{}
+		}
+	}
+	for _, relation := range snapshot.Experiment.Relations {
+		if _, exists := observationIDs[relation.ObservationID]; exists {
+			artifactIDs[relation.ArtifactID] = struct{}{}
+		}
+	}
+	return artifactIDs
+}
+
+func (coordinator *Coordinator) selectedArtifacts(references []contracts.ArtifactReference, artifactIDs map[string]struct{}) ([]contracts.ArtifactReference, error) {
+	selectedArtifacts := make([]contracts.ArtifactReference, 0, len(artifactIDs))
+	for _, reference := range references {
+		if _, exists := artifactIDs[reference.ID]; !exists {
+			continue
+		}
+		if err := coordinator.resolver.Verify(reference); err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrArtifactChanged, reference.ID)
+		}
+		selectedArtifacts = append(selectedArtifacts, reference)
+	}
+	return selectedArtifacts, nil
 }
 
 func (coordinator *Coordinator) Subscribe(ctx context.Context) (<-chan contracts.LensSnapshot, error) {
