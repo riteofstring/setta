@@ -53,16 +53,62 @@ type TimelineCoordinate struct {
 	Value  float64 `json:"value"`
 }
 
+type PresentationSection struct {
+	ID             string   `json:"id"`
+	Type           string   `json:"type"`
+	Title          string   `json:"title"`
+	FieldIDs       []string `json:"fieldIds,omitempty"`
+	FieldID        *string  `json:"fieldId,omitempty"`
+	XFieldID       *string  `json:"xFieldId,omitempty"`
+	YFieldID       *string  `json:"yFieldId,omitempty"`
+	ColorFieldID   *string  `json:"colorFieldId,omitempty"`
+	ValueFieldID   *string  `json:"valueFieldId,omitempty"`
+	Aggregation    *string  `json:"aggregation,omitempty"`
+	Bins           *int     `json:"bins,omitempty"`
+	ArtifactRole   *string  `json:"artifactRole,omitempty"`
+	ArtifactRoles  []string `json:"artifactRoles,omitempty"`
+	DetailFieldIDs []string `json:"detailFieldIds,omitempty"`
+	Columns        *int     `json:"columns,omitempty"`
+}
+
+type PresentationPlacement struct {
+	SectionID string `json:"sectionId"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+}
+
+type PresentationViewport struct {
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
+	Zoom float64 `json:"zoom"`
+}
+
+type PresentationView struct {
+	ID         string                  `json:"id"`
+	Name       string                  `json:"name"`
+	Viewport   PresentationViewport    `json:"viewport"`
+	Placements []PresentationPlacement `json:"placements"`
+}
+
+type ExperimentPresentation struct {
+	InitialViewID string                `json:"initialViewId"`
+	Sections      []PresentationSection `json:"sections"`
+	Views         []PresentationView    `json:"views"`
+}
+
 type ExperimentManifest struct {
-	Version      int                  `json:"version"`
-	ID           string               `json:"id"`
-	Title        string               `json:"title"`
-	Summary      string               `json:"summary"`
-	Fields       []FieldDefinition    `json:"fields"`
-	Observations ObservationReference `json:"observations"`
-	Artifacts    []ArtifactReference  `json:"artifacts"`
-	Relations    []ArtifactRelation   `json:"relations"`
-	Provenance   Provenance           `json:"provenance"`
+	Version      int                    `json:"version"`
+	ID           string                 `json:"id"`
+	Title        string                 `json:"title"`
+	Summary      string                 `json:"summary"`
+	Fields       []FieldDefinition      `json:"fields"`
+	Observations ObservationReference   `json:"observations"`
+	Artifacts    []ArtifactReference    `json:"artifacts"`
+	Relations    []ArtifactRelation     `json:"relations"`
+	Presentation ExperimentPresentation `json:"presentation"`
+	Provenance   Provenance             `json:"provenance"`
 }
 
 type ObservationSource struct {

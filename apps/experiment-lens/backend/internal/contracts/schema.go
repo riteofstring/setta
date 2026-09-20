@@ -123,8 +123,44 @@ func definitions() map[string]any {
 				"timeline":      nullable(reference("#/$defs/timeline")),
 			},
 		),
+		"presentationSection": presentationSectionSchema(),
+		"presentationPlacement": objectSchema(
+			[]string{"sectionId", "x", "y", "width", "height"},
+			map[string]any{
+				"sectionId": reference("#/$defs/identifier"),
+				"x":         integerSchema(-100_000, 100_000),
+				"y":         integerSchema(-100_000, 100_000),
+				"width":     integerSchema(320, 4_000),
+				"height":    integerSchema(220, 3_000),
+			},
+		),
+		"presentationViewport": objectSchema(
+			[]string{"x", "y", "zoom"},
+			map[string]any{
+				"x":    numberSchema(-1_000_000, 1_000_000),
+				"y":    numberSchema(-1_000_000, 1_000_000),
+				"zoom": numberSchema(0.1, 4),
+			},
+		),
+		"presentationView": objectSchema(
+			[]string{"id", "name", "viewport", "placements"},
+			map[string]any{
+				"id":         reference("#/$defs/identifier"),
+				"name":       boundedString(1, 120),
+				"viewport":   reference("#/$defs/presentationViewport"),
+				"placements": arraySchema(reference("#/$defs/presentationPlacement"), 1, maximumPresentationSections),
+			},
+		),
+		"presentation": objectSchema(
+			[]string{"initialViewId", "sections", "views"},
+			map[string]any{
+				"initialViewId": reference("#/$defs/identifier"),
+				"sections":      arraySchema(reference("#/$defs/presentationSection"), 1, maximumPresentationSections),
+				"views":         arraySchema(reference("#/$defs/presentationView"), 1, maximumPresentationViews),
+			},
+		),
 		"manifest": objectSchema(
-			[]string{"version", "id", "title", "summary", "fields", "observations", "artifacts", "relations", "provenance"},
+			[]string{"version", "id", "title", "summary", "fields", "observations", "artifacts", "relations", "presentation", "provenance"},
 			map[string]any{
 				"version":      constant(1),
 				"id":           reference("#/$defs/identifier"),
@@ -134,6 +170,7 @@ func definitions() map[string]any {
 				"observations": reference("#/$defs/observationReference"),
 				"artifacts":    arraySchema(reference("#/$defs/artifactReference"), 0, maximumArtifacts),
 				"relations":    arraySchema(reference("#/$defs/relation"), 0, maximumRelations),
+				"presentation": reference("#/$defs/presentation"),
 				"provenance":   reference("#/$defs/provenance"),
 			},
 		),
@@ -341,6 +378,53 @@ func producerSchema() map[string]any {
 	return map[string]any{"oneOf": []any{agent, ordinary}}
 }
 
+func presentationSectionSchema() map[string]any {
+	identifier := reference("#/$defs/identifier")
+	fieldIDs := arraySchema(identifier, 1, 20)
+	base := func(sectionType string, required []string, properties map[string]any) map[string]any {
+		allRequired := append([]string{"id", "type", "title"}, required...)
+		allProperties := map[string]any{
+			"id":    identifier,
+			"type":  constant(sectionType),
+			"title": boundedString(1, 200),
+		}
+		for key, value := range properties {
+			allProperties[key] = value
+		}
+		return objectSchema(allRequired, allProperties)
+	}
+	return map[string]any{"oneOf": []any{
+		base("facets", []string{"fieldIds"}, map[string]any{
+			"fieldIds": arraySchema(identifier, 1, 12),
+		}),
+		base("scatter", []string{"xFieldId", "yFieldId"}, map[string]any{
+			"xFieldId": identifier, "yFieldId": identifier, "colorFieldId": identifier,
+		}),
+		base("histogram", []string{"fieldId", "bins"}, map[string]any{
+			"fieldId": identifier, "bins": integerSchema(4, 100),
+		}),
+		base("heatmap", []string{"xFieldId", "yFieldId", "valueFieldId", "aggregation"}, map[string]any{
+			"xFieldId": identifier, "yFieldId": identifier, "valueFieldId": identifier,
+			"aggregation": enumSchema("count", "mean", "min", "max", "median"),
+		}),
+		base("parallel", []string{"fieldIds"}, map[string]any{
+			"fieldIds": arraySchema(identifier, 2, 12),
+		}),
+		base("table", []string{"fieldIds"}, map[string]any{"fieldIds": fieldIDs}),
+		base("metrics", []string{"fieldIds", "aggregation"}, map[string]any{
+			"fieldIds": arraySchema(identifier, 1, 12), "aggregation": enumSchema("count", "mean", "min", "max", "median"),
+		}),
+		base("timeline", []string{"artifactRole", "detailFieldIds"}, map[string]any{
+			"artifactRole":   map[string]any{"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"},
+			"detailFieldIds": arraySchema(identifier, 0, 8),
+		}),
+		base("gallery", []string{"artifactRoles", "columns"}, map[string]any{
+			"artifactRoles": arraySchema(map[string]any{"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"}, 1, 12),
+			"columns":       integerSchema(1, 6),
+		}),
+	}}
+}
+
 func artifactContentSchema() map[string]any {
 	text := objectSchema(
 		[]string{"kind", "text", "truncated"},
@@ -417,6 +501,10 @@ func boundedString(minimum int, maximum int) map[string]any {
 
 func integerSchema(minimum int, maximum int) map[string]any {
 	return map[string]any{"type": "integer", "minimum": minimum, "maximum": maximum}
+}
+
+func numberSchema(minimum float64, maximum float64) map[string]any {
+	return map[string]any{"type": "number", "minimum": minimum, "maximum": maximum}
 }
 
 func constant(value any) map[string]any {

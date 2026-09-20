@@ -228,6 +228,184 @@ const observationFile = await emit(
   "data/observations.json",
   json({ experimentId: "battery-aging-study", observations, version: 1 }),
 );
+const presentation = {
+  initialViewId: "overview",
+  sections: [
+    {
+      fieldIds: ["chemistry", "ambient_c", "charge_rate_c", "cycle"],
+      id: "cohort",
+      title: "Explore the cohort",
+      type: "facets",
+    },
+    {
+      aggregation: "mean",
+      fieldIds: [
+        "capacity_retention_pct",
+        "resistance_mohm",
+        "peak_temp_c",
+        "charge_efficiency_pct",
+      ],
+      id: "headline-metrics",
+      title: "Visible cohort",
+      type: "metrics",
+    },
+    {
+      colorFieldId: "chemistry",
+      id: "retention-population",
+      title: "Capacity retention by cycle",
+      type: "scatter",
+      xFieldId: "cycle",
+      yFieldId: "capacity_retention_pct",
+    },
+    {
+      bins: 24,
+      fieldId: "resistance_mohm",
+      id: "resistance-distribution",
+      title: "Resistance distribution",
+      type: "histogram",
+    },
+    {
+      aggregation: "mean",
+      id: "condition-heatmap",
+      title: "Mean retention by test condition",
+      type: "heatmap",
+      valueFieldId: "capacity_retention_pct",
+      xFieldId: "charge_rate_c",
+      yFieldId: "ambient_c",
+    },
+    {
+      fieldIds: [
+        "ambient_c",
+        "charge_rate_c",
+        "cycle",
+        "capacity_retention_pct",
+        "resistance_mohm",
+        "peak_temp_c",
+      ],
+      id: "multivariate",
+      title: "Multivariate relationships",
+      type: "parallel",
+    },
+    {
+      fieldIds: [
+        "cell",
+        "chemistry",
+        "ambient_c",
+        "charge_rate_c",
+        "cycle",
+        "capacity_retention_pct",
+        "resistance_mohm",
+        "peak_temp_c",
+      ],
+      id: "observations",
+      title: "Observations",
+      type: "table",
+    },
+    {
+      artifactRole: "aging-trajectory",
+      detailFieldIds: ["cell", "chemistry", "ambient_c", "charge_rate_c"],
+      id: "aging-timeline",
+      title: "Cell aging trajectory",
+      type: "timeline",
+    },
+    {
+      artifactRoles: frameCycles.map(
+        (cycle) => `thermal-frame-${String(cycle).padStart(4, "0")}`,
+      ),
+      columns: 3,
+      id: "thermal-gallery",
+      title: "Thermal progression",
+      type: "gallery",
+    },
+  ],
+  views: [
+    {
+      id: "overview",
+      name: "Overview",
+      placements: [
+        { height: 260, sectionId: "cohort", width: 1320, x: 64, y: 64 },
+        {
+          height: 260,
+          sectionId: "headline-metrics",
+          width: 1320,
+          x: 64,
+          y: 364,
+        },
+        {
+          height: 430,
+          sectionId: "retention-population",
+          width: 800,
+          x: 64,
+          y: 664,
+        },
+        {
+          height: 430,
+          sectionId: "resistance-distribution",
+          width: 480,
+          x: 904,
+          y: 664,
+        },
+        {
+          height: 430,
+          sectionId: "condition-heatmap",
+          width: 1320,
+          x: 64,
+          y: 1134,
+        },
+      ],
+      viewport: { x: 260, y: 12, zoom: 0.76 },
+    },
+    {
+      id: "compare",
+      name: "Compare",
+      placements: [
+        {
+          height: 520,
+          sectionId: "multivariate",
+          width: 1320,
+          x: 64,
+          y: 64,
+        },
+        {
+          height: 480,
+          sectionId: "observations",
+          width: 1320,
+          x: 64,
+          y: 624,
+        },
+      ],
+      viewport: { x: 260, y: 12, zoom: 0.76 },
+    },
+    {
+      id: "inspect",
+      name: "Inspect",
+      placements: [
+        {
+          height: 340,
+          sectionId: "observations",
+          width: 1320,
+          x: 64,
+          y: 64,
+        },
+        {
+          height: 470,
+          sectionId: "aging-timeline",
+          width: 720,
+          x: 64,
+          y: 444,
+        },
+        {
+          height: 470,
+          sectionId: "thermal-gallery",
+          width: 560,
+          x: 824,
+          y: 444,
+        },
+      ],
+      viewport: { x: 260, y: 12, zoom: 0.76 },
+    },
+  ],
+};
 const manifest = {
   artifacts,
   fields: [
@@ -328,6 +506,7 @@ const manifest = {
     createdAt: "2026-09-19T00:00:00Z",
     producer: { kind: "script", name: "Setta battery playground generator" },
   },
+  presentation,
   relations,
   summary:
     "A synthetic but internally consistent accelerated-aging study across 24 battery cells, three chemistries, four charge rates, three chamber temperatures, and 900 equivalent full cycles.",

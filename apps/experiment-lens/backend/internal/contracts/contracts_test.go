@@ -52,6 +52,28 @@ func TestTimelineCoordinateAndSelectionReferencesAreValidated(t *testing.T) {
 	}
 }
 
+func TestPresentationRejectsUnknownBindingsAndPlacements(t *testing.T) {
+	manifest := validManifest()
+	manifest.Presentation.Sections[0].FieldIDs = []string{"missing"}
+	if err := manifest.Validate(); err == nil || !strings.Contains(err.Error(), "unknown") {
+		t.Fatalf("expected unknown presentation field failure, got %v", err)
+	}
+	manifest = validManifest()
+	manifest.Presentation.Views[0].Placements[0].SectionID = "missing"
+	if err := manifest.Validate(); err == nil || !strings.Contains(err.Error(), "unknown section") {
+		t.Fatalf("expected unknown presentation section failure, got %v", err)
+	}
+}
+
+func TestPresentationRejectsConfigurationFromAnotherSectionType(t *testing.T) {
+	manifest := validManifest()
+	bins := 12
+	manifest.Presentation.Sections[0].Bins = &bins
+	if err := manifest.Validate(); err == nil || !strings.Contains(err.Error(), "not valid") {
+		t.Fatalf("expected irrelevant presentation configuration failure, got %v", err)
+	}
+}
+
 func TestPublicSchemaInventoryUsesLocalNamespace(t *testing.T) {
 	schemas := PublicSchemas()
 	expected := []string{"experimentManifest", "observationSource", "lensMutation", "lensSnapshot", "selectionPacket", "mutationResult", "exportResult", "structuredError", "series"}
@@ -87,8 +109,17 @@ func validManifest() ExperimentManifest {
 		Fields:       []FieldDefinition{{ID: "score", Label: "Score", Description: "", Role: "metric", ValueType: "number", Nullable: false}},
 		Observations: ObservationReference{Path: "observations.json", ByteLength: 10, SHA256: strings.Repeat("a", 64)},
 		Artifacts:    []ArtifactReference{}, Relations: []ArtifactRelation{},
+		Presentation: ExperimentPresentation{
+			InitialViewID: "overview",
+			Sections:      []PresentationSection{{ID: "summary", Type: "metrics", Title: "Summary", FieldIDs: []string{"score"}, Aggregation: stringPointer("mean")}},
+			Views:         []PresentationView{{ID: "overview", Name: "Overview", Viewport: PresentationViewport{X: 0, Y: 0, Zoom: 1}, Placements: []PresentationPlacement{{SectionID: "summary", X: 40, Y: 40, Width: 640, Height: 260}}}},
+		},
 		Provenance: Provenance{Producer: ProducerIdentity{Kind: "application", Name: "test"}, CreatedAt: "2026-09-19T12:00:00Z"},
 	}
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
 
 func numberPointer(value float64) *float64 {

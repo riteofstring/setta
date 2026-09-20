@@ -331,6 +331,9 @@
         "observations": {
           "$ref": "#/$defs/observationReference"
         },
+        "presentation": {
+          "$ref": "#/$defs/presentation"
+        },
         "provenance": {
           "$ref": "#/$defs/provenance"
         },
@@ -365,6 +368,7 @@
         "observations",
         "artifacts",
         "relations",
+        "presentation",
         "provenance"
       ],
       "type": "object"
@@ -629,6 +633,450 @@
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*\\\\)(?!.*//).+$",
       "type": "string"
+    },
+    "presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "initialViewId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/presentationSection"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "views": {
+          "items": {
+            "$ref": "#/$defs/presentationView"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "initialViewId",
+        "sections",
+        "views"
+      ],
+      "type": "object"
+    },
+    "presentationPlacement": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "maximum": 3000,
+          "minimum": 220,
+          "type": "integer"
+        },
+        "sectionId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "width": {
+          "maximum": 4000,
+          "minimum": 320,
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 100000,
+          "minimum": -100000,
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 100000,
+          "minimum": -100000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sectionId",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "presentationSection": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fieldIds": {
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "facets"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "fieldIds"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "colorFieldId": {
+              "$ref": "#/$defs/identifier"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "scatter"
+            },
+            "xFieldId": {
+              "$ref": "#/$defs/identifier"
+            },
+            "yFieldId": {
+              "$ref": "#/$defs/identifier"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "xFieldId",
+            "yFieldId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bins": {
+              "maximum": 100,
+              "minimum": 4,
+              "type": "integer"
+            },
+            "fieldId": {
+              "$ref": "#/$defs/identifier"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "histogram"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "fieldId",
+            "bins"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "aggregation": {
+              "enum": [
+                "count",
+                "mean",
+                "min",
+                "max",
+                "median"
+              ]
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "heatmap"
+            },
+            "valueFieldId": {
+              "$ref": "#/$defs/identifier"
+            },
+            "xFieldId": {
+              "$ref": "#/$defs/identifier"
+            },
+            "yFieldId": {
+              "$ref": "#/$defs/identifier"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "xFieldId",
+            "yFieldId",
+            "valueFieldId",
+            "aggregation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fieldIds": {
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "maxItems": 12,
+              "minItems": 2,
+              "type": "array"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "parallel"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "fieldIds"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fieldIds": {
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "type": "array"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "table"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "fieldIds"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "aggregation": {
+              "enum": [
+                "count",
+                "mean",
+                "min",
+                "max",
+                "median"
+              ]
+            },
+            "fieldIds": {
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "metrics"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "fieldIds",
+            "aggregation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "artifactRole": {
+              "pattern": "^[a-z][a-z0-9.-]{0,63}$",
+              "type": "string"
+            },
+            "detailFieldIds": {
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "maxItems": 8,
+              "minItems": 0,
+              "type": "array"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "timeline"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "artifactRole",
+            "detailFieldIds"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "artifactRoles": {
+              "items": {
+                "pattern": "^[a-z][a-z0-9.-]{0,63}$",
+                "type": "string"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            },
+            "columns": {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "gallery"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "title",
+            "artifactRoles",
+            "columns"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "presentationView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "placements": {
+          "items": {
+            "$ref": "#/$defs/presentationPlacement"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "viewport": {
+          "$ref": "#/$defs/presentationViewport"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "viewport",
+        "placements"
+      ],
+      "type": "object"
+    },
+    "presentationViewport": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 1000000,
+          "minimum": -1000000,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1000000,
+          "minimum": -1000000,
+          "type": "number"
+        },
+        "zoom": {
+          "maximum": 4,
+          "minimum": 0.1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "zoom"
+      ],
+      "type": "object"
     },
     "producer": {
       "oneOf": [

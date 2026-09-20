@@ -143,6 +143,9 @@ func (manifest ExperimentManifest) Validate() error {
 			return fmt.Errorf("relation references unknown artifact %q", relation.ArtifactID)
 		}
 	}
+	if err := manifest.Presentation.Validate(manifest.Fields, manifest.Artifacts, manifest.Relations); err != nil {
+		return fmt.Errorf("presentation: %w", err)
+	}
 	return manifest.Provenance.Validate()
 }
 

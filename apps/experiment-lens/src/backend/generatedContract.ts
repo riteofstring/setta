@@ -54,6 +54,64 @@ type ArtifactRelation = {
   timeline: { axisId: string; value: number } | null;
 };
 
+type PresentationSectionBase = {
+  id: string;
+  title: string;
+};
+
+export type PresentationSection = PresentationSectionBase &
+  (
+    | { type: "facets"; fieldIds: Array<string> }
+    | {
+        type: "scatter";
+        xFieldId: string;
+        yFieldId: string;
+        colorFieldId?: string;
+      }
+    | { type: "histogram"; fieldId: string; bins: number }
+    | {
+        type: "heatmap";
+        xFieldId: string;
+        yFieldId: string;
+        valueFieldId: string;
+        aggregation: "count" | "mean" | "min" | "max" | "median";
+      }
+    | { type: "parallel"; fieldIds: Array<string> }
+    | { type: "table"; fieldIds: Array<string> }
+    | {
+        type: "metrics";
+        fieldIds: Array<string>;
+        aggregation: "count" | "mean" | "min" | "max" | "median";
+      }
+    | {
+        type: "timeline";
+        artifactRole: string;
+        detailFieldIds: Array<string>;
+      }
+    | { type: "gallery"; artifactRoles: Array<string>; columns: number }
+  );
+
+export type PresentationPlacement = {
+  sectionId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type PresentationView = {
+  id: string;
+  name: string;
+  viewport: { x: number; y: number; zoom: number };
+  placements: Array<PresentationPlacement>;
+};
+
+export type ExperimentPresentation = {
+  initialViewId: string;
+  sections: Array<PresentationSection>;
+  views: Array<PresentationView>;
+};
+
 export type ExperimentManifest = {
   version: 1;
   id: string;
@@ -63,6 +121,7 @@ export type ExperimentManifest = {
   observations: ObservationReference;
   artifacts: Array<ArtifactReference>;
   relations: Array<ArtifactRelation>;
+  presentation: ExperimentPresentation;
   provenance: Provenance;
 };
 

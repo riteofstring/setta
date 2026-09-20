@@ -66,6 +66,28 @@ func Write(root string) (Fixture, error) {
 			{ObservationID: "run-a", ArtifactID: "series-a", Role: "trace", Timeline: nil},
 			{ObservationID: "run-b", ArtifactID: "thermal-b", Role: "thermal-frame", Timeline: &contracts.TimelineCoordinate{AxisID: "elapsed", Value: 1}},
 		},
+		Presentation: contracts.ExperimentPresentation{
+			InitialViewID: "overview",
+			Sections: []contracts.PresentationSection{
+				{ID: "cohort", Type: "facets", Title: "Cohort", FieldIDs: []string{"chemistry", "temperature"}},
+				{ID: "population", Type: "scatter", Title: "Population", XFieldID: pointer("temperature"), YFieldID: pointer("retention"), ColorFieldID: pointer("chemistry")},
+				{ID: "observations", Type: "table", Title: "Observations", FieldIDs: []string{"chemistry", "temperature", "retention"}},
+				{ID: "trace", Type: "timeline", Title: "Trace", ArtifactRole: pointer("trace"), DetailFieldIDs: []string{"temperature", "retention"}},
+				{ID: "frames", Type: "gallery", Title: "Thermal frames", ArtifactRoles: []string{"thermal-frame"}, Columns: integer(2)},
+			},
+			Views: []contracts.PresentationView{
+				{ID: "overview", Name: "Overview", Viewport: contracts.PresentationViewport{X: 0, Y: 0, Zoom: 0.8}, Placements: []contracts.PresentationPlacement{
+					{SectionID: "cohort", X: 40, Y: 40, Width: 1_200, Height: 240},
+					{SectionID: "population", X: 40, Y: 320, Width: 580, Height: 380},
+					{SectionID: "observations", X: 660, Y: 320, Width: 580, Height: 380},
+				}},
+				{ID: "inspect", Name: "Inspect", Viewport: contracts.PresentationViewport{X: 0, Y: 0, Zoom: 0.8}, Placements: []contracts.PresentationPlacement{
+					{SectionID: "observations", X: 40, Y: 40, Width: 1_200, Height: 320},
+					{SectionID: "trace", X: 40, Y: 400, Width: 580, Height: 380},
+					{SectionID: "frames", X: 660, Y: 400, Width: 580, Height: 380},
+				}},
+			},
+		},
 		Provenance: contracts.Provenance{
 			Producer: contracts.ProducerIdentity{Kind: "application", Name: "test fixture"}, CreatedAt: "2026-09-19T12:00:00Z",
 		},
@@ -114,5 +136,9 @@ func pointer(value string) *string {
 }
 
 func number(value float64) *float64 {
+	return &value
+}
+
+func integer(value int) *int {
 	return &value
 }
