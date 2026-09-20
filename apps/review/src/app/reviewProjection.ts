@@ -23,6 +23,7 @@ export const REVIEW_EVIDENCE_SECTION_KIND = "review.evidence";
 export const REVIEW_ARTIFACT_SECTION_KIND = "review.artifact";
 
 const REQUEST_X = 64;
+const LANE_START_Y = 64;
 const LANE_GAP = 160;
 const CURRENT_VIEW_ID = "current";
 const OLD_VIEW_ID = "old";
@@ -33,6 +34,13 @@ type ReviewLayouts = Record<
   ReviewViewId,
   Record<string, TopLevelSectionLayout>
 >;
+type ReviewLayoutGroup = Readonly<{
+  controlId: string;
+  height: number;
+  sectionIds: readonly string[];
+  viewId: ReviewViewId;
+  y: number;
+}>;
 
 function encoded(...parts: string[]): string {
   return parts.map((part) => encodeURIComponent(part)).join(":");
@@ -268,6 +276,76 @@ function previousViewViewport(
   return { ...INITIAL_VIEWPORT };
 }
 
+function previousGroupBottom(
+  group: ReviewLayoutGroup,
+  view: WorkspaceSavedView,
+  generatedLayouts: ReviewLayouts,
+): number {
+  const controlLayout =
+    view.topLevelSections[group.controlId] ??
+    generatedLayouts[group.viewId][group.controlId];
+  if (!controlLayout) {
+    throw new Error(`Review section ${group.controlId} has no layout.`);
+  }
+  let bottom = controlLayout.y + group.height;
+  for (const sectionId of group.sectionIds) {
+    const layout =
+      view.topLevelSections[sectionId] ??
+      generatedLayouts[group.viewId][sectionId];
+    const generated = generatedLayouts[group.viewId][sectionId];
+    if (!layout || !generated) {
+      throw new Error(`Review section ${sectionId} has no layout.`);
+    }
+    bottom = Math.max(bottom, layout.y + (layout.h ?? generated.h ?? 0));
+  }
+  return bottom;
+}
+
+function appendNewViewGroups(
+  generatedLayouts: ReviewLayouts,
+  groups: readonly ReviewLayoutGroup[],
+  current: WorkspaceDocument | undefined,
+): void {
+  for (const viewId of [CURRENT_VIEW_ID, OLD_VIEW_ID] as const) {
+    const previousView = current?.savedViews?.views[viewId];
+    if (!previousView) {
+      continue;
+    }
+    const residents = groups.filter(
+      (group) =>
+        group.viewId === viewId &&
+        previousView.sectionVisibility[group.controlId] === true,
+    );
+    const arrivals = groups.filter(
+      (group) =>
+        group.viewId === viewId &&
+        previousView.sectionVisibility[group.controlId] !== true,
+    );
+    let nextY = residents.reduce(
+      (bottom, group) =>
+        Math.max(
+          bottom,
+          previousGroupBottom(group, previousView, generatedLayouts) + LANE_GAP,
+        ),
+      LANE_START_Y,
+    );
+    for (const group of arrivals) {
+      const offset = nextY - group.y;
+      for (const sectionId of group.sectionIds) {
+        const layout = generatedLayouts[viewId][sectionId];
+        if (!layout) {
+          throw new Error(`Review section ${sectionId} has no layout.`);
+        }
+        generatedLayouts[viewId][sectionId] = {
+          ...layout,
+          y: layout.y + offset,
+        };
+      }
+      nextY += group.height + LANE_GAP;
+    }
+  }
+}
+
 function mirrorHiddenViewLayouts(
   generatedLayouts: ReviewLayouts,
   sectionViews: Readonly<Record<string, ReviewViewId>>,
@@ -339,12 +417,18 @@ export function projectReviewDocument(
   const sections: WorkspaceDocumentInput["sections"] = {};
   const generatedLayouts: ReviewLayouts = { current: {}, old: {} };
   const sectionViews: Record<string, ReviewViewId> = {};
-  const laneY: Record<ReviewViewId, number> = { current: 64, old: 64 };
+  const groups: ReviewLayoutGroup[] = [];
+  const laneY: Record<ReviewViewId, number> = {
+    current: LANE_START_Y,
+    old: LANE_START_Y,
+  };
   const zIndex: Record<ReviewViewId, number> = { current: 0, old: 0 };
 
   for (const request of snapshot.requests) {
     const viewId = requestView(request);
+    const groupY = laneY[viewId];
     const controlId = requestSectionId(request.request.id);
+    const groupSectionIds = [controlId];
     const controlSize = requestSize(request);
     sections[controlId] = preserveLocalPresentation(
       makeSection({
@@ -367,6 +451,7 @@ export function projectReviewDocument(
 
     request.request.evidence.forEach((reference, evidenceIndex) => {
       const evidenceId = evidenceSectionId(request.request.id, reference.id);
+      groupSectionIds.push(evidenceId);
       const kind =
         reference.kind === "artifact"
           ? REVIEW_ARTIFACT_SECTION_KIND
@@ -399,9 +484,18 @@ export function projectReviewDocument(
       };
     });
 
-    laneY[viewId] += laneHeight(request) + LANE_GAP;
+    const height = laneHeight(request);
+    groups.push({
+      controlId,
+      height,
+      sectionIds: groupSectionIds,
+      viewId,
+      y: groupY,
+    });
+    laneY[viewId] += height + LANE_GAP;
   }
 
+  appendNewViewGroups(generatedLayouts, groups, current);
   mirrorHiddenViewLayouts(generatedLayouts, sectionViews);
   const views = createReviewViews(generatedLayouts, sectionViews, current);
   const previousActiveViewId = current?.savedViews?.activeViewId;

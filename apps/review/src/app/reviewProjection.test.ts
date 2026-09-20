@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { WorkspaceDocument } from "@setta/workspace";
 
-import type { ReviewSnapshot } from "../backend/generatedContract";
+import type {
+  RequestSnapshot,
+  ReviewSnapshot,
+} from "../backend/generatedContract";
 import { completionResponse } from "./reviewModel";
 import {
   evidenceSectionId,
@@ -90,11 +94,7 @@ const snapshot: ReviewSnapshot = {
   version: 1,
 };
 
-function finalizedSnapshot(): ReviewSnapshot {
-  const request = snapshot.requests[0];
-  if (!request) {
-    throw new Error("The projection fixture requires one request.");
-  }
+function finalizedRequest(request: RequestSnapshot): RequestSnapshot {
   const firstDecision = {
     ...request,
     response: completionResponse(request, {
@@ -105,18 +105,32 @@ function finalizedSnapshot(): ReviewSnapshot {
     }),
   };
   return {
+    ...firstDecision,
+    response: completionResponse(firstDecision, {
+      claimId: "other-claim",
+      decision: "accepted",
+      qualification: null,
+      rationale: "Verified.",
+    }),
+  };
+}
+
+function fixtureRequest(id: string): RequestSnapshot {
+  const request = snapshot.requests[0];
+  if (!request) {
+    throw new Error("The projection fixture requires one request.");
+  }
+  return {
+    ...request,
+    path: `${id}.json`,
+    request: { ...request.request, id, title: `Check ${id}` },
+  };
+}
+
+function finalizedSnapshot(): ReviewSnapshot {
+  return {
     ...snapshot,
-    requests: [
-      {
-        ...firstDecision,
-        response: completionResponse(firstDecision, {
-          claimId: "other-claim",
-          decision: "accepted",
-          qualification: null,
-          rationale: "Verified.",
-        }),
-      },
-    ],
+    requests: [finalizedRequest(fixtureRequest("request"))],
   };
 }
 
@@ -172,6 +186,35 @@ describe("review Workspace projection", () => {
       expect(old.sectionVisibility[id]).toBe(true);
     }
     expect(old.topLevelSections[requestSectionId("request")]?.y).toBe(64);
+  });
+
+  it("appends a newly finalized request after requests already in Old", () => {
+    const first = fixtureRequest("first");
+    const second = fixtureRequest("second");
+    const afterSecond = projectReviewDocument({
+      ...snapshot,
+      requests: [first, finalizedRequest(second)],
+    }) as WorkspaceDocument;
+    const afterBoth = projectReviewDocument(
+      {
+        ...snapshot,
+        requests: [finalizedRequest(first), finalizedRequest(second)],
+      },
+      afterSecond,
+    );
+    const old = afterBoth.savedViews?.views.old;
+    if (!old) {
+      throw new Error("The review projection requires the Old view.");
+    }
+
+    const existingEvidence =
+      old.topLevelSections[evidenceSectionId("second", "log")];
+    const appendedRequest = old.topLevelSections[requestSectionId("first")];
+    expect(existingEvidence).toBeDefined();
+    expect(appendedRequest).toBeDefined();
+    expect(appendedRequest?.y).toBeGreaterThan(
+      (existingEvidence?.y ?? 0) + (existingEvidence?.h ?? 0),
+    );
   });
 
   it("selects only the evidence relation for the active subject", () => {
