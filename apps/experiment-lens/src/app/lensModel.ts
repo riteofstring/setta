@@ -280,6 +280,21 @@ export function seriesArtifactForObservation(
   );
 }
 
+export function seriesArtifactForAxis(
+  snapshot: LensSnapshot,
+  observationId: string | null,
+  axisId: string,
+): ResolvedArtifact | null {
+  return (
+    artifactsForObservation(snapshot, observationId).find(
+      (artifact) =>
+        artifact.status === "resolved" &&
+        artifact.content.kind === "series" &&
+        artifact.content.series.axis.id === axisId,
+    ) ?? null
+  );
+}
+
 export function artifactsForObservationRoles(
   snapshot: LensSnapshot,
   observationId: string | null,

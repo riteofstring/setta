@@ -1,0 +1,214 @@
+.setta-workspace-carousel {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  color: rgb(51 65 85);
+}
+
+.setta-workspace-dark .setta-workspace-carousel {
+  color: rgb(203 213 225);
+}
+
+.setta-workspace-carousel-empty {
+  place-items: center;
+}
+
+.setta-workspace-carousel-stage {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: stretch;
+  overflow: hidden;
+}
+
+.setta-workspace-carousel-slide {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.setta-workspace-carousel-control {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 50%;
+  display: grid;
+  width: 34px;
+  height: 42px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 1px solid rgb(203 213 225 / 85%);
+  border-radius: 7px;
+  background: rgb(248 250 252 / 92%);
+  box-shadow: 0 4px 16px rgb(15 23 42 / 16%);
+  color: rgb(51 65 85);
+}
+
+.setta-workspace-carousel-control svg {
+  width: 24px;
+  height: 24px;
+}
+
+.setta-workspace-carousel-control:disabled {
+  opacity: 0.28;
+}
+
+.setta-workspace-carousel-control:not(:disabled):hover {
+  border-color: rgb(59 130 246);
+  color: rgb(37 99 235);
+}
+
+.setta-workspace-carousel-control:focus-visible,
+.setta-workspace-carousel-thumbnail:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}
+
+.setta-workspace-dark .setta-workspace-carousel-control {
+  border-color: rgb(71 85 105 / 88%);
+  background: rgb(15 23 42 / 92%);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 38%);
+  color: rgb(203 213 225);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-control:not(:disabled):hover {
+  border-color: rgb(96 165 250);
+  color: rgb(147 197 253);
+}
+
+.setta-workspace-carousel-previous {
+  inset-inline-start: 10px;
+}
+
+.setta-workspace-carousel-next {
+  inset-inline-end: 10px;
+}
+
+.setta-workspace-carousel-navigation {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  border-block-start: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-navigation {
+  border-color: rgb(38 49 67);
+  background: rgb(13 19 28);
+}
+
+.setta-workspace-carousel-status {
+  display: grid;
+  min-width: 56px;
+  place-items: center;
+  border-inline-end: 1px solid rgb(226 232 240);
+  color: rgb(100 116 139);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.setta-workspace-dark .setta-workspace-carousel-status {
+  border-color: rgb(38 49 67);
+  color: rgb(130 144 168);
+}
+
+.setta-workspace-carousel-track {
+  display: flex;
+  min-width: 0;
+  gap: 7px;
+  padding: 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.setta-workspace-carousel-thumbnail {
+  display: grid;
+  min-width: 104px;
+  max-width: 148px;
+  min-height: 58px;
+  flex: 1 0 104px;
+  grid-template-rows: minmax(0, 48px) auto;
+  scroll-snap-align: nearest;
+  overflow: hidden;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 6px;
+  background: rgb(255 255 255);
+  color: rgb(71 85 105);
+  text-align: start;
+}
+
+.setta-workspace-carousel-thumbnail:hover {
+  border-color: rgb(148 163 184);
+}
+
+.setta-workspace-carousel-thumbnail[aria-current="true"] {
+  border-color: rgb(59 130 246);
+  box-shadow: inset 0 0 0 1px rgb(59 130 246);
+  color: rgb(29 78 216);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-thumbnail {
+  border-color: rgb(43 55 73);
+  background: rgb(15 22 32);
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-thumbnail:hover {
+  border-color: rgb(71 85 105);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-thumbnail[aria-current="true"] {
+  border-color: rgb(79 134 247);
+  box-shadow: inset 0 0 0 1px rgb(79 134 247);
+  color: rgb(147 197 253);
+}
+
+.setta-workspace-carousel-thumbnail-media {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: stretch;
+  overflow: hidden;
+  background: rgb(241 245 249);
+}
+
+.setta-workspace-dark .setta-workspace-carousel-thumbnail-media {
+  background: rgb(8 13 20);
+}
+
+.setta-workspace-carousel-thumbnail-media > * {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.setta-workspace-carousel-thumbnail-label {
+  overflow: hidden;
+  padding: 4px 7px;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .setta-workspace-carousel-control,
+  .setta-workspace-carousel-thumbnail,
+  .setta-workspace-carousel-thumbnail[aria-current="true"] {
+    border-color: ButtonText;
+  }
+
+  .setta-workspace-carousel-thumbnail[aria-current="true"] {
+    outline: 2px solid Highlight;
+  }
+}

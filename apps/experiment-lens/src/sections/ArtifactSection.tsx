@@ -2,12 +2,16 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
+  WorkspaceCarousel,
+  type WorkspaceCarouselItem,
+  useIsScrollable,
 } from "@setta/workspace";
 import { useEffect, useRef, useState } from "react";
 
 import type {
   ArtifactReference,
   JsonValue,
+  LensSnapshot,
   ResolvedArtifact,
   ResolvedArtifactContent,
   SelectionAnnotation,
@@ -18,6 +22,7 @@ import {
   artifactsForObservationRoles,
   artifactTimeline,
   formatScalar,
+  seriesArtifactForAxis,
 } from "../app/lensModel";
 import { presentationSection } from "../app/presentationSection";
 
@@ -293,16 +298,148 @@ function ArtifactAnnotationForm(props: ArtifactAnnotationFormProps) {
   );
 }
 
-function ArtifactDetails({
-  active,
-  artifact,
+function ArtifactThumbnail({ artifact }: { artifact: ResolvedArtifact }) {
+  if (
+    artifact.status !== "resolved" ||
+    artifact.content.kind !== "artifact" ||
+    !artifact.content.mediaType.startsWith("image/")
+  ) {
+    return null;
+  }
+  return <img alt="" draggable={false} src={artifact.content.route} />;
+}
+
+function ArtifactSurface({ artifact }: { artifact: ResolvedArtifact }) {
+  const { isScrollable, ref } = useIsScrollable();
+  return (
+    <div
+      className={`lens-artifact-surface ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${isScrollable ? NO_WHEEL_CLASS_NAME : ""}`}
+      data-lens-artifact-id={artifact.reference.id}
+      ref={ref}
+    >
+      <ArtifactContent artifact={artifact} />
+    </div>
+  );
+}
+
+type TimedArtifact = Readonly<{
+  artifact: ResolvedArtifact;
+  timeline: NonNullable<ReturnType<typeof artifactTimeline>>;
+}>;
+
+function timedArtifacts(
+  snapshot: LensSnapshot,
+  observationId: string,
+  artifacts: ResolvedArtifact[],
+): TimedArtifact[] {
+  return artifacts.flatMap((artifact) => {
+    const timeline = artifactTimeline(
+      snapshot,
+      observationId,
+      artifact.reference.id,
+    );
+    return timeline === null ? [] : [{ artifact, timeline }];
+  });
+}
+
+function closestArtifactId(
+  artifacts: TimedArtifact[],
+  cursor: number | null,
+): string | null {
+  if (cursor === null || artifacts.length === 0) {
+    return null;
+  }
+  return artifacts.reduce((nearest, entry) =>
+    Math.abs(entry.timeline.value - cursor) <
+    Math.abs(nearest.timeline.value - cursor)
+      ? entry
+      : nearest,
+  ).artifact.reference.id;
+}
+
+function artifactById(
+  artifacts: ResolvedArtifact[],
+  artifactId: string | null,
+): ResolvedArtifact | null {
+  return (
+    artifacts.find((artifact) => artifact.reference.id === artifactId) ?? null
+  );
+}
+
+function activeArtifact(
+  artifacts: ResolvedArtifact[],
+  requestedArtifactId: string | null,
+  linkedArtifactId: string | null,
+): ResolvedArtifact | null {
+  return (
+    artifactById(artifacts, requestedArtifactId) ??
+    artifactById(artifacts, linkedArtifactId) ??
+    artifacts[0] ??
+    null
+  );
+}
+
+function carouselItems(
+  snapshot: LensSnapshot,
+  observationId: string,
+  artifacts: ResolvedArtifact[],
+): WorkspaceCarouselItem[] {
+  return artifacts.map((artifact) => ({
+    content: <ArtifactSurface artifact={artifact} />,
+    id: artifact.reference.id,
+    label: artifactFrameLabel(
+      artifactTimeline(snapshot, observationId, artifact.reference.id),
+      observationId,
+    ),
+    thumbnail: <ArtifactThumbnail artifact={artifact} />,
+  }));
+}
+
+function timelineTarget(
+  snapshot: LensSnapshot,
+  observationId: string,
+  artifacts: ResolvedArtifact[],
+  artifactId: string,
+  fallbackArtifactId: string | null,
+): Readonly<{ artifactId: string; cursor: number }> | null {
+  const artifact = artifactById(artifacts, artifactId);
+  if (artifact === null) {
+    return null;
+  }
+  const frame = artifactTimeline(snapshot, observationId, artifactId);
+  if (frame === null) {
+    return null;
+  }
+  const series = seriesArtifactForAxis(snapshot, observationId, frame.axisId);
+  return {
+    artifactId: series?.reference.id ?? fallbackArtifactId ?? artifactId,
+    cursor: frame.value,
+  };
+}
+
+function ArtifactCarousel({
+  artifacts,
   observationId,
 }: {
-  active: boolean;
-  artifact: ResolvedArtifact;
+  artifacts: ResolvedArtifact[];
   observationId: string;
 }) {
   const lens = useLens();
+  const linkedActiveId = closestArtifactId(
+    timedArtifacts(lens.snapshot, observationId, artifacts),
+    lens.timeline.cursor,
+  );
+  const [requestedActiveId, setRequestedActiveId] = useState<string | null>(
+    null,
+  );
+  useEffect(
+    () => setRequestedActiveId(null),
+    [lens.timeline.cursor, observationId],
+  );
+  const artifact = activeArtifact(artifacts, requestedActiveId, linkedActiveId);
+  if (artifact === null) {
+    return null;
+  }
   const included = lens.selection.selectedArtifactIds.includes(
     artifact.reference.id,
   );
@@ -316,11 +453,27 @@ function ArtifactDetails({
     observationId,
     artifact.reference.id,
   );
+  const items = carouselItems(lens.snapshot, observationId, artifacts);
+
+  const activateArtifact = (artifactId: string) => {
+    setRequestedActiveId(artifactId);
+    const target = timelineTarget(
+      lens.snapshot,
+      observationId,
+      artifacts,
+      artifactId,
+      lens.timeline.artifactId,
+    );
+    if (target !== null) {
+      lens.actions.setTimelineCursor(target.artifactId, target.cursor);
+    }
+  };
+
   return (
     <div
-      className="lens-artifact"
-      data-lens-section="artifact"
-      data-timeline-active={active || undefined}
+      className="lens-gallery"
+      data-lens-active-artifact-id={artifact.reference.id}
+      data-lens-section="gallery"
     >
       <ArtifactToolbar
         artifact={artifact}
@@ -329,12 +482,12 @@ function ArtifactDetails({
         observationId={observationId}
         onToggle={() => lens.actions.toggleArtifact(artifact.reference.id)}
       />
-      <div
-        className={`lens-artifact-surface ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-        data-lens-artifact-id={artifact.reference.id}
-      >
-        <ArtifactContent artifact={artifact} />
-      </div>
+      <WorkspaceCarousel
+        activeItemId={artifact.reference.id}
+        ariaLabel={`Artifacts for ${observationId}`}
+        items={items}
+        onActiveItemChange={activateArtifact}
+      />
       <ArtifactAnnotationForm
         artifact={artifact}
         existingAnnotation={existingAnnotation}
@@ -375,47 +528,5 @@ export function GallerySection({ sectionId }: { sectionId: string }) {
       </div>
     );
   }
-  const timed = artifacts
-    .map((artifact) => ({
-      artifact,
-      timeline: artifactTimeline(
-        lens.snapshot,
-        focused.id,
-        artifact.reference.id,
-      ),
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is typeof entry & {
-        timeline: NonNullable<typeof entry.timeline>;
-      } => entry.timeline !== null,
-    );
-  const activeArtifactId =
-    lens.timeline.cursor === null || timed.length === 0
-      ? (timed[0]?.artifact.reference.id ?? artifacts[0]?.reference.id ?? null)
-      : timed.reduce((nearest, entry) =>
-          Math.abs(entry.timeline.value - (lens.timeline.cursor ?? 0)) <
-          Math.abs(nearest.timeline.value - (lens.timeline.cursor ?? 0))
-            ? entry
-            : nearest,
-        ).artifact.reference.id;
-  return (
-    <div
-      className={`lens-gallery ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-      data-lens-section="gallery"
-      style={{
-        gridTemplateColumns: `repeat(${String(definition.columns)}, minmax(220px, 1fr))`,
-      }}
-    >
-      {artifacts.map((artifact) => (
-        <ArtifactDetails
-          active={artifact.reference.id === activeArtifactId}
-          artifact={artifact}
-          key={artifact.reference.id}
-          observationId={focused.id}
-        />
-      ))}
-    </div>
-  );
+  return <ArtifactCarousel artifacts={artifacts} observationId={focused.id} />;
 }

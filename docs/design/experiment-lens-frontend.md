@@ -17,6 +17,11 @@ arrange those capabilities but do not supply component source, ECharts options, 
 callbacks, dependencies, or executable code. The catalog remains closed until repeated projects
 justify a safe extension boundary.
 
+An artifact gallery is an app-owned semantic section rendered through Workspace's controlled
+carousel primitive. It resolves the focused observation's declared artifact roles and supplies the
+active content, labels, and thumbnails. Workspace owns carousel navigation and overflow; Lens owns
+artifact inclusion, annotation, and bidirectional synchronization with a related series cursor.
+
 The validated backend snapshot remains authoritative for immutable result identity, admitted
 artifact content, filters, focused observation, explicit selection basket, artifact inclusion,
 anchored ranges, annotations, and revision. Workspace sections contain only the manifest presentation

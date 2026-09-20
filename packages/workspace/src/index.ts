@@ -318,6 +318,11 @@ export type {
 } from "./document/sectionKindRegistry";
 export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
 export { WorkspaceSectionHeaderAction } from "./section/header/WorkspaceSectionHeaderAction";
+export { WorkspaceCarousel } from "./section/WorkspaceCarousel";
+export type {
+  WorkspaceCarouselItem,
+  WorkspaceCarouselProps,
+} from "./section/WorkspaceCarousel";
 export type { WorkspaceSectionHeaderActionProps } from "./section/header/WorkspaceSectionHeaderAction";
 export { setWorkspaceSectionSize } from "./section/sectionSizes";
 export { useWorkspaceAppearance } from "./document/stores";

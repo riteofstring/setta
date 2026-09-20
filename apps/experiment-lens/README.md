@@ -101,7 +101,8 @@ section types, binds them to fields or artifact roles, and places them exactly i
 ```
 
 The contract supports facets, scatter, histogram, heatmap, parallel-coordinate, table, aggregate
-metrics, standardized timeline, and artifact-gallery sections. It does not admit React code,
+metrics, standardized timeline, and artifact-gallery sections. A gallery presents one related
+artifact at a time with previous/next controls and a thumbnail strip. It does not admit React code,
 expressions, arbitrary chart options, commands, remote URLs, dependencies, or plug-in discovery.
 Run `setta experiment-lens schema --pretty` for the complete versioned contract.
 
@@ -127,7 +128,9 @@ Selecting an active mark again removes its observations; Shift adds or removes g
 discarding the rest of the basket. Every chart can capture normalized freehand strokes plus text
 marked as context, a question, or a follow-up request.
 Artifact views accept the same typed annotations with an exact artifact anchor. A series pointer
-snaps to the nearest sample and drives any artifact related to that axis. Activating a declared
+snaps to the nearest sample and drives any artifact related to that axis. Choosing a timed gallery
+artifact moves that same series cursor, so the timeline and gallery stay bidirectionally linked.
+Activating a declared
 view applies its section set, geometry, and viewport, while a managed window compares up to four
 selected trajectories and metrics. The full basket remains available for export.
 

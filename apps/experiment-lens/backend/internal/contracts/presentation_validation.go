@@ -24,7 +24,7 @@ var presentationSectionConfigurations = map[string]presentationSectionConfigurat
 		validate: validateFacetSection,
 	},
 	"gallery": {
-		allowed:  map[string]bool{"artifactRoles": true, "columns": true},
+		allowed:  map[string]bool{"artifactRoles": true},
 		validate: validateGallerySection,
 	},
 	"heatmap": {
@@ -247,9 +247,6 @@ func validateGallerySection(section PresentationSection, _ map[string]FieldDefin
 	if err := validateGalleryRoles(section.ArtifactRoles, roleMediaTypes); err != nil {
 		return err
 	}
-	if section.Columns == nil || *section.Columns < 1 || *section.Columns > 6 {
-		return errors.New("gallery columns must be between 1 and 6")
-	}
 	return nil
 }
 
@@ -288,7 +285,6 @@ func (section PresentationSection) rejectUnexpectedConfiguration(allowed map[str
 		"artifactRole":   section.ArtifactRole != nil,
 		"artifactRoles":  section.ArtifactRoles != nil,
 		"detailFieldIds": section.DetailFieldIDs != nil,
-		"columns":        section.Columns != nil,
 	}
 	for key, exists := range present {
 		if exists && !allowed[key] {

@@ -1665,20 +1665,9 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "Select cells",
   );
   const heatmapSelectionSurface = `${heatmapSelector} svg[aria-label="Select chart observations"]`;
-  const heatmapCandidates = [
-    [0.17, 0.31],
-    [0.39, 0.31],
-    [0.61, 0.31],
-    [0.83, 0.31],
-    [0.17, 0.52],
-    [0.39, 0.52],
-    [0.61, 0.52],
-    [0.83, 0.52],
-    [0.17, 0.73],
-    [0.39, 0.73],
-    [0.61, 0.73],
-    [0.83, 0.73],
-  ];
+  const heatmapCandidates = [0.31, 0.52, 0.73].flatMap((yRatio) =>
+    [0.17, 0.39, 0.61, 0.83].map((xRatio) => [xRatio, yRatio]),
+  );
   let heatmapSelectionPoint = null;
   let heatmapSelected = null;
   for (const [xRatio, yRatio] of heatmapCandidates) {
@@ -1996,7 +1985,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       const artifactBounds = artifact?.getBoundingClientRect();
       return seriesBounds !== undefined && seriesBounds.width > 0 && seriesBounds.height > 0 &&
         artifactBounds !== undefined && artifactBounds.width > 0 && artifactBounds.height > 0 &&
-        artifact?.querySelector('[data-timeline-active] [data-lens-artifact-id$="0900"]') !== null &&
+        artifact?.querySelector('.lens-gallery[data-lens-active-artifact-id$="0900"] [data-lens-artifact-id$="0900"]') !== null &&
         image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0 &&
         (document.querySelector('.lens-project-heading strong')?.getBoundingClientRect().width ?? 0) > 150;
     })()`,
@@ -2007,6 +1996,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "experiment-lens-inspect-dark.png",
   );
   await captureScreenshot(client, inspectScreenshot);
+  await assertPanContinuesAcross(
+    client,
+    `${sectionSelector("thermal-gallery")} [data-lens-artifact-id]`,
+    "the artifact carousel pan handoff",
+  );
 
   await clickCanvas(
     client,
@@ -2019,7 +2013,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "the shared series-to-frame cursor",
     `(() => {
       const artifact = document.querySelector(${JSON.stringify(sectionSelector("thermal-gallery"))});
-      const id = artifact?.querySelector('[data-timeline-active] [data-lens-artifact-id]')?.getAttribute('data-lens-artifact-id');
+      const id = artifact?.querySelector('.lens-gallery')?.getAttribute('data-lens-active-artifact-id');
       const timeline = document.querySelector(${JSON.stringify(`${sectionSelector("aging-timeline")} .lens-timeline-status`)})?.textContent ?? "";
       return id?.endsWith("0250") === true && timeline.includes("Cycle 300");
     })()`,
@@ -2030,22 +2024,38 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await captureScreenshot(client, timelineScreenshot);
 
+  await physicalClickMatching(
+    client,
+    `${sectionSelector("thermal-gallery")} .setta-workspace-carousel-control`,
+    "Next item",
+  );
+  await waitFor(
+    client,
+    "the shared frame-to-series cursor",
+    `(() => {
+      const gallery = document.querySelector(${JSON.stringify(`${sectionSelector("thermal-gallery")} .lens-gallery`)});
+      const timeline = document.querySelector(${JSON.stringify(`${sectionSelector("aging-timeline")} .lens-timeline-status`)})?.textContent ?? "";
+      return gallery?.getAttribute('data-lens-active-artifact-id')?.endsWith("0475") === true &&
+        timeline.includes("Cycle 475");
+    })()`,
+  );
+
   const note = "Recheck the accelerated capacity loss around this checkpoint.";
   await changeSelectValue(
     client,
-    `${sectionSelector("thermal-gallery")} [data-timeline-active] select[aria-label="Artifact annotation intent"]`,
+    `${sectionSelector("thermal-gallery")} select[aria-label="Artifact annotation intent"]`,
     "follow-up",
     "the artifact annotation intent",
   );
   await typeInputValue(
     client,
-    `${sectionSelector("thermal-gallery")} [data-timeline-active] input[aria-label="Artifact annotation"]`,
+    `${sectionSelector("thermal-gallery")} input[aria-label="Artifact annotation"]`,
     note,
     "the artifact annotation",
   );
   await physicalClickMatching(
     client,
-    `${sectionSelector("thermal-gallery")} [data-timeline-active] button`,
+    `${sectionSelector("thermal-gallery")} .lens-artifact-annotation-form button`,
     "Save annotation",
   );
   const noted = await waitForSnapshot(
@@ -2063,7 +2073,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await physicalClickMatching(
     client,
-    `${sectionSelector("thermal-gallery")} [data-timeline-active] button`,
+    `${sectionSelector("thermal-gallery")} .lens-artifact-toolbar button`,
     "Include artifact",
   );
   const included = await waitForSnapshot(

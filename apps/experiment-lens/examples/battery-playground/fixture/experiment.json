@@ -1350,7 +1350,6 @@
           "thermal-frame-0700",
           "thermal-frame-0900"
         ],
-        "columns": 3,
         "id": "thermal-gallery",
         "title": "Thermal progression",
         "type": "gallery"

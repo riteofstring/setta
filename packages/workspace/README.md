@@ -742,6 +742,12 @@ Custom renderers with conditional overflow can use `useIsScrollable()` and apply
 `NO_WHEEL_CLASS_NAME` only while its returned `isScrollable` value is true. This preserves native
 scrolling without taking wheel gestures away from canvas panning when the content already fits.
 
+`WorkspaceCarousel` is the controlled collection primitive for section kinds that show one related
+item at a time. The host supplies stable item IDs, labels, optional thumbnails, content, and the
+active-item mutation. Workspace owns previous/next controls, thumbnail overflow, focus treatment,
+Arrow/Home/End navigation, and light/dark presentation. The host continues to own what an item
+means and whether changing it also updates domain state such as a timeline cursor.
+
 An attached host surface that must suspend its own scrolling while the canvas owns a pan-scroll
 gesture can use `subscribeWorkspaceCanvasPanScrolling(host, listener)`. The returned function
 removes that host-scoped subscription.

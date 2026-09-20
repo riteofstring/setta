@@ -154,7 +154,6 @@ export function lensTestSnapshot(): LensSnapshot {
           },
           {
             artifactRoles: ["recorded-frame"],
-            columns: 2,
             id: "evidence",
             title: "Evidence",
             type: "gallery",

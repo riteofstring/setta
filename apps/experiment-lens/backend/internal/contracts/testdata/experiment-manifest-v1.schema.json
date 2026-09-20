@@ -1092,11 +1092,6 @@
               "minItems": 1,
               "type": "array"
             },
-            "columns": {
-              "maximum": 6,
-              "minimum": 1,
-              "type": "integer"
-            },
             "id": {
               "$ref": "#/$defs/identifier"
             },
@@ -1113,8 +1108,7 @@
             "id",
             "type",
             "title",
-            "artifactRoles",
-            "columns"
+            "artifactRoles"
           ],
           "type": "object"
         }

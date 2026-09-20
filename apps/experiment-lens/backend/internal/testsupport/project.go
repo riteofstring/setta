@@ -73,7 +73,7 @@ func Write(root string) (Fixture, error) {
 				{ID: "population", Type: "scatter", Title: "Population", XFieldID: pointer("temperature"), YFieldID: pointer("retention"), ColorFieldID: pointer("chemistry")},
 				{ID: "observations", Type: "table", Title: "Observations", FieldIDs: []string{"chemistry", "temperature", "retention"}},
 				{ID: "trace", Type: "timeline", Title: "Trace", ArtifactRole: pointer("trace"), DetailFieldIDs: []string{"temperature", "retention"}},
-				{ID: "frames", Type: "gallery", Title: "Thermal frames", ArtifactRoles: []string{"thermal-frame"}, Columns: integer(2)},
+				{ID: "frames", Type: "gallery", Title: "Thermal frames", ArtifactRoles: []string{"thermal-frame"}},
 			},
 			Views: []contracts.PresentationView{
 				{ID: "overview", Name: "Overview", Viewport: contracts.PresentationViewport{X: 0, Y: 0, Zoom: 0.8}, Placements: []contracts.PresentationPlacement{
@@ -136,9 +136,5 @@ func pointer(value string) *string {
 }
 
 func number(value float64) *float64 {
-	return &value
-}
-
-func integer(value int) *int {
 	return &value
 }

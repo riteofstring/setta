@@ -831,25 +831,22 @@ button {
   height: 100%;
   min-width: 0;
   min-height: 0;
-  align-items: stretch;
-  gap: 10px;
-  padding: 10px;
-  overflow: auto;
-  background: light-dark(#eef2f7, #0a0f16);
-  overscroll-behavior: contain;
-}
-
-.lens-gallery .lens-artifact {
-  min-height: 300px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid light-dark(#d8e0eb, #2b3749);
-  border-radius: 7px;
-  background: light-dark(#fff, #0f1620);
+  background: light-dark(#eef2f7, #0a0f16);
 }
 
-.lens-gallery .lens-artifact[data-timeline-active] {
-  border-color: #4f86f7;
-  box-shadow: 0 0 0 2px rgb(79 134 247 / 22%);
+.lens-gallery > .setta-workspace-carousel {
+  min-height: 0;
+}
+
+.lens-gallery .setta-workspace-carousel-slide {
+  padding: 10px 52px;
+  background: light-dark(#f3f6fa, #080d14);
+}
+
+.lens-gallery .setta-workspace-carousel-thumbnail-media {
+  padding: 2px;
 }
 
 .lens-artifact-image {

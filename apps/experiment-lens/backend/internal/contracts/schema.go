@@ -438,9 +438,8 @@ func presentationSectionSchema() map[string]any {
 			"artifactRole":   map[string]any{"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"},
 			"detailFieldIds": arraySchema(identifier, 0, 8),
 		}),
-		base("gallery", []string{"artifactRoles", "columns"}, map[string]any{
+		base("gallery", []string{"artifactRoles"}, map[string]any{
 			"artifactRoles": arraySchema(map[string]any{"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"}, 1, 12),
-			"columns":       integerSchema(1, 6),
 		}),
 	}}
 }

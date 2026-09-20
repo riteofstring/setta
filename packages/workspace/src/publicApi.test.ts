@@ -53,6 +53,7 @@ const RUNTIME_EXPORTS = [
   "WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE",
   "WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE",
   "WorkspaceCanvas",
+  "WorkspaceCarousel",
   "WorkspaceControls",
   "WorkspaceDropdownMenu",
   "WorkspaceProvider",

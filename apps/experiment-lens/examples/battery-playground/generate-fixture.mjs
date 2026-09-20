@@ -316,7 +316,6 @@ const presentation = {
       artifactRoles: frameCycles.map(
         (cycle) => `thermal-frame-${String(cycle).padStart(4, "0")}`,
       ),
-      columns: 3,
       id: "thermal-gallery",
       title: "Thermal progression",
       type: "gallery",

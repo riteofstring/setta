@@ -7,6 +7,7 @@ import {
   focusObservation,
   nearestSeriesSampleX,
   selectObservationGroup,
+  seriesArtifactForAxis,
   setInFilter,
   setRangeFilter,
   toggleSelectedObservation,
@@ -79,6 +80,9 @@ describe("Experiment Lens model", () => {
     const artifact = displayArtifactAtCursor(snapshot, "observation-a", 6.5);
 
     expect(artifact?.reference.id).toBe("frame-a");
+    expect(
+      seriesArtifactForAxis(snapshot, "observation-a", "elapsed")?.reference.id,
+    ).toBe("series-a");
     expect(artifactTimeline(snapshot, "observation-a", "frame-a")).toEqual({
       axisId: "elapsed",
       label: "Elapsed time",

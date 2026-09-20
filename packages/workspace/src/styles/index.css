@@ -22,6 +22,7 @@
 @import "./workspaceWindowManager.css";
 @import "./workspaceBottomDock.css";
 @import "./workspaceWindowSpaces.css";
+@import "./workspaceCarousel.css";
 
 @tailwind base;
 @tailwind components;

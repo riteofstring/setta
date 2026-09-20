@@ -133,6 +133,11 @@ and keyboard semantics without requiring applications to import private styles o
 Applications still own the option model and mutations; Workspace owns only the shared presentation
 and interaction contract.
 
+The controlled carousel follows the same boundary. Workspace owns single-item navigation,
+thumbnail overflow, keyboard focus, and scoped presentation. Applications provide opaque React
+content and own active-item meaning, persistence, and any synchronization with domain state. The
+carousel is a reusable section-content primitive rather than a section kind or document entity.
+
 Package mutations validate the complete request, construct one next canonical value, and publish
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other

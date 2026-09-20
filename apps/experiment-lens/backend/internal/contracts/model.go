@@ -68,7 +68,6 @@ type PresentationSection struct {
 	ArtifactRole   *string  `json:"artifactRole,omitempty"`
 	ArtifactRoles  []string `json:"artifactRoles,omitempty"`
 	DetailFieldIDs []string `json:"detailFieldIds,omitempty"`
-	Columns        *int     `json:"columns,omitempty"`
 }
 
 type PresentationPlacement struct {

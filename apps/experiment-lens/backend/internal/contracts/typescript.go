@@ -91,7 +91,7 @@ export type PresentationSection = PresentationSectionBase &
         artifactRole: string;
         detailFieldIds: Array<string>;
       }
-    | { type: "gallery"; artifactRoles: Array<string>; columns: number }
+    | { type: "gallery"; artifactRoles: Array<string> }
   );
 
 export type PresentationPlacement = {
