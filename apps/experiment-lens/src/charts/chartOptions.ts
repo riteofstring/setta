@@ -60,7 +60,7 @@ export function chartPalette(darkMode: boolean): LensChartPalette {
 
 function commonOption(palette: LensChartPalette): EChartsCoreOption {
   return {
-    animationDuration: 180,
+    animation: false,
     aria: { enabled: true },
     textStyle: {
       color: palette.text,

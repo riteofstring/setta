@@ -460,6 +460,42 @@ async function assertBrowserSettles(client, description) {
   );
 }
 
+async function assertChartSurfacesStable(client, selectors, description) {
+  const result = await evaluate(
+    client,
+    `new Promise((resolve) => {
+      const roots = ${JSON.stringify(selectors)}.map((selector) =>
+        document.querySelector(selector)
+      );
+      const capture = () => roots.map((root) => {
+        const canvas = root?.querySelector("canvas");
+        return canvas instanceof HTMLCanvasElement ? canvas.toDataURL() : null;
+      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const before = capture();
+        setTimeout(() => {
+          const after = capture();
+          resolve({
+            count: before.filter((value) => value !== null).length,
+            stable: before.length === after.length &&
+              before.every((value, index) => value !== null && value === after[index]),
+          });
+        }, 100);
+      }));
+    })`,
+  );
+  assert.equal(
+    result.count,
+    selectors.length,
+    `${description} did not render every expected chart canvas.`,
+  );
+  assert.equal(
+    result.stable,
+    true,
+    `${description} continued animating after its linked count updated.`,
+  );
+}
+
 async function canvasPanOrigin(client, description) {
   const origin = await evaluate(
     client,
@@ -764,6 +800,60 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await assertBrowserSettles(client, "the initial Overview");
 
+  const linkedChartSelectors = [
+    `${sectionSelector("retention-population")} .lens-echart`,
+    `${sectionSelector("resistance-distribution")} .lens-echart`,
+  ];
+  await physicalClickSelector(
+    client,
+    `${sectionSelector("cohort")} [data-lens-filter-value="LCO"]`,
+    "the Overview LCO filter",
+  );
+  await waitFor(
+    client,
+    "the filtered Overview charts",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === "576"`,
+  );
+  await assertChartSurfacesStable(
+    client,
+    linkedChartSelectors,
+    "the filtered Overview charts",
+  );
+  const filteredOverview = await waitForSnapshot(
+    origin,
+    "the durable Overview filter",
+    (snapshot) =>
+      snapshot.revision === initial.revision + 1 &&
+      snapshot.selection.filters.some(
+        (filter) =>
+          filter.fieldId === "chemistry" &&
+          filter.operator === "in" &&
+          !filter.values.includes("LCO"),
+      ),
+  );
+  await physicalClickMatching(
+    client,
+    `${sectionSelector("cohort")} button`,
+    "Clear filters",
+  );
+  await waitFor(
+    client,
+    "the restored Overview charts",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === "864"`,
+  );
+  await assertChartSurfacesStable(
+    client,
+    linkedChartSelectors,
+    "the restored Overview charts",
+  );
+  const restoredOverview = await waitForSnapshot(
+    origin,
+    "the restored Overview cohort",
+    (snapshot) =>
+      snapshot.revision === filteredOverview.revision + 1 &&
+      snapshot.selection.filters.length === 0,
+  );
+
   const scatterXSelector = `${sectionSelector("retention-population")} select[aria-label="Scatter horizontal axis"]`;
   const scatterYSelector = `${sectionSelector("retention-population")} select[aria-label="Scatter vertical axis"]`;
   assert.equal(
@@ -928,7 +1018,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the durable cycle range",
     (snapshot) =>
-      snapshot.revision === initial.revision + 1 &&
+      snapshot.revision === restoredOverview.revision + 1 &&
       snapshot.selection.filters.some(
         (filter) =>
           filter.fieldId === "cycle" &&
