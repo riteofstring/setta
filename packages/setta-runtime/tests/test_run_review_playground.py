@@ -46,9 +46,9 @@ class ReviewPlaygroundRunnerTests(unittest.TestCase):
             for evidence in request["evidence"]:
                 if evidence["kind"] == "gitDiff":
                     identities.append(evidence["gitDiff"]["patchSha256"])
-                elif evidence["kind"] in {"text", "json"}:
+                elif evidence["kind"] in {"code", "text", "json"}:
                     identities.append(evidence[evidence["kind"]]["sourceSha256"])
-            self.assertEqual(len(identities), 3)
+            self.assertEqual(len(identities), 4)
             for identity in identities:
                 self.assertRegex(identity, r"^[0-9a-f]{64}$")
                 self.assertNotEqual(identity, run_review_playground.ZERO_SHA256)
@@ -159,6 +159,14 @@ def _write_fixture(root: Path) -> None:
                                 "path": "evidence/checkout-run.log",
                                 "sourceSha256": run_review_playground.ZERO_SHA256,
                             },
+                        },
+                        {
+                            "code": {
+                                "language": "typescript",
+                                "path": "repository/event_bus.ts",
+                                "sourceSha256": run_review_playground.ZERO_SHA256,
+                            },
+                            "kind": "code",
                         },
                         {
                             "json": {

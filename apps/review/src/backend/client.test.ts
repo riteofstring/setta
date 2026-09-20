@@ -110,7 +110,18 @@ function exportResult(includeContinuations = false): ExportResult {
               request,
               requestSha256: requestSha,
               response,
-              evidence: [],
+              evidence: [
+                {
+                  evidenceId: "source",
+                  status: "resolved",
+                  content: {
+                    kind: "code",
+                    code: "def run():\n    return True\n",
+                    language: "python",
+                  },
+                  error: null,
+                },
+              ],
             },
           ]
         : [],
@@ -280,6 +291,21 @@ describe("review client boundary", () => {
     );
     await expect(
       exportReview(false, invalidFetch as unknown as typeof fetch),
+    ).rejects.toMatchObject({ kind: "invalid-response" });
+  });
+
+  it("rejects an unsupported resolved code language", async () => {
+    const exported = exportResult(true);
+    const continuation = exported.export.continuations[0]!;
+    const evidence = continuation.evidence[0]!;
+    if (evidence.status !== "resolved" || evidence.content.kind !== "code") {
+      throw new Error("Expected resolved code evidence.");
+    }
+    evidence.content.language = "ruby" as typeof evidence.content.language;
+    const fetchImplementation = vi.fn(async () => jsonResponse(exported));
+
+    await expect(
+      exportReview(true, fetchImplementation as unknown as typeof fetch),
     ).rejects.toMatchObject({ kind: "invalid-response" });
   });
 

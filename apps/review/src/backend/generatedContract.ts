@@ -29,6 +29,17 @@ type GitHunk = {
   newLines: number;
 };
 
+type CodeLanguage =
+  | "python"
+  | "bash"
+  | "javascript"
+  | "typescript"
+  | "json"
+  | "yaml"
+  | "toml"
+  | "markdown"
+  | "plaintext";
+
 export type EvidenceReference =
   | {
       id: string;
@@ -42,6 +53,11 @@ export type EvidenceReference =
         hunk: GitHunk;
         patchSha256: string;
       };
+    }
+  | {
+      id: string;
+      kind: "code";
+      code: { path: string; language: CodeLanguage; sourceSha256: string };
     }
   | {
       id: string;
@@ -205,6 +221,7 @@ export type StructuredError = {
 
 export type ResolvedEvidenceContent =
   | { kind: "gitDiff"; unifiedDiff: string; truncated: boolean }
+  | { kind: "code"; code: string; language: CodeLanguage }
   | { kind: "text"; text: string; startLine: number; endLine: number; truncated: boolean }
   | { kind: "json"; json: JsonValue }
   | { kind: "artifact"; route: string; mediaType: string; byteLength: number; sha256: string };

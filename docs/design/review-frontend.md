@@ -31,10 +31,10 @@ Expanding a claim shows recorded assessments named by model and harness. Agent a
 human response use distinct visual and semantic states. Human actions resolve, qualify, reject,
 request evidence, or leave the claim unresolved with optional rationale.
 
-Evidence uses rich reusable views: a real unified-diff renderer, Workspace code and text surfaces,
-structured JSON, logs, and artifact previews. Semantic support, challenge, qualification, and
-informational relations become typed controlled graph edges. Low-information bespoke receipt or
-file-summary sections are not introduced.
+Evidence uses rich reusable views: a real unified-diff renderer, read-only Workspace CodeMirror
+for generic source files and structured JSON, exact-line log surfaces, and artifact previews.
+Semantic support, challenge, qualification, and informational relations become typed controlled
+graph edges. Low-information bespoke receipt or file-summary sections are not introduced.
 
 ## Choice review
 
@@ -58,8 +58,8 @@ Annotation gestures use a small app-owned normalized SVG path model; Fabric is n
 overlay that has no object editing semantics. Ajv validates generated wire contracts. No Review UI
 imports another app's private frontend code.
 
-The checked-in playground contains real request, diff, JSON, log, image, and choice artifacts. A
-launcher copies it into ignored working state. Component tests cover typed sections and revision
-actions; browser acceptance covers completion selection and resolution, Current-to-Old movement,
-factor-to-evidence highlighting, artifact choice, drawing, reload persistence, and CLI assessment
-ingestion at normal and constrained viewport sizes.
+The checked-in playground contains real request, diff, source-code, JSON, log, image, and choice
+artifacts. A launcher copies it into ignored working state. Component tests cover typed sections
+and revision actions; browser acceptance covers completion selection and resolution,
+Current-to-Old movement, factor-to-evidence highlighting, artifact choice, drawing, reload
+persistence, and CLI assessment ingestion at normal and constrained viewport sizes.

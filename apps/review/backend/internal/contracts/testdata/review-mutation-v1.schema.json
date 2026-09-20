@@ -561,6 +561,58 @@
         {
           "additionalProperties": false,
           "properties": {
+            "code": {
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "enum": [
+                    "python",
+                    "bash",
+                    "javascript",
+                    "typescript",
+                    "json",
+                    "yaml",
+                    "toml",
+                    "markdown",
+                    "plaintext"
+                  ]
+                },
+                "path": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*//)(?!\\.\\.?(?:/|$))(?!.*\\/\\.\\.?(?:/|$))[^\\\\\\x00]+$",
+                  "type": "string"
+                },
+                "sourceSha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "language",
+                "sourceSha256"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "code"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "code"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "id": {
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
               "type": "string"
@@ -1260,6 +1312,38 @@
             "kind",
             "unifiedDiff",
             "truncated"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "maxLength": 4194304,
+              "pattern": "^[^\\x00]*$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "code"
+            },
+            "language": {
+              "enum": [
+                "python",
+                "bash",
+                "javascript",
+                "typescript",
+                "json",
+                "yaml",
+                "toml",
+                "markdown",
+                "plaintext"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "code",
+            "language"
           ],
           "type": "object"
         },

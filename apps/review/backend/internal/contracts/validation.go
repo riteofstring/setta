@@ -40,6 +40,7 @@ var (
 	gitRevisionPattern = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?$`)
 	mediaTypePattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$`)
 	colorPattern       = regexp.MustCompile(`^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$`)
+	codeLanguages      = []string{"python", "bash", "javascript", "typescript", "json", "yaml", "toml", "markdown", "plaintext"}
 )
 
 func DecodeStrict(data []byte, target any) error {
@@ -411,7 +412,7 @@ func (reference EvidenceReference) validateShape() error {
 		return errors.New("id is invalid")
 	}
 	count := 0
-	for _, present := range []bool{reference.GitDiff != nil, reference.Text != nil, reference.JSON != nil, reference.Artifact != nil} {
+	for _, present := range []bool{reference.GitDiff != nil, reference.Code != nil, reference.Text != nil, reference.JSON != nil, reference.Artifact != nil} {
 		if present {
 			count++
 		}
@@ -429,6 +430,11 @@ func (reference EvidenceReference) validateKind() error {
 			return errors.New("git diff body is missing")
 		}
 		return reference.GitDiff.Validate()
+	case "code":
+		if reference.Code == nil {
+			return errors.New("code body is missing")
+		}
+		return reference.Code.Validate()
 	case "text":
 		if reference.Text == nil {
 			return errors.New("text body is missing")
@@ -447,6 +453,19 @@ func (reference EvidenceReference) validateKind() error {
 	default:
 		return errors.New("kind is unsupported")
 	}
+}
+
+func (reference CodeEvidenceReference) Validate() error {
+	if err := validateRelativePath(reference.Path, false); err != nil {
+		return fmt.Errorf("path: %w", err)
+	}
+	if !slices.Contains(codeLanguages, reference.Language) {
+		return errors.New("language is unsupported")
+	}
+	if !validSHA256(reference.SourceSHA256) {
+		return errors.New("source SHA-256 is invalid")
+	}
+	return nil
 }
 
 func (reference GitDiffEvidenceReference) Validate() error {
@@ -589,8 +608,8 @@ func (citation EvidenceCitation) validate(evidenceKind string) error {
 }
 
 func (citation EvidenceCitation) validateLineRange(evidenceKind string) error {
-	if evidenceKind != "gitDiff" && evidenceKind != "text" {
-		return errors.New("line citation requires Git diff or text evidence")
+	if evidenceKind != "gitDiff" && evidenceKind != "code" && evidenceKind != "text" {
+		return errors.New("line citation requires Git diff, code, or text evidence")
 	}
 	if citation.StartLine == nil || citation.EndLine == nil || citation.Pointer != nil {
 		return errors.New("line citation body is invalid")
@@ -1252,6 +1271,8 @@ func (content ResolvedEvidenceContent) Validate() error {
 	switch content.Kind {
 	case "gitDiff":
 		return validateResolvedGitDiffContent(content)
+	case "code":
+		return validateResolvedCodeContent(content)
 	case "text":
 		return validateResolvedTextContent(content)
 	case "json":
@@ -1264,14 +1285,27 @@ func (content ResolvedEvidenceContent) Validate() error {
 }
 
 func validateResolvedGitDiffContent(content ResolvedEvidenceContent) error {
-	if content.UnifiedDiff == nil || content.Truncated == nil || anyFieldPresent(content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
+	if content.UnifiedDiff == nil || content.Truncated == nil || anyFieldPresent(content.Code != nil, content.Language != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
 		return errors.New("contracts: resolved Git diff content is invalid")
 	}
 	return validateResolvedText(*content.UnifiedDiff)
 }
 
+func validateResolvedCodeContent(content ResolvedEvidenceContent) error {
+	if content.Code == nil || content.Language == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil, content.Truncated != nil) {
+		return errors.New("contracts: resolved code content is invalid")
+	}
+	if err := validateResolvedText(*content.Code); err != nil {
+		return err
+	}
+	if !slices.Contains(codeLanguages, *content.Language) {
+		return errors.New("contracts: resolved code language is unsupported")
+	}
+	return nil
+}
+
 func validateResolvedTextContent(content ResolvedEvidenceContent) error {
-	if content.Text == nil || content.StartLine == nil || content.EndLine == nil || content.Truncated == nil || anyFieldPresent(content.UnifiedDiff != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
+	if content.Text == nil || content.StartLine == nil || content.EndLine == nil || content.Truncated == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Code != nil, content.Language != nil, content.JSON != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil) {
 		return errors.New("contracts: resolved text content is invalid")
 	}
 	if err := validateResolvedText(*content.Text); err != nil {
@@ -1281,14 +1315,14 @@ func validateResolvedTextContent(content ResolvedEvidenceContent) error {
 }
 
 func validateResolvedJSONContent(content ResolvedEvidenceContent) error {
-	if content.JSON == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil, content.Truncated != nil) {
+	if content.JSON == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Code != nil, content.Language != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.Route != nil, content.MediaType != nil, content.ByteLength != nil, content.SHA256 != nil, content.Truncated != nil) {
 		return errors.New("contracts: resolved JSON content is invalid")
 	}
 	return validateRawJSON(content.JSON)
 }
 
 func validateResolvedArtifactContent(content ResolvedEvidenceContent) error {
-	if content.Route == nil || content.MediaType == nil || content.ByteLength == nil || content.SHA256 == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Truncated != nil) {
+	if content.Route == nil || content.MediaType == nil || content.ByteLength == nil || content.SHA256 == nil || anyFieldPresent(content.UnifiedDiff != nil, content.Code != nil, content.Language != nil, content.Text != nil, content.StartLine != nil, content.EndLine != nil, content.JSON != nil, content.Truncated != nil) {
 		return errors.New("contracts: resolved artifact content is invalid")
 	}
 	return validateResolvedArtifactMetadata(*content.Route, *content.MediaType, *content.ByteLength, *content.SHA256)

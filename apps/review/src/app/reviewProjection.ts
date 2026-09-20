@@ -76,6 +76,8 @@ function evidencePath(reference: EvidenceReference): string {
   switch (reference.kind) {
     case "gitDiff":
       return reference.gitDiff.path;
+    case "code":
+      return reference.code.path;
     case "text":
       return reference.text.path;
     case "json":

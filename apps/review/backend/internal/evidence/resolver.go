@@ -120,6 +120,11 @@ func (resolver *Resolver) resolve(requestID string, reference contracts.Evidence
 			return contracts.ResolvedEvidenceContent{}, errInvalidReference
 		}
 		return resolver.resolveDiff(*reference.GitDiff)
+	case "code":
+		if reference.Code == nil {
+			return contracts.ResolvedEvidenceContent{}, errInvalidReference
+		}
+		return resolver.resolveCode(*reference.Code)
 	case "text":
 		if reference.Text == nil {
 			return contracts.ResolvedEvidenceContent{}, errInvalidReference
@@ -138,6 +143,16 @@ func (resolver *Resolver) resolve(requestID string, reference contracts.Evidence
 	default:
 		return contracts.ResolvedEvidenceContent{}, errUnsupportedKind
 	}
+}
+
+func (resolver *Resolver) resolveCode(reference contracts.CodeEvidenceReference) (contracts.ResolvedEvidenceContent, error) {
+	source, err := resolver.readVerifiedFile(reference.Path, reference.SourceSHA256, maximumTextBytes)
+	if err != nil {
+		return contracts.ResolvedEvidenceContent{}, err
+	}
+	code := string(source)
+	language := reference.Language
+	return contracts.ResolvedEvidenceContent{Kind: "code", Code: &code, Language: &language}, nil
 }
 
 func (resolver *Resolver) resolveText(reference contracts.TextEvidenceReference) (contracts.ResolvedEvidenceContent, error) {

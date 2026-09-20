@@ -60,6 +60,23 @@ func TestCompletionRequestValidatesExactEvidenceRelations(t *testing.T) {
 	}
 }
 
+func TestCodeEvidenceAcceptsWorkspaceLanguages(t *testing.T) {
+	for _, language := range []string{"python", "javascript", "typescript", "plaintext"} {
+		reference := EvidenceReference{
+			ID: "source", Kind: "code", Code: &CodeEvidenceReference{Path: "source/example", Language: language, SourceSHA256: fixtureRequestSHA},
+		}
+		if err := reference.Validate(); err != nil {
+			t.Fatalf("Validate(%s) error = %v", language, err)
+		}
+	}
+	reference := EvidenceReference{
+		ID: "source", Kind: "code", Code: &CodeEvidenceReference{Path: "source/example.rb", Language: "ruby", SourceSHA256: fixtureRequestSHA},
+	}
+	if err := reference.Validate(); err == nil || !strings.Contains(err.Error(), "language is unsupported") {
+		t.Fatalf("Validate(unsupported language) error = %v", err)
+	}
+}
+
 func TestChoiceRequestValidatesCompleteMatrixAndArtifactCandidates(t *testing.T) {
 	matrix := fixtureChoiceRequest("matrix")
 	if err := matrix.Validate(); err != nil {

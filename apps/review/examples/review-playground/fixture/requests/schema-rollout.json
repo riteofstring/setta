@@ -51,6 +51,15 @@
         ],
         "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    {
+      "id": "event-publisher",
+      "kind": "code",
+      "code": {
+        "path": "repository/event_bus.ts",
+        "language": "typescript",
+        "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   ],
   "relations": [
@@ -83,6 +92,14 @@
       "evidenceId": "schema-change",
       "role": "informs",
       "citations": [{ "kind": "lineRange", "startLine": 1, "endLine": 10 }]
+    },
+    {
+      "id": "rollout-event-publisher",
+      "subjectKind": "factor",
+      "subjectId": "rollout",
+      "evidenceId": "event-publisher",
+      "role": "informs",
+      "citations": [{ "kind": "lineRange", "startLine": 1, "endLine": 7 }]
     },
     {
       "id": "rollback-shadow-read",

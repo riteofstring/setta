@@ -12,7 +12,7 @@ The checked-in playground contains three realistic requests in one project:
 
 - a completion review with consensus, disagreement, an unproven claim, a claim with no external
   assessments, a real Git hunk, structured results, and a run log;
-- a rollout choice whose factor columns link to exact Git and JSON evidence; and
+- a rollout choice whose factor columns link to exact Git, source-code, and JSON evidence; and
 - a three-poster comparison with floating Workspace windows and artifact-anchored drawing.
 
 Run it from the repository root:
@@ -55,6 +55,8 @@ my-review/
   evidence/
     run.log
     results.json
+  source/
+    worker.py
   artifacts/
     candidate-a.png
   repository/
@@ -64,10 +66,12 @@ my-review/
 
 `review.json` lists immutable request documents. A completion request contains claims. A choice
 request contains options and either a tradeoff matrix or artifact candidates. Both can relate a
-claim, factor, or option to an exact Git hunk, UTF-8 line range, JSON pointer, or content-addressed
-local artifact with one of four meanings: `supports`, `challenges`, `qualifies`, or `informs`.
-Diff, text, and JSON references include the submitted content digest, so a later file change cannot
-silently alter what an existing request means.
+claim, factor, or option to an exact Git hunk, complete source file, UTF-8 line range, JSON pointer,
+or content-addressed local artifact with one of four meanings: `supports`, `challenges`,
+`qualifies`, or `informs`. Source-code evidence declares a CodeMirror language: `python`, `bash`,
+`javascript`, `typescript`, `json`, `yaml`, `toml`, `markdown`, or `plaintext`. Diff, code, text,
+and JSON references include the submitted content digest, so a later file change cannot silently
+alter what an existing request means.
 
 The backend validates every request before admission and resolves each evidence item independently.
 A missing or changed item becomes visible failed evidence rather than making unrelated material
@@ -119,8 +123,9 @@ where it remains inspectable. Each view retains its own section layout and camer
 
 Selecting a claim, factor, or option highlights its typed evidence edges, cited lines or JSON
 pointers, and asks Workspace to frame the participating sections. Git evidence is rendered as a
-real diff. Text, JSON, logs, and artifacts remain rich sections rather than file receipts. The
-inspector stays closed because the decisions and revision form belong beside the material.
+real diff. Source files and JSON use read-only CodeMirror sections; bounded logs keep exact source
+line numbers; artifacts retain their native previews. The inspector stays closed because the
+decisions and revision form belong beside the material.
 
 Drawing never modifies an artifact. Review stores normalized paths against its exact SHA-256 and
 includes them in a response or continuation packet. A revision request requires either written or

@@ -45,6 +45,7 @@ const artifactChoiceSectionId = `review:request:${artifactRequestId}`;
 const checkoutLogSectionId = `review:evidence:${completionRequestId}:checkout-log`;
 const shadowEvidenceSectionId = `review:evidence:${matrixRequestId}:shadow-read`;
 const consumerEvidenceSectionId = `review:evidence:${matrixRequestId}:consumer-compatibility`;
+const eventPublisherSectionId = `review:evidence:${matrixRequestId}:event-publisher`;
 const apertureEvidenceSectionId = `review:evidence:${artifactRequestId}:poster-aperture`;
 
 function commandEnvironment(options) {
@@ -301,7 +302,11 @@ function updateEvidenceIdentities(projectRoot, revision) {
           reference.hunk,
         );
         reference.patchSha256 = sha256(patch);
-      } else if (evidence.kind === "text" || evidence.kind === "json") {
+      } else if (
+        evidence.kind === "code" ||
+        evidence.kind === "text" ||
+        evidence.kind === "json"
+      ) {
         const reference = evidence[evidence.kind];
         reference.sourceSha256 = sha256(
           readFileSync(path.join(projectRoot, reference.path)),
@@ -1249,6 +1254,26 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await captureScreenshot(client, completionScreenshot);
   await scrollSectionHorizontally(client, checkoutLogSectionId);
 
+  await clickSectionButton(client, matrixSectionId, "Rollout");
+  await waitFor(
+    client,
+    "the matrix factor-to-code focus",
+    `(() => {
+      const matrix = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
+      const evidence = document.querySelector(${JSON.stringify(sectionSelector(eventPublisherSectionId))});
+      const factor = Array.from(matrix?.querySelectorAll("thead button") ?? []).find(
+        (candidate) => candidate.textContent?.trim() === "Rollout",
+      );
+      const locations = Array.from(evidence?.querySelectorAll(".review-evidence-locations code") ?? [])
+        .map((candidate) => candidate.textContent?.trim());
+      const editor = evidence?.querySelector('[data-workspace-section-editor="read-only"]');
+      return factor?.getAttribute("aria-pressed") === "true" &&
+        evidence?.querySelector(".review-evidence")?.hasAttribute("data-focused") === true &&
+        locations.includes("Lines 1–7") &&
+        editor?.textContent?.includes("events.set(topic, event)") === true;
+    })()`,
+  );
+
   await clickSectionButton(client, matrixSectionId, "Mismatch");
   await waitFor(
     client,
@@ -1259,7 +1284,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       const factor = Array.from(matrix?.querySelectorAll("thead button") ?? []).find(
         (candidate) => candidate.textContent?.trim() === "Mismatch",
       );
-      const pointers = Array.from(evidence?.querySelectorAll(".review-json-pointers code") ?? [])
+      const pointers = Array.from(evidence?.querySelectorAll(".review-evidence-locations code") ?? [])
         .map((candidate) => candidate.textContent?.trim());
       const editor = evidence?.querySelector('[data-workspace-section-editor="read-only"]');
       return factor?.getAttribute("aria-pressed") === "true" &&

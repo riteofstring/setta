@@ -14,6 +14,23 @@ import (
 	"github.com/setta/review/backend/internal/contracts"
 )
 
+func TestResolverResolvesCodeEvidence(t *testing.T) {
+	root := t.TempDir()
+	codeSource := "export function publish(topic: string): void {\n  events.add(topic)\n}\n"
+	writeTestFile(t, filepath.Join(root, "source", "publisher.ts"), codeSource)
+	resolver, err := New(root)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	codeResult := resolver.Resolve("request-1", contracts.EvidenceReference{
+		ID: "source", Kind: "code", Code: &contracts.CodeEvidenceReference{Path: "source/publisher.ts", Language: "typescript", SourceSHA256: digestBytes([]byte(codeSource))},
+	})
+	if codeResult.Status != "resolved" || codeResult.Content == nil || codeResult.Content.Code == nil || *codeResult.Content.Code != codeSource || codeResult.Content.Language == nil || *codeResult.Content.Language != "typescript" {
+		t.Fatalf("code result = %#v", codeResult)
+	}
+}
+
 func TestResolverResolvesTextJSONAndArtifactEvidence(t *testing.T) {
 	root := t.TempDir()
 	textSource := "start\nretry\ncomplete\n"
@@ -139,12 +156,16 @@ func TestResolverReturnsOnlyTheRequestedGitHunk(t *testing.T) {
 
 func TestResolverRejectsChangedMutableEvidence(t *testing.T) {
 	root := t.TempDir()
+	codePath := filepath.Join(root, "source.py")
 	textPath := filepath.Join(root, "note.txt")
 	jsonPath := filepath.Join(root, "result.json")
+	writeTestFile(t, codePath, "value = 'before'\n")
 	writeTestFile(t, textPath, "before\n")
 	writeTestFile(t, jsonPath, `{"value":"before"}`)
+	codeDigest := digestBytes([]byte("value = 'before'\n"))
 	textDigest := digestBytes([]byte("before\n"))
 	jsonDigest := digestBytes([]byte(`{"value":"before"}`))
+	writeTestFile(t, codePath, "value = 'after'\n")
 	writeTestFile(t, textPath, "after\n")
 	writeTestFile(t, jsonPath, `{"value":"after"}`)
 	resolver, err := New(root)
@@ -153,6 +174,7 @@ func TestResolverRejectsChangedMutableEvidence(t *testing.T) {
 	}
 
 	references := []contracts.EvidenceReference{
+		{ID: "code", Kind: "code", Code: &contracts.CodeEvidenceReference{Path: "source.py", Language: "python", SourceSHA256: codeDigest}},
 		{ID: "text", Kind: "text", Text: &contracts.TextEvidenceReference{Path: "note.txt", MediaType: "text/plain", StartLine: 1, EndLine: 1, SourceSHA256: textDigest}},
 		{ID: "json", Kind: "json", JSON: &contracts.JSONEvidenceReference{Path: "result.json", Pointers: []string{}, SourceSHA256: jsonDigest}},
 	}

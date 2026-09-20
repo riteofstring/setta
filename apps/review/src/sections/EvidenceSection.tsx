@@ -3,6 +3,7 @@ import {
   createWorkspaceCodeSection,
   createWorkspaceCodeSectionData,
   NO_WHEEL_CLASS_NAME,
+  type WorkspaceCodeSectionLanguage,
   type WorkspaceSection,
 } from "@setta/workspace";
 
@@ -26,7 +27,7 @@ const REVIEW_DIFF_THEME = {
   light: "github-light-default",
 } as const;
 
-const JSON_CODE_SECTION = createWorkspaceCodeSection({ languages: ["json"] });
+const CODE_SECTION = createWorkspaceCodeSection();
 
 function activeRelations(
   relations: readonly EvidenceRelation[],
@@ -107,6 +108,55 @@ function jsonSummary(value: JsonValue): string {
   return JSON.stringify(value, null, 2);
 }
 
+function lineCitationLabels(citations: readonly EvidenceCitation[]): string[] {
+  return citations.flatMap((citation) => {
+    if (citation.kind !== "lineRange") {
+      return [];
+    }
+    return [
+      citation.startLine === citation.endLine
+        ? `Line ${String(citation.startLine)}`
+        : `Lines ${String(citation.startLine)}–${String(citation.endLine)}`,
+    ];
+  });
+}
+
+function CodeEvidence({
+  code,
+  language,
+  locations,
+  section,
+}: {
+  code: string;
+  language: WorkspaceCodeSectionLanguage;
+  locations: readonly string[];
+  section: WorkspaceSection;
+}) {
+  const codeSection = {
+    ...section,
+    data: createWorkspaceCodeSectionData({
+      code,
+      language,
+      mode: "read-only",
+    }),
+  };
+  return (
+    <div className="review-code-evidence">
+      {locations.length > 0 ? (
+        <div
+          aria-label="Focused evidence locations"
+          className="review-evidence-locations"
+        >
+          {locations.map((location, index) => (
+            <code key={`${location}:${String(index)}`}>{location}</code>
+          ))}
+        </div>
+      ) : null}
+      {CODE_SECTION.renderContent(codeSection)}
+    </div>
+  );
+}
+
 function JsonEvidence({
   content,
   citations,
@@ -119,25 +169,13 @@ function JsonEvidence({
   const pointers = citations.flatMap((citation) =>
     citation.kind === "jsonPointer" ? [citation.pointer] : [],
   );
-  const codeSection = {
-    ...section,
-    data: createWorkspaceCodeSectionData({
-      code: jsonSummary(content.json),
-      language: "json",
-      mode: "read-only",
-    }),
-  };
   return (
-    <div className="review-json-evidence">
-      {pointers.length > 0 ? (
-        <div aria-label="Focused JSON values" className="review-json-pointers">
-          {pointers.map((pointer) => (
-            <code key={pointer}>{pointer || "/"}</code>
-          ))}
-        </div>
-      ) : null}
-      {JSON_CODE_SECTION.renderContent(codeSection)}
-    </div>
+    <CodeEvidence
+      code={jsonSummary(content.json)}
+      language="json"
+      locations={pointers.map((pointer) => pointer || "/")}
+      section={section}
+    />
   );
 }
 
@@ -201,6 +239,13 @@ export function EvidenceSection({ section }: { section: WorkspaceSection }) {
         </div>
       ) : resolved.content.kind === "gitDiff" ? (
         <DiffEvidence content={resolved.content} />
+      ) : resolved.content.kind === "code" ? (
+        <CodeEvidence
+          code={resolved.content.code}
+          language={resolved.content.language}
+          locations={lineCitationLabels(citations)}
+          section={section}
+        />
       ) : resolved.content.kind === "text" ? (
         <TextEvidence citations={citations} content={resolved.content} />
       ) : resolved.content.kind === "json" ? (

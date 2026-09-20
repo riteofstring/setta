@@ -231,6 +231,12 @@ func evidenceReferenceSchema() map[string]any {
 			"contextLines": map[string]any{"type": "integer", "minimum": 0, "maximum": 20}, "hunk": ref("gitHunk"), "patchSha256": sha256Schema(),
 		}),
 	})
+	code := closed([]string{"id", "kind", "code"}, map[string]any{
+		"id": idSchema(), "kind": map[string]any{"const": "code"},
+		"code": closed([]string{"path", "language", "sourceSha256"}, map[string]any{
+			"path": relativePathSchema(), "language": enumSchema(codeLanguages...), "sourceSha256": sha256Schema(),
+		}),
+	})
 	text := closed([]string{"id", "kind", "text"}, map[string]any{
 		"id": idSchema(), "kind": map[string]any{"const": "text"},
 		"text": closed([]string{"path", "mediaType", "startLine", "endLine", "sourceSha256"}, map[string]any{
@@ -249,7 +255,7 @@ func evidenceReferenceSchema() map[string]any {
 			"path": relativePathSchema(), "mediaType": mediaTypeSchema(), "byteLength": nonNegativeInteger(), "sha256": sha256Schema(),
 		}),
 	})
-	return map[string]any{"oneOf": []any{gitDiff, text, jsonReference, artifact}}
+	return map[string]any{"oneOf": []any{gitDiff, code, text, jsonReference, artifact}}
 }
 
 func evidenceCitationSchema() map[string]any {
@@ -311,6 +317,9 @@ func resolvedEvidenceContentSchema() map[string]any {
 	gitDiff := closed([]string{"kind", "unifiedDiff", "truncated"}, map[string]any{
 		"kind": map[string]any{"const": "gitDiff"}, "unifiedDiff": boundedResolvedTextSchema(), "truncated": map[string]any{"type": "boolean"},
 	})
+	code := closed([]string{"kind", "code", "language"}, map[string]any{
+		"kind": map[string]any{"const": "code"}, "code": boundedResolvedTextSchema(), "language": enumSchema(codeLanguages...),
+	})
 	text := closed([]string{"kind", "text", "startLine", "endLine", "truncated"}, map[string]any{
 		"kind": map[string]any{"const": "text"}, "text": boundedResolvedTextSchema(), "startLine": positiveInteger(), "endLine": positiveInteger(), "truncated": map[string]any{"type": "boolean"},
 	})
@@ -321,7 +330,7 @@ func resolvedEvidenceContentSchema() map[string]any {
 		"kind": map[string]any{"const": "artifact"}, "route": map[string]any{"type": "string", "pattern": `^/`, "maxLength": maximumPathBytes},
 		"mediaType": mediaTypeSchema(), "byteLength": nonNegativeInteger(), "sha256": sha256Schema(),
 	})
-	return map[string]any{"oneOf": []any{gitDiff, text, jsonContent, artifact}}
+	return map[string]any{"oneOf": []any{gitDiff, code, text, jsonContent, artifact}}
 }
 
 func closed(required []string, properties map[string]any) map[string]any {

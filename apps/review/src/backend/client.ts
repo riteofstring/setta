@@ -157,6 +157,27 @@ function isGitDiffContent(value: UnknownRecord): boolean {
   );
 }
 
+const CODE_LANGUAGES = new Set([
+  "python",
+  "bash",
+  "javascript",
+  "typescript",
+  "json",
+  "yaml",
+  "toml",
+  "markdown",
+  "plaintext",
+]);
+
+function isCodeContent(value: UnknownRecord): boolean {
+  return (
+    isClosedRecord(value, ["kind", "code", "language"]) &&
+    typeof value.code === "string" &&
+    typeof value.language === "string" &&
+    CODE_LANGUAGES.has(value.language)
+  );
+}
+
 function isTextContent(value: UnknownRecord): boolean {
   return (
     isClosedRecord(value, [
@@ -199,6 +220,8 @@ function isResolvedEvidenceContent(value: unknown): boolean {
   switch (value.kind) {
     case "gitDiff":
       return isGitDiffContent(value);
+    case "code":
+      return isCodeContent(value);
     case "text":
       return isTextContent(value);
     case "json":

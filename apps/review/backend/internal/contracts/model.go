@@ -73,6 +73,7 @@ type EvidenceReference struct {
 	ID       string                     `json:"id"`
 	Kind     string                     `json:"kind"`
 	GitDiff  *GitDiffEvidenceReference  `json:"gitDiff,omitempty"`
+	Code     *CodeEvidenceReference     `json:"code,omitempty"`
 	Text     *TextEvidenceReference     `json:"text,omitempty"`
 	JSON     *JSONEvidenceReference     `json:"json,omitempty"`
 	Artifact *ArtifactEvidenceReference `json:"artifact,omitempty"`
@@ -100,6 +101,12 @@ type TextEvidenceReference struct {
 	MediaType    string `json:"mediaType"`
 	StartLine    int    `json:"startLine"`
 	EndLine      int    `json:"endLine"`
+	SourceSHA256 string `json:"sourceSha256"`
+}
+
+type CodeEvidenceReference struct {
+	Path         string `json:"path"`
+	Language     string `json:"language"`
 	SourceSHA256 string `json:"sourceSha256"`
 }
 
@@ -265,6 +272,8 @@ type ResolvedEvidence struct {
 type ResolvedEvidenceContent struct {
 	Kind        string          `json:"kind"`
 	UnifiedDiff *string         `json:"unifiedDiff,omitempty"`
+	Code        *string         `json:"code,omitempty"`
+	Language    *string         `json:"language,omitempty"`
 	Text        *string         `json:"text,omitempty"`
 	StartLine   *int            `json:"startLine,omitempty"`
 	EndLine     *int            `json:"endLine,omitempty"`

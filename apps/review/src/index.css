@@ -743,7 +743,7 @@ button {
     sans-serif;
 }
 
-.review-json-evidence {
+.review-code-evidence {
   position: relative;
   display: flex;
   flex: 1;
@@ -752,7 +752,7 @@ button {
   min-height: 0;
 }
 
-.review-json-pointers {
+.review-evidence-locations {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -764,13 +764,13 @@ button {
   background: light-dark(#f3f7ff, #111d34);
 }
 
-.review-json-pointers code {
+.review-evidence-locations code {
   color: #6b8fdc;
   font-size: 10px;
 }
 
 .review-diff-evidence,
-.review-json-evidence {
+.review-code-evidence {
   min-width: 0;
   font-size: 11px;
 }

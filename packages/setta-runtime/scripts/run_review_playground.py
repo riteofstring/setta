@@ -218,8 +218,8 @@ def _install_evidence_identity(
     if kind == "gitDiff":
         _install_diff_identity(project, revision, evidence, request_path)
         return
-    if kind == "text":
-        _install_file_identity(project, "text", evidence, request_path)
+    if kind in {"code", "text"}:
+        _install_file_identity(project, kind, evidence, request_path)
     elif kind == "json":
         _install_file_identity(project, "json", evidence, request_path)
 
@@ -305,7 +305,7 @@ def _select_diff_hunk(
 
 def _install_file_identity(
     project: Path,
-    kind: Literal["json", "text"],
+    kind: Literal["code", "json", "text"],
     evidence: dict[str, object],
     request_path: Path,
 ) -> None:
@@ -384,12 +384,12 @@ def _validate_fixture(root: Path) -> None:
             raise PlaygroundError(
                 f"playground fixture file is unreadable: {relative}"
             ) from error
-        revisions, digests = _placeholder_counts(document)
+        revisions, digests, identities = _identity_counts(document)
         if revisions != 1:
             raise PlaygroundError(
                 f"playground fixture base placeholder is invalid: {relative}"
             )
-        if digests != 3:
+        if digests != identities:
             raise PlaygroundError(
                 f"playground fixture evidence placeholders are invalid: {relative}"
             )
@@ -404,7 +404,7 @@ def _validate_project(root: Path, label: str) -> None:
             document = json.loads((root / relative).read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise PlaygroundError(f"{label} file is unreadable: {relative}") from error
-        revisions, digests = _placeholder_counts(document)
+        revisions, digests, _ = _identity_counts(document)
         if revisions != 0:
             raise PlaygroundError(
                 f"{label} has an unresolved base revision: {relative}"
@@ -422,15 +422,16 @@ def _validate_project(root: Path, label: str) -> None:
         raise PlaygroundError(f"{label} evidence repository has no submitted changes")
 
 
-def _placeholder_counts(document: object) -> tuple[int, int]:
+def _identity_counts(document: object) -> tuple[int, int, int]:
     document_map = _string_map(document)
     evidence_values = (
         None if document_map is None else _object_list(document_map.get("evidence"))
     )
     if evidence_values is None:
-        return -1, -1
+        return -1, -1, -1
     revisions = 0
     digests = 0
+    identities = 0
     for evidence_value in evidence_values:
         evidence = _string_map(evidence_value)
         if evidence is None:
@@ -440,11 +441,13 @@ def _placeholder_counts(document: object) -> tuple[int, int]:
         if payload is None:
             continue
         if kind == "gitDiff":
+            identities += 1
             revisions += int(payload.get("baseRevision") == ZERO_REVISION)
             digests += int(payload.get("patchSha256") == ZERO_SHA256)
-        elif kind in {"text", "json"}:
+        elif kind in {"code", "text", "json"}:
+            identities += 1
             digests += int(payload.get("sourceSha256") == ZERO_SHA256)
-    return revisions, digests
+    return revisions, digests, identities
 
 
 def _require_regular_path(root: Path, relative: Path, label: str) -> None:

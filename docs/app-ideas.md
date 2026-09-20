@@ -127,8 +127,8 @@ Codex, Claude Code, OpenCode, or any other producer can submit and consume the s
 - A **review type** defines bounded subject and decision semantics. Types are built into the app;
   the first version is not a generic form or plug-in builder.
 - A **subject** is the claim, question, option, or candidate being considered.
-- An **evidence reference** points to an exact Git hunk, text or log range, JSON result, local file,
-  or content-addressed artifact.
+- An **evidence reference** points to an exact Git hunk, complete source-code file, text or log
+  range, structured JSON result, or content-addressed artifact.
 - A **review response** records decisions, qualifications, rationale, selected artifacts,
   artifact-anchored annotations, unresolved items, and provenance without mutating the submitted
   request.
@@ -156,9 +156,9 @@ never resumes an agent.
 
 Choice review has two presentations over that same request and response contract. A matrix keeps
 structured options and tradeoff factors together. An artifact comparison uses managed windows when
-the reviewer needs to judge images, text, JSON, or other admitted artifacts at useful fidelity. It
-can record a selection, rejection, or qualification, include chosen artifacts, and attach
-drawn feedback to an exact artifact revision.
+the reviewer needs to judge images, code, text, JSON, or other admitted artifacts at useful
+fidelity. It can record a selection, rejection, or qualification, include chosen artifacts, and
+attach drawn feedback to an exact artifact revision.
 
 ### Why Workspace matters
 
@@ -166,7 +166,7 @@ drawn feedback to an exact artifact revision.
   labels.
 - Typed edges show which evidence supports a claim or affects an option.
 - Attention and framing bring every source for the selected subject into view.
-- Managed windows make candidate, diff, log, artifact, and proposal comparison a first-class
+- Managed windows make candidate, diff, source, log, artifact, and proposal comparison a first-class
   interaction.
 - Native Current and Old saved views keep active work focused without discarding finished reviews.
 - Inspector controls can record a small decision without turning the app into a form builder.
@@ -181,8 +181,8 @@ foundation.
 1. Open one review request and an optional local Git worktree.
 2. Support two built-in types: completion review and choice review. Choice review covers bounded
    questions, proposals, and candidate sets with type-specific presentations.
-3. Resolve Git hunks, UTF-8 text or log ranges, JSON results, and local file artifacts, and attach
-   drawing overlays to exact artifact revisions.
+3. Resolve Git hunks, complete UTF-8 source files, bounded text or log ranges, structured JSON
+   results, and local file artifacts, and attach drawing overlays to exact artifact revisions.
 4. Persist a versioned response that any producer can read; offer file materialization only as an
    optional CLI boundary for external tools.
 

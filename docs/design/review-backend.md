@@ -30,15 +30,18 @@ has been recorded.
 
 Every evidence path is relative to the project root, remains within its canonical boundary, and
 must name a regular non-symlink file. Git evidence names an exact base revision, optional target
-revision or current worktree, path, bounded context, exact hunk, and patch digest. Text and log
-references name bounded line ranges plus the complete source-file digest. JSON references name a
-file, optional JSON Pointers, and the complete source-file digest. Artifact references name a media
-type, byte length, and exact digest. The backend invokes Git without a shell and never stages,
-edits, commits, or pushes. If any source changes after request admission, that evidence becomes a
-structured resolution failure; Review never substitutes newer bytes into an existing decision.
+revision or current worktree, path, bounded context, exact hunk, and patch digest. Code references
+name a complete UTF-8 file, one supported Workspace CodeMirror language, and its digest. Text and
+log references name bounded line ranges plus the complete source-file digest. JSON references name
+a file, optional JSON Pointers, and the complete source-file digest. Artifact references name a
+media type, byte length, and exact digest. The backend invokes Git without a shell and never
+stages, edits, commits, or pushes. If any source changes after request admission, that evidence
+becomes a structured resolution failure; Review never substitutes newer bytes into an existing
+decision.
 
-Resolved bounded text, JSON, and diff data travels in the snapshot. Binary artifacts use an exact
-same-origin evidence route keyed by request and evidence identity; callers cannot provide a path.
+Resolved code, bounded text, JSON, and diff data travels in the snapshot. Binary artifacts use an
+exact same-origin evidence route keyed by request and evidence identity; callers cannot provide a
+path.
 Only a closed passive image, audio, and video allowlist renders inline. Other admitted artifacts
 remain inert metadata with an attachment-only download route.
 Drawing annotations store normalized artifact-relative paths beside the response and bind to the
