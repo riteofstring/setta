@@ -116,10 +116,11 @@
             Explore the shape of an experiment, not just its charts.
           </h1>
           <p class="hero-lede">
-            An agent or script writes a typed manifest and artifacts. Lens
-            assembles its built-in Setta sections and links them through shared
-            selection and timeline state. It neither runs the experiment nor
-            loads project-supplied interface code.
+            An agent or script writes a typed manifest and artifacts. The
+            manifest chooses built-in Setta sections, binds their data, and
+            places them in named views. Lens renders them with shared selection
+            and timeline state. It neither runs the experiment nor loads
+            project-supplied interface code.
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#explore">Explore two result sets</a>
@@ -135,17 +136,17 @@
           <div class="experiment-lens-summary-row">
             <span>DATA</span>
             <div>
-              <strong>The manifest supplies recorded data</strong>
+              <strong>The manifest supplies data and presentation</strong>
               <small
-                >Stable observation IDs, factors, metrics, and artifact
-                references.</small
+                >Stable observations and artifacts plus section bindings, named
+                views, and exact layout.</small
               >
             </div>
           </div>
           <div class="experiment-lens-summary-row">
             <span>VIEW</span>
             <div>
-              <strong>Lens supplies a bounded view catalog</strong>
+              <strong>Lens supplies the bounded section catalog</strong>
               <small
                 >Rich built-in sections share filters, selection, and timeline
                 state without a plug-in system.</small
@@ -157,7 +158,7 @@
             <div>
               <strong>A selection packet leaves the app</strong>
               <small
-                >No runner, tracker, dashboard DSL, or dynamic plug-in
+                >No runner, tracker, executable UI, or dynamic plug-in
                 system.</small
               >
             </div>
@@ -172,11 +173,11 @@
               <div class="showcase-number">Example 01 · Dense sweep atlas</div>
               <h2>Find a degradation regime, then inspect the exact cycle.</h2>
               <p>
-                Lens maps 864 battery-cycle observations into its bundled
-                exploration views. Filtering changes the landscape and table
-                together; selecting any point or row opens its synchronized
-                charge trace and thermal-camera frame. Pin outliers into a
-                managed comparison window.
+                The manifest composes 864 battery-cycle observations into
+                overview and inspection views. Filtering changes the landscape
+                and table together; selecting any point or row opens its
+                synchronized charge trace and thermal-camera frame. Pin outliers
+                into a managed comparison window.
               </p>
             </div>
           </div>
@@ -892,8 +893,8 @@
                 Move between a population, one trajectory, and one millisecond.
               </h2>
               <p>
-                This result set activates different bundled views over the same
-                small Lens contract. A failure matrix summarizes 2,400
+                This result set composes different built-in sections with the
+                same small Lens contract. A failure matrix summarizes 2,400
                 robustness trials; selecting a cell loads one representative
                 trajectory, its synchronized signals, event trace, and exact
                 controller configuration. The timeline is the shared control—not
@@ -1447,8 +1448,8 @@
               <div role="cell">Built-in panels, notebooks, or plug-ins</div>
               <div role="cell">
                 <strong
-                  >A closed Setta section catalog; no project code or dynamic
-                  discovery</strong
+                  >Manifest-composed built-ins and exact views; no project code
+                  or dynamic discovery</strong
                 >
               </div>
             </div>
@@ -1512,8 +1513,8 @@
             <div class="experiment-lens-handoff-step">
               <span>02 · Understand</span><strong>Experiment Lens</strong
               ><small
-                >Links built-in sections and records the selected cohort, runs,
-                time range, and notes.</small
+                >Renders the declared views and records the selected cohort,
+                runs, time range, and notes.</small
               >
             </div>
             <div class="experiment-lens-handoff-arrow">→</div>

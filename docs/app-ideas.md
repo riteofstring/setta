@@ -201,21 +201,21 @@ agent, script, notebook, or experiment system**. Its recurring question is:
 > What happened across this result set, which exact observations and artifacts matter, and what
 > should another person or tool inspect next?
 
-The app does not generate arbitrary dashboards or execute project-supplied UI code. A trusted local
-project supplies one typed manifest, an observation table, and local artifacts. Lens assembles a
-bounded catalog of useful Setta sections from those semantics, while shared selection, filter, and
-timeline state keeps the sections synchronized. The durable output is a portable selection packet
-rather than another run database.
+The app does not execute project-supplied UI code. A trusted local project supplies one typed
+manifest, an observation table, and local artifacts. Its declarative presentation chooses from a
+bounded catalog of Setta sections, binds them to fields or artifact roles, and gives them exact
+placements in named views. Shared selection, filter, and timeline state keeps those sections
+synchronized. The durable output is a portable selection packet rather than another run database.
 
 ### Durable concepts
 
 - An **experiment manifest** identifies the result set, factor and metric fields, stable observation
-  IDs, timestamps when relevant, and content-addressed artifact references. It contains data
-  semantics, not layout or executable UI definitions.
-- The **built-in view catalog** contains facets, scatter and parallel-coordinate plots, a virtualized
-  observation table, standardized time series, and admitted artifact viewers. Lens chooses the
-  applicable sections from the manifest; projects do not provide React code, ECharts options, or a
-  dashboard language.
+  IDs, timestamps when relevant, content-addressed artifact references, and its presentation.
+- The **declarative presentation** chooses built-in facets, scatter, histogram, heatmap, parallel,
+  table, aggregate-metric, timeline, and gallery sections. It binds their data, names the saved
+  views, and specifies each section's exact geometry and initial viewport.
+- The **built-in section catalog** owns behavior and rendering. Projects do not provide React code,
+  expressions, arbitrary ECharts options, dependencies, or dynamic plug-ins.
 - **Linked exploration state** contains the current filters, focused observation, explicit
   selection basket, and timeline or range position shared by participating sections.
 - A **note** records human context against an exact observation, artifact revision, and optional
@@ -234,27 +234,27 @@ rather than another run database.
 - Attention, framing, and saved presentations can move between overview, failure replay, and pinned
   comparison without duplicating the underlying record.
 
-The two mockup examples deliberately exercise different parts of the same bundled catalog. The
-battery workspace links a dense sweep, table, aging trajectory, and thermal frame. The drone workspace
-links a failure matrix, spatial replay, signal timeline, event trace, and controller source. The
-first implementation proves the battery workflow; additional bundled section types can extend that
-catalog without introducing project code or plug-in discovery.
+The two mockup examples deliberately compose different presentations from the same bundled catalog.
+The battery workspace links a dense sweep, table, aging trajectory, and thermal frames. The drone
+workspace links a failure matrix, spatial replay, signal timeline, event trace, and controller
+source. The first implementation proves the battery workflow; additional built-in section types can
+extend the catalog without introducing project code or plug-in discovery.
 
 ### Bounded first version
 
 1. Open one trusted local project with one admitted experiment manifest and content-addressed
    observation source.
-2. Assemble applicable built-in facets, scatter, parallel-coordinate, table, series, and artifact
-   sections from typed fields and local code, text, image, JSON, and standardized-series artifacts.
+2. Render manifest-selected facets, scatter, histogram, heatmap, parallel-coordinate, table,
+   aggregate-metric, timeline, and gallery sections in explicitly named and positioned views.
 3. Provide shared selection, filtering, comparison, optional timeline state, and exact notes across
    those sections without rewriting the immutable inputs.
 4. Export a versioned selection packet with selected row values, notes, ranges, and reverified
    artifact references.
 
 The first version does not launch experiments, tune parameters, schedule work, replace an
-experiment tracker, query an unbounded remote dataset, accept arbitrary chart specifications,
-discover third-party sections, load project code, sandbox untrusted code, or define a general
-plug-in system.
+experiment tracker, query an unbounded remote dataset, accept arbitrary chart options or executable
+expressions, discover third-party sections, load project code, sandbox untrusted code, or define a
+general plug-in system.
 
 ### Portfolio role
 

@@ -61,8 +61,48 @@ my-experiment/
 
 `experiment.json` declares ordered factor and metric fields, one content-addressed observation
 source, content-addressed local artifacts, relations from stable observation IDs to those
-artifacts, and producer provenance. It contains no layout, React code, chart options, commands,
-remote URLs, or plug-in declarations.
+artifacts, producer provenance, and a declarative presentation. The presentation chooses built-in
+section types, binds them to fields or artifact roles, and places them exactly in named views:
+
+```json
+{
+  "presentation": {
+    "initialViewId": "overview",
+    "sections": [
+      {
+        "id": "condition-heatmap",
+        "title": "Mean retention by test condition",
+        "type": "heatmap",
+        "xFieldId": "charge_rate_c",
+        "yFieldId": "ambient_c",
+        "valueFieldId": "capacity_retention_pct",
+        "aggregation": "mean"
+      }
+    ],
+    "views": [
+      {
+        "id": "overview",
+        "name": "Overview",
+        "viewport": { "x": 320, "y": 12, "zoom": 0.76 },
+        "placements": [
+          {
+            "sectionId": "condition-heatmap",
+            "x": 64,
+            "y": 64,
+            "width": 1320,
+            "height": 430
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The contract supports facets, scatter, histogram, heatmap, parallel-coordinate, table, aggregate
+metrics, standardized timeline, and artifact-gallery sections. It does not admit React code,
+expressions, arbitrary chart options, commands, remote URLs, dependencies, or plug-in discovery.
+Run `setta experiment-lens schema --pretty` for the complete versioned contract.
 
 The optional `setta-series/v1` envelope describes one numeric axis, named numeric series, and
 samples. A relation can anchor another artifact to an exact value on that axis. Lens also admits
@@ -72,21 +112,23 @@ silently replacing admitted evidence.
 
 ## Workspace behavior
 
-Lens selects from six built-in section types according to the manifest: cohort facets, population
-scatter, parallel relationships, a virtualized observation table, standardized recorded series,
-and an artifact viewer. A sparse experiment may show only the table; projects never supply
-executable section code.
+Lens renders the sections and named views declared by the manifest. A producer can make an Overview
+of facets, aggregate metrics, scatter, histogram, and heatmap; a Compare view of parallel
+coordinates and a virtualized table; and an Inspect view of standardized timelines and related
+artifacts. These are examples, not fixed view names or layouts. The same section can appear in
+multiple views at a different position and size. Projects compose the nine built-ins but never
+supply executable section code.
 
 Filters, focus, the comparison basket, selected artifacts, ranges, and notes are shared durable
 state. Selecting a point or row focuses the same observation everywhere. A series pointer snaps to
-the nearest sample and drives any artifact related to that axis. Atlas and Inspect saved views
-rearrange the same applicable sections, while a managed window compares up to four selected
+the nearest sample and drives any artifact related to that axis. Activating a declared view applies
+its section set, geometry, and viewport, while a managed window compares up to four selected
 trajectories and metrics. The full basket remains available for export.
 
-Workspace layout, chart hover, playback cursor, axis choices, and window geometry are local
-presentation state. A selected series range is durable and content-addressed with the rest of the
-exploration selection. There are no decorative graph edges: coordinated views communicate through
-their shared selection directly.
+User changes to Workspace layout, chart hover, playback cursor, axis choices, and window geometry
+are local presentation state. A selected series range is durable and content-addressed with the
+rest of the exploration selection. There are no decorative graph edges: coordinated views
+communicate through their shared selection directly.
 
 ## Durable output
 
