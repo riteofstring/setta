@@ -119,6 +119,20 @@ temporarily disables conflicting viewport input until the renderer transition se
 removal lingers to preserve main's visual cadence. Complete document load clears the runtime. The
 feature neither changes selection nor writes presentation state into `WorkspaceDocument`.
 
+## Managed-window geometry authority
+
+Managed-window state remains a controlled host value, but an integrated `WorkspaceShell` owns the
+geometry of its own presentation layer. It measures the exact manager surface and derives physical
+boundary insets from package-owned pane widths, writing direction, and the saved-view tab strip.
+Applications may observe that viewport when they invoke pure window transitions, but they do not
+duplicate shell measurement or guess fallback dimensions. Viewport-dependent controls remain
+unavailable until a positive measurement exists.
+
+The standalone window manager keeps an explicit inset input because it has no shell composition to
+inspect. It measures its own bounds and can publish the resulting viewport. In both compositions,
+one manager-owned measurement drives clamping, snapping, docking, maximization, section handoff,
+and Window Space normalization, so those behaviors cannot disagree about the usable rectangle.
+
 ## Extension and mutation boundaries
 
 Registration calls replace one complete host-owned catalog. Candidate section kinds, commands,

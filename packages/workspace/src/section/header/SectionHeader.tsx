@@ -138,7 +138,8 @@ function SectionWindowControl({
   const section = useWorkspaceDocument((state) =>
     getSectionOrThrow(state, sectionId),
   );
-  if (!windowing) return null;
+  const viewport = windowing?.viewport;
+  if (!windowing || !viewport) return null;
   const binding = getWorkspaceSectionWindowBinding(windowing.state, sectionId);
   const externalBinding = getExternalWorkspaceSectionWindowBinding(
     windowing.state,
@@ -161,7 +162,7 @@ function SectionWindowControl({
               sectionId,
               title: section.name,
             },
-            windowing.viewport,
+            viewport,
             { layoutEditable: windowing.layoutEditable },
           ),
         );

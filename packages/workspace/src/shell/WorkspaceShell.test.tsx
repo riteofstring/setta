@@ -39,6 +39,11 @@ import type {
   WorkspaceShellViewState,
 } from "./workspaceShellTypes";
 import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
+import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
+import {
+  createWorkspaceWindowingState,
+  type WorkspaceWindowViewport,
+} from "../windowing/windowingTypes";
 
 const { shiftWorkspaceMapForLeadingPane, workspaceCanvasProps } = vi.hoisted(
   () => ({
@@ -156,6 +161,7 @@ function Harness({
   navigator,
   onChange,
   windowManager,
+  windowing,
 }: {
   canvas?: WorkspaceCanvasConfiguration;
   includeBuiltInInspector?: boolean;
@@ -165,6 +171,7 @@ function Harness({
   navigator?: WorkspaceNavigatorConfiguration;
   onChange: (viewState: WorkspaceShellViewState) => void;
   windowManager?: ReactNode;
+  windowing?: WorkspaceShellWindowingConfiguration;
 }) {
   const [viewState, setViewState] = useState(() =>
     createWorkspaceShellViewState({
@@ -189,6 +196,7 @@ function Harness({
       trailingTabs={trailingTabs}
       viewState={viewState}
       windowManager={windowManager}
+      windowing={windowing}
     />
   );
 }
@@ -315,6 +323,30 @@ describe("WorkspaceShell", () => {
           {
             target: shell,
             contentRect: new DOMRect(0, 0, width, 600),
+          } as unknown as ResizeObserverEntry,
+        ],
+        new CapturingResizeObserver(callback) as unknown as ResizeObserver,
+      );
+    });
+  }
+
+  async function resizeWindowManager(width: number, height: number) {
+    const manager = host.querySelector<HTMLElement>(
+      '[data-workspace-window-manager="true"]',
+    );
+    if (!manager) {
+      throw new Error("Expected the integrated workspace window manager.");
+    }
+    const callback = observedResizeTargets.get(manager);
+    if (!callback) {
+      throw new Error("Expected the window manager to be resize-observed.");
+    }
+    await act(async () => {
+      callback(
+        [
+          {
+            target: manager,
+            contentRect: new DOMRect(0, 0, width, height),
           } as unknown as ResizeObserverEntry,
         ],
         new CapturingResizeObserver(callback) as unknown as ResizeObserver,
@@ -500,6 +532,55 @@ describe("WorkspaceShell", () => {
       trailingPaneRegion.compareDocumentPosition(manager) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("owns the integrated window viewport and reports shell chrome insets", async () => {
+    const onViewportChange =
+      vi.fn<(viewport: WorkspaceWindowViewport) => void>();
+    await act(async () => {
+      root.unmount();
+    });
+    observedResizeTargets.clear();
+    root = createRoot(host);
+    await act(async () => {
+      enableWorkspaceSavedViews(testWorkspace.host, {
+        id: "overview",
+        isTab: true,
+        name: "Overview",
+      });
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <Harness
+            includeSavedViewTabs
+            onChange={onChange}
+            windowing={{
+              onStateChange: vi.fn(),
+              onViewportChange,
+              renderers: {},
+              state: createWorkspaceWindowingState(),
+            }}
+          />
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(1_200);
+    await resizeWindowManager(1_200, 720);
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      height: 720,
+      insets: { bottom: 36, left: 335, right: 40, top: 0 },
+      width: 1_200,
+    });
+
+    await act(async () => {
+      getButton("Notes").click();
+    });
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      height: 720,
+      insets: { bottom: 36, left: 40, right: 40, top: 0 },
+      width: 1_200,
+    });
   });
 
   it("maps the pane insets onto the host's writing direction", async () => {

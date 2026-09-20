@@ -28,6 +28,7 @@ import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator";
+import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import {
@@ -458,6 +459,8 @@ export function WorkspaceShell({
     getWorkspaceShellSavedViewTabsHeight(hasSavedViewTabs);
   useWorkspaceFocusVisibility(rootRef);
   const [shellWidth, setShellWidth] = useState(0);
+  const [physicalWindowInsets, setPhysicalWindowInsets] =
+    useState<WorkspaceWindowBoundaryInsets | null>(null);
   const [liveViewState, setLiveViewState] =
     useState<WorkspaceShellViewState | null>(null);
   const resolvedSectionTagColorPalette = useMemo(
@@ -480,6 +483,16 @@ export function WorkspaceShell({
   callbackRef.current = onViewStateChange;
 
   const displayState = liveViewState ?? viewState;
+  const windowBoundaryInsets = useMemo<WorkspaceWindowBoundaryInsets | null>(
+    () =>
+      physicalWindowInsets
+        ? {
+            ...physicalWindowInsets,
+            bottom: physicalWindowInsets.bottom + savedViewTabsHeight,
+          }
+        : null,
+    [physicalWindowInsets, savedViewTabsHeight],
+  );
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -591,6 +604,11 @@ export function WorkspaceShell({
       trailing: trailingViewportInset,
     });
     ownedViewportInsetsRef.current = nextInsets;
+    setPhysicalWindowInsets((current) =>
+      current && areViewportInsetsEqual(current, nextInsets)
+        ? current
+        : nextInsets,
+    );
     if (
       !areViewportInsetsEqual(
         getReactFlowStore(host).getState().viewportInsets,
@@ -918,7 +936,7 @@ export function WorkspaceShell({
 
   return (
     <WorkspaceShellWindowingComposition
-      bottomInset={savedViewTabsHeight}
+      boundaryInsets={windowBoundaryInsets}
       windowing={windowing}
     >
       <section

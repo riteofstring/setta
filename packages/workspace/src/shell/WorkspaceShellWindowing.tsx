@@ -4,9 +4,10 @@ import {
   WorkspaceWindowingContextProvider,
   type WorkspaceShellWindowingConfiguration,
 } from "../windowing/workspaceWindowingContext";
+import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes";
 
 type WorkspaceShellWindowingCompositionProps = {
-  bottomInset: number;
+  boundaryInsets: WorkspaceWindowBoundaryInsets | null;
   children: ReactNode;
   windowing: WorkspaceShellWindowingConfiguration | undefined;
 };
@@ -21,30 +22,6 @@ type WorkspaceShellWindowManagerInputs = Omit<
   WorkspaceShellWindowManagerLayerProps,
   "bottomInset"
 >;
-
-function addWorkspaceShellBottomInset(
-  windowing: WorkspaceShellWindowingConfiguration | undefined,
-  bottomInset: number,
-): WorkspaceShellWindowingConfiguration | undefined {
-  if (!Number.isFinite(bottomInset) || bottomInset < 0) {
-    throw new Error(
-      "Workspace shell window-manager bottom inset must be finite and non-negative.",
-    );
-  }
-  if (!windowing || bottomInset === 0) {
-    return windowing;
-  }
-  return {
-    ...windowing,
-    viewport: {
-      ...windowing.viewport,
-      insets: {
-        ...windowing.viewport.insets,
-        bottom: windowing.viewport.insets.bottom + bottomInset,
-      },
-    },
-  };
-}
 
 export function assertWorkspaceShellWindowingConfiguration({
   windowManager,
@@ -65,16 +42,15 @@ function resolveWorkspaceShellWindowManager({
 }
 
 export function WorkspaceShellWindowingComposition({
-  bottomInset,
+  boundaryInsets,
   children,
   windowing,
 }: WorkspaceShellWindowingCompositionProps) {
-  const resolvedWindowing = addWorkspaceShellBottomInset(
-    windowing,
-    bottomInset,
-  );
-  return resolvedWindowing ? (
-    <WorkspaceWindowingContextProvider configuration={resolvedWindowing}>
+  return windowing ? (
+    <WorkspaceWindowingContextProvider
+      boundaryInsets={boundaryInsets}
+      configuration={windowing}
+    >
       {children}
     </WorkspaceWindowingContextProvider>
   ) : (

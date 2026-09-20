@@ -75,6 +75,7 @@ export type WorkspaceWindowManagerProps = {
   onStateChange: (nextState: WorkspaceWindowingState) => void;
   renderers: WorkspaceWindowRenderers;
   boundaryInsets?: WorkspaceWindowBoundaryInsets;
+  onViewportChange?: (viewport: WorkspaceWindowViewport) => void;
 
   layoutEditable?: boolean;
 
@@ -155,6 +156,7 @@ export function WorkspaceWindowManager({
   className,
   layoutEditable = true,
   onStateChange,
+  onViewportChange,
   renderers,
   shortcuts = true,
   state,
@@ -164,6 +166,7 @@ export function WorkspaceWindowManager({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
   const onStateChangeRef = useRef(onStateChange);
+  const onViewportChangeRef = useRef(onViewportChange);
   const focusedWindowIdRef = useRef<string | null>(null);
   const previousViewportRef = useRef<WorkspaceWindowViewport | null>(null);
   const readOnlyResizeBoundsRef = useRef<Record<string, WorkspaceWindowBounds>>(
@@ -182,6 +185,7 @@ export function WorkspaceWindowManager({
     useState<Readonly<Record<string, number>>>({});
   stateRef.current = state;
   onStateChangeRef.current = onStateChange;
+  onViewportChangeRef.current = onViewportChange;
 
   const viewport = useMemo<WorkspaceWindowViewport | null>(() => {
     if (!hostSize || hostSize.width <= 0 || hostSize.height <= 0) return null;
@@ -374,6 +378,10 @@ export function WorkspaceWindowManager({
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    if (viewport) onViewportChangeRef.current?.(viewport);
+  }, [viewport]);
 
   useEffect(() => {
     if (!viewport) return;

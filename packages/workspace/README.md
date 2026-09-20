@@ -191,8 +191,9 @@ cleared by a complete document load.
 Windowing is a controlled package feature, separate from `WorkspaceDocument`. A host owns its
 serializable `WorkspaceWindowingState` and any `WorkspaceWindowSpace` values, maps each stable
 generic `surfaceKind` to a renderer, persists changes, owns generic content identity and renderer
-data, and supplies a measured local viewport with pane insets. The package never interprets
-`rendererData` or performs route, tab, backend, notification, or application-content work.
+data, and receives the integrated shell's measured local viewport when it needs to invoke a pure
+geometry operation. The package never interprets `rendererData` or performs route, tab, backend,
+notification, or application-content work.
 
 ```tsx
 const renderers = {
@@ -204,15 +205,10 @@ const renderers = {
 const [windowingState, setWindowingState] = useState(() =>
   createWorkspaceWindowingState(),
 );
-
-// Measure the WorkspaceShell's local layer and its open-pane insets.
-const viewport = createWorkspaceWindowViewport({
-  width: layerWidth,
-  height: layerHeight,
-  insets: { left: 40, right: 40, top: 40, bottom: 0 },
-});
+const [viewport, setViewport] = useState<WorkspaceWindowViewport | null>(null);
 
 function openNote(noteId: string) {
+  if (!viewport) return;
   setWindowingState((current) =>
     openWorkspaceFloatingWindow(
       current,
@@ -233,12 +229,20 @@ function openNote(noteId: string) {
   windowing={{
     layoutEditable: canEditWindowLayout,
     onStateChange: setWindowingState,
+    onViewportChange: setViewport,
     renderers,
     state: windowingState,
-    viewport,
   }}
 />;
 ```
+
+`WorkspaceShell` measures the integrated manager layer and derives physical insets from its actual
+leading pane, trailing pane, writing direction, and saved-view tab strip. Hosts do not install a
+second observer or provide fallback dimensions. `onViewportChange` is optional; use it only when
+host actions call pure APIs such as `openWorkspaceFloatingWindow` or snapshot a Window Space. Such
+actions stay unavailable until the first valid viewport arrives. A standalone
+`WorkspaceWindowManager` instead accepts explicit `boundaryInsets` and can report its measured
+viewport through the same callback shape.
 
 The integrated `WorkspaceShell.windowing` contract is required for section handoff. Every eligible
 ordinary section gets the edit-only `Open section in floating window` header action. While that
@@ -257,7 +261,7 @@ documented content ownership and contain overscroll at the window boundary.
 The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
 reference minimum before overflowing into the recovery strip; narrower hosts progressively use
 full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.
-When saved-view tabs are visible, the integrated shell adds their height to the windowing viewport
+When saved-view tabs are visible, the integrated shell adds their height to its windowing viewport
 inset; a host-composed `windowManager` layer is constrained above the same strip. Docked panels,
 recovery pills, maximized windows, and floating bounds therefore share one bottom boundary.
 The window manager appears only when a closed instance or a width-hidden dock panel needs recovery.

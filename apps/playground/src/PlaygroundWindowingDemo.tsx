@@ -1,7 +1,6 @@
 import {
   createWorkspaceWindowSpace,
   createWorkspaceWindowingState,
-  createWorkspaceWindowViewport,
   openWorkspaceFloatingWindow,
   reopenWorkspaceWindow,
   snapshotWorkspaceWindowSpace,
@@ -16,13 +15,12 @@ import {
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
   type WorkspaceShellViewState,
-  type WorkspaceWindowBoundaryInsets,
   type WorkspaceWindowRenderers,
   type WorkspaceWindowSpace,
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
 } from "@setta/workspace";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useRef, useState } from "react";
 import { PlaygroundItemDiagnosticsProvider } from "./sectionKinds";
 import { PlaygroundWindowInteractionDiagnostics } from "./PlaygroundWindowInteractionDiagnostics";
 
@@ -36,12 +34,6 @@ type PlaygroundWindowingDemoProps = {
   readonly sectionTagColorPalette: WorkspaceSectionTagColorPalette;
   readonly shellViewState: WorkspaceShellViewState;
 };
-
-const PLAYGROUND_WINDOW_VIEWPORT_FALLBACK = Object.freeze({
-  height: 720,
-  width: 1_200,
-});
-const PLAYGROUND_CLOSED_PANE_WIDTH = 40;
 
 const PLAYGROUND_DEMO_WINDOWS = [
   {
@@ -188,72 +180,6 @@ function createPlaygroundWindowingState(): WorkspaceWindowingState {
   return createWorkspaceWindowingState({ windows: PLAYGROUND_DEMO_WINDOWS });
 }
 
-function createPlaygroundWindowBoundaryInsets(
-  shellViewState: WorkspaceShellViewState,
-): WorkspaceWindowBoundaryInsets {
-  return {
-    bottom: 0,
-    left: shellViewState.leading.visible
-      ? shellViewState.leading.width
-      : PLAYGROUND_CLOSED_PANE_WIDTH,
-    right: shellViewState.trailing.visible
-      ? shellViewState.trailing.width
-      : PLAYGROUND_CLOSED_PANE_WIDTH,
-    top: 0,
-  };
-}
-
-function usePlaygroundWindowViewport(insets: WorkspaceWindowBoundaryInsets): {
-  readonly ref: RefObject<HTMLDivElement | null>;
-  readonly viewport: WorkspaceWindowViewport;
-} {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<{ height: number; width: number }>(
-    PLAYGROUND_WINDOW_VIEWPORT_FALLBACK,
-  );
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) {
-      return;
-    }
-    const measure = (width: number, height: number) => {
-      if (width <= 0 || height <= 0) {
-        return;
-      }
-      setSize((current) =>
-        current.width === width && current.height === height
-          ? current
-          : { height, width },
-      );
-    };
-    const initialBounds = element.getBoundingClientRect();
-    measure(initialBounds.width, initialBounds.height);
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === element) {
-          measure(entry.contentRect.width, entry.contentRect.height);
-        }
-      }
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const viewport = useMemo(
-    () =>
-      createWorkspaceWindowViewport({
-        ...size,
-        insets,
-      }),
-    [insets, size],
-  );
-  return { ref, viewport };
-}
-
 function openOrReopenPlaygroundWindow(
   state: WorkspaceWindowingState,
   window: OpenWorkspaceFloatingWindowInput,
@@ -298,12 +224,9 @@ export function PlaygroundWindowingDemo({
   sectionTagColorPalette,
   shellViewState,
 }: PlaygroundWindowingDemoProps) {
-  const windowBoundaryInsets = useMemo(
-    () => createPlaygroundWindowBoundaryInsets(shellViewState),
-    [shellViewState],
-  );
-  const { ref: workspaceRef, viewport: windowViewport } =
-    usePlaygroundWindowViewport(windowBoundaryInsets);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const [windowViewport, setWindowViewport] =
+    useState<WorkspaceWindowViewport | null>(null);
   const [windowingState, setWindowingState] = useState(
     createPlaygroundWindowingState,
   );
@@ -316,12 +239,14 @@ export function PlaygroundWindowingDemo({
   >(null);
 
   const openDemoWindow = (window: OpenWorkspaceFloatingWindowInput) => {
+    if (!windowViewport) return;
     setWindowingState((current) =>
       openOrReopenPlaygroundWindow(current, window, windowViewport),
     );
   };
 
   const saveWindowSpace = () => {
+    if (!windowViewport) return;
     const number = nextWindowSpaceNumber;
     try {
       const space = snapshotWorkspaceWindowSpace(
@@ -359,32 +284,37 @@ export function PlaygroundWindowingDemo({
           </p>
           <button
             className="playground-pane-action"
+            disabled={!windowViewport}
             onClick={() => openDemoWindow(PLAYGROUND_DEMO_WINDOWS[0])}
             type="button"
           >
             Open or reopen reference note
           </button>
           <PlaygroundWindowInteractionDiagnostics rootRef={workspaceRef} />
-          <WorkspaceWindowSpacesPane
-            errors={
-              windowSpaceSaveError ? { save: windowSpaceSaveError } : undefined
-            }
-            onDelete={(spaceId) =>
-              setWindowSpaces((current) =>
-                deletePlaygroundWindowSpace(current, spaceId),
-              )
-            }
-            onRename={(spaceId, nextName) =>
-              setWindowSpaces((current) =>
-                renamePlaygroundWindowSpace(current, spaceId, nextName),
-              )
-            }
-            onSave={saveWindowSpace}
-            onStateChange={(nextState) => setWindowingState(nextState)}
-            spaces={windowSpaces}
-            state={windowingState}
-            viewport={windowViewport}
-          />
+          {windowViewport ? (
+            <WorkspaceWindowSpacesPane
+              errors={
+                windowSpaceSaveError
+                  ? { save: windowSpaceSaveError }
+                  : undefined
+              }
+              onDelete={(spaceId) =>
+                setWindowSpaces((current) =>
+                  deletePlaygroundWindowSpace(current, spaceId),
+                )
+              }
+              onRename={(spaceId, nextName) =>
+                setWindowSpaces((current) =>
+                  renamePlaygroundWindowSpace(current, spaceId, nextName),
+                )
+              }
+              onSave={saveWindowSpace}
+              onStateChange={(nextState) => setWindowingState(nextState)}
+              spaces={windowSpaces}
+              state={windowingState}
+              viewport={windowViewport}
+            />
+          ) : null}
         </div>
       ),
     },
@@ -408,9 +338,9 @@ export function PlaygroundWindowingDemo({
           windowing={{
             ariaLabel: "Playground windows",
             onStateChange: setWindowingState,
+            onViewportChange: setWindowViewport,
             renderers: playgroundWindowRenderers,
             state: windowingState,
-            viewport: windowViewport,
           }}
         />
       </PlaygroundItemDiagnosticsProvider>

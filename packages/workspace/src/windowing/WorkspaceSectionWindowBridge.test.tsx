@@ -19,7 +19,6 @@ import { WorkspaceWindowingContextProvider } from "./workspaceWindowingContext";
 import { IntegratedWorkspaceWindowManager } from "./IntegratedWorkspaceWindowManager";
 import {
   createWorkspaceWindowingState,
-  createWorkspaceWindowViewport,
   type WorkspaceWindowingState,
 } from "./windowingTypes";
 
@@ -85,15 +84,11 @@ function ControlledHarness({
   const [state, setState] = useState(initialState);
   return (
     <WorkspaceWindowingContextProvider
+      boundaryInsets={{ bottom: 0, left: 40, right: 40, top: 40 }}
       configuration={{
         onStateChange: setState,
         renderers: {},
         state,
-        viewport: createWorkspaceWindowViewport({
-          height: 720,
-          insets: { bottom: 0, left: 40, right: 40, top: 40 },
-          width: 1_200,
-        }),
       }}
     >
       <SectionHarness />

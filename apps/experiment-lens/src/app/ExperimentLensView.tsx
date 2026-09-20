@@ -1,7 +1,6 @@
 import {
   createWorkspaceShellViewState,
   createWorkspaceWindowingState,
-  createWorkspaceWindowViewport,
   focusWorkspaceWindow,
   openWorkspaceFloatingWindow,
   reopenWorkspaceWindow,
@@ -10,7 +9,6 @@ import {
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
-  type WorkspaceWindowBoundaryInsets,
   type WorkspaceWindowRenderers,
   type WorkspaceWindowViewport,
 } from "@setta/workspace";
@@ -21,64 +19,7 @@ import { useLens } from "./lensContext";
 import { LENS_COMPACT_VIEWPORT_QUERY } from "./lensProjection";
 
 const EMPTY_TABS: readonly WorkspaceShellTabDefinition[] = [];
-const CLOSED_PANE_WIDTH = 40;
 const COMPARISON_WINDOW_ID = "lens-selection-comparison";
-
-function viewportInsets(
-  viewState: WorkspaceShellViewState,
-): WorkspaceWindowBoundaryInsets {
-  return {
-    bottom: 0,
-    left: viewState.leading.visible
-      ? viewState.leading.width
-      : CLOSED_PANE_WIDTH,
-    right: viewState.trailing.visible
-      ? viewState.trailing.width
-      : CLOSED_PANE_WIDTH,
-    top: 0,
-  };
-}
-
-function useWindowViewport(insets: WorkspaceWindowBoundaryInsets): {
-  ref: React.RefObject<HTMLDivElement | null>;
-  viewport: WorkspaceWindowViewport;
-} {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ height: 720, width: 1_200 });
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) {
-      return;
-    }
-    const measure = (width: number, height: number) => {
-      if (width > 0 && height > 0) {
-        setSize((current) =>
-          current.width === width && current.height === height
-            ? current
-            : { height, width },
-        );
-      }
-    };
-    const bounds = element.getBoundingClientRect();
-    measure(bounds.width, bounds.height);
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === element) {
-          measure(entry.contentRect.width, entry.contentRect.height);
-        }
-      }
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return {
-    ref,
-    viewport: useMemo(
-      () => createWorkspaceWindowViewport({ ...size, insets }),
-      [insets, size],
-    ),
-  };
-}
 
 function LensWorkspace() {
   const lens = useLens();
@@ -95,10 +36,12 @@ function LensWorkspace() {
     createWorkspaceWindowingState(),
   );
   const lastComparisonRequest = useRef(0);
-  const insets = useMemo(() => viewportInsets(viewState), [viewState]);
-  const { ref, viewport } = useWindowViewport(insets);
+  const [viewport, setViewport] = useState<WorkspaceWindowViewport | null>(
+    null,
+  );
   useEffect(() => {
     if (
+      !viewport ||
       lens.comparisonRequest === 0 ||
       lens.comparisonRequest === lastComparisonRequest.current ||
       lens.selection.selectedObservationIds.length < 2
@@ -143,7 +86,7 @@ function LensWorkspace() {
     [],
   );
   return (
-    <div className="lens-workspace" ref={ref}>
+    <div className="lens-workspace">
       <WorkspaceShell
         ariaLabel="Experiment Lens workspace"
         includeBuiltInInspector
@@ -158,9 +101,9 @@ function LensWorkspace() {
         windowing={{
           ariaLabel: "Experiment comparison windows",
           onStateChange: setWindowingState,
+          onViewportChange: setViewport,
           renderers,
           state: windowingState,
-          viewport,
         }}
       />
     </div>

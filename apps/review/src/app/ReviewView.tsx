@@ -1,80 +1,20 @@
 import {
   createWorkspaceShellViewState,
   createWorkspaceWindowingState,
-  createWorkspaceWindowViewport,
   WorkspaceProvider,
   WorkspaceShell,
   type WorkspaceCanvasConfiguration,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
-  type WorkspaceWindowBoundaryInsets,
-  type WorkspaceWindowViewport,
 } from "@setta/workspace";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useReview } from "./reviewContext";
 import { projectReviewGraph } from "./reviewProjection";
 
 const EMPTY_TABS: readonly WorkspaceShellTabDefinition[] = [];
-const CLOSED_PANE_WIDTH = 40;
 const COMPACT_VIEWPORT_QUERY = "(max-width: 720px)";
-
-function viewportInsets(
-  viewState: WorkspaceShellViewState,
-): WorkspaceWindowBoundaryInsets {
-  return {
-    bottom: 0,
-    left: viewState.leading.visible
-      ? viewState.leading.width
-      : CLOSED_PANE_WIDTH,
-    right: viewState.trailing.visible
-      ? viewState.trailing.width
-      : CLOSED_PANE_WIDTH,
-    top: 0,
-  };
-}
-
-function useWindowViewport(insets: WorkspaceWindowBoundaryInsets): {
-  ref: React.RefObject<HTMLDivElement | null>;
-  viewport: WorkspaceWindowViewport;
-} {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ height: 720, width: 1_200 });
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) {
-      return;
-    }
-    const measure = (width: number, height: number) => {
-      if (width > 0 && height > 0) {
-        setSize((current) =>
-          current.width === width && current.height === height
-            ? current
-            : { height, width },
-        );
-      }
-    };
-    const bounds = element.getBoundingClientRect();
-    measure(bounds.width, bounds.height);
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === element) {
-          measure(entry.contentRect.width, entry.contentRect.height);
-        }
-      }
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return {
-    ref,
-    viewport: useMemo(
-      () => createWorkspaceWindowViewport({ ...size, insets }),
-      [insets, size],
-    ),
-  };
-}
 
 function ReviewWorkspace() {
   const review = useReview();
@@ -118,14 +58,12 @@ function ReviewWorkspace() {
     }),
     [graph],
   );
-  const insets = useMemo(() => viewportInsets(viewState), [viewState]);
-  const { ref, viewport } = useWindowViewport(insets);
   const handleViewStateChange = useCallback(
     (next: WorkspaceShellViewState) => setViewState(next),
     [],
   );
   return (
-    <div className="review-workspace" ref={ref}>
+    <div className="review-workspace">
       <WorkspaceShell
         ariaLabel="Setta Review workspace"
         canvas={canvas}
@@ -143,7 +81,6 @@ function ReviewWorkspace() {
           onStateChange: setWindowingState,
           renderers: {},
           state: windowingState,
-          viewport,
         }}
       />
     </div>
