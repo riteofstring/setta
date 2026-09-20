@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/setta/local-backend/latestvalue"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/materializer"
 	"github.com/setta/python-canvas/backend/internal/project/renderer"
@@ -52,8 +53,7 @@ type Coordinator struct {
 	analysisDone           chan struct{}
 	analysisWake           chan struct{}
 	pendingAnalysis        *diagnosticsWork
-	snapshotSubscribers    map[uint64]chan Snapshot
-	nextSnapshotSubscriber uint64
+	snapshots              *latestvalue.Publisher[Snapshot]
 }
 
 func Open(ctx context.Context, options Options) (*Coordinator, error) {
@@ -113,6 +113,12 @@ func Open(ctx context.Context, options Options) (*Coordinator, error) {
 	}
 	coordinator.setProviderTargetRevision(state.Project.Revision)
 	coordinator.initializeProvider(ctx)
+	snapshots, err := latestvalue.New(coordinator.snapshot, cloneSnapshotForPublication)
+	if err != nil {
+		cancelAnalysis()
+		return nil, cleanupFailedOpenMaterialization(options.Materializer, err)
+	}
+	coordinator.snapshots = snapshots
 	go coordinator.runDiagnostics(analysisContext)
 	return coordinator, nil
 }
@@ -505,10 +511,7 @@ func (coordinator *Coordinator) Close() error {
 		return nil
 	}
 	coordinator.closed = true
-	for subscriberID, subscriber := range coordinator.snapshotSubscribers {
-		close(subscriber)
-		delete(coordinator.snapshotSubscribers, subscriberID)
-	}
+	_ = coordinator.snapshots.Close()
 	provider := coordinator.provider
 	document := coordinator.materializer
 	cleanup := append([]materializer.Replacement{}, coordinator.cleanup...)

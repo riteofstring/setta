@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/setta/local-backend/latestvalue"
 	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/review/backend/internal/contracts"
 )
@@ -35,12 +36,12 @@ type Document struct {
 }
 
 type Store struct {
-	mu          sync.Mutex
-	root        *projectfs.Root
-	projectID   string
-	document    Document
-	subscribers map[chan Document]struct{}
-	closed      bool
+	mu        sync.Mutex
+	root      *projectfs.Root
+	projectID string
+	document  Document
+	publisher *latestvalue.Publisher[Document]
+	closed    bool
 }
 
 func Open(projectRoot string, projectID string) (*Store, error) {
@@ -51,7 +52,7 @@ func Open(projectRoot string, projectID string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reviewstate: open project root: %w", err)
 	}
-	store := &Store{root: root, projectID: projectID, subscribers: make(map[chan Document]struct{})}
+	store := &Store{root: root, projectID: projectID}
 	var document Document
 	err = store.withAdvisoryLock(func() error {
 		var initializeErr error
@@ -63,6 +64,12 @@ func Open(projectRoot string, projectID string) (*Store, error) {
 		return nil, err
 	}
 	store.document = document
+	publisher, err := latestvalue.New(document, clone)
+	if err != nil {
+		_ = root.Close()
+		return nil, err
+	}
+	store.publisher = publisher
 	return store, nil
 }
 
@@ -150,7 +157,7 @@ func (store *Store) Replace(expectedRevision uint64, candidate Document) (Docume
 		return replaceErr
 	})
 	if observed.ProjectID == store.projectID {
-		store.acceptObservedLocked(observed)
+		err = errors.Join(err, store.acceptObservedLocked(observed))
 	}
 	if err != nil {
 		return Document{}, err
@@ -164,23 +171,7 @@ func (store *Store) Subscribe(ctx context.Context) (<-chan Document, error) {
 	if store.closed {
 		return nil, ErrClosed
 	}
-	channel := make(chan Document, 1)
-	snapshot, err := clone(store.document)
-	if err != nil {
-		return nil, err
-	}
-	channel <- snapshot
-	store.subscribers[channel] = struct{}{}
-	go func() {
-		<-ctx.Done()
-		store.mu.Lock()
-		if _, exists := store.subscribers[channel]; exists {
-			delete(store.subscribers, channel)
-			close(channel)
-		}
-		store.mu.Unlock()
-	}()
-	return channel, nil
+	return store.publisher.Subscribe(ctx)
 }
 
 func (store *Store) Close() error {
@@ -190,11 +181,7 @@ func (store *Store) Close() error {
 		return nil
 	}
 	store.closed = true
-	for channel := range store.subscribers {
-		close(channel)
-	}
-	store.subscribers = nil
-	return store.root.Close()
+	return errors.Join(store.publisher.Close(), store.root.Close())
 }
 
 func (store *Store) loadOrInitialize(projectID string) (Document, error) {
@@ -236,12 +223,13 @@ func (store *Store) replaceDurable(expectedRevision uint64, candidate Document) 
 	return candidate, nil
 }
 
-func (store *Store) acceptObservedLocked(document Document) {
+func (store *Store) acceptObservedLocked(document Document) error {
 	changed := document.Revision != store.document.Revision
 	store.document = document
 	if changed {
-		store.publishLocked(document)
+		return store.publisher.Publish(document)
 	}
+	return nil
 }
 
 func (store *Store) withAdvisoryLock(operation func() error) error {
@@ -297,24 +285,6 @@ func encodeDocument(document Document) ([]byte, error) {
 		return nil, errors.New("reviewstate: state exceeds the size limit")
 	}
 	return encoded, nil
-}
-
-func (store *Store) publishLocked(document Document) {
-	for channel := range store.subscribers {
-		snapshot, err := clone(document)
-		if err != nil {
-			continue
-		}
-		select {
-		case channel <- snapshot:
-		default:
-			select {
-			case <-channel:
-			default:
-			}
-			channel <- snapshot
-		}
-	}
 }
 
 func clone(document Document) (Document, error) {

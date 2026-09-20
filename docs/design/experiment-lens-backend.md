@@ -70,10 +70,12 @@ common response headers, canonical production-asset confinement, SPA fallback ex
 bounded serving shutdown. The shared `local-backend/projectfs` boundary owns canonical-root
 handles, confined bounded regular-file access, synchronized atomic replacement, parent-directory
 sync, and the state advisory lock. Experiment Lens retains manifest and artifact identity,
-selection validation, identity/revision conflict rules, and accepted publication. It is supervised
-through the shared Setta runtime and has no experiment scheduler, provider credentials, agent
-process, tracker client, source mutation, arbitrary URL resolver, dynamic section discovery, or
-plug-in loader.
+selection validation, identity/revision conflict rules, and the decision to publish an accepted
+state. The shared `local-backend/latestvalue` boundary owns detached initial-current delivery,
+non-blocking newest-value coalescing, cancellation, and subscriber close. Experiment Lens is
+supervised through the shared Setta runtime and has no experiment scheduler, provider credentials,
+agent process, tracker client, source mutation, arbitrary URL resolver, dynamic section discovery,
+or plug-in loader.
 
 ## Contract generation
 

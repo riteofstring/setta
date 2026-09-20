@@ -90,7 +90,10 @@ surrogate pairs.
 
 Every event-stream subscription starts with the current complete snapshot. Publication is
 latest-value: a slow subscriber may skip superseded intermediate snapshots while retaining the
-newest one. Reconnection therefore catches up without polling or replay bookkeeping.
+newest one. Reconnection therefore catches up without polling or replay bookkeeping. The shared
+`local-backend/latestvalue` boundary owns detached delivery, buffer-one replacement, cancellation,
+and close; Python Canvas retains snapshot construction and the points at which durable or settled
+state becomes publishable.
 
 ## Generated-process ownership
 

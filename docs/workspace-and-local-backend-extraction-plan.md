@@ -307,6 +307,16 @@ Verification:
 
 ### B4. Extract latest-value publication
 
+Completion (2026-09-22): `local-backend/latestvalue` now owns detached initial-current delivery,
+buffer-one newest-value coalescing, context cancellation, and idempotent close. Review and
+Experiment Lens state stores, Realtime's authored-project stream, and Python Canvas snapshot
+publication use it. Realtime runtime envelopes remain application-owned because they preserve a
+bounded event sequence and replace overflow with a complete resynchronizing snapshot rather than
+coalescing every event to one latest value. The `revisionedjson` gate did not pass: the two
+remaining state stores would require application callbacks for initialization, identity matching,
+revision access, validation, encoding, decoding, cloning, and error policy, increasing indirection
+without removing the domain failure modes.
+
 Add a generic publisher whose constructor receives the one required detached-value cloning
 operation. A subscription receives the current complete value immediately. Publishing replaces a
 subscriber's pending older value rather than blocking the authority, and cancellation removes and

@@ -1,10 +1,10 @@
 package coordinator
 
-import "sync"
+import "context"
 
 func (coordinator *Coordinator) SubscribeSnapshots() (<-chan Snapshot, func()) {
-	stream := make(chan Snapshot, 1)
 	if coordinator == nil {
+		stream := make(chan Snapshot)
 		close(stream)
 		return stream, func() {}
 	}
@@ -12,43 +12,26 @@ func (coordinator *Coordinator) SubscribeSnapshots() (<-chan Snapshot, func()) {
 	coordinator.mu.Lock()
 	if coordinator.closed {
 		coordinator.mu.Unlock()
+		stream := make(chan Snapshot)
 		close(stream)
 		return stream, func() {}
 	}
-	coordinator.nextSnapshotSubscriber++
-	subscriberID := coordinator.nextSnapshotSubscriber
-	if coordinator.snapshotSubscribers == nil {
-		coordinator.snapshotSubscribers = make(map[uint64]chan Snapshot)
-	}
-	coordinator.snapshotSubscribers[subscriberID] = stream
-	stream <- coordinator.snapshot.Clone()
+	ctx, cancel := context.WithCancel(context.Background())
+	stream, err := coordinator.snapshots.Subscribe(ctx)
 	coordinator.mu.Unlock()
-
-	var once sync.Once
-	return stream, func() {
-		once.Do(func() {
-			coordinator.mu.Lock()
-			if subscriber, exists := coordinator.snapshotSubscribers[subscriberID]; exists {
-				delete(coordinator.snapshotSubscribers, subscriberID)
-				close(subscriber)
-			}
-			coordinator.mu.Unlock()
-		})
+	if err != nil {
+		cancel()
+		closed := make(chan Snapshot)
+		close(closed)
+		return closed, func() {}
 	}
+	return stream, cancel
 }
 
 func (coordinator *Coordinator) publishSnapshotLocked() {
-	for _, subscriber := range coordinator.snapshotSubscribers {
-		snapshot := coordinator.snapshot.Clone()
-		select {
-		case subscriber <- snapshot:
-			continue
-		default:
-		}
-		select {
-		case <-subscriber:
-		default:
-		}
-		subscriber <- snapshot
-	}
+	_ = coordinator.snapshots.Publish(coordinator.snapshot)
+}
+
+func cloneSnapshotForPublication(snapshot Snapshot) (Snapshot, error) {
+	return snapshot.Clone(), nil
 }

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/setta/experiment-lens/backend/internal/contracts"
+	"github.com/setta/local-backend/latestvalue"
 	"github.com/setta/local-backend/projectfs"
 )
 
@@ -42,12 +43,12 @@ type Document struct {
 }
 
 type Store struct {
-	mu          sync.Mutex
-	root        *projectfs.Root
-	identity    Identity
-	document    Document
-	subscribers map[chan Document]struct{}
-	closed      bool
+	mu        sync.Mutex
+	root      *projectfs.Root
+	identity  Identity
+	document  Document
+	publisher *latestvalue.Publisher[Document]
+	closed    bool
 }
 
 func Open(projectRoot string, identity Identity) (*Store, error) {
@@ -58,7 +59,7 @@ func Open(projectRoot string, identity Identity) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("lensstate: open project root: %w", err)
 	}
-	store := &Store{root: root, identity: identity, subscribers: make(map[chan Document]struct{})}
+	store := &Store{root: root, identity: identity}
 	var document Document
 	err = store.withAdvisoryLock(func() error {
 		var loadErr error
@@ -70,6 +71,12 @@ func Open(projectRoot string, identity Identity) (*Store, error) {
 		return nil, err
 	}
 	store.document = document
+	publisher, err := latestvalue.New(document, clone)
+	if err != nil {
+		_ = root.Close()
+		return nil, err
+	}
+	store.publisher = publisher
 	return store, nil
 }
 
@@ -118,7 +125,7 @@ func (store *Store) Replace(expectedRevision uint64, candidate Document) (Docume
 		return replaceErr
 	})
 	if store.matches(observed) {
-		store.acceptObservedLocked(observed)
+		err = errors.Join(err, store.acceptObservedLocked(observed))
 	}
 	if err != nil {
 		return Document{}, err
@@ -132,23 +139,7 @@ func (store *Store) Subscribe(ctx context.Context) (<-chan Document, error) {
 	if store.closed {
 		return nil, ErrClosed
 	}
-	channel := make(chan Document, 1)
-	snapshot, err := clone(store.document)
-	if err != nil {
-		return nil, err
-	}
-	channel <- snapshot
-	store.subscribers[channel] = struct{}{}
-	go func() {
-		<-ctx.Done()
-		store.mu.Lock()
-		if _, exists := store.subscribers[channel]; exists {
-			delete(store.subscribers, channel)
-			close(channel)
-		}
-		store.mu.Unlock()
-	}()
-	return channel, nil
+	return store.publisher.Subscribe(ctx)
 }
 
 func (store *Store) Close() error {
@@ -158,11 +149,7 @@ func (store *Store) Close() error {
 		return nil
 	}
 	store.closed = true
-	for channel := range store.subscribers {
-		close(channel)
-	}
-	store.subscribers = nil
-	return store.root.Close()
+	return errors.Join(store.publisher.Close(), store.root.Close())
 }
 
 func (store *Store) loadOrInitialize() (Document, error) {
@@ -206,26 +193,13 @@ func (store *Store) matches(document Document) bool {
 	return document.ExperimentID == store.identity.ExperimentID && document.ManifestSHA256 == store.identity.ManifestSHA256 && document.ObservationSourceSHA256 == store.identity.ObservationSourceSHA256
 }
 
-func (store *Store) acceptObservedLocked(document Document) {
+func (store *Store) acceptObservedLocked(document Document) error {
 	changed := document.Revision != store.document.Revision
 	store.document = document
 	if changed {
-		for channel := range store.subscribers {
-			snapshot, err := clone(document)
-			if err != nil {
-				continue
-			}
-			select {
-			case channel <- snapshot:
-			default:
-				select {
-				case <-channel:
-				default:
-				}
-				channel <- snapshot
-			}
-		}
+		return store.publisher.Publish(document)
 	}
+	return nil
 }
 
 func (store *Store) withAdvisoryLock(operation func() error) error {

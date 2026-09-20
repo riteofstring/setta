@@ -73,6 +73,12 @@ receives the current complete project snapshot and subsequently receives the new
 snapshot after each accepted mutation. Slow subscribers may skip superseded snapshots, and
 reconnection catches up without replay or force-refresh state.
 
+The shared `local-backend/latestvalue` boundary owns that authored-project subscription behavior.
+Runtime WebSocket envelopes remain Realtime-owned: they carry a bounded sequence of snapshots,
+invocations, updates, logs, and errors, and overflow deliberately replaces queued events with a
+complete runtime snapshot for resynchronization rather than treating arbitrary events as one
+coalescible value.
+
 One WebSocket carries closed runtime messages for the current runtime snapshot, interaction and
 startup events, invocation status, streamed updates, structured errors, and bounded logs.
 Reconnection starts with the complete current runtime snapshot. Every invocation and result carries

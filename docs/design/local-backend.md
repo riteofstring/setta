@@ -59,6 +59,12 @@ authored/generated-file transaction application-owned because provider synchroni
 generated-file rollback span the authored commit; `projectfs` does not pretend that multi-file
 protocol is an ordinary single-file replacement.
 
+`latestvalue` holds only detached complete values and subscriber lifecycle. Review and Experiment
+Lens use it below their state-to-snapshot coordinators, Realtime uses it for authored-project
+snapshots, and Python Canvas uses it for coordinator snapshots. Realtime runtime envelopes retain
+their application-owned bounded event stream because overflow deliberately discards queued events
+and sends a resynchronizing runtime snapshot, which is not latest-value publication.
+
 ## Verification
 
 The module's quick suite uses temporary roots, local listeners, and deterministic helper

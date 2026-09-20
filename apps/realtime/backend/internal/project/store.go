@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/setta/local-backend/latestvalue"
 	"github.com/setta/local-backend/projectfs"
 	"github.com/setta/realtime/backend/internal/contracts"
 )
@@ -26,12 +27,12 @@ var (
 )
 
 type Store struct {
-	mu          sync.Mutex
-	root        *projectfs.Root
-	file        string
-	project     contracts.Project
-	subscribers map[chan contracts.Project]struct{}
-	closed      bool
+	mu        sync.Mutex
+	root      *projectfs.Root
+	file      string
+	project   contracts.Project
+	publisher *latestvalue.Publisher[contracts.Project]
+	closed    bool
 }
 
 func Open(path string, create bool) (*Store, error) {
@@ -65,7 +66,12 @@ func Open(path string, create bool) (*Store, error) {
 		_ = root.Close()
 		return nil, err
 	}
-	return &Store{root: root, file: file, project: loaded, subscribers: make(map[chan contracts.Project]struct{})}, nil
+	publisher, err := latestvalue.New(loaded, clone)
+	if err != nil {
+		_ = root.Close()
+		return nil, err
+	}
+	return &Store{root: root, file: file, project: loaded, publisher: publisher}, nil
 }
 
 func NewProject(name string) (contracts.Project, error) {
@@ -125,7 +131,9 @@ func (store *Store) Apply(request contracts.ApplyRequest) (contracts.Project, er
 		return contracts.Project{}, err
 	}
 	store.project = candidate
-	store.publishLocked(candidate)
+	if err := store.publisher.Publish(candidate); err != nil {
+		return contracts.Project{}, err
+	}
 	return clone(candidate)
 }
 
@@ -135,23 +143,7 @@ func (store *Store) Subscribe(ctx context.Context) (<-chan contracts.Project, er
 	if store.closed {
 		return nil, ErrClosed
 	}
-	channel := make(chan contracts.Project, 1)
-	snapshot, err := clone(store.project)
-	if err != nil {
-		return nil, err
-	}
-	channel <- snapshot
-	store.subscribers[channel] = struct{}{}
-	go func() {
-		<-ctx.Done()
-		store.mu.Lock()
-		if _, exists := store.subscribers[channel]; exists {
-			delete(store.subscribers, channel)
-			close(channel)
-		}
-		store.mu.Unlock()
-	}()
-	return channel, nil
+	return store.publisher.Subscribe(ctx)
 }
 
 func (store *Store) Close() error {
@@ -161,29 +153,7 @@ func (store *Store) Close() error {
 		return nil
 	}
 	store.closed = true
-	for channel := range store.subscribers {
-		close(channel)
-	}
-	store.subscribers = nil
-	return store.root.Close()
-}
-
-func (store *Store) publishLocked(project contracts.Project) {
-	for channel := range store.subscribers {
-		snapshot, err := clone(project)
-		if err != nil {
-			continue
-		}
-		select {
-		case channel <- snapshot:
-		default:
-			select {
-			case <-channel:
-			default:
-			}
-			channel <- snapshot
-		}
-	}
+	return errors.Join(store.publisher.Close(), store.root.Close())
 }
 
 func validatePath(path string) (string, error) {
