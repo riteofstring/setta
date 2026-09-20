@@ -52,6 +52,34 @@ func TestTimelineCoordinateAndSelectionReferencesAreValidated(t *testing.T) {
 	}
 }
 
+func TestChartAnnotationsValidateDataContextAndNormalizedStrokes(t *testing.T) {
+	manifest := validManifest()
+	bins := 12
+	fieldID := "score"
+	manifest.Presentation.Sections[0] = PresentationSection{ID: "summary", Type: "histogram", Title: "Summary", FieldID: &fieldID, Bins: &bins}
+	source := ObservationSource{Version: 1, ExperimentID: manifest.ID, Observations: []Observation{{ID: "run-1", Values: map[string]json.RawMessage{"score": json.RawMessage(`0.9`)}}}}
+	sectionID := "summary"
+	viewID := "overview"
+	selection := EmptySelection()
+	selection.Annotations = []SelectionAnnotation{{
+		ID: "annotation-1", Kind: "chart", Intent: "follow-up", Text: "Rerun this region with more seeds.",
+		SectionID: &sectionID, ViewID: &viewID, ObservationIDs: []string{"run-1"}, Filters: []FieldFilter{},
+		ChartFieldIDs: []string{"score"}, Strokes: []AnnotationStroke{{Points: []AnnotationPoint{{X: 0.2, Y: 0.3}, {X: 0.8, Y: 0.7}}}},
+	}}
+	if err := selection.ValidateAgainst(manifest, source); err != nil {
+		t.Fatalf("expected valid chart annotation: %v", err)
+	}
+	selection.Annotations[0].Strokes[0].Points[1].X = 1.1
+	if err := selection.ValidateAgainst(manifest, source); err == nil || !strings.Contains(err.Error(), "normalized") {
+		t.Fatalf("expected normalized-coordinate failure, got %v", err)
+	}
+	selection.Annotations[0].Strokes[0].Points[1].X = 0.8
+	selection.Annotations[0].ObservationIDs = []string{"missing"}
+	if err := selection.ValidateAgainst(manifest, source); err == nil || !strings.Contains(err.Error(), "unknown observation") {
+		t.Fatalf("expected observation-anchor failure, got %v", err)
+	}
+}
+
 func TestPresentationRejectsUnknownBindingsAndPlacements(t *testing.T) {
 	manifest := validManifest()
 	manifest.Presentation.Sections[0].FieldIDs = []string{"missing"}

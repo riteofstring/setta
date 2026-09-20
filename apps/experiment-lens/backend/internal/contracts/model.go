@@ -139,22 +139,38 @@ type ArtifactRange struct {
 	End            float64 `json:"end"`
 }
 
-type SelectionNote struct {
-	ID             string  `json:"id"`
-	Text           string  `json:"text"`
-	ObservationID  *string `json:"observationId"`
-	ArtifactID     *string `json:"artifactId"`
-	ArtifactSHA256 *string `json:"artifactSha256"`
-	RangeID        *string `json:"rangeId"`
+type AnnotationPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type AnnotationStroke struct {
+	Points []AnnotationPoint `json:"points"`
+}
+
+type SelectionAnnotation struct {
+	ID             string             `json:"id"`
+	Kind           string             `json:"kind"`
+	Intent         string             `json:"intent"`
+	Text           string             `json:"text"`
+	SectionID      *string            `json:"sectionId"`
+	ViewID         *string            `json:"viewId"`
+	ObservationIDs []string           `json:"observationIds"`
+	ArtifactID     *string            `json:"artifactId"`
+	ArtifactSHA256 *string            `json:"artifactSha256"`
+	RangeID        *string            `json:"rangeId"`
+	Filters        []FieldFilter      `json:"filters"`
+	ChartFieldIDs  []string           `json:"chartFieldIds"`
+	Strokes        []AnnotationStroke `json:"strokes"`
 }
 
 type LensSelection struct {
-	Filters                []FieldFilter   `json:"filters"`
-	FocusedObservationID   *string         `json:"focusedObservationId"`
-	SelectedObservationIDs []string        `json:"selectedObservationIds"`
-	SelectedArtifactIDs    []string        `json:"selectedArtifactIds"`
-	Ranges                 []ArtifactRange `json:"ranges"`
-	Notes                  []SelectionNote `json:"notes"`
+	Filters                []FieldFilter         `json:"filters"`
+	FocusedObservationID   *string               `json:"focusedObservationId"`
+	SelectedObservationIDs []string              `json:"selectedObservationIds"`
+	SelectedArtifactIDs    []string              `json:"selectedArtifactIds"`
+	Ranges                 []ArtifactRange       `json:"ranges"`
+	Annotations            []SelectionAnnotation `json:"annotations"`
 }
 
 type LensMutation struct {

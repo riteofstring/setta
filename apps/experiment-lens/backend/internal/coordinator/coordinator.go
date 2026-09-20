@@ -127,9 +127,9 @@ func (coordinator *Coordinator) Export() (contracts.ExportResult, error) {
 	for _, id := range snapshot.Selection.SelectedObservationIDs {
 		observationIDs[id] = struct{}{}
 	}
-	for _, note := range snapshot.Selection.Notes {
-		if note.ObservationID != nil {
-			observationIDs[*note.ObservationID] = struct{}{}
+	for _, annotation := range snapshot.Selection.Annotations {
+		for _, observationID := range annotation.ObservationIDs {
+			observationIDs[observationID] = struct{}{}
 		}
 	}
 	selectedObservations := make([]contracts.Observation, 0, len(observationIDs))
@@ -145,9 +145,9 @@ func (coordinator *Coordinator) Export() (contracts.ExportResult, error) {
 	for _, selectedRange := range snapshot.Selection.Ranges {
 		artifactIDs[selectedRange.ArtifactID] = struct{}{}
 	}
-	for _, note := range snapshot.Selection.Notes {
-		if note.ArtifactID != nil {
-			artifactIDs[*note.ArtifactID] = struct{}{}
+	for _, annotation := range snapshot.Selection.Annotations {
+		if annotation.ArtifactID != nil {
+			artifactIDs[*annotation.ArtifactID] = struct{}{}
 		}
 	}
 	for _, relation := range snapshot.Experiment.Relations {

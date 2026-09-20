@@ -12,7 +12,7 @@ import (
 	"github.com/setta/experiment-lens/backend/internal/testsupport"
 )
 
-func TestExportUsesExplicitBasketAndIncludesNoteAnchors(t *testing.T) {
+func TestExportUsesExplicitBasketAndIncludesAnnotationAnchors(t *testing.T) {
 	fixture, err := testsupport.Write(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,13 @@ func TestExportUsesExplicitBasketAndIncludesNoteAnchors(t *testing.T) {
 	if ids := artifactIDs(exported.Packet.Artifacts); strings.Join(ids, ",") != "thermal-b" {
 		t.Fatalf("unexpected basket artifacts: %v", ids)
 	}
-	selection.Notes = []contracts.SelectionNote{{ID: "note-a", Text: "Inspect this neighboring run.", ObservationID: &focus}}
+	sectionID := "population"
+	viewID := "overview"
+	selection.Annotations = []contracts.SelectionAnnotation{{
+		ID: "annotation-a", Kind: "chart", Intent: "question", Text: "Inspect this neighboring run.",
+		SectionID: &sectionID, ViewID: &viewID, ObservationIDs: []string{focus}, Filters: []contracts.FieldFilter{},
+		ChartFieldIDs: []string{"temperature", "retention"}, Strokes: []contracts.AnnotationStroke{},
+	}}
 	next, err := application.Snapshot()
 	if err != nil {
 		t.Fatal(err)
@@ -56,10 +62,10 @@ func TestExportUsesExplicitBasketAndIncludesNoteAnchors(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ids := observationIDs(exported.Packet.Observations); strings.Join(ids, ",") != "run-a,run-b" {
-		t.Fatalf("note anchor was not exported: %v", ids)
+		t.Fatalf("annotation anchor was not exported: %v", ids)
 	}
 	if ids := artifactIDs(exported.Packet.Artifacts); strings.Join(ids, ",") != "series-a,thermal-b" {
-		t.Fatalf("note anchor artifacts were not exported: %v", ids)
+		t.Fatalf("annotation anchor artifacts were not exported: %v", ids)
 	}
 }
 

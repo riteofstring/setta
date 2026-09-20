@@ -1,5 +1,166 @@
 {
   "$defs": {
+    "annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifactSha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chartFieldIds": {
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "maxItems": 20,
+          "minItems": 0,
+          "type": "array"
+        },
+        "filters": {
+          "items": {
+            "$ref": "#/$defs/filter"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "intent": {
+          "enum": [
+            "context",
+            "question",
+            "follow-up"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "artifact",
+            "chart"
+          ]
+        },
+        "observationIds": {
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "maxItems": 10000,
+          "minItems": 0,
+          "type": "array"
+        },
+        "rangeId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sectionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "strokes": {
+          "items": {
+            "$ref": "#/$defs/annotationStroke"
+          },
+          "maxItems": 8,
+          "minItems": 0,
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "viewId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "intent",
+        "text",
+        "sectionId",
+        "viewId",
+        "observationIds",
+        "artifactId",
+        "artifactSha256",
+        "rangeId",
+        "filters",
+        "chartFieldIds",
+        "strokes"
+      ],
+      "type": "object"
+    },
+    "annotationPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "annotationStroke": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/$defs/annotationPoint"
+          },
+          "maxItems": 1024,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "type": "object"
+    },
     "artifactContent": {
       "oneOf": [
         {
@@ -416,68 +577,6 @@
       "required": [
         "version",
         "snapshot"
-      ],
-      "type": "object"
-    },
-    "note": {
-      "additionalProperties": false,
-      "properties": {
-        "artifactId": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/identifier"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "artifactSha256": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/digest"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "id": {
-          "$ref": "#/$defs/identifier"
-        },
-        "observationId": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/identifier"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "rangeId": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/identifier"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "text": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "text",
-        "observationId",
-        "artifactId",
-        "artifactSha256",
-        "rangeId"
       ],
       "type": "object"
     },
@@ -1276,6 +1375,14 @@
     "selection": {
       "additionalProperties": false,
       "properties": {
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/annotation"
+          },
+          "maxItems": 1000,
+          "minItems": 0,
+          "type": "array"
+        },
         "filters": {
           "items": {
             "$ref": "#/$defs/filter"
@@ -1293,14 +1400,6 @@
               "type": "null"
             }
           ]
-        },
-        "notes": {
-          "items": {
-            "$ref": "#/$defs/note"
-          },
-          "maxItems": 1000,
-          "minItems": 0,
-          "type": "array"
         },
         "ranges": {
           "items": {
@@ -1333,7 +1432,7 @@
         "selectedObservationIds",
         "selectedArtifactIds",
         "ranges",
-        "notes"
+        "annotations"
       ],
       "type": "object"
     },

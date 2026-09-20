@@ -20,7 +20,9 @@ const (
 	maximumArtifacts    = 100000
 	maximumRelations    = 250000
 	maximumSelectionIDs = 10000
-	maximumNotes        = 1000
+	maximumAnnotations  = 1000
+	maximumStrokes      = 8
+	maximumStrokePoints = 1024
 	maximumRanges       = 1000
 )
 
@@ -362,7 +364,7 @@ func EmptySelection() LensSelection {
 		SelectedObservationIDs: []string{},
 		SelectedArtifactIDs:    []string{},
 		Ranges:                 []ArtifactRange{},
-		Notes:                  []SelectionNote{},
+		Annotations:            []SelectionAnnotation{},
 	}
 }
 
@@ -386,14 +388,14 @@ func (selection LensSelection) Validate() error {
 	if err != nil {
 		return err
 	}
-	return validateSelectionNotes(selection.Notes, rangeIDs)
+	return validateSelectionAnnotations(selection.Annotations, rangeIDs)
 }
 
 func (selection LensSelection) validateShape() error {
-	if selection.Filters == nil || selection.SelectedObservationIDs == nil || selection.SelectedArtifactIDs == nil || selection.Ranges == nil || selection.Notes == nil {
+	if selection.Filters == nil || selection.SelectedObservationIDs == nil || selection.SelectedArtifactIDs == nil || selection.Ranges == nil || selection.Annotations == nil {
 		return errors.New("selection collections are required")
 	}
-	if len(selection.Filters) > maximumFields || len(selection.SelectedObservationIDs) > maximumSelectionIDs || len(selection.SelectedArtifactIDs) > maximumSelectionIDs || len(selection.Ranges) > maximumRanges || len(selection.Notes) > maximumNotes {
+	if len(selection.Filters) > maximumFields || len(selection.SelectedObservationIDs) > maximumSelectionIDs || len(selection.SelectedArtifactIDs) > maximumSelectionIDs || len(selection.Ranges) > maximumRanges || len(selection.Annotations) > maximumAnnotations {
 		return errors.New("selection exceeds a size limit")
 	}
 	return nil
@@ -434,21 +436,21 @@ func validateArtifactRanges(ranges []ArtifactRange) (map[string]struct{}, error)
 	return rangeIDs, nil
 }
 
-func validateSelectionNotes(notes []SelectionNote, rangeIDs map[string]struct{}) error {
-	noteIDs := map[string]struct{}{}
-	for _, note := range notes {
-		if err := note.Validate(); err != nil {
+func validateSelectionAnnotations(annotations []SelectionAnnotation, rangeIDs map[string]struct{}) error {
+	annotationIDs := map[string]struct{}{}
+	for _, annotation := range annotations {
+		if err := annotation.Validate(); err != nil {
 			return err
 		}
-		if _, exists := noteIDs[note.ID]; exists {
-			return fmt.Errorf("note %q is repeated", note.ID)
+		if _, exists := annotationIDs[annotation.ID]; exists {
+			return fmt.Errorf("annotation %q is repeated", annotation.ID)
 		}
-		if note.RangeID != nil {
-			if _, exists := rangeIDs[*note.RangeID]; !exists {
-				return fmt.Errorf("note %q references unknown range %q", note.ID, *note.RangeID)
+		if annotation.RangeID != nil {
+			if _, exists := rangeIDs[*annotation.RangeID]; !exists {
+				return fmt.Errorf("annotation %q references unknown range %q", annotation.ID, *annotation.RangeID)
 			}
 		}
-		noteIDs[note.ID] = struct{}{}
+		annotationIDs[annotation.ID] = struct{}{}
 	}
 	return nil
 }
@@ -475,7 +477,7 @@ func (selection LensSelection) ValidateAgainst(manifest ExperimentManifest, sour
 	if err := validateRangesAgainstArtifacts(selection.Ranges, artifacts); err != nil {
 		return err
 	}
-	return validateNotesAgainstInputs(selection.Notes, observations, artifacts)
+	return validateAnnotationsAgainstInputs(selection.Annotations, manifest, observations, artifacts)
 }
 
 func indexObservations(observations []Observation) map[string]struct{} {
@@ -548,27 +550,36 @@ func validateRangesAgainstArtifacts(ranges []ArtifactRange, artifacts map[string
 	return nil
 }
 
-func validateNotesAgainstInputs(notes []SelectionNote, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
-	for _, note := range notes {
-		if err := validateNoteAgainstInputs(note, observations, artifacts); err != nil {
+func validateAnnotationsAgainstInputs(annotations []SelectionAnnotation, manifest ExperimentManifest, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
+	for _, annotation := range annotations {
+		if err := validateAnnotationAgainstInputs(annotation, manifest, observations, artifacts); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateNoteAgainstInputs(note SelectionNote, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
-	if note.ObservationID != nil {
-		if _, exists := observations[*note.ObservationID]; !exists {
-			return fmt.Errorf("note %q references unknown observation %q", note.ID, *note.ObservationID)
+func validateAnnotationAgainstInputs(annotation SelectionAnnotation, manifest ExperimentManifest, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
+	for _, observationID := range annotation.ObservationIDs {
+		if _, exists := observations[observationID]; !exists {
+			return fmt.Errorf("annotation %q references unknown observation %q", annotation.ID, observationID)
 		}
 	}
-	if note.ArtifactID == nil {
-		return nil
+	fields := indexFields(manifest.Fields)
+	if err := validateFiltersAgainstFields(annotation.Filters, fields); err != nil {
+		return fmt.Errorf("annotation %q: %w", annotation.ID, err)
 	}
-	artifact, exists := artifacts[*note.ArtifactID]
-	if !exists || note.ArtifactSHA256 == nil || artifact.SHA256 != *note.ArtifactSHA256 {
-		return fmt.Errorf("note %q artifact identity does not match", note.ID)
+	for _, fieldID := range annotation.ChartFieldIDs {
+		if _, exists := fields[fieldID]; !exists {
+			return fmt.Errorf("annotation %q references unknown field %q", annotation.ID, fieldID)
+		}
+	}
+	if annotation.Kind == "chart" {
+		return validateChartAnnotationContext(annotation, manifest.Presentation)
+	}
+	artifact, exists := artifacts[*annotation.ArtifactID]
+	if !exists || annotation.ArtifactSHA256 == nil || artifact.SHA256 != *annotation.ArtifactSHA256 {
+		return fmt.Errorf("annotation %q artifact identity does not match", annotation.ID)
 	}
 	return nil
 }
@@ -651,68 +662,130 @@ func (selectedRange ArtifactRange) Validate() error {
 	return nil
 }
 
-func (note SelectionNote) Validate() error {
-	if err := identifier(note.ID, "note id"); err != nil {
-		return err
-	}
-	if err := requiredText(note.Text, 8000, "note text"); err != nil {
-		return err
-	}
-	observationAnchors, err := validateNoteObservationAnchor(note.ObservationID)
-	if err != nil {
-		return err
-	}
-	artifactAnchors, err := validateNoteArtifactAnchor(note.ArtifactID, note.ArtifactSHA256)
-	if err != nil {
-		return err
-	}
-	rangeAnchors, err := validateNoteRangeAnchor(note.RangeID)
-	if err != nil {
-		return err
-	}
-	if observationAnchors+artifactAnchors+rangeAnchors == 0 {
-		return errors.New("note requires an observation, artifact, or range anchor")
+func (point AnnotationPoint) Validate() error {
+	if !finite(point.X) || !finite(point.Y) || point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > 1 {
+		return errors.New("annotation point must use normalized coordinates")
 	}
 	return nil
 }
 
-func validateNoteObservationAnchor(observationID *string) (int, error) {
-	if observationID == nil {
-		return 0, nil
+func (stroke AnnotationStroke) Validate() error {
+	if len(stroke.Points) < 2 || len(stroke.Points) > maximumStrokePoints {
+		return errors.New("annotation stroke must contain between 2 and 1024 points")
 	}
-	if err := identifier(*observationID, "note observation id"); err != nil {
-		return 0, err
-	}
-	return 1, nil
-}
-
-func validateNoteArtifactAnchor(artifactID *string, artifactSHA256 *string) (int, error) {
-	if artifactID == nil {
-		if artifactSHA256 != nil {
-			return 0, errors.New("note artifact digest requires an artifact id")
+	for _, point := range stroke.Points {
+		if err := point.Validate(); err != nil {
+			return err
 		}
-		return 0, nil
 	}
-	if artifactSHA256 == nil {
-		return 0, errors.New("artifact note requires an artifact digest")
-	}
-	if err := identifier(*artifactID, "note artifact id"); err != nil {
-		return 0, err
-	}
-	if err := digest(*artifactSHA256, "note artifact digest"); err != nil {
-		return 0, err
-	}
-	return 1, nil
+	return nil
 }
 
-func validateNoteRangeAnchor(rangeID *string) (int, error) {
-	if rangeID == nil {
-		return 0, nil
+func (annotation SelectionAnnotation) Validate() error {
+	if err := identifier(annotation.ID, "annotation id"); err != nil {
+		return err
 	}
-	if err := identifier(*rangeID, "note range id"); err != nil {
-		return 0, err
+	if !oneOf(annotation.Kind, "artifact", "chart") {
+		return errors.New("annotation kind is invalid")
 	}
-	return 1, nil
+	if !oneOf(annotation.Intent, "context", "question", "follow-up") {
+		return errors.New("annotation intent is invalid")
+	}
+	if err := requiredText(annotation.Text, 8000, "annotation text"); err != nil {
+		return err
+	}
+	if annotation.ObservationIDs == nil || annotation.Filters == nil || annotation.ChartFieldIDs == nil || annotation.Strokes == nil {
+		return errors.New("annotation collections are required")
+	}
+	if len(annotation.ObservationIDs) > maximumSelectionIDs || len(annotation.Filters) > maximumFields || len(annotation.ChartFieldIDs) > 20 || len(annotation.Strokes) > maximumStrokes {
+		return errors.New("annotation exceeds a size limit")
+	}
+	if err := uniqueIdentifiers(annotation.ObservationIDs, "annotation observation"); err != nil {
+		return err
+	}
+	if err := validateFieldFilters(annotation.Filters); err != nil {
+		return err
+	}
+	if err := uniqueIdentifiers(annotation.ChartFieldIDs, "annotation chart field"); err != nil {
+		return err
+	}
+	for _, stroke := range annotation.Strokes {
+		if err := stroke.Validate(); err != nil {
+			return err
+		}
+	}
+	if annotation.Kind == "chart" {
+		return annotation.validateChartShape()
+	}
+	return annotation.validateArtifactShape()
+}
+
+func (annotation SelectionAnnotation) validateChartShape() error {
+	if annotation.SectionID == nil || annotation.ViewID == nil {
+		return errors.New("chart annotation requires section and view anchors")
+	}
+	if err := identifier(*annotation.SectionID, "annotation section id"); err != nil {
+		return err
+	}
+	if err := identifier(*annotation.ViewID, "annotation view id"); err != nil {
+		return err
+	}
+	if annotation.ArtifactID != nil || annotation.ArtifactSHA256 != nil || annotation.RangeID != nil {
+		return errors.New("chart annotation cannot use artifact anchors")
+	}
+	if len(annotation.ObservationIDs) == 0 && len(annotation.Strokes) == 0 {
+		return errors.New("chart annotation requires observations or drawing strokes")
+	}
+	return nil
+}
+
+func (annotation SelectionAnnotation) validateArtifactShape() error {
+	if annotation.SectionID != nil || annotation.ViewID != nil || len(annotation.Filters) != 0 || len(annotation.ChartFieldIDs) != 0 || len(annotation.Strokes) != 0 {
+		return errors.New("artifact annotation contains chart context")
+	}
+	if len(annotation.ObservationIDs) != 1 {
+		return errors.New("artifact annotation requires one observation")
+	}
+	if annotation.ArtifactID == nil || annotation.ArtifactSHA256 == nil {
+		return errors.New("artifact annotation requires an artifact identity")
+	}
+	if err := identifier(*annotation.ArtifactID, "annotation artifact id"); err != nil {
+		return err
+	}
+	if err := digest(*annotation.ArtifactSHA256, "annotation artifact digest"); err != nil {
+		return err
+	}
+	if annotation.RangeID != nil {
+		return identifier(*annotation.RangeID, "annotation range id")
+	}
+	return nil
+}
+
+func validateChartAnnotationContext(annotation SelectionAnnotation, presentation ExperimentPresentation) error {
+	sectionID := *annotation.SectionID
+	viewID := *annotation.ViewID
+	sectionType := ""
+	for _, section := range presentation.Sections {
+		if section.ID == sectionID {
+			sectionType = section.Type
+			break
+		}
+	}
+	if !oneOf(sectionType, "scatter", "histogram", "heatmap", "parallel", "timeline") {
+		return fmt.Errorf("annotation %q references a non-chart section %q", annotation.ID, sectionID)
+	}
+	for _, view := range presentation.Views {
+		if view.ID != viewID {
+			continue
+		}
+		for _, placement := range view.Placements {
+			if placement.SectionID == sectionID {
+				return nil
+			}
+		}
+		return fmt.Errorf("annotation %q section %q is absent from view %q", annotation.ID, sectionID, viewID)
+	}
+	return fmt.Errorf("annotation %q references unknown view %q", annotation.ID, viewID)
 }
 
 func (mutation LensMutation) Validate() error {

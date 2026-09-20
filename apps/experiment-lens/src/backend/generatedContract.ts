@@ -153,13 +153,24 @@ export type ArtifactRange = {
   end: number;
 };
 
-export type SelectionNote = {
+export type AnnotationPoint = { x: number; y: number };
+
+export type AnnotationStroke = { points: Array<AnnotationPoint> };
+
+export type SelectionAnnotation = {
   id: string;
+  kind: "artifact" | "chart";
+  intent: "context" | "question" | "follow-up";
   text: string;
-  observationId: string | null;
+  sectionId: string | null;
+  viewId: string | null;
+  observationIds: Array<string>;
   artifactId: string | null;
   artifactSha256: string | null;
   rangeId: string | null;
+  filters: Array<FieldFilter>;
+  chartFieldIds: Array<string>;
+  strokes: Array<AnnotationStroke>;
 };
 
 export type LensSelection = {
@@ -168,7 +179,7 @@ export type LensSelection = {
   selectedObservationIds: Array<string>;
   selectedArtifactIds: Array<string>;
   ranges: Array<ArtifactRange>;
-  notes: Array<SelectionNote>;
+  annotations: Array<SelectionAnnotation>;
 };
 
 export type LensMutation = {

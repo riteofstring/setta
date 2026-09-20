@@ -215,26 +215,46 @@ func definitions() map[string]any {
 				"end":            map[string]any{"type": "number"},
 			},
 		),
-		"note": objectSchema(
-			[]string{"id", "text", "observationId", "artifactId", "artifactSha256", "rangeId"},
+		"annotationPoint": objectSchema(
+			[]string{"x", "y"},
+			map[string]any{
+				"x": numberSchema(0, 1),
+				"y": numberSchema(0, 1),
+			},
+		),
+		"annotationStroke": objectSchema(
+			[]string{"points"},
+			map[string]any{
+				"points": arraySchema(reference("#/$defs/annotationPoint"), 2, maximumStrokePoints),
+			},
+		),
+		"annotation": objectSchema(
+			[]string{"id", "kind", "intent", "text", "sectionId", "viewId", "observationIds", "artifactId", "artifactSha256", "rangeId", "filters", "chartFieldIds", "strokes"},
 			map[string]any{
 				"id":             reference("#/$defs/identifier"),
+				"kind":           enumSchema("artifact", "chart"),
+				"intent":         enumSchema("context", "question", "follow-up"),
 				"text":           boundedString(1, 8000),
-				"observationId":  nullable(reference("#/$defs/identifier")),
+				"sectionId":      nullable(reference("#/$defs/identifier")),
+				"viewId":         nullable(reference("#/$defs/identifier")),
+				"observationIds": arraySchema(reference("#/$defs/identifier"), 0, maximumSelectionIDs),
 				"artifactId":     nullable(reference("#/$defs/identifier")),
 				"artifactSha256": nullable(reference("#/$defs/digest")),
 				"rangeId":        nullable(reference("#/$defs/identifier")),
+				"filters":        arraySchema(reference("#/$defs/filter"), 0, maximumFields),
+				"chartFieldIds":  arraySchema(reference("#/$defs/identifier"), 0, 20),
+				"strokes":        arraySchema(reference("#/$defs/annotationStroke"), 0, maximumStrokes),
 			},
 		),
 		"selection": objectSchema(
-			[]string{"filters", "focusedObservationId", "selectedObservationIds", "selectedArtifactIds", "ranges", "notes"},
+			[]string{"filters", "focusedObservationId", "selectedObservationIds", "selectedArtifactIds", "ranges", "annotations"},
 			map[string]any{
 				"filters":                arraySchema(reference("#/$defs/filter"), 0, maximumFields),
 				"focusedObservationId":   nullable(reference("#/$defs/identifier")),
 				"selectedObservationIds": arraySchema(reference("#/$defs/identifier"), 0, maximumSelectionIDs),
 				"selectedArtifactIds":    arraySchema(reference("#/$defs/identifier"), 0, maximumSelectionIDs),
 				"ranges":                 arraySchema(reference("#/$defs/range"), 0, maximumRanges),
-				"notes":                  arraySchema(reference("#/$defs/note"), 0, maximumNotes),
+				"annotations":            arraySchema(reference("#/$defs/annotation"), 0, maximumAnnotations),
 			},
 		),
 		"mutation": objectSchema(
