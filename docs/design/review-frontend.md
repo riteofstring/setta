@@ -54,9 +54,11 @@ revision-request actions. A drawing remains a response overlay rather than modif
 
 `@setta/workspace` remains the only canvas and shell dependency. Existing Workspace CodeMirror and
 Markdown surfaces render ordinary code and text. Pierre Diffs renders unified Git evidence.
-Annotation gestures use a small app-owned normalized SVG path model; Fabric is not required for an
-overlay that has no object editing semantics. Ajv validates generated wire contracts. No Review UI
-imports another app's private frontend code.
+Workspace's controlled normalized-stroke surface owns annotation gesture mechanics and passive SVG
+rendering. Review still owns contained-image placement, artifact identity, path styling, response
+mutation, and persistence; Fabric is not required for an overlay that has no object editing
+semantics. Ajv validates generated wire contracts. No Review UI imports another app's private
+frontend code.
 
 The checked-in playground contains real request, diff, source-code, JSON, log, image, and choice
 artifacts. A launcher copies it into ignored working state. Component tests cover typed sections

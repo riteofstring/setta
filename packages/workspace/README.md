@@ -754,6 +754,14 @@ active-item mutation. Workspace owns previous/next controls, thumbnail overflow,
 Arrow/Home/End navigation, and light/dark presentation. The host continues to own what an item
 means and whether changing it also updates domain state such as a timeline cursor.
 
+`WorkspaceNormalizedStrokeSurface` is the controlled drawing primitive for overlays whose points
+remain in unit coordinates. Workspace owns pointer capture, bounded point collection, draft and
+committed SVG paths, non-scaling strokes, Escape and pointer-cancel behavior, keyboard clearing when
+the host supplies it, and canvas gesture boundaries. The host supplies stable stroke IDs, styling,
+enabled state, and settlement callbacks; annotation identity, intent, text, anchors, selection,
+validation, and persistence remain outside `WorkspaceDocument`. Disabled surfaces render passively
+without intercepting input.
+
 An attached host surface that must suspend its own scrolling while the canvas owns a pan-scroll
 gesture can use `subscribeWorkspaceCanvasPanScrolling(host, listener)`. The returned function
 removes that host-scoped subscription.

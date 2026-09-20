@@ -420,6 +420,12 @@ export type {
   WorkspaceKeyBindingDescriptor,
 } from "./keybindings/workspaceKeyBindingTypes";
 export { setGroupOverflowMode } from "./section/groupOverflowAction";
+export { WorkspaceNormalizedStrokeSurface } from "./section/WorkspaceNormalizedStrokeSurface";
+export type {
+  WorkspaceNormalizedPoint,
+  WorkspaceNormalizedStroke,
+  WorkspaceNormalizedStrokeSurfaceProps,
+} from "./section/WorkspaceNormalizedStrokeSurface";
 export { DEFAULT_SECTION_TAG_COLOR_PALETTE } from "./section/sectionTagColors";
 export type {
   WorkspaceSectionTagColorChoice,

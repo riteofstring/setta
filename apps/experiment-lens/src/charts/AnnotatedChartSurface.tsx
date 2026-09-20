@@ -2,7 +2,10 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
+  WorkspaceNormalizedStrokeSurface,
   useWorkspaceDocumentSnapshot,
+  type WorkspaceNormalizedPoint,
+  type WorkspaceNormalizedStroke,
 } from "@setta/workspace";
 import {
   useMemo,
@@ -83,12 +86,6 @@ function normalizedBounds(
   };
 }
 
-function pointsAttribute(points: readonly AnnotationPoint[]): string {
-  return points
-    .map((point) => `${String(point.x)},${String(point.y)}`)
-    .join(" ");
-}
-
 function sameFieldBinding(
   annotation: SelectionAnnotation,
   fieldIds: readonly string[],
@@ -98,45 +95,6 @@ function sameFieldBinding(
     annotation.chartFieldIds.every(
       (fieldId, index) => fieldId === fieldIds[index],
     )
-  );
-}
-
-function AnnotationStrokes({
-  annotations,
-  draft,
-}: {
-  annotations: readonly SelectionAnnotation[];
-  draft: readonly AnnotationStroke[];
-}) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="lens-chart-annotation-overlay"
-      preserveAspectRatio="none"
-      viewBox="0 0 1 1"
-    >
-      {annotations.flatMap((annotation) =>
-        annotation.strokes.map((stroke, index) => (
-          <polyline
-            className={`lens-chart-annotation-stroke lens-chart-annotation-stroke-${annotation.intent}`}
-            data-annotation-id={annotation.id}
-            fill="none"
-            key={`${annotation.id}:${String(index)}`}
-            points={pointsAttribute(stroke.points)}
-            vectorEffect="non-scaling-stroke"
-          />
-        )),
-      )}
-      {draft.map((stroke, index) => (
-        <polyline
-          className="lens-chart-annotation-stroke lens-chart-annotation-stroke-draft"
-          fill="none"
-          key={`draft:${String(index)}`}
-          points={pointsAttribute(stroke.points)}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-    </svg>
   );
 }
 
@@ -153,29 +111,12 @@ function activeView(
   return workspaceViewId ?? initialViewId;
 }
 
-function chartInputActive(
-  open: boolean,
-  mode: AnnotationMode,
-  supportsSelection: boolean,
-): boolean {
-  return open && (mode === "draw" || supportsSelection);
-}
-
 function chartAnnotationCanSave(
   text: string,
   strokeCount: number,
   selectedCount: number,
 ): boolean {
   return text.trim() !== "" && (strokeCount > 0 || selectedCount > 0);
-}
-
-function chartDraftStrokes(
-  strokes: readonly AnnotationStroke[],
-  activeStroke: readonly AnnotationPoint[],
-): AnnotationStroke[] {
-  return activeStroke.length >= 2
-    ? [...strokes, { points: [...activeStroke] }]
-    : [...strokes];
 }
 
 function annotationControlLabel(annotationCount: number): string {
@@ -286,16 +227,14 @@ function AnnotationToolbar({
   );
 }
 
-function ChartAnnotationInput({
+function ChartSelectionInput({
   active,
-  mode,
   selectionBox,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: {
   active: boolean;
-  mode: AnnotationMode;
   selectionBox: NormalizedChartBounds | null;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
@@ -306,10 +245,8 @@ function ChartAnnotationInput({
   }
   return (
     <svg
-      aria-label={
-        mode === "draw" ? "Draw chart annotation" : "Select chart observations"
-      }
-      className={`lens-chart-annotation-input lens-chart-annotation-input-${mode} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+      aria-label="Select chart observations"
+      className={`lens-chart-annotation-input lens-chart-annotation-input-select ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -458,14 +395,11 @@ export function AnnotatedChartSurface({
   const pointerIdRef = useRef<number | null>(null);
   const startRef = useRef<AnnotationPoint | null>(null);
   const additiveRef = useRef(false);
-  const strokeRef = useRef<AnnotationPoint[]>([]);
-  const strokeFrameRef = useRef(0);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AnnotationMode>(() =>
     initialAnnotationMode(selectionResolver),
   );
   const [strokes, setStrokes] = useState<AnnotationStroke[]>([]);
-  const [activeStroke, setActiveStroke] = useState<AnnotationPoint[]>([]);
   const [selectionBox, setSelectionBox] =
     useState<NormalizedChartBounds | null>(null);
   const [intent, setIntent] =
@@ -489,12 +423,26 @@ export function AnnotatedChartSurface({
       ),
     [chartFieldIds, sectionAnnotations],
   );
+  const renderedStrokes = useMemo<readonly WorkspaceNormalizedStroke[]>(
+    () => [
+      ...renderedAnnotations.flatMap((annotation) =>
+        annotation.strokes.map((stroke, index) => ({
+          className: `lens-chart-annotation-stroke lens-chart-annotation-stroke-${annotation.intent}`,
+          id: `${annotation.id}:${String(index)}`,
+          points: stroke.points,
+        })),
+      ),
+      ...strokes.map((stroke, index) => ({
+        className:
+          "lens-chart-annotation-stroke lens-chart-annotation-stroke-draft",
+        id: `draft:${String(index)}`,
+        points: stroke.points,
+      })),
+    ],
+    [renderedAnnotations, strokes],
+  );
 
   const resetDraft = () => {
-    cancelAnimationFrame(strokeFrameRef.current);
-    strokeFrameRef.current = 0;
-    strokeRef.current = [];
-    setActiveStroke([]);
     setEditingId(null);
     setIntent("context");
     setSelectionBox(null);
@@ -535,21 +483,9 @@ export function AnnotatedChartSurface({
     setOpen(false);
   };
 
-  const flushActiveStroke = () => {
-    cancelAnimationFrame(strokeFrameRef.current);
-    strokeFrameRef.current = 0;
-    const points = strokeRef.current;
-    strokeRef.current = [];
-    setActiveStroke([]);
-    if (points.length >= 2) {
-      setStrokes((current) => [
-        ...current.slice(-(8 - 1)),
-        { points: [...points] },
-      ]);
-    }
-  };
-
-  const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+  const handleSelectionPointerDown = (
+    event: ReactPointerEvent<SVGSVGElement>,
+  ) => {
     if (event.button !== 0) {
       return;
     }
@@ -559,51 +495,18 @@ export function AnnotatedChartSurface({
     startRef.current = point;
     additiveRef.current = event.shiftKey;
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (mode === "draw") {
-      strokeRef.current = [point];
-      setActiveStroke([point]);
-    } else {
-      setSelectionBox(normalizedBounds(point, point));
-    }
+    setSelectionBox(normalizedBounds(point, point));
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+  const handleSelectionPointerMove = (
+    event: ReactPointerEvent<SVGSVGElement>,
+  ) => {
     if (pointerIdRef.current !== event.pointerId || startRef.current === null) {
       return;
     }
     event.preventDefault();
     const point = normalizedPoint(event);
-    if (mode === "select") {
-      setSelectionBox(normalizedBounds(startRef.current, point));
-      return;
-    }
-    const previous = strokeRef.current.at(-1);
-    if (
-      previous &&
-      Math.hypot(point.x - previous.x, point.y - previous.y) < 0.0025
-    ) {
-      return;
-    }
-    if (strokeRef.current.length < 1024) {
-      strokeRef.current = [...strokeRef.current, point];
-    }
-    if (strokeFrameRef.current === 0) {
-      strokeFrameRef.current = requestAnimationFrame(() => {
-        strokeFrameRef.current = 0;
-        setActiveStroke([...strokeRef.current]);
-      });
-    }
-  };
-
-  const finishActiveStroke = (end: AnnotationPoint) => {
-    const previous = strokeRef.current.at(-1);
-    if (
-      strokeRef.current.length < 1024 &&
-      (!previous || Math.hypot(end.x - previous.x, end.y - previous.y) > 0)
-    ) {
-      strokeRef.current = [...strokeRef.current, end];
-    }
-    flushActiveStroke();
+    setSelectionBox(normalizedBounds(startRef.current, point));
   };
 
   const finishSelection = (start: AnnotationPoint, end: AnnotationPoint) => {
@@ -618,7 +521,9 @@ export function AnnotatedChartSurface({
     setSelectionBox(null);
   };
 
-  const handlePointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+  const handleSelectionPointerUp = (
+    event: ReactPointerEvent<SVGSVGElement>,
+  ) => {
     if (pointerIdRef.current !== event.pointerId || startRef.current === null) {
       return;
     }
@@ -628,16 +533,13 @@ export function AnnotatedChartSurface({
     pointerIdRef.current = null;
     startRef.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    if (mode === "draw") {
-      finishActiveStroke(end);
-      return;
-    }
     finishSelection(start, end);
   };
 
   const selectedCount = lens.selection.selectedObservationIds.length;
   const supportsSelection = selectionResolver !== undefined;
-  const interactive = chartInputActive(open, mode, supportsSelection);
+  const drawing = open && mode === "draw";
+  const selecting = open && mode === "select" && supportsSelection;
   const canSave = chartAnnotationCanSave(text, strokes.length, selectedCount);
   const toggleOpen = () => {
     if (open) {
@@ -665,16 +567,29 @@ export function AnnotatedChartSurface({
       />
       <div className="lens-chart-annotation-stage">
         <EChartSurface {...surfaceProps} ref={chartRef} />
-        <AnnotationStrokes
-          annotations={renderedAnnotations}
-          draft={chartDraftStrokes(strokes, activeStroke)}
+        <WorkspaceNormalizedStrokeSurface
+          ariaLabel="Draw chart annotation"
+          className={
+            drawing
+              ? "lens-chart-annotation-overlay lens-chart-annotation-input lens-chart-annotation-input-draw"
+              : "lens-chart-annotation-overlay"
+          }
+          draftClassName="lens-chart-annotation-stroke lens-chart-annotation-stroke-draft"
+          enabled={drawing}
+          onStrokeComplete={(points: readonly WorkspaceNormalizedPoint[]) =>
+            setStrokes((current) => [
+              ...current.slice(-(8 - 1)),
+              { points: points.map((point) => ({ ...point })) },
+            ])
+          }
+          resetKey={`${activeViewId}:${sectionId}`}
+          strokes={renderedStrokes}
         />
-        <ChartAnnotationInput
-          active={interactive}
-          mode={mode}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
+        <ChartSelectionInput
+          active={selecting}
+          onPointerDown={handleSelectionPointerDown}
+          onPointerMove={handleSelectionPointerMove}
+          onPointerUp={handleSelectionPointerUp}
           selectionBox={selectionBox}
         />
       </div>

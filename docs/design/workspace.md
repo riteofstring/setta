@@ -155,6 +155,12 @@ thumbnail overflow, keyboard focus, and scoped presentation. Applications provid
 content and own active-item meaning, persistence, and any synchronization with domain state. The
 carousel is a reusable section-content primitive rather than a section kind or document entity.
 
+The normalized-stroke surface owns the shared mechanics of drawing over a resizable projection:
+unit-coordinate conversion, bounded point collection, pointer capture and cancellation, passive
+rendering, non-scaling SVG paths, and Workspace gesture isolation. Applications provide controlled
+strokes and styles and retain annotation identity, artifact or chart binding, intent, text,
+selection semantics, validation, and persistence. No annotation domain shape enters the document.
+
 Package mutations validate the complete request, construct one next canonical value, and publish
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other

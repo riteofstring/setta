@@ -134,7 +134,7 @@ describe("ArtifactAnnotation", () => {
 
     expect(
       container
-        .querySelector('[data-annotation-stroke="existing-stroke"]')
+        .querySelector('[data-workspace-normalized-stroke="existing-stroke"]')
         ?.getAttribute("d"),
     ).toBe("M 0.2 0.3 L 0.4 0.7");
 
@@ -152,7 +152,11 @@ describe("ArtifactAnnotation", () => {
       { x: 0.5, y: 0.5 },
       { x: 1, y: 1 },
     ]);
-    expect(container.querySelector("[data-annotation-draft]")).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-workspace-normalized-stroke-draft="true"]',
+      ),
+    ).toBeNull();
   });
 
   it("does not settle a tap or draw while drawing mode is off", () => {
@@ -204,7 +208,11 @@ describe("ArtifactAnnotation", () => {
     expect(capture.releasePointerCapture).toHaveBeenCalledTimes(1);
     expect(capture.releasePointerCapture).toHaveBeenCalledWith(7);
     expect(onStrokeComplete).not.toHaveBeenCalled();
-    expect(container.querySelector("[data-annotation-draft]")).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-workspace-normalized-stroke-draft="true"]',
+      ),
+    ).toBeNull();
   });
 
   it("cancels the draft when the selected artifact or draw mode changes", () => {
@@ -218,7 +226,11 @@ describe("ArtifactAnnotation", () => {
     expect(capture.releasePointerCapture).toHaveBeenCalledTimes(1);
     expect(capture.releasePointerCapture).toHaveBeenCalledWith(7);
     expect(onStrokeComplete).not.toHaveBeenCalled();
-    expect(container.querySelector("[data-annotation-draft]")).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-workspace-normalized-stroke-draft="true"]',
+      ),
+    ).toBeNull();
 
     const nextSurface = container.querySelector<SVGSVGElement>("svg");
     if (!nextSurface) {
@@ -259,7 +271,7 @@ describe("ArtifactAnnotation", () => {
     });
     const capture = configureSurface(surface);
 
-    expect(surface.getAttribute("role")).toBe("img");
+    expect(surface.getAttribute("role")).toBe("application");
     expect(surface.getAttribute("aria-label")).toBe(
       "Annotation canvas for Candidate A",
     );

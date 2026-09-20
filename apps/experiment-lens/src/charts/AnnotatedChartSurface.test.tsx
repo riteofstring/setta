@@ -18,10 +18,8 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@setta/workspace", () => ({
-  NO_DRAG_CLASS_NAME: "nodrag",
-  NO_PAN_CLASS_NAME: "nopan",
-  NO_WHEEL_CLASS_NAME: "nowheel",
+vi.mock("@setta/workspace", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@setta/workspace")>()),
   useWorkspaceDocumentSnapshot: () => ({
     savedViews: { activeViewId: "overview" },
   }),
@@ -140,6 +138,7 @@ function prepareInput(input: SVGSVGElement): void {
   });
   input.setPointerCapture = vi.fn();
   input.releasePointerCapture = vi.fn();
+  input.hasPointerCapture = vi.fn(() => true);
 }
 
 describe("chart annotations", () => {
@@ -301,10 +300,14 @@ describe("chart annotations", () => {
       );
     });
     expect(
-      container.querySelector('[data-annotation-id="annotation-a"]'),
+      container.querySelector(
+        '[data-workspace-normalized-stroke="annotation-a:0"]',
+      ),
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-annotation-id="annotation-b"]'),
+      container.querySelector(
+        '[data-workspace-normalized-stroke="annotation-b:0"]',
+      ),
     ).toBeNull();
     act(() => clickButton(container, "Annotate 1"));
     act(() => clickButton(container, "Edit"));

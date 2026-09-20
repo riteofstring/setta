@@ -30,7 +30,8 @@ submits it against the observed revision, and reconciles the accepted result or 
 snapshot. Changing exploration state never rewrites the Workspace document.
 
 React owns only interaction drafts, chart hover, playback cursor, local axis choices, pending
-optimistic presentation, and managed-window geometry. An indeterminate or rejected mutation is
+optimistic presentation, and controlled managed-window state. Workspace measures the integrated
+window layer and reports its usable viewport. An indeterminate or rejected mutation is
 never silently retried. A revision conflict refreshes the authoritative snapshot before another
 human action is admitted. Renderers resolve the authoritative typed section definition from the
 snapshot instead of copying presentation configuration into the Workspace document.
@@ -45,11 +46,11 @@ shared time cursor and range, and a timed artifact view resolves the nearest adm
 The selection basket is explicit and independent of the visible cohort. Filtering never silently
 deletes a prior selection. Annotation mode converts scatter points, histogram bins, and heatmap
 cells through the live chart projection into their exact observation IDs. Repeating a gesture over
-an already selected mark removes that group, while Shift modifies the existing basket. A reusable
-layer around every ECharts section captures freehand strokes in normalized chart coordinates, so
-accepted drawings remain aligned when a Workspace section resizes. Each annotation records its
-intent, text, originating section and view, field bindings, filter snapshot, and selected
-observation IDs.
+an already selected mark removes that group, while Shift modifies the existing basket. Workspace's
+controlled normalized-stroke surface captures and passively renders freehand chart strokes, so
+accepted drawings remain aligned when a section resizes. Lens owns the surrounding selection mode,
+draft collection, and durable annotation; each record carries its intent, text, originating section
+and view, field bindings, filter snapshot, and selected observation IDs.
 Artifact annotations use the same durable collection with an exact artifact anchor. Passive saved
 overlays do not intercept chart or Workspace input; pointer boundaries apply only while selecting
 or drawing. A managed comparison window overlays the selected series and presents their primary

@@ -61,6 +61,7 @@ const RUNTIME_EXPORTS = [
   "WorkspaceItemLabel",
   "WorkspaceItemList",
   "WorkspaceNavigator",
+  "WorkspaceNormalizedStrokeSurface",
   "WorkspaceParameterConfigurationIcon",
   "WorkspaceParameterConfigurationView",
   "WorkspaceShell",
@@ -328,6 +329,10 @@ describe("public package API", () => {
       Parameters<typeof workspace.setWorkspaceSectionAttention>,
       [host: workspace.WorkspaceHost, sectionIds: ReadonlyArray<string>]
     > = true;
+    const fitReturn: IsExactly<
+      ReturnType<typeof workspace.fitWorkspaceSections>,
+      Promise<void>
+    > = true;
     const exposesXyflow: "xyflow" extends keyof workspace.WorkspaceCanvasConfiguration
       ? true
       : false = false;
@@ -335,7 +340,30 @@ describe("public package API", () => {
     expect(canvasProps.configuration).toBe(configuration);
     expect(fitParameters).toBe(true);
     expect(attentionParameters).toBe(true);
+    expect(fitReturn).toBe(true);
     expect(exposesXyflow).toBe(false);
+  });
+
+  it("exposes one controlled normalized stroke surface", () => {
+    const strokes = [
+      {
+        id: "stroke-a",
+        points: [
+          { x: 0.1, y: 0.2 },
+          { x: 0.8, y: 0.9 },
+        ],
+      },
+    ] satisfies ReadonlyArray<workspace.WorkspaceNormalizedStroke>;
+    const props = {
+      ariaLabel: "Draw annotation",
+      enabled: true,
+      onStrokeComplete: (
+        _points: readonly workspace.WorkspaceNormalizedPoint[],
+      ) => undefined,
+      strokes,
+    } satisfies workspace.WorkspaceNormalizedStrokeSurfaceProps;
+
+    expect(props.strokes).toBe(strokes);
   });
 
   it("exposes one opt-in structural history contract", () => {
