@@ -6,18 +6,11 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os/exec"
 	"slices"
 	"testing"
-	"time"
 	"unicode/utf16"
 
 	"golang.org/x/sys/windows"
-)
-
-const (
-	testWindowsJobHandle     = windows.Handle(41)
-	testWindowsProcessHandle = windows.Handle(42)
 )
 
 var errWindowsPTYInjected = errors.New("injected Windows PTY failure")
@@ -34,8 +27,8 @@ func TestStartWindowsPTYAssignsRootToKillOnCloseJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("startWindowsPTY() error = %v", err)
 	}
-	if fixture.openedProcessID != 4242 || fixture.assignedJob != testWindowsJobHandle || fixture.assignedProcess != testWindowsProcessHandle {
-		t.Fatalf("opened/assigned process = %d %v/%v", fixture.openedProcessID, fixture.assignedJob, fixture.assignedProcess)
+	if fixture.assignedProcessID != 4242 {
+		t.Fatalf("assigned process = %d, want 4242", fixture.assignedProcessID)
 	}
 	if !slices.Equal(fixture.configuration.environment, configuration.environment) || fixture.configuration.directory != configuration.directory || fixture.configuration.columns != configuration.columns || fixture.configuration.rows != configuration.rows {
 		t.Fatalf("suspended ConPTY configuration = %#v, want %#v", fixture.configuration, configuration)
@@ -47,12 +40,9 @@ func TestStartWindowsPTYAssignsRootToKillOnCloseJob(t *testing.T) {
 		t.Fatalf("second Close() error = %v", err)
 	}
 	assertWindowsPTYCalls(t, fixture.calls, []string{
-		"create-job",
-		"set-kill-on-close",
+		"new-job",
 		"start-suspended-conpty",
-		"open-root-process",
 		"assign-root-process",
-		"close-root-process",
 		"resume-root",
 		"close-job",
 		"close-conpty",
@@ -63,7 +53,7 @@ func TestWindowsPTYRetainsCloseFailureThroughWait(t *testing.T) {
 	fixture := newWindowsPTYFixture("close-job")
 	session := &windowsPTY{
 		pty: &fakeConPTY{fixture: fixture, processID: 4242},
-		job: windowsJob{handle: testWindowsJobHandle, closeHandle: fixture.closeHandle, terminateJob: fixture.terminateJob},
+		job: &fakeWindowsProcessJob{fixture: fixture},
 	}
 	if err := session.Close(); !errors.Is(err, errWindowsPTYInjected) {
 		t.Fatalf("Close() error = %v, want retained job close failure", err)
@@ -74,21 +64,7 @@ func TestWindowsPTYRetainsCloseFailureThroughWait(t *testing.T) {
 	if err := session.Wait(); !errors.Is(err, errWindowsPTYInjected) {
 		t.Fatalf("Wait() error = %v, want retained job close failure", err)
 	}
-	assertWindowsPTYCalls(t, fixture.calls, []string{"close-job", "terminate-job", "close-job", "terminate-job", "close-conpty"})
-}
-
-func TestWindowsJobCloseFailureTerminatesThenRetriesHandleRelease(t *testing.T) {
-	fixture := newWindowsPTYFixture("")
-	fixture.closeJobFailures = 1
-	job := windowsJob{
-		handle:       testWindowsJobHandle,
-		closeHandle:  fixture.closeHandle,
-		terminateJob: fixture.terminateJob,
-	}
-	if err := job.discard(); !errors.Is(err, errWindowsPTYInjected) {
-		t.Fatalf("discard job error = %v, want retained initial close failure", err)
-	}
-	assertWindowsPTYCalls(t, fixture.calls, []string{"close-job", "terminate-job", "close-job"})
+	assertWindowsPTYCalls(t, fixture.calls, []string{"close-job", "close-conpty"})
 }
 
 func TestStartWindowsPTYRollsBackEveryAcquiredResource(t *testing.T) {
@@ -99,38 +75,23 @@ func TestStartWindowsPTYRollsBackEveryAcquiredResource(t *testing.T) {
 	}{
 		{
 			name:  "job creation",
-			stage: "create-job",
-			calls: []string{"create-job", "close-job"},
-		},
-		{
-			name:  "job configuration",
-			stage: "set-kill-on-close",
-			calls: []string{"create-job", "set-kill-on-close", "close-job"},
+			stage: "new-job",
+			calls: []string{"new-job"},
 		},
 		{
 			name:  "ConPTY startup",
 			stage: "start-conpty",
-			calls: []string{"create-job", "set-kill-on-close", "start-suspended-conpty", "abort-conpty", "close-job", "close-conpty"},
-		},
-		{
-			name:  "root process open",
-			stage: "open-root-process",
-			calls: []string{"create-job", "set-kill-on-close", "start-suspended-conpty", "open-root-process", "abort-conpty", "close-job", "close-conpty"},
+			calls: []string{"new-job", "start-suspended-conpty", "abort-conpty", "close-job", "close-conpty"},
 		},
 		{
 			name:  "root process assignment",
 			stage: "assign-root-process",
-			calls: []string{"create-job", "set-kill-on-close", "start-suspended-conpty", "open-root-process", "assign-root-process", "close-root-process", "abort-conpty", "close-job", "close-conpty"},
-		},
-		{
-			name:  "root process handle release",
-			stage: "close-root-process",
-			calls: []string{"create-job", "set-kill-on-close", "start-suspended-conpty", "open-root-process", "assign-root-process", "close-root-process", "close-root-process", "close-job", "close-conpty"},
+			calls: []string{"new-job", "start-suspended-conpty", "assign-root-process", "abort-conpty", "close-job", "close-conpty"},
 		},
 		{
 			name:  "root resume",
 			stage: "resume-root",
-			calls: []string{"create-job", "set-kill-on-close", "start-suspended-conpty", "open-root-process", "assign-root-process", "close-root-process", "resume-root", "close-job", "close-conpty"},
+			calls: []string{"new-job", "start-suspended-conpty", "assign-root-process", "resume-root", "abort-conpty", "close-job", "close-conpty"},
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -140,13 +101,6 @@ func TestStartWindowsPTYRollsBackEveryAcquiredResource(t *testing.T) {
 			}
 			assertWindowsPTYCalls(t, fixture.calls, testCase.calls)
 		})
-	}
-}
-
-func TestKillOnCloseJobInformationRequestsTreeTermination(t *testing.T) {
-	information := killOnCloseJobInformation()
-	if information.BasicLimitInformation.LimitFlags&windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE == 0 {
-		t.Fatalf("job limit flags = %#x, want kill on close", information.BasicLimitInformation.LimitFlags)
 	}
 }
 
@@ -265,78 +219,12 @@ func TestSuspendedConPTYCloseLeavesTheStableWaitHandleToItsWaiter(t *testing.T) 
 	}
 }
 
-func TestKillOnCloseJobTerminatesAssignedRoot(t *testing.T) {
-	operations := defaultWindowsPTYOperations()
-	job, err := newKillOnCloseJob(operations)
-	if err != nil {
-		t.Fatalf("newKillOnCloseJob() error = %v", err)
-	}
-	jobClosed := false
-	process := windows.Handle(0)
-	processClosed := false
-	command := exec.Command("cmd.exe", "/d", "/s", "/c", "ping -n 31 127.0.0.1 >NUL")
-	if err := command.Start(); err != nil {
-		_ = job.Close()
-		t.Fatalf("start child process: %v", err)
-	}
-	waitStarted := false
-	waitFinished := false
-	waitDone := make(chan error, 1)
-	t.Cleanup(func() {
-		if !processClosed {
-			_ = closeWindowsHandle(process, operations)
-		}
-		if !jobClosed {
-			_ = job.Close()
-		}
-		if !waitStarted {
-			_ = command.Process.Kill()
-			_ = command.Wait()
-			return
-		}
-		if !waitFinished {
-			_ = command.Process.Kill()
-			select {
-			case <-waitDone:
-			case <-time.After(time.Second):
-			}
-		}
-	})
-
-	process, err = operations.openProcess(uint32(command.Process.Pid))
-	if err != nil {
-		t.Fatalf("open child process: %v", err)
-	}
-	if err := operations.assignProcess(job.handle, process); err != nil {
-		t.Fatalf("assign child process to job: %v", err)
-	}
-	if err := closeWindowsHandle(process, operations); err != nil {
-		t.Fatalf("release child process handle: %v", err)
-	}
-	processClosed = true
-	if err := job.Close(); err != nil {
-		t.Fatalf("close job: %v", err)
-	}
-	jobClosed = true
-	waitStarted = true
-	go func() { waitDone <- command.Wait() }()
-	select {
-	case <-waitDone:
-		waitFinished = true
-	case <-time.After(5 * time.Second):
-		t.Fatal("closing the job did not terminate its assigned process")
-	}
-}
-
 type windowsPTYFixture struct {
-	stage            string
-	pty              *fakeConPTY
-	calls            []string
-	openedProcessID  uint32
-	assignedJob      windows.Handle
-	assignedProcess  windows.Handle
-	closeJobFailures int
-	configuration    windowsPTYConfiguration
+	stage             string
+	pty               *fakeConPTY
+	calls             []string
+	assignedProcessID int
+	configuration     windowsPTYConfiguration
 }
 
 func newWindowsPTYFixture(stage string) *windowsPTYFixture {
@@ -347,54 +235,34 @@ func newWindowsPTYFixture(stage string) *windowsPTYFixture {
 
 func (fixture *windowsPTYFixture) operations() windowsPTYOperations {
 	return windowsPTYOperations{
+		newJob: func() (windowsProcessJob, error) {
+			fixture.record("new-job")
+			if err := fixture.errorAt("new-job"); err != nil {
+				return nil, err
+			}
+			return &fakeWindowsProcessJob{fixture: fixture}, nil
+		},
 		startSuspended: func(_ string, configuration windowsPTYConfiguration) (suspendedConPTY, error) {
 			fixture.record("start-suspended-conpty")
 			fixture.configuration = configuration
 			return fixture.pty, fixture.errorAt("start-conpty")
 		},
-		createJob: func() (windows.Handle, error) {
-			fixture.record("create-job")
-			return testWindowsJobHandle, fixture.errorAt("create-job")
-		},
-		setKillOnClose: func(windows.Handle) error {
-			fixture.record("set-kill-on-close")
-			return fixture.errorAt("set-kill-on-close")
-		},
-		terminateJob: fixture.terminateJob,
-		openProcess: func(processID uint32) (windows.Handle, error) {
-			fixture.record("open-root-process")
-			fixture.openedProcessID = processID
-			return testWindowsProcessHandle, fixture.errorAt("open-root-process")
-		},
-		assignProcess: func(job windows.Handle, process windows.Handle) error {
-			fixture.record("assign-root-process")
-			fixture.assignedJob = job
-			fixture.assignedProcess = process
-			return fixture.errorAt("assign-root-process")
-		},
-		closeHandle: fixture.closeHandle,
 	}
 }
 
-func (fixture *windowsPTYFixture) terminateJob(windows.Handle, uint32) error {
-	fixture.record("terminate-job")
-	return fixture.errorAt("terminate-job")
+type fakeWindowsProcessJob struct {
+	fixture *windowsPTYFixture
 }
 
-func (fixture *windowsPTYFixture) closeHandle(handle windows.Handle) error {
-	switch handle {
-	case testWindowsJobHandle:
-		fixture.record("close-job")
-		if fixture.closeJobFailures > 0 {
-			fixture.closeJobFailures--
-			return errWindowsPTYInjected
-		}
-		return fixture.errorAt("close-job")
-	case testWindowsProcessHandle:
-		fixture.record("close-root-process")
-		return fixture.errorAt("close-root-process")
-	}
-	return nil
+func (job *fakeWindowsProcessJob) Assign(processID int) error {
+	job.fixture.record("assign-root-process")
+	job.fixture.assignedProcessID = processID
+	return job.fixture.errorAt("assign-root-process")
+}
+
+func (job *fakeWindowsProcessJob) Close() error {
+	job.fixture.record("close-job")
+	return job.fixture.errorAt("close-job")
 }
 
 func (fixture *windowsPTYFixture) errorAt(stage string) error {

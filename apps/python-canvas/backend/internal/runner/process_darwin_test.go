@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/setta/local-backend/proctree"
 )
 
 var errDarwinWorkerInjected = errors.New("injected Darwin worker failure")
@@ -43,7 +45,10 @@ print("contained")
 	if err := os.WriteFile(script, []byte(contents), 0o600); err != nil {
 		t.Fatalf("write containment program: %v", err)
 	}
-	command := exec.Command(darwinSandboxExecutable, "-p", darwinProcessContainmentProfile, interpreter, script)
+	command, err := proctree.DarwinCommand(interpreter, script)
+	if err != nil {
+		t.Fatalf("build containment command: %v", err)
+	}
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("run containment program: %v\n%s", err, output)

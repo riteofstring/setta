@@ -10,12 +10,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/setta/local-backend/proctree"
 )
 
 const (
@@ -60,7 +59,11 @@ func startContainedWorker(interpreter string, bootstrap string, directory string
 	command := workerCommand(start, executable, linuxGuardianInvocation, "--", interpreter, bootstrap)
 	command.Env = append(command.Env, InputFDEnvironment+"=3", OutputFDEnvironment+"=4")
 	command.ExtraFiles = []*os.File{input, output, statusWriter}
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := proctree.ConfigureGroup(command); err != nil {
+		_ = statusReader.Close()
+		_ = statusWriter.Close()
+		return nil, nil, fmt.Errorf("worker: configure Linux guardian group: %w", err)
+	}
 	release, err := command.StdinPipe()
 	if err != nil {
 		_ = statusReader.Close()
@@ -202,28 +205,32 @@ func runLinuxGuardian(interpreter string, bootstrap string) {
 		os.Exit(125)
 	}
 	defer status.Close()
+	owner, err := proctree.NewLinuxOwner(2 * time.Second)
+	if err != nil {
+		writeLinuxStatus(status, linuxFailure)
+		os.Exit(125)
+	}
 	if prepareLinuxGuardian(status) != nil {
+		_ = owner.Close()
 		writeLinuxStatus(status, linuxFailure)
 		os.Exit(125)
 	}
 	command, err := startLinuxGuardianTarget(interpreter, bootstrap)
 	if err != nil {
+		_ = owner.Close()
 		writeLinuxStatus(status, linuxFailure)
 		os.Exit(125)
 	}
 	if writeLinuxStatus(status, linuxStarted) != nil {
-		abortLinuxGuardianTarget(command)
+		abortLinuxGuardianTarget(command, owner)
 		os.Exit(125)
 	}
 	_ = os.Stdout.Close()
 	_ = os.Stderr.Close()
-	waitForLinuxGuardianTarget(command, status)
+	waitForLinuxGuardianTarget(command, status, owner)
 }
 
 func prepareLinuxGuardian(status *os.File) error {
-	if _, _, errno := syscall.RawSyscall6(syscall.SYS_PRCTL, 36, 1, 0, 0, 0, 0); errno != 0 {
-		return errno
-	}
 	if err := writeLinuxStatus(status, linuxReady); err != nil {
 		return err
 	}
@@ -249,20 +256,22 @@ func startLinuxGuardianTarget(interpreter string, bootstrap string) (*exec.Cmd, 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	command.ExtraFiles = []*os.File{input, output}
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := proctree.ConfigureGroup(command); err != nil {
+		return nil, err
+	}
 	if err := command.Start(); err != nil {
 		return nil, err
 	}
 	return command, nil
 }
 
-func abortLinuxGuardianTarget(command *exec.Cmd) {
+func abortLinuxGuardianTarget(command *exec.Cmd, owner *proctree.LinuxOwner) {
 	_ = command.Process.Kill()
 	_ = command.Wait()
-	_ = reapLinuxChildren()
+	_ = owner.Close()
 }
 
-func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File) {
+func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File, owner *proctree.LinuxOwner) {
 	done := make(chan error, 1)
 	go func() { done <- command.Wait() }()
 	signals := make(chan os.Signal, 1)
@@ -270,20 +279,20 @@ func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File) {
 	defer signal.Stop(signals)
 	select {
 	case result := <-done:
-		finishLinuxGuardianTarget(status, result)
+		finishLinuxGuardianTarget(status, result, owner)
 	case received := <-signals:
-		terminateLinuxGuardianTarget(command, done, status, received)
+		terminateLinuxGuardianTarget(command, done, status, received, owner)
 	}
 }
 
-func finishLinuxGuardianTarget(status *os.File, result error) {
-	if reapLinuxChildren() != nil || writeLinuxStatus(status, linuxComplete) != nil {
+func finishLinuxGuardianTarget(status *os.File, result error, owner *proctree.LinuxOwner) {
+	if owner.Close() != nil || writeLinuxStatus(status, linuxComplete) != nil {
 		os.Exit(125)
 	}
 	exitLike(result)
 }
 
-func terminateLinuxGuardianTarget(command *exec.Cmd, done <-chan error, status *os.File, received os.Signal) {
+func terminateLinuxGuardianTarget(command *exec.Cmd, done <-chan error, status *os.File, received os.Signal, owner *proctree.LinuxOwner) {
 	_ = command.Process.Signal(syscall.SIGTERM)
 	timer := time.NewTimer(100 * time.Millisecond)
 	select {
@@ -293,7 +302,7 @@ func terminateLinuxGuardianTarget(command *exec.Cmd, done <-chan error, status *
 		_ = command.Process.Kill()
 		<-done
 	}
-	if reapLinuxChildren() != nil || writeLinuxStatus(status, linuxTerminated) != nil {
+	if owner.Close() != nil || writeLinuxStatus(status, linuxTerminated) != nil {
 		os.Exit(125)
 	}
 	exitWithLinuxSignal(received)
@@ -326,88 +335,6 @@ func currentDirectory() string {
 		return string(filepath.Separator)
 	}
 	return directory
-}
-
-func reapLinuxChildren() error {
-	for {
-		done, err := reapLinuxChildBatch()
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-	}
-}
-
-func reapLinuxChildBatch() (bool, error) {
-	children, err := linuxChildren()
-	if err != nil {
-		return false, err
-	}
-	if len(children) == 0 {
-		return reapLinuxWithoutChildren()
-	}
-	for _, pid := range children {
-		if err := syscall.Kill(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-			return false, err
-		}
-	}
-	var status syscall.WaitStatus
-	_, err = syscall.Wait4(-1, &status, 0, nil)
-	return false, ignoreNoLinuxChildren(err)
-}
-
-func reapLinuxWithoutChildren() (bool, error) {
-	var status syscall.WaitStatus
-	pid, err := syscall.Wait4(-1, &status, syscall.WNOHANG, nil)
-	if errors.Is(err, syscall.ECHILD) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if pid == 0 {
-		time.Sleep(time.Millisecond)
-	}
-	return false, nil
-}
-
-func ignoreNoLinuxChildren(err error) error {
-	if errors.Is(err, syscall.ECHILD) {
-		return nil
-	}
-	return err
-}
-
-func linuxChildren() ([]int, error) {
-	threads, err := os.ReadDir("/proc/self/task")
-	if err != nil {
-		return nil, err
-	}
-	seen := make(map[int]struct{})
-	for _, thread := range threads {
-		data, err := os.ReadFile(filepath.Join("/proc/self/task", thread.Name(), "children"))
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		for _, value := range strings.Fields(string(data)) {
-			pid, err := strconv.Atoi(value)
-			if err != nil || pid < 1 {
-				return nil, errors.New("worker: Linux guardian child identity is invalid")
-			}
-			seen[pid] = struct{}{}
-		}
-	}
-	children := make([]int, 0, len(seen))
-	for pid := range seen {
-		children = append(children, pid)
-	}
-	sort.Ints(children)
-	return children, nil
 }
 
 func exitLike(result error) {

@@ -371,7 +371,7 @@ func (pty *suspendedWindowsConPTY) Abort() error {
 		return nil
 	}
 	if err := windows.TerminateProcess(pty.process.Process, 1); err != nil {
-		return fmt.Errorf("terminal: terminate unassigned suspended ConPTY root: %w", err)
+		return fmt.Errorf("terminal: terminate suspended ConPTY root: %w", err)
 	}
 	return nil
 }

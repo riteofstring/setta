@@ -12,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/setta/local-backend/proctree"
 )
 
 const (
@@ -181,21 +183,25 @@ func startDarwinGuardianWorker(interpreter string, artifact string) (*darwinGuar
 		_ = worker.close()
 		return nil, fmt.Errorf("runner: open generated Python input: %w", err)
 	}
-	command := exec.Command(
-		darwinSandboxExecutable,
-		"-p",
-		darwinProcessContainmentProfile,
+	command, err := proctree.DarwinCommand(
 		executable,
 		darwinPrivateGuardianWorkerInvocation,
 		"--",
 		interpreter,
 		artifact,
 	)
+	if err != nil {
+		return nil, cleanupDarwinGuardianWorkerStart(
+			fmt.Errorf("runner: configure macOS process worker: %w", err),
+			input,
+			worker,
+			nil,
+		)
+	}
 	command.Stdin = input
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	command.ExtraFiles = []*os.File{reportWriter}
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := command.Start(); err != nil {
 		return nil, cleanupDarwinGuardianWorkerStart(
 			fmt.Errorf("runner: start macOS process worker: %w", err),
@@ -437,13 +443,13 @@ func terminateDarwinWorker(command *exec.Cmd) error {
 	if processID < 1 {
 		return errors.New("runner: macOS process worker ID is invalid")
 	}
-	var failures []error
-	if err := signalLiveDarwinWorkerGroup(processID, syscall.SIGTERM); err != nil {
-		failures = append(failures, fmt.Errorf("runner: terminate macOS process worker group: %w", err))
+	group, err := proctree.NewGroup(processID)
+	if err != nil {
+		return fmt.Errorf("runner: own macOS process worker group: %w", err)
 	}
-	time.Sleep(processTerminationGrace)
-	if err := signalLiveDarwinWorkerGroup(processID, syscall.SIGKILL); err != nil {
-		failures = append(failures, err)
+	var failures []error
+	if err := group.Close(); err != nil {
+		failures = append(failures, fmt.Errorf("runner: terminate macOS process worker group: %w", err))
 	}
 	if err := command.Wait(); err != nil {
 		var exitError *exec.ExitError
@@ -452,28 +458,6 @@ func terminateDarwinWorker(command *exec.Cmd) error {
 		}
 	}
 	return errors.Join(failures...)
-}
-
-func signalLiveDarwinWorkerGroup(processID int, signal syscall.Signal) error {
-	groupID, err := syscall.Getpgid(processID)
-	if errors.Is(err, syscall.ESRCH) {
-
-		return signalDarwinWorkerGroup(processID, signal)
-	}
-	if err != nil {
-		return fmt.Errorf("runner: verify macOS process worker group: %w", err)
-	}
-	if groupID != processID {
-		return fmt.Errorf("runner: macOS process worker group changed from %d to %d", processID, groupID)
-	}
-	return signalDarwinWorkerGroup(processID, signal)
-}
-
-func signalDarwinWorkerGroup(processID int, signal syscall.Signal) error {
-	if err := syscall.Kill(-processID, signal); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Errorf("runner: signal macOS process worker group: %w", err)
-	}
-	return nil
 }
 
 func (worker *darwinGuardianWorker) waitStarted() error {

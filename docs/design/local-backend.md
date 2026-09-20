@@ -51,6 +51,9 @@ fields in closed Go shapes. Application semantic validation always follows decod
 - `strictjson` owns the shared lexical JSON boundary. `httpjson` and `sse` own bounded HTTP and
   event-stream mechanics, not product statuses, errors, routes, or event names.
 - `proctree` owns only platform descendant containment, bounded termination, wait, and cleanup.
+  It creates and assigns kill-on-close Windows Job Objects, revalidates POSIX group identity before
+  signaling, adopts and reaps Linux descendants under an explicit deadline, and supplies the fixed
+  macOS noninteractive guardian profile. Unsupported platforms expose a fail-closed sentinel.
 
 Application coordinators retain snapshot construction, cloning policy, revisions, persistence
 semantics, validation, commands, route classification, response documents, worker protocols, and
@@ -78,6 +81,13 @@ checks flush capability and owns standard no-cache, keep-alive, anti-buffering h
 event names, JSON data framing, initial and per-event flushes, and termination with the request
 context or source channel. The application obtains the stream and maps failures before transport
 starts; `latestvalue` supplies initial-current and coalescing semantics.
+
+`proctree` does not construct application commands or decide when work is cooperative, timed out,
+restarted, or reported. Python Canvas keeps its runner and terminal as distinct lifecycle owners;
+the terminal retains identity-aware session cleanup above the shared subreaper and Job Object
+primitives. Realtime retains its worker release barrier, protocol shutdown, and complete-worker
+replacement policy. The package uses direct standard-library operating-system calls, so this
+boundary introduces no third-party process supervisor or system-binding dependency.
 
 ## Verification
 

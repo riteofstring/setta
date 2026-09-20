@@ -1,6 +1,6 @@
 # Workspace and local backend extraction plan
 
-Status: active
+Status: complete
 
 This plan moves repeated, application-neutral presentation behavior into `@setta/workspace` and
 introduces a small shared Go module for local application backend infrastructure. Python Canvas,
@@ -94,6 +94,12 @@ The initial package surface is intentionally small:
 | `strictjson`         | UTF-8, duplicate-key, unknown-field, depth and trailing-value policy                                                     | Concrete document types and semantic validation                             |
 | `httpjson` and `sse` | Bounded request/response mechanics and event framing                                                                     | Routes, event names, product errors, reconnect meaning                      |
 | `proctree`           | Platform descendant ownership, bounded termination, wait, and cleanup                                                    | Commands, environments, worker protocols, terminal and runner orchestration |
+
+Dependency decision (2026-09-22): add no external package. The extracted contracts are small
+enough for the Go and browser standard libraries, while introducing a router, storage framework,
+process supervisor, or component toolkit would duplicate application-owned policy. Existing
+application dependencies remain at their current boundaries; in particular, Python Canvas keeps
+its ConPTY implementation and its already admitted system bindings outside `local-backend`.
 
 `revisionedjson` and `artifacthttp` are not initial packages. Add either only if the earlier
 extractions leave at least two thin application implementations with an identical complete
@@ -365,6 +371,13 @@ Acceptance criteria:
   replay bookkeeping or polling.
 
 ### B6. Extract the common process-tree boundary
+
+Completion (2026-09-22): `local-backend/proctree` now owns kill-on-close Windows Job Objects,
+revalidated POSIX process groups, Linux child-subreaper adoption with bounded kill-and-reap
+cleanup, and the fixed macOS noninteractive guardian profile. Python Canvas runners and terminals
+and the Realtime worker use those primitives while retaining their separate commands, release
+barriers, protocols, terminal identity checks, restart policy, and status. Unsupported platforms
+fail closed through the shared boundary, and the cutover added no external dependency.
 
 Compare the Python Canvas runner and Realtime worker at the OS containment layer only. Extract
 shared platform primitives for descendant ownership, termination, wait, and cleanup where the

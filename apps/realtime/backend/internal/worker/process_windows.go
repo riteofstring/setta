@@ -9,80 +9,34 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"sync"
 	"syscall"
-	"unsafe"
+
+	"github.com/setta/local-backend/proctree"
 )
 
 const (
-	windowsJobExtendedLimitInformation = 9
-	windowsJobKillOnClose              = 0x00002000
-	windowsProcessSetQuota             = 0x0100
-	windowsReleaseEnvironment          = "SETTA_WORKER_RELEASE_HANDLE"
-	windowsPrelude                     = "import os,sys,msvcrt,runpy;h=int(os.environ.pop('SETTA_WORKER_RELEASE_HANDLE'));f=os.fdopen(msvcrt.open_osfhandle(h,os.O_RDONLY),'rb',buffering=0);token=f.read(1);f.close();token==b'\\x01' or sys.exit(125);runpy.run_path(sys.argv[1],run_name='__main__')"
+	windowsReleaseEnvironment = "SETTA_WORKER_RELEASE_HANDLE"
+	windowsPrelude            = "import os,sys,msvcrt,runpy;h=int(os.environ.pop('SETTA_WORKER_RELEASE_HANDLE'));f=os.fdopen(msvcrt.open_osfhandle(h,os.O_RDONLY),'rb',buffering=0);token=f.read(1);f.close();token==b'\\x01' or sys.exit(125);runpy.run_path(sys.argv[1],run_name='__main__')"
 )
-
-var (
-	windowsKernel                   = syscall.NewLazyDLL("kernel32.dll")
-	windowsCreateJobObject          = windowsKernel.NewProc("CreateJobObjectW")
-	windowsSetInformationJobObject  = windowsKernel.NewProc("SetInformationJobObject")
-	windowsAssignProcessToJobObject = windowsKernel.NewProc("AssignProcessToJobObject")
-	windowsTerminateJobObject       = windowsKernel.NewProc("TerminateJobObject")
-)
-
-type windowsBasicLimitInformation struct {
-	PerProcessUserTimeLimit int64
-	PerJobUserTimeLimit     int64
-	LimitFlags              uint32
-	MinimumWorkingSetSize   uintptr
-	MaximumWorkingSetSize   uintptr
-	ActiveProcessLimit      uint32
-	Affinity                uintptr
-	PriorityClass           uint32
-	SchedulingClass         uint32
-}
-
-type windowsIOCounters struct {
-	ReadOperationCount  uint64
-	WriteOperationCount uint64
-	OtherOperationCount uint64
-	ReadTransferCount   uint64
-	WriteTransferCount  uint64
-	OtherTransferCount  uint64
-}
-
-type windowsExtendedLimitInformation struct {
-	Basic                 windowsBasicLimitInformation
-	IO                    windowsIOCounters
-	ProcessMemoryLimit    uintptr
-	JobMemoryLimit        uintptr
-	PeakProcessMemoryUsed uintptr
-	PeakJobMemoryUsed     uintptr
-}
 
 type windowsProcess struct {
-	job  syscall.Handle
-	once sync.Once
-	err  error
+	job *proctree.Job
 }
 
 func startContainedWorker(interpreter string, bootstrap string, directory string, environment []string, input *os.File, output *os.File, stdout io.Writer, stderr io.Writer) (*exec.Cmd, ownedProcess, error) {
-	job, err := createWindowsJob()
+	job, err := proctree.NewJob()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("worker: create Windows process owner: %w", err)
 	}
 	releaseReader, releaseWriter, err := os.Pipe()
 	if err != nil {
-		_ = syscall.CloseHandle(job)
-		return nil, nil, err
+		return nil, nil, errors.Join(fmt.Errorf("worker: create Windows release pipe: %w", err), job.Close())
 	}
+	cleanupPipes := func() error { return errors.Join(releaseReader.Close(), releaseWriter.Close()) }
 	handles := []syscall.Handle{syscall.Handle(input.Fd()), syscall.Handle(output.Fd()), syscall.Handle(releaseReader.Fd())}
 	for _, handle := range handles {
 		if err := syscall.SetHandleInformation(handle, syscall.HANDLE_FLAG_INHERIT, syscall.HANDLE_FLAG_INHERIT); err != nil {
-			_ = releaseReader.Close()
-			_ = releaseWriter.Close()
-			_ = syscall.CloseHandle(job)
-			return nil, nil, fmt.Errorf("worker: prepare inherited handle: %w", err)
+			return nil, nil, errors.Join(fmt.Errorf("worker: prepare inherited handle: %w", err), cleanupPipes(), job.Close())
 		}
 	}
 	start := processStart{interpreter: interpreter, bootstrap: bootstrap, directory: directory, environment: environment, input: input, output: output, stdout: stdout, stderr: stderr}
@@ -94,70 +48,47 @@ func startContainedWorker(interpreter string, bootstrap string, directory string
 	)
 	command.SysProcAttr = &syscall.SysProcAttr{AdditionalInheritedHandles: handles}
 	if err := command.Start(); err != nil {
-		_ = releaseReader.Close()
-		_ = releaseWriter.Close()
-		_ = syscall.CloseHandle(job)
-		return nil, nil, fmt.Errorf("worker: start contained Python: %w", err)
+		return nil, nil, errors.Join(fmt.Errorf("worker: start contained Python: %w", err), cleanupPipes(), job.Close())
 	}
-	_ = releaseReader.Close()
-	process, err := syscall.OpenProcess(windowsProcessSetQuota|syscall.PROCESS_TERMINATE, false, uint32(command.Process.Pid))
-	if err != nil {
-		_ = command.Process.Kill()
-		_ = command.Wait()
-		_ = releaseWriter.Close()
-		_ = syscall.CloseHandle(job)
-		return nil, nil, fmt.Errorf("worker: open Python process: %w", err)
+	if err := releaseReader.Close(); err != nil {
+		return nil, nil, cleanupWindowsWorker(command, releaseWriter, job, fmt.Errorf("worker: close child release handle: %w", err))
 	}
-	assigned, _, assignmentErr := windowsAssignProcessToJobObject.Call(uintptr(job), uintptr(process))
-	_ = syscall.CloseHandle(process)
-	if assigned == 0 {
-		_ = command.Process.Kill()
-		_ = command.Wait()
-		_ = releaseWriter.Close()
-		_ = syscall.CloseHandle(job)
-		return nil, nil, fmt.Errorf("worker: assign Python process job: %w", assignmentErr)
+	if err := job.Assign(command.Process.Pid); err != nil {
+		return nil, nil, cleanupWindowsWorker(command, releaseWriter, job, fmt.Errorf("worker: assign Python process job: %w", err))
 	}
 	count, releaseErr := releaseWriter.Write([]byte{1})
 	closeErr := releaseWriter.Close()
 	if releaseErr != nil || closeErr != nil || count != 1 {
-		owner := &windowsProcess{job: job}
-		_ = owner.terminate()
-		_ = command.Wait()
-		return nil, nil, fmt.Errorf("worker: release contained Python: %w", errors.Join(releaseErr, closeErr, io.ErrShortWrite))
+		return nil, nil, cleanupWindowsWorker(command, nil, job, fmt.Errorf("worker: release contained Python: %w", errors.Join(releaseErr, closeErr, io.ErrShortWrite)))
 	}
 	return command, &windowsProcess{job: job}, nil
 }
 
-func createWindowsJob() (syscall.Handle, error) {
-	value, _, createErr := windowsCreateJobObject.Call(0, 0)
-	if value == 0 {
-		return 0, fmt.Errorf("worker: create Windows process job: %w", createErr)
+func cleanupWindowsWorker(command *exec.Cmd, release io.Closer, job *proctree.Job, cause error) error {
+	var failures []error
+	if release != nil {
+		failures = append(failures, release.Close())
 	}
-	job := syscall.Handle(value)
-	information := windowsExtendedLimitInformation{Basic: windowsBasicLimitInformation{LimitFlags: windowsJobKillOnClose}}
-	result, _, setErr := windowsSetInformationJobObject.Call(uintptr(job), windowsJobExtendedLimitInformation, uintptr(unsafe.Pointer(&information)), unsafe.Sizeof(information))
-	if result == 0 {
-		_ = syscall.CloseHandle(job)
-		return 0, fmt.Errorf("worker: configure Windows process job: %w", setErr)
+	failures = append(failures, job.Close())
+	if command != nil && command.Process != nil {
+		if err := command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			failures = append(failures, fmt.Errorf("worker: stop unowned Windows process: %w", err))
+		}
+		if err := command.Wait(); err != nil {
+			var exitError *exec.ExitError
+			if !errors.As(err, &exitError) && !errors.Is(err, os.ErrProcessDone) {
+				failures = append(failures, fmt.Errorf("worker: reap failed Windows process: %w", err))
+			}
+		}
 	}
-	return job, nil
+	return errors.Join(append([]error{cause}, failures...)...)
 }
 
 func (process *windowsProcess) terminate() error {
-	if process == nil || process.job == 0 || process.job == syscall.InvalidHandle {
+	if process == nil || process.job == nil {
 		return errors.New("worker: Windows process job is unavailable")
 	}
-	process.once.Do(func() {
-		if err := syscall.CloseHandle(process.job); err != nil {
-			terminated, _, terminateErr := windowsTerminateJobObject.Call(uintptr(process.job), 1)
-			if terminated == 0 {
-				process.err = errors.Join(err, terminateErr)
-				return
-			}
-			process.err = err
-		}
-	})
-	return process.err
+	return process.job.Close()
 }
 
 func (process *windowsProcess) finalize() error {

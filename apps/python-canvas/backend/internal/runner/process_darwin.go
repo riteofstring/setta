@@ -4,15 +4,9 @@ package runner
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"syscall"
-)
 
-const (
-	darwinSandboxExecutable = "/usr/bin/sandbox-exec"
-
-	darwinProcessContainmentProfile = "(version 1) (deny syscall-unix (syscall-number SYS_setsid) (syscall-number SYS_setpgid)) (allow default)"
+	"github.com/setta/local-backend/proctree"
 )
 
 func prepareProcessLaunch(interpreter string, artifact string, directory string, environment []string) (processLaunch, error) {
@@ -29,16 +23,12 @@ func prepareProcessLaunch(interpreter string, artifact string, directory string,
 }
 
 func validateDarwinContainmentLauncher() error {
-	info, err := os.Stat(darwinSandboxExecutable)
-	if err != nil {
-		return fmt.Errorf("runner: macOS process containment launcher is unavailable: %w", err)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("runner: macOS process containment launcher %q is not a regular file", darwinSandboxExecutable)
+	if err := proctree.ValidateDarwinContainment(); err != nil {
+		return fmt.Errorf("runner: macOS process containment is unavailable: %w", err)
 	}
 	return nil
 }
 
 func configureProcess(command *exec.Cmd) {
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	_ = proctree.ConfigureGroup(command)
 }

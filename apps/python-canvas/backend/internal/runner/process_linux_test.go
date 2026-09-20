@@ -31,48 +31,6 @@ func (input *linuxGuardianTestInput) Close() error {
 	return input.closeErr
 }
 
-func TestReapLinuxGuardianChildrenKillsAdoptedChildrenUntilECHILD(t *testing.T) {
-	snapshots := [][]int{{41, 42}, {43}, {}}
-	nextSnapshot := 0
-	var killed []int
-	waits := 0
-	noHangWaits := 0
-	err := reapLinuxGuardianChildren(linuxGuardianReaperOperations{
-		children: func() ([]int, error) {
-			if nextSnapshot >= len(snapshots) {
-				return nil, errors.New("unexpected child snapshot")
-			}
-			children := snapshots[nextSnapshot]
-			nextSnapshot++
-			return children, nil
-		},
-		kill: func(processID int, signal syscall.Signal) error {
-			if signal != syscall.SIGKILL {
-				t.Fatalf("signal child %d with %s, want SIGKILL", processID, signal)
-			}
-			killed = append(killed, processID)
-			return nil
-		},
-		waitOne: func() error {
-			waits++
-			return nil
-		},
-		waitNoHang: func() (bool, error) {
-			noHangWaits++
-			return false, syscall.ECHILD
-		},
-	})
-	if err != nil {
-		t.Fatalf("reapLinuxGuardianChildren() error = %v", err)
-	}
-	if got, want := fmt.Sprint(killed), "[41 42 43]"; got != want {
-		t.Fatalf("killed children = %s, want %s", got, want)
-	}
-	if waits != 2 || noHangWaits != 1 {
-		t.Fatalf("guardian reaping calls = wait %d nonblocking %d, want 2 and 1", waits, noHangWaits)
-	}
-}
-
 func TestLinuxTargetInputCloseFailureAbortsStartedTargetAndReaps(t *testing.T) {
 	closeErr := errors.New("close generated Python input")
 	input := &linuxGuardianTestInput{closeErr: closeErr}

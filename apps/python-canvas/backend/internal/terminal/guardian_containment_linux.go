@@ -9,11 +9,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/setta/local-backend/proctree"
 	"golang.org/x/sys/unix"
 )
 
 func enableTerminalGuardianChildContainment() error {
-	return unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
+	return proctree.EnableLinuxChildSubreaper()
 }
 
 func terminalGuardianSurvivorsAreProvisional() bool { return true }

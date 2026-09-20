@@ -9,27 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
-	"golang.org/x/sys/unix"
+	"github.com/setta/local-backend/proctree"
 )
 
 const (
 	linuxPrivateGuardianInvocation = "--setta-runner-guardian-linux"
-	linuxProcessRoot               = "/proc/self/task"
 )
-
-type linuxGuardianReaperOperations struct {
-	children   func() ([]int, error)
-	kill       func(int, syscall.Signal) error
-	waitOne    func() error
-	waitNoHang func() (bool, error)
-}
 
 type linuxGuardianTargetStartOperations struct {
 	openInput    func() (io.ReadCloser, error)
@@ -80,7 +68,7 @@ func prepareProcessLaunch(interpreter string, artifact string, directory string,
 }
 
 func configureProcess(command *exec.Cmd) {
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	_ = proctree.ConfigureGroup(command)
 }
 
 func runLinuxPrivateGuardian(interpreter string, artifact string, status *os.File) (privateGuardianExit, error) {
@@ -88,32 +76,35 @@ func runLinuxPrivateGuardian(interpreter string, artifact string, status *os.Fil
 		return privateGuardianExit{}, errors.New("runner: private process guardian status pipe is unavailable")
 	}
 	syscall.CloseOnExec(int(status.Fd()))
-	if err := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0); err != nil {
-		return privateGuardianExit{}, fmt.Errorf("runner: configure Linux child subreaper: %w", err)
+	owner, err := proctree.NewLinuxOwner(privateGuardianTerminationTimeout)
+	if err != nil {
+		return privateGuardianExit{}, fmt.Errorf("runner: configure Linux process-tree owner: %w", err)
 	}
 	if err := writePrivateGuardianStatus(status, privateGuardianReady); err != nil {
-		return privateGuardianExit{}, fmt.Errorf("runner: report Linux guardian readiness: %w", err)
+		return privateGuardianExit{}, errors.Join(fmt.Errorf("runner: report Linux guardian readiness: %w", err), owner.Close())
 	}
 	if err := readPrivateGuardianRelease(); err != nil {
-		return privateGuardianExit{}, err
+		return privateGuardianExit{}, errors.Join(err, owner.Close())
 	}
 	target, err := startLinuxGuardianTarget(interpreter, artifact)
 	if err != nil {
-		return privateGuardianExit{}, handleLinuxGuardianTargetStart(target, err, abortLinuxGuardianTarget)
+		return privateGuardianExit{}, handleLinuxGuardianTargetStart(target, err, func(command *exec.Cmd, cause error) error {
+			return abortLinuxGuardianTarget(command, cause, owner)
+		})
 	}
 	if err := closePrivateGuardianOutput(); err != nil {
-		return privateGuardianExit{}, abortLinuxGuardianTarget(target, err)
+		return privateGuardianExit{}, abortLinuxGuardianTarget(target, err, owner)
 	}
 	if err := writePrivateGuardianStatus(status, privateGuardianStarted); err != nil {
-		return privateGuardianExit{}, abortLinuxGuardianTarget(target, fmt.Errorf("runner: report Linux guardian start: %w", err))
+		return privateGuardianExit{}, abortLinuxGuardianTarget(target, fmt.Errorf("runner: report Linux guardian start: %w", err), owner)
 	}
-	return waitForLinuxGuardianTarget(target, status)
+	return waitForLinuxGuardianTarget(target, status, owner)
 }
 
-func abortLinuxGuardianTarget(command *exec.Cmd, cause error) error {
+func abortLinuxGuardianTarget(command *exec.Cmd, cause error, owner *proctree.LinuxOwner) error {
 	return abortLinuxGuardianTargetWithOperations(command, cause, linuxGuardianTargetCleanupOperations{
 		cleanupCommand: cleanupStartedCommand,
-		reapChildren:   func() error { return reapLinuxGuardianChildren(defaultLinuxGuardianReaperOperations()) },
+		reapChildren:   owner.Close,
 	})
 }
 
@@ -186,7 +177,7 @@ func handleLinuxGuardianTargetStart(command *exec.Cmd, cause error, abort func(*
 	return abort(command, cause)
 }
 
-func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File) (privateGuardianExit, error) {
+func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File, owner *proctree.LinuxOwner) (privateGuardianExit, error) {
 	if command == nil || command.Process == nil {
 		return privateGuardianExit{}, errors.New("runner: generated Python process is unavailable")
 	}
@@ -197,15 +188,15 @@ func waitForLinuxGuardianTarget(command *exec.Cmd, status *os.File) (privateGuar
 	defer signal.Stop(signals)
 	select {
 	case targetErr := <-targetDone:
-		return finishLinuxGuardianTarget(targetErr, status)
+		return finishLinuxGuardianTarget(targetErr, status, owner)
 	case received := <-signals:
-		return terminateLinuxGuardianTarget(command, targetDone, status, received)
+		return terminateLinuxGuardianTarget(command, targetDone, status, received, owner)
 	}
 }
 
-func finishLinuxGuardianTarget(targetErr error, status *os.File) (privateGuardianExit, error) {
+func finishLinuxGuardianTarget(targetErr error, status *os.File, owner *proctree.LinuxOwner) (privateGuardianExit, error) {
 	return finishLinuxGuardianTargetWithOperations(targetErr, status, linuxGuardianTargetFinishOperations{
-		reapChildren: func() error { return reapLinuxGuardianChildren(defaultLinuxGuardianReaperOperations()) },
+		reapChildren: owner.Close,
 	})
 }
 
@@ -234,6 +225,7 @@ func terminateLinuxGuardianTarget(
 	targetDone <-chan error,
 	status *os.File,
 	received os.Signal,
+	owner *proctree.LinuxOwner,
 ) (privateGuardianExit, error) {
 	if command == nil || command.Process == nil {
 		return privateGuardianExit{}, errors.New("runner: generated Python process is unavailable")
@@ -241,12 +233,12 @@ func terminateLinuxGuardianTarget(
 	if err := command.Process.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return privateGuardianExit{}, fmt.Errorf("runner: request generated Python termination: %w", err)
 	}
-	time.Sleep(processTerminationGrace)
+	time.Sleep(proctree.TerminationGrace)
 	if err := command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return privateGuardianExit{}, fmt.Errorf("runner: kill generated Python: %w", err)
 	}
 	<-targetDone
-	if err := reapLinuxGuardianChildren(defaultLinuxGuardianReaperOperations()); err != nil {
+	if err := owner.Close(); err != nil {
 		return privateGuardianExit{}, err
 	}
 	if err := writePrivateGuardianStatus(status, privateGuardianTerminated); err != nil {
@@ -266,114 +258,4 @@ func exitLinuxPrivateGuardian(result privateGuardianExit) {
 		os.Exit(128 + int(result.signal))
 	}
 	os.Exit(result.code)
-}
-
-func defaultLinuxGuardianReaperOperations() linuxGuardianReaperOperations {
-	return linuxGuardianReaperOperations{
-		children:   linuxGuardianChildren,
-		kill:       syscall.Kill,
-		waitOne:    waitForLinuxGuardianChild,
-		waitNoHang: waitForLinuxGuardianChildNoHang,
-	}
-}
-
-func reapLinuxGuardianChildren(operations linuxGuardianReaperOperations) error {
-	if operations.children == nil || operations.kill == nil || operations.waitOne == nil || operations.waitNoHang == nil {
-		return errors.New("runner: Linux guardian reaper operations are unavailable")
-	}
-	for {
-		done, err := reapLinuxGuardianChildBatch(operations)
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-	}
-}
-
-func reapLinuxGuardianChildBatch(operations linuxGuardianReaperOperations) (bool, error) {
-	children, err := operations.children()
-	if err != nil {
-		return false, err
-	}
-	if len(children) == 0 {
-		return reapLinuxGuardianWithoutChildren(operations)
-	}
-	if err := killLinuxGuardianChildren(children, operations.kill); err != nil {
-		return false, err
-	}
-	if err := operations.waitOne(); err != nil && !errors.Is(err, syscall.ECHILD) {
-		return false, fmt.Errorf("runner: reap Linux guardian child: %w", err)
-	}
-	return false, nil
-}
-
-func reapLinuxGuardianWithoutChildren(operations linuxGuardianReaperOperations) (bool, error) {
-	reaped, err := operations.waitNoHang()
-	if errors.Is(err, syscall.ECHILD) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if reaped {
-		return false, nil
-	}
-
-	return false, nil
-}
-
-func killLinuxGuardianChildren(children []int, kill func(int, syscall.Signal) error) error {
-	for _, processID := range children {
-		if err := kill(processID, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-			return fmt.Errorf("runner: kill Linux guardian child %d: %w", processID, err)
-		}
-	}
-	return nil
-}
-
-func linuxGuardianChildren() ([]int, error) {
-	threads, err := os.ReadDir(linuxProcessRoot)
-	if err != nil {
-		return nil, fmt.Errorf("runner: list Linux guardian threads: %w", err)
-	}
-	seen := make(map[int]struct{})
-	for _, thread := range threads {
-		contents, err := os.ReadFile(filepath.Join(linuxProcessRoot, thread.Name(), "children"))
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("runner: list Linux guardian children for thread %s: %w", thread.Name(), err)
-		}
-		for _, value := range strings.Fields(string(contents)) {
-			processID, err := strconv.Atoi(value)
-			if err != nil || processID < 1 {
-				return nil, fmt.Errorf("runner: parse Linux guardian child PID %q", value)
-			}
-			seen[processID] = struct{}{}
-		}
-	}
-	children := make([]int, 0, len(seen))
-	for processID := range seen {
-		children = append(children, processID)
-	}
-	sort.Ints(children)
-	return children, nil
-}
-
-func waitForLinuxGuardianChild() error {
-	var status syscall.WaitStatus
-	_, err := syscall.Wait4(-1, &status, 0, nil)
-	return err
-}
-
-func waitForLinuxGuardianChildNoHang() (bool, error) {
-	var status syscall.WaitStatus
-	processID, err := syscall.Wait4(-1, &status, syscall.WNOHANG, nil)
-	if err != nil {
-		return false, err
-	}
-	return processID > 0, nil
 }

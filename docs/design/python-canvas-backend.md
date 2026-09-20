@@ -112,16 +112,16 @@ remain authoritative over incidental platform exit codes.
 
 Process containment owns lifetime and cleanup, not user permissions:
 
-- Windows assigns a blocking runner guardian or a suspended ConPTY root to a kill-on-close Job
-  Object before user code can create descendants.
-- Linux guardians become child subreapers. Adopted descendants are killed and reaped until the
-  kernel reports no children; terminal signaling revalidates process identity and containment to
-  avoid PID-reuse mistakes.
-- macOS applies inherited `sandbox-exec` syscall policies. Noninteractive descendants cannot
-  create a new process group or session; terminal descendants may use process groups for job
-  control but cannot leave the guardian session.
+- The shared `local-backend/proctree` boundary assigns a blocking Windows runner guardian or a
+  suspended ConPTY root to a kill-on-close Job Object before user code can create descendants.
+- The shared boundary makes Linux guardians child subreapers and performs bounded adopted-child
+  termination and reaping. Terminal signaling remains application-owned because it revalidates
+  terminal process identity and containment to avoid PID-reuse mistakes.
+- The shared boundary supplies the inherited macOS `sandbox-exec` policy for noninteractive work,
+  whose descendants cannot create a new process group or session. Terminal descendants may use
+  process groups for job control but cannot leave the application-owned guardian session.
 - A noninteractive run is refused on another POSIX platform when no comparable process-tree
-  ownership primitive is available.
+  ownership primitive is available, using the shared fail-closed unsupported result.
 
 The terminal guardian remains the stable session owner after the configured shell exits. Terminal
 history and live forwarding are joined under one lock so an attachment cannot miss bytes between

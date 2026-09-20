@@ -24,39 +24,6 @@ func TestConfigureProcessRequestsIndependentGroup(t *testing.T) {
 	}
 }
 
-func TestPOSIXOwnedProcessFinalizesTheLaunchProcessGroup(t *testing.T) {
-	type signalCall struct {
-		processID int
-		signal    syscall.Signal
-	}
-	var calls []signalCall
-	var sleeps []time.Duration
-	owner, err := newPOSIXOwnedProcessForPID(4242, posixProcessOperations{
-		kill: func(processID int, signal syscall.Signal) error {
-			calls = append(calls, signalCall{processID: processID, signal: signal})
-			if signal == syscall.SIGKILL {
-				return syscall.ESRCH
-			}
-			return nil
-		},
-		sleep:          func(duration time.Duration) { sleeps = append(sleeps, duration) },
-		currentProcess: func() int { return 1 },
-		currentGroup:   func() int { return 2 },
-	})
-	if err != nil {
-		t.Fatalf("newPOSIXOwnedProcessForPID() error = %v", err)
-	}
-	if err := owner.finalize(); err != nil {
-		t.Fatalf("finalize() error = %v", err)
-	}
-	if len(calls) != 2 || calls[0] != (signalCall{processID: -4242, signal: syscall.SIGTERM}) || calls[1] != (signalCall{processID: -4242, signal: syscall.SIGKILL}) {
-		t.Fatalf("process-group signals = %#v", calls)
-	}
-	if len(sleeps) != 1 || sleeps[0] != processTerminationGrace {
-		t.Fatalf("termination grace = %#v, want %s", sleeps, processTerminationGrace)
-	}
-}
-
 func TestRunFinalizesBackgroundChildAfterNormalRootExit(t *testing.T) {
 	service, projectDirectory := newTestService(t, 2*time.Second, 1_024)
 	backgroundPID := filepath.Join(projectDirectory, "runner-background-pid")

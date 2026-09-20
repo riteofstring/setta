@@ -3,12 +3,14 @@
 package runner
 
 import (
-	"errors"
+	"fmt"
 	"os/exec"
+
+	"github.com/setta/local-backend/proctree"
 )
 
 func prepareProcessLaunch(string, string, string, []string) (processLaunch, error) {
-	return processLaunch{}, errors.New("runner: POSIX process containment is unavailable on this platform")
+	return processLaunch{}, fmt.Errorf("runner: POSIX process containment is unavailable on this platform: %w", proctree.ErrUnsupported)
 }
 
 func configureProcess(*exec.Cmd) {}

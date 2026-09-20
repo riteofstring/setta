@@ -241,10 +241,11 @@ tree, readiness document, and decisions about which routes require the exact con
 origin. API, content, SSE, and WebSocket paths never fall through to the SPA.
 
 Containment owns lifecycle and descendant cleanup, not reduced user permissions. The worker uses
-the platform process-tree boundary whose contract matches Python Canvas: Windows Job Objects,
-Linux child-subreaper ownership, and the established macOS guardian restrictions. Unsupported
-platforms fail closed when descendants cannot be owned. Shutdown is bounded, idempotent, and does
-not report success before owned processes and staged artifacts are gone.
+`local-backend/proctree` for kill-on-close Windows Job Objects, Linux child-subreaper ownership and
+bounded reaping, revalidated POSIX process groups, and the established macOS guardian restrictions.
+Unsupported platforms fail closed through the shared boundary. Realtime retains its release
+barriers, cooperative protocol shutdown, replacement policy, and status. Shutdown is bounded,
+idempotent, and does not report success before owned processes and staged artifacts are gone.
 
 Source activation deliberately performs bounded destructive replacement: the coordinator stops
 the current worker and its owned descendants before launching the saved entrypoint. It does not
