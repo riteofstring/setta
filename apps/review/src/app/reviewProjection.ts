@@ -1,10 +1,13 @@
 import type {
+  TopLevelSectionLayout,
   WorkspaceDocument,
   WorkspaceDocumentInput,
   WorkspaceGraphEdge,
   WorkspaceGraphPort,
+  WorkspaceSavedView,
   WorkspaceSectionInput,
 } from "@setta/workspace";
+import { parseWorkspaceSavedViewsState } from "@setta/workspace";
 
 import type {
   EvidenceReference,
@@ -21,7 +24,11 @@ export const REVIEW_ARTIFACT_SECTION_KIND = "review.artifact";
 
 const REQUEST_X = 64;
 const LANE_GAP = 160;
-const EVIDENCE_GAP = 40;
+const CURRENT_VIEW_ID = "current";
+const OLD_VIEW_ID = "old";
+const INITIAL_VIEWPORT = { x: 0, y: 0, zoom: 0.78 };
+
+type ReviewViewId = typeof CURRENT_VIEW_ID | typeof OLD_VIEW_ID;
 
 function encoded(...parts: string[]): string {
   return parts.map((part) => encodeURIComponent(part)).join(":");
@@ -219,16 +226,59 @@ function laneHeight(request: RequestSnapshot): number {
   return Math.max(requestHeight, Math.ceil(evidenceCount / 2) * 400);
 }
 
+function requestView(request: RequestSnapshot): ReviewViewId {
+  return request.response?.status === "final" ? OLD_VIEW_ID : CURRENT_VIEW_ID;
+}
+
+function preservedViewLayout(
+  current: WorkspaceDocument | undefined,
+  viewId: ReviewViewId,
+  sectionId: string,
+  visible: boolean,
+): TopLevelSectionLayout | undefined {
+  const previousView = current?.savedViews?.views[viewId];
+  if (previousView) {
+    const wasVisible = previousView.sectionVisibility[sectionId] === true;
+    if (wasVisible === visible) {
+      return previousView.topLevelSections[sectionId];
+    }
+    return undefined;
+  }
+  if (viewId === CURRENT_VIEW_ID && current?.savedViews === null && visible) {
+    return current.topLevelSections[sectionId];
+  }
+  return undefined;
+}
+
+function previousViewViewport(
+  current: WorkspaceDocument | undefined,
+  viewId: ReviewViewId,
+): WorkspaceSavedView["viewport"] {
+  const previous = current?.savedViews?.views[viewId];
+  if (previous) {
+    return previous.viewport;
+  }
+  if (viewId === CURRENT_VIEW_ID && current?.savedViews === null) {
+    return current.viewport;
+  }
+  return { ...INITIAL_VIEWPORT };
+}
+
 export function projectReviewDocument(
   snapshot: ReviewSnapshot,
   current?: WorkspaceDocument,
 ): WorkspaceDocumentInput {
   const sections: WorkspaceDocumentInput["sections"] = {};
-  const topLevelSections: WorkspaceDocumentInput["topLevelSections"] = {};
-  let laneY = 64;
-  let zIndex = 0;
+  const generatedLayouts: Record<
+    ReviewViewId,
+    Record<string, TopLevelSectionLayout>
+  > = { current: {}, old: {} };
+  const sectionViews: Record<string, ReviewViewId> = {};
+  const laneY: Record<ReviewViewId, number> = { current: 64, old: 64 };
+  const zIndex: Record<ReviewViewId, number> = { current: 0, old: 0 };
 
   for (const request of snapshot.requests) {
+    const viewId = requestView(request);
     const controlId = requestSectionId(request.request.id);
     const controlSize = requestSize(request);
     sections[controlId] = preserveLocalPresentation(
@@ -241,13 +291,13 @@ export function projectReviewDocument(
       }),
       current,
     );
-    const previousControl = current?.topLevelSections[controlId];
-    topLevelSections[controlId] = previousControl ?? {
+    sectionViews[controlId] = viewId;
+    generatedLayouts[viewId][controlId] = {
       h: controlSize.height === "auto" ? null : controlSize.height,
       w: controlSize.width,
       x: REQUEST_X,
-      y: laneY,
-      zIndex: zIndex++,
+      y: laneY[viewId],
+      zIndex: zIndex[viewId]++,
     };
 
     request.request.evidence.forEach((reference, evidenceIndex) => {
@@ -267,32 +317,79 @@ export function projectReviewDocument(
         }),
         current,
       );
+      sectionViews[evidenceId] = viewId;
       const position = placeEvidence(
         request,
         reference,
         controlSize.width,
-        laneY,
+        laneY[viewId],
         evidenceIndex,
       );
-      const previousEvidence = current?.topLevelSections[evidenceId];
-      topLevelSections[evidenceId] = previousEvidence ?? {
+      generatedLayouts[viewId][evidenceId] = {
         h: size.height,
         w: size.width,
         x: position.x,
         y: position.y,
-        zIndex: zIndex++,
+        zIndex: zIndex[viewId]++,
       };
     });
 
-    laneY += laneHeight(request) + LANE_GAP;
+    laneY[viewId] += laneHeight(request) + LANE_GAP;
+  }
+
+  for (const [sectionId, viewId] of Object.entries(sectionViews)) {
+    const layout = generatedLayouts[viewId][sectionId];
+    if (!layout) {
+      throw new Error(`Review section ${sectionId} has no generated layout.`);
+    }
+    const otherViewId =
+      viewId === CURRENT_VIEW_ID ? OLD_VIEW_ID : CURRENT_VIEW_ID;
+    generatedLayouts[otherViewId][sectionId] = { ...layout };
+  }
+
+  const views = Object.fromEntries(
+    ([CURRENT_VIEW_ID, OLD_VIEW_ID] as const).map((viewId, sortIndex) => {
+      const sectionVisibility: Record<string, boolean> = {};
+      const topLevelSections: Record<string, TopLevelSectionLayout> = {};
+      for (const [sectionId, ownerViewId] of Object.entries(sectionViews)) {
+        const visible = ownerViewId === viewId;
+        sectionVisibility[sectionId] = visible;
+        const generated = generatedLayouts[viewId][sectionId];
+        if (!generated) {
+          throw new Error(
+            `Review section ${sectionId} has no ${viewId} layout.`,
+          );
+        }
+        topLevelSections[sectionId] =
+          preservedViewLayout(current, viewId, sectionId, visible) ?? generated;
+      }
+      const view: WorkspaceSavedView = {
+        id: viewId,
+        isTab: true,
+        name: viewId === CURRENT_VIEW_ID ? "Current" : "Old",
+        sectionVisibility,
+        sortIndex,
+        topLevelSections,
+        viewport: previousViewViewport(current, viewId),
+      };
+      return [viewId, view];
+    }),
+  );
+  const previousActiveViewId = current?.savedViews?.activeViewId;
+  const activeViewId =
+    previousActiveViewId === OLD_VIEW_ID ? OLD_VIEW_ID : CURRENT_VIEW_ID;
+  const savedViews = parseWorkspaceSavedViewsState({ activeViewId, views });
+  const activeView = savedViews.views[activeViewId];
+  if (!activeView) {
+    throw new Error(`Review view ${activeViewId} is unavailable.`);
   }
 
   return {
     activeIds: [],
-    savedViews: null,
+    savedViews,
     sections,
-    topLevelSections,
-    viewport: current?.viewport ?? { x: 0, y: 0, zoom: 0.78 },
+    topLevelSections: activeView.topLevelSections,
+    viewport: activeView.viewport,
   };
 }
 

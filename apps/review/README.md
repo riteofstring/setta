@@ -1,7 +1,7 @@
 # Setta Review
 
 Setta Review opens producer-neutral review projects, presents claims, choices, and exact evidence
-in Setta Workspace, and exports portable responses. It does not run or control agents.
+in Setta Workspace, and records portable responses. It does not run or control agents.
 
 Codex, Claude Code, OpenCode, a script, or a person can write the same versioned JSON request. The
 producer remains responsible for deciding what to do with the returned response.
@@ -113,6 +113,10 @@ and human controls in place. Choice matrices keep options, factors, tradeoffs, a
 in one adaptive section. Artifact choices use the same contract while candidate sections can move
 into Workspace floating windows.
 
+Native Workspace tabs divide the canvas into Current and Old views. Current contains unanswered
+requests and completion drafts. A final response moves the entire request-and-evidence group to Old,
+where it remains inspectable. Each view retains its own section layout and camera position.
+
 Selecting a claim, factor, or option highlights its typed evidence edges, cited lines or JSON
 pointers, and asks Workspace to frame the participating sections. Git evidence is rendered as a
 real diff. Text, JSON, logs, and artifacts remain rich sections rather than file receipts. The
@@ -125,8 +129,10 @@ drawn feedback.
 ## Durable output
 
 Human decisions live in ignored `.local/review/state.json`, separate from immutable producer input.
-`export` writes one `review-response.json` per responded request and, with `--continuations`, one
-packet that combines the exact request, resolved evidence, and response for the next arbitrary tool.
+Agents can read them through `snapshot` or the HTTP contract. Review has no browser export action.
+The optional `export` command writes one `review-response.json` per responded request and, with
+`--continuations`, one packet that combines the exact request, resolved evidence, and response for
+an external tool that requires files.
 
 Review does not execute tests, edit source, invoke an agent, resume a paused run, contact providers,
 commit, or push. It is a visual decision and handoff boundary, not an agent harness.

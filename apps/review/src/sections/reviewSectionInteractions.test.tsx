@@ -77,7 +77,6 @@ function createActions(overrides: Partial<ReviewActions> = {}): ReviewActions {
     clearAnnotations: vi.fn(),
     confirmChoice: vi.fn(async () => {}),
     decideClaim: vi.fn(async () => {}),
-    exportReview: vi.fn(async () => {}),
     requestChanges: vi.fn(async () => {}),
     selectEvidence: vi.fn(),
     selectOption: vi.fn(),
