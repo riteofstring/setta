@@ -662,6 +662,51 @@ async function assertHorizontalScroll(client, selector, description) {
   await assertBrowserResponsive(client, description);
 }
 
+async function assertVerticalScroll(client, selector, description) {
+  const start = await evaluate(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement) || element.scrollHeight <= element.clientHeight) {
+        return null;
+      }
+      const bounds = element.getBoundingClientRect();
+      const x = Math.max(1, Math.min(innerWidth - 1, bounds.left + bounds.width / 2));
+      const y = Math.max(1, Math.min(innerHeight - 1, bounds.top + bounds.height / 2));
+      const hit = document.elementFromPoint(x, y);
+      return hit instanceof Element && element.contains(hit)
+        ? { top: element.scrollTop, x, y }
+        : null;
+    })()`,
+  );
+  assert.notEqual(start, null, `${description} had no vertical overflow.`);
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 0,
+    deltaY: 240,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await waitFor(
+    client,
+    `${description} vertical scroll`,
+    `document.querySelector(${JSON.stringify(selector)})?.scrollTop > ${String(start.top)}`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 0,
+    deltaY: -240,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await waitFor(
+    client,
+    `${description} vertical scroll reset`,
+    `document.querySelector(${JSON.stringify(selector)})?.scrollTop <= ${String(start.top)}`,
+  );
+  await assertBrowserResponsive(client, description);
+}
+
 async function typeInputValue(client, selector, value, description) {
   await physicalClickSelector(client, selector, description);
   const selected = await evaluate(
@@ -799,6 +844,104 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     144,
   );
   await assertBrowserSettles(client, "the initial Overview");
+
+  const cohortSelector = sectionSelector("cohort");
+  const initialCohortBounds = await evaluate(
+    client,
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(cohortSelector)})?.getBoundingClientRect();
+      return bounds ? { height: bounds.height, width: bounds.width } : null;
+    })()`,
+  );
+  assert.notEqual(initialCohortBounds, null);
+  await dragSelector(
+    client,
+    `${cohortSelector} .section-resize-handle-bottom-right`,
+    390 - initialCohortBounds.width,
+    0,
+    "the cohort resize handle",
+  );
+  await waitFor(
+    client,
+    "the narrow cohort section",
+    `document.querySelector(${JSON.stringify(cohortSelector)})?.getBoundingClientRect().width <= 420 &&
+      document.querySelector(${JSON.stringify(`${cohortSelector} .lens-facets`)})?.classList.contains("nowheel") === true`,
+  );
+  const narrowCohortLayout = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(cohortSelector)});
+      const content = section?.querySelector(".lens-section-content");
+      const facets = section?.querySelector(".lens-facets");
+      if (!(content instanceof HTMLElement) || !(facets instanceof HTMLElement)) {
+        return null;
+      }
+      const contentBounds = content.getBoundingClientRect();
+      const facetsBounds = facets.getBoundingClientRect();
+      const x = facetsBounds.left + facetsBounds.width / 2;
+      const y = Math.min(innerHeight - 1, contentBounds.bottom + 8);
+      const hit = document.elementFromPoint(x, y);
+      return {
+        clientHeight: facets.clientHeight,
+        escaped: hit instanceof Element && facets.contains(hit),
+        fitsBody: facetsBounds.bottom <= contentBounds.bottom + 1,
+        overflowY: getComputedStyle(facets).overflowY,
+        scrollHeight: facets.scrollHeight,
+      };
+    })()`,
+  );
+  assert.notEqual(narrowCohortLayout, null);
+  assert.equal(
+    narrowCohortLayout.escaped,
+    false,
+    "The narrow cohort rendered content below its section body.",
+  );
+  assert.equal(
+    narrowCohortLayout.fitsBody,
+    true,
+    "The narrow cohort did not fit its section body.",
+  );
+  assert.equal(narrowCohortLayout.overflowY, "auto");
+  assert.ok(
+    narrowCohortLayout.scrollHeight > narrowCohortLayout.clientHeight,
+    "The narrow cohort did not expose its overflow for internal scrolling.",
+  );
+  await assertVerticalScroll(
+    client,
+    `${cohortSelector} .lens-facets`,
+    "the narrow cohort section",
+  );
+  const narrowCohortScreenshot = path.join(
+    resultDirectory,
+    "experiment-lens-cohort-narrow.png",
+  );
+  await captureScreenshot(client, narrowCohortScreenshot);
+  const narrowCohortBounds = await evaluate(
+    client,
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(cohortSelector)})?.getBoundingClientRect();
+      return bounds ? { width: bounds.width } : null;
+    })()`,
+  );
+  assert.notEqual(narrowCohortBounds, null);
+  await dragSelector(
+    client,
+    `${cohortSelector} .section-resize-handle-bottom-right`,
+    initialCohortBounds.width - narrowCohortBounds.width,
+    0,
+    "the narrow cohort resize handle",
+  );
+  await waitFor(
+    client,
+    "the restored cohort section",
+    `document.querySelector(${JSON.stringify(cohortSelector)})?.getBoundingClientRect().width >= ${String(initialCohortBounds.width - 10)} &&
+      document.querySelector(${JSON.stringify(`${cohortSelector} .lens-facets`)})?.classList.contains("nowheel") === false`,
+  );
+  await assertPanContinuesAcross(
+    client,
+    `${cohortSelector} .lens-facets`,
+    "the restored cohort pan handoff",
+  );
 
   const linkedChartSelectors = [
     `${sectionSelector("retention-population")} .lens-echart`,
@@ -1420,6 +1563,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     export: exportPath,
     revision: included.revision,
     screenshots: [
+      narrowCohortScreenshot,
       overviewScreenshot,
       heatmapScreenshot,
       inspectScreenshot,

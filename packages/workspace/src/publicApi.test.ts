@@ -180,6 +180,7 @@ const RUNTIME_EXPORTS = [
   "showWorkspaceSectionInFloatingWindow",
   "undockWorkspaceWindow",
   "undoWorkspace",
+  "useIsScrollable",
   "useItemSelectionMode",
   "useWorkspaceAppearance",
   "useWorkspaceCapabilities",

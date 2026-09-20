@@ -1,3 +1,4 @@
+import { NO_WHEEL_CLASS_NAME, useIsScrollable } from "@setta/workspace";
 import { useMemo } from "react";
 
 import type {
@@ -158,10 +159,15 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
 
 export function FacetSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
+  const { isScrollable, ref } = useIsScrollable();
   const definition = presentationSection(lens.snapshot, sectionId, "facets");
   const fields = presentationFields(lens.snapshot, definition.fieldIds);
   return (
-    <div className="lens-facets" data-lens-section="facets">
+    <div
+      className={`lens-facets ${isScrollable ? NO_WHEEL_CLASS_NAME : ""}`}
+      data-lens-section="facets"
+      ref={ref}
+    >
       <div className="lens-facet-grid">
         {fields.map((field) =>
           field.valueType === "number" &&

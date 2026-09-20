@@ -108,6 +108,7 @@ export {
   useWorkspaceOptions,
 } from "./canvas/options";
 export { subscribeWorkspaceCanvasPanScrolling } from "./canvas/store";
+export { useIsScrollable } from "./useIsScrollable";
 export type {
   MiniMapSide,
   WorkspaceGridPattern,

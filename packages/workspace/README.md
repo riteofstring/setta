@@ -738,6 +738,10 @@ Back/Forward navigation. `SETTA_PREVENT_SECTION_ACTIVE_CSS` suppresses the secti
 pressed outline while its marked interactive descendant is active without changing selection.
 Package controls apply these boundaries themselves.
 
+Custom renderers with conditional overflow can use `useIsScrollable()` and apply
+`NO_WHEEL_CLASS_NAME` only while its returned `isScrollable` value is true. This preserves native
+scrolling without taking wheel gestures away from canvas panning when the content already fits.
+
 An attached host surface that must suspend its own scrolling while the canvas owns a pan-scroll
 gesture can use `subscribeWorkspaceCanvasPanScrolling(host, listener)`. The returned function
 removes that host-scoped subscription.

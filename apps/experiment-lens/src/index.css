@@ -250,6 +250,7 @@ button {
 .lens-facets {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  overflow: auto;
 }
 
 .lens-facet-grid {

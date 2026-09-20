@@ -1,3 +1,5 @@
+import { NO_WHEEL_CLASS_NAME, useIsScrollable } from "@setta/workspace";
+
 import { useLens } from "../app/lensContext";
 import { aggregateValues } from "../app/aggregation";
 import { formatScalar } from "../app/lensModel";
@@ -8,10 +10,15 @@ import {
 
 export function MetricsSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
+  const { isScrollable, ref } = useIsScrollable();
   const definition = presentationSection(lens.snapshot, sectionId, "metrics");
   const fields = presentationFields(lens.snapshot, definition.fieldIds);
   return (
-    <div className="lens-metrics" data-lens-section="metrics">
+    <div
+      className={`lens-metrics ${isScrollable ? NO_WHEEL_CLASS_NAME : ""}`}
+      data-lens-section="metrics"
+      ref={ref}
+    >
       {fields.map((field) => {
         const values = lens.visible
           .map((observation) => observation.values[field.id])
