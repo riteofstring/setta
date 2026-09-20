@@ -460,8 +460,8 @@ async function assertBrowserSettles(client, description) {
   );
 }
 
-async function assertCanvasPan(client, description) {
-  const start = await evaluate(
+async function canvasPanOrigin(client, description) {
+  const origin = await evaluate(
     client,
     `(() => {
       const pane = document.querySelector(".react-flow__pane");
@@ -480,7 +480,12 @@ async function assertCanvasPan(client, description) {
       return null;
     })()`,
   );
-  assert.notEqual(start, null, `${description} had no reachable canvas.`);
+  assert.notEqual(origin, null, `${description} had no reachable canvas.`);
+  return origin;
+}
+
+async function assertCanvasPan(client, description) {
+  const start = await canvasPanOrigin(client, description);
   await client.send("Input.dispatchMouseEvent", {
     type: "mouseMoved",
     x: start.x,
@@ -508,6 +513,65 @@ async function assertCanvasPan(client, description) {
   });
   await assertBrowserResponsive(client, `${description} reverse pan`);
   await delay(200);
+}
+
+async function assertPanContinuesAcross(client, targetSelector, description) {
+  const start = await canvasPanOrigin(client, description);
+  const target = await pointForSelector(client, targetSelector, description);
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 24,
+    deltaY: 16,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  const afterCanvas = await evaluate(
+    client,
+    `getComputedStyle(document.querySelector(".react-flow__viewport")).transform`,
+  );
+  assert.notEqual(
+    afterCanvas,
+    start.transform,
+    `${description} did not begin on the canvas.`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 24,
+    deltaY: 16,
+    type: "mouseWheel",
+    x: target.x,
+    y: target.y,
+  });
+  const afterTarget = await evaluate(
+    client,
+    `getComputedStyle(document.querySelector(".react-flow__viewport")).transform`,
+  );
+  assert.notEqual(
+    afterTarget,
+    afterCanvas,
+    `${description} stopped when momentum crossed the section.`,
+  );
+  await delay(200);
+}
+
+async function changeSelectValue(client, selector, value, description) {
+  const selected = await evaluate(
+    client,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!(control instanceof HTMLSelectElement)) {
+        return null;
+      }
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(control, ${JSON.stringify(value)});
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+      return control.value;
+    })()`,
+  );
+  assert.equal(selected, value, `${description} did not accept its value.`);
 }
 
 async function assertHorizontalScroll(client, selector, description) {
@@ -700,12 +764,80 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await assertBrowserSettles(client, "the initial Overview");
 
+  const scatterXSelector = `${sectionSelector("retention-population")} select[aria-label="Scatter horizontal axis"]`;
+  const scatterYSelector = `${sectionSelector("retention-population")} select[aria-label="Scatter vertical axis"]`;
+  assert.equal(
+    await evaluate(
+      client,
+      `document.querySelector(${JSON.stringify(scatterXSelector)})?.value`,
+    ),
+    "cycle",
+  );
+  assert.equal(
+    await evaluate(
+      client,
+      `document.querySelector(${JSON.stringify(scatterYSelector)})?.value`,
+    ),
+    "capacity_retention_pct",
+  );
+  await changeSelectValue(
+    client,
+    scatterXSelector,
+    "ambient_c",
+    "the scatter horizontal axis",
+  );
+  await waitFor(
+    client,
+    "the alternate scatter projection",
+    `document.querySelector(${JSON.stringify(scatterXSelector)})?.value === "ambient_c"`,
+  );
+  await assertBrowserResponsive(client, "the alternate scatter projection");
+  await changeSelectValue(
+    client,
+    scatterXSelector,
+    "cycle",
+    "the restored scatter horizontal axis",
+  );
+  await waitFor(
+    client,
+    "the restored scatter projection",
+    `document.querySelector(${JSON.stringify(scatterXSelector)})?.value === "cycle"`,
+  );
+
   const overviewScreenshot = path.join(
     resultDirectory,
     "experiment-lens-overview-dark.png",
   );
   await captureScreenshot(client, overviewScreenshot);
+  await assertPanContinuesAcross(
+    client,
+    `${sectionSelector("retention-population")} .lens-echart`,
+    "the population chart pan handoff",
+  );
   await assertCanvasPan(client, "the initial Overview");
+  await physicalClickSelector(
+    client,
+    '[data-workspace-outline-item="condition-heatmap"]',
+    "the heatmap outline item",
+  );
+  await waitFor(
+    client,
+    "the focused condition heatmap",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector("condition-heatmap"))});
+      const stage = section?.querySelector(".lens-heatmap-stage");
+      const sectionBounds = section?.getBoundingClientRect();
+      const stageBounds = stage?.getBoundingClientRect();
+      return sectionBounds !== undefined && stageBounds !== undefined &&
+        sectionBounds.top >= 0 && sectionBounds.bottom <= innerHeight &&
+        stageBounds.width < sectionBounds.width - 100;
+    })()`,
+  );
+  const heatmapScreenshot = path.join(
+    resultDirectory,
+    "experiment-lens-heatmap-dark.png",
+  );
+  await captureScreenshot(client, heatmapScreenshot);
   await physicalClickSelector(
     client,
     'button[aria-label="toggle minimap"]',
@@ -743,6 +875,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     `${sectionSelector("observations")} .lens-table-scroll`,
     "the observation table",
+  );
+  await assertPanContinuesAcross(
+    client,
+    `${sectionSelector("observations")} .lens-table-scroll`,
+    "the observation table pan handoff",
   );
   const observationSortSelector = `${sectionSelector("observations")} button[aria-label="Sort by Observation"]`;
   await physicalClickSelector(
@@ -1194,6 +1331,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     revision: included.revision,
     screenshots: [
       overviewScreenshot,
+      heatmapScreenshot,
       inspectScreenshot,
       timelineScreenshot,
       comparisonScreenshot,

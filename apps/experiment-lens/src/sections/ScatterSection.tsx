@@ -1,5 +1,5 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useLens } from "../app/lensContext";
 import { fieldExtent } from "../app/lensModel";
@@ -73,10 +73,19 @@ export function ScatterSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const definition = presentationSection(lens.snapshot, sectionId, "scatter");
-  const [xField, yField] = presentationFields(lens.snapshot, [
+  const [defaultXField, defaultYField] = presentationFields(lens.snapshot, [
     definition.xFieldId,
     definition.yFieldId,
   ]);
+  const numericFields = lens.snapshot.experiment.fields.filter(
+    (field) => field.valueType === "number",
+  );
+  const [xFieldId, setXFieldId] = useState(definition.xFieldId);
+  const [yFieldId, setYFieldId] = useState(definition.yFieldId);
+  const xField =
+    numericFields.find((field) => field.id === xFieldId) ?? defaultXField;
+  const yField =
+    numericFields.find((field) => field.id === yFieldId) ?? defaultYField;
   const category = definition.colorFieldId
     ? (presentationFields(lens.snapshot, [definition.colorFieldId])[0] ?? null)
     : null;
@@ -135,7 +144,34 @@ export function ScatterSection({ sectionId }: { sectionId: string }) {
   return (
     <div className="lens-chart-section" data-lens-section="scatter">
       <div className="lens-chart-toolbar">
-        <span>{`${yField.label} by ${xField.label}`}</span>
+        <label>
+          <span>X</span>
+          <select
+            aria-label="Scatter horizontal axis"
+            onChange={(event) => setXFieldId(event.target.value)}
+            value={xField.id}
+          >
+            {numericFields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Y</span>
+          <select
+            aria-label="Scatter vertical axis"
+            onChange={(event) => setYFieldId(event.target.value)}
+            value={yField.id}
+          >
+            {numericFields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+        </label>
         {category ? <span>Color · {category.label}</span> : null}
         <span className="lens-chart-count">{lens.visible.length} visible</span>
       </div>

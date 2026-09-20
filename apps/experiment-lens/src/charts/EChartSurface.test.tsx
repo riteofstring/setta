@@ -82,6 +82,27 @@ describe("EChartSurface", () => {
     expect(
       container.querySelector('[role="img"]')?.getAttribute("aria-label"),
     ).toBe("Population chart");
+    expect(
+      container.querySelector('[role="img"]')?.classList.contains("nowheel"),
+    ).toBe(false);
+    expect(
+      container
+        .querySelector('[role="img"]')
+        ?.classList.contains("setta-manual-wheel"),
+    ).toBe(false);
+
+    act(() => {
+      root.render(
+        <EChartSurface
+          ariaLabel="Timeline chart"
+          option={{ series: [] }}
+          ownsWheel
+        />,
+      );
+    });
+    expect(
+      container.querySelector('[role="img"]')?.classList.contains("nowheel"),
+    ).toBe(true);
 
     act(() => root.unmount());
     expect(mocks.chart.dispose).toHaveBeenCalledOnce();

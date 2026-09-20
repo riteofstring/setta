@@ -1,5 +1,5 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 
 import { aggregateValues } from "../app/aggregation";
 import { useLens } from "../app/lensContext";
@@ -110,17 +110,23 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
       yField.id,
     ],
   );
+  const stageStyle = {
+    maxHeight: `${String(Math.max(300, yChoices.length * 88 + 120))}px`,
+    maxWidth: `${String(Math.max(560, xChoices.length * 155 + 170))}px`,
+  } satisfies CSSProperties;
   return (
     <div className="lens-chart-section" data-lens-section="heatmap">
       <div className="lens-chart-toolbar">
         <span>{`${definition.aggregation} ${valueField.label}`}</span>
         <span className="lens-chart-count">click a cell to filter</span>
       </div>
-      <EChartSurface
-        ariaLabel={`${valueField.label} by ${xField.label} and ${yField.label}`}
-        events={events}
-        option={option}
-      />
+      <div className="lens-heatmap-stage" style={stageStyle}>
+        <EChartSurface
+          ariaLabel={`${valueField.label} by ${xField.label} and ${yField.label}`}
+          events={events}
+          option={option}
+        />
+      </div>
     </div>
   );
 }

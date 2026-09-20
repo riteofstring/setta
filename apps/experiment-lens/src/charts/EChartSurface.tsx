@@ -1,7 +1,7 @@
 import {
-  MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "@setta/workspace";
 import {
@@ -73,12 +73,14 @@ export function EChartSurface({
   events = {},
   onPointer,
   option,
+  ownsWheel = false,
 }: {
   ariaLabel: string;
   className?: string;
   events?: EChartEventHandlers;
   onPointer?: EChartPointerHandler;
   option: EChartsCoreOption;
+  ownsWheel?: boolean;
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ECharts | null>(null);
@@ -157,7 +159,7 @@ export function EChartSurface({
   return (
     <div
       aria-label={ariaLabel}
-      className={`lens-echart ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${MANUAL_WHEEL_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${className}`}
+      className={`lens-echart ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${ownsWheel ? NO_WHEEL_CLASS_NAME : ""} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${className}`}
       data-lens-chart="true"
       ref={elementRef}
       role="img"

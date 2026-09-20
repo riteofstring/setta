@@ -280,6 +280,7 @@ function ResolvedTimeline({
         events={events}
         onPointer={handlePointer}
         option={option}
+        ownsWheel
       />
       <div className="lens-timeline-status">
         <span>{cursorLabel}</span>

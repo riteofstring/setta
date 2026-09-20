@@ -28,6 +28,7 @@ const SERIES_COLORS = [
 
 type LensChartPalette = Readonly<{
   axis: string;
+  emptyCell: string;
   grid: string;
   muted: string;
   panel: string;
@@ -39,6 +40,7 @@ export function chartPalette(darkMode: boolean): LensChartPalette {
   return darkMode
     ? {
         axis: "#506078",
+        emptyCell: "#182231",
         grid: "#253043",
         muted: "#8795aa",
         panel: "#111926",
@@ -47,6 +49,7 @@ export function chartPalette(darkMode: boolean): LensChartPalette {
       }
     : {
         axis: "#a6b1c2",
+        emptyCell: "#edf1f6",
         grid: "#dfe5ee",
         muted: "#64748b",
         panel: "#ffffff",
@@ -289,11 +292,19 @@ export function heatmapOption({
   const values = data.map((cell) => cell[2] ?? 0);
   const minimum = values.length > 0 ? Math.min(...values) : 0;
   const maximum = values.length > 0 ? Math.max(...values) : 1;
+  const missingData = cells
+    .filter((cell) => cell.value === null)
+    .map((cell) => [cell.xIndex, cell.yIndex, minimum]);
   const series: HeatmapSeriesOption = {
     data,
     emphasis: { itemStyle: { borderColor: palette.text, borderWidth: 2 } },
+    itemStyle: {
+      borderColor: palette.panel,
+      borderRadius: 5,
+      borderWidth: 4,
+    },
     label: {
-      color: palette.text,
+      color: "#f8fafc",
       formatter: (params: { value?: unknown }) => {
         const value = Array.isArray(params.value) ? params.value[2] : null;
         return typeof value === "number"
@@ -304,14 +315,37 @@ export function heatmapOption({
           : "";
       },
       fontSize: 10,
+      fontWeight: 650,
       show: data.length <= 36,
+      textBorderColor: "rgb(5 12 24 / 45%)",
+      textBorderWidth: 2,
     },
+    name: valueField.label,
+    type: "heatmap",
+  };
+  const missingSeries: HeatmapSeriesOption = {
+    data: missingData,
+    itemStyle: {
+      borderColor: palette.panel,
+      borderRadius: 5,
+      borderWidth: 4,
+      color: palette.emptyCell,
+    },
+    label: {
+      color: palette.muted,
+      fontSize: 12,
+      formatter: "—",
+      show: true,
+    },
+    name: "No observations",
+    silent: true,
+    tooltip: { show: false },
     type: "heatmap",
   };
   return {
     ...commonOption(palette),
     grid: { bottom: 52, containLabel: true, left: 20, right: 78, top: 22 },
-    series: [series],
+    series: missingData.length > 0 ? [series, missingSeries] : [series],
     tooltip: {
       ...tooltipOption(palette),
       formatter: (params: { value: number[] }) => {
@@ -327,11 +361,15 @@ export function heatmapOption({
     },
     visualMap: {
       calculable: false,
-      inRange: { color: [palette.panel, "#2563eb", "#51d6c7"] },
+      inRange: {
+        color: ["#1d4ed8", "#2563eb", "#0ea5e9", "#22d3ee"],
+      },
       max: maximum === minimum ? minimum + 1 : maximum,
       min: minimum,
       orient: "vertical",
       right: 8,
+      seriesIndex: 0,
+      show: data.length > 0,
       textStyle: { color: palette.muted, fontSize: 10 },
       top: "middle",
     },
@@ -342,7 +380,8 @@ export function heatmapOption({
       name: xField.label,
       nameLocation: "middle",
       nameTextStyle: { color: palette.muted, padding: 28 },
-      splitArea: { show: true },
+      splitArea: { show: false },
+      splitLine: { show: false },
       type: "category",
     },
     yAxis: {
@@ -352,7 +391,8 @@ export function heatmapOption({
       name: yField.label,
       nameLocation: "middle",
       nameTextStyle: { color: palette.muted, padding: 34 },
-      splitArea: { show: true },
+      splitArea: { show: false },
+      splitLine: { show: false },
       type: "category",
     },
   };
