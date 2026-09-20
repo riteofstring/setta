@@ -8,16 +8,31 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"
 LOCAL_ENVIRONMENT = ROOT / "build" / "setta-wheel" / "local-environment"
 LOCAL_BUILD_STATE = ROOT / "build" / "setta-wheel" / "local-build.json"
-LOCAL_BUILD_STATE_FORMAT = 1
-REALTIME_BUILD_INPUTS = (
+LOCAL_BUILD_STATE_FORMAT = 2
+PACKAGED_APP_IDS = ("experiment-lens", "python-canvas", "realtime", "review")
+APPLICATION_BUILD_INPUTS = tuple(
+    ROOT / "apps" / app_id / relative
+    for app_id in PACKAGED_APP_IDS
+    for relative in (
+        "backend",
+        "index.html",
+        "package.json",
+        "src",
+        "tsconfig.json",
+        "vite.config.ts",
+    )
+) + tuple(
+    ROOT / "apps" / app_id / "scripts"
+    for app_id in ("experiment-lens", "realtime", "review")
+)
+LOCAL_BUILD_INPUTS = (
     ROOT / ".code-polishy.lock.json",
     ROOT / ".node-version",
     ROOT / "LICENSE",
@@ -37,13 +52,7 @@ REALTIME_BUILD_INPUTS = (
     ROOT / "packages" / "workspace" / "tsconfig.build.json",
     ROOT / "packages" / "workspace" / "tsconfig.json",
     ROOT / "packages" / "workspace" / "vite.config.ts",
-    ROOT / "apps" / "realtime" / "backend",
-    ROOT / "apps" / "realtime" / "index.html",
-    ROOT / "apps" / "realtime" / "package.json",
-    ROOT / "apps" / "realtime" / "scripts",
-    ROOT / "apps" / "realtime" / "src",
-    ROOT / "apps" / "realtime" / "tsconfig.json",
-    ROOT / "apps" / "realtime" / "vite.config.ts",
+    *APPLICATION_BUILD_INPUTS,
     ROOT / "packages" / "setta-runtime" / "licenses",
     ROOT / "packages" / "setta-runtime" / "platform_contract.py",
     ROOT / "packages" / "setta-runtime" / "scripts",
@@ -56,12 +65,6 @@ BUILD_INPUT_IGNORED_SUFFIXES = {".pyc"}
 
 class LocalRunError(RuntimeError):
     pass
-
-
-@dataclass(frozen=True)
-class ReusableAppAssets:
-    native_server: Path
-    web_root: Path
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -77,33 +80,28 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
 
 def run(arguments: Sequence[str]) -> int:
-    fingerprint = _realtime_build_fingerprint() if arguments[0] == "realtime" else None
-    if fingerprint is not None:
-        cached = _cached_realtime_executable(fingerprint)
-        if cached is not None:
-            sys.stdout.write("run_local_setta: reusing unchanged local build\n")
-            return _run_foreground([str(cached), *arguments], ROOT)
+    fingerprint = _local_build_fingerprint()
+    cached = _cached_local_executable(fingerprint)
+    if cached is not None:
+        sys.stdout.write("run_local_setta: reusing unchanged local build\n")
+        return _run_foreground([str(cached), *arguments], ROOT)
     uv = _required_command("uv")
     pnpm = _required_command("pnpm")
     go = _pinned_go()
     _run([pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], ROOT)
-    reusable = _realtime_reusable_assets() if arguments[0] == "realtime" else None
-    if reusable is not None:
-        _build_realtime_frontend(pnpm, go)
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
-        wheel = _build_current_wheel(go, Path(wheel_directory), reusable)
+        wheel = _build_current_wheel(go, Path(wheel_directory))
         setta = _install_current_wheel(uv, wheel)
-    if fingerprint is not None:
-        _record_realtime_build(fingerprint)
+    _record_local_build(fingerprint)
     return _run_foreground([str(setta), *arguments], ROOT)
 
 
-def _realtime_build_fingerprint() -> str:
+def _local_build_fingerprint() -> str:
     digest = hashlib.sha256()
     digest.update(
         f"{platform.system()}\0{platform.machine()}\0{sys.implementation.cache_tag}\0".encode()
     )
-    for path in _build_input_files(REALTIME_BUILD_INPUTS):
+    for path in _build_input_files(LOCAL_BUILD_INPUTS):
         try:
             relative = path.relative_to(ROOT).as_posix()
             payload = path.read_bytes()
@@ -139,7 +137,7 @@ def _build_input_files(inputs: Sequence[Path]) -> tuple[Path, ...]:
     return tuple(sorted(files, key=lambda candidate: candidate.as_posix()))
 
 
-def _cached_realtime_executable(fingerprint: str) -> Path | None:
+def _cached_local_executable(fingerprint: str) -> Path | None:
     try:
         document = json.loads(LOCAL_BUILD_STATE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -150,12 +148,14 @@ def _cached_realtime_executable(fingerprint: str) -> Path | None:
     }:
         return None
     _, setta = _environment_executables(LOCAL_ENVIRONMENT)
-    if not setta.is_file() or _reusable_app_assets("realtime") is None:
+    if not setta.is_file() or not all(
+        _installed_app_assets_valid(app_id) for app_id in PACKAGED_APP_IDS
+    ):
         return None
     return setta
 
 
-def _record_realtime_build(fingerprint: str) -> None:
+def _record_local_build(fingerprint: str) -> None:
     document = {
         "fingerprint": fingerprint,
         "format": LOCAL_BUILD_STATE_FORMAT,
@@ -180,7 +180,6 @@ def _record_realtime_build(fingerprint: str) -> None:
 def _build_current_wheel(
     go: Path,
     wheel_directory: Path,
-    reusable: Mapping[str, ReusableAppAssets] | None = None,
 ) -> Path:
     command = [
         sys.executable,
@@ -190,18 +189,6 @@ def _build_current_wheel(
         "--wheel-dir",
         str(wheel_directory),
     ]
-    if reusable is not None:
-        command.append("--skip-frontend-build")
-        for app_id in sorted(reusable):
-            assets = reusable[app_id]
-            command.extend(
-                [
-                    "--native-server",
-                    f"{app_id}={assets.native_server}",
-                    "--web-root",
-                    f"{app_id}={assets.web_root}",
-                ]
-            )
     _run(command, ROOT)
     wheels = tuple(wheel_directory.glob("*.whl"))
     if len(wheels) != 1 or not wheels[0].is_file():
@@ -209,34 +196,10 @@ def _build_current_wheel(
     return wheels[0]
 
 
-def _build_realtime_frontend(pnpm: str, go: Path) -> None:
-    environment = os.environ.copy()
-    inherited_path = environment.get("PATH")
-    path_entries = [str(go.parent)]
-    if inherited_path:
-        path_entries.append(inherited_path)
-    environment["PATH"] = os.pathsep.join(path_entries)
-    _run(
-        [pnpm, "--filter", "@setta/realtime", "run", "build"],
-        ROOT,
-        environment=environment,
-    )
-
-
-def _realtime_reusable_assets() -> dict[str, ReusableAppAssets] | None:
-    reusable: dict[str, ReusableAppAssets] = {}
-    for app_id in ("experiment-lens", "python-canvas", "review"):
-        assets = _reusable_app_assets(app_id)
-        if assets is None:
-            return None
-        reusable[app_id] = assets
-    return reusable
-
-
-def _reusable_app_assets(app_id: str) -> ReusableAppAssets | None:
+def _installed_app_assets_valid(app_id: str) -> bool:
     python, _ = _environment_executables(LOCAL_ENVIRONMENT)
     if not python.is_file():
-        return None
+        return False
     source = (
         "import json, sys; "
         "from setta.runtime import PackagedRuntime; "
@@ -262,10 +225,8 @@ def _reusable_app_assets(app_id: str) -> ReusableAppAssets | None:
         json.JSONDecodeError,
         subprocess.CalledProcessError,
     ):
-        return None
-    if not native_server.is_file() or not web_root.is_dir():
-        return None
-    return ReusableAppAssets(native_server=native_server, web_root=web_root)
+        return False
+    return native_server.is_file() and web_root.is_dir()
 
 
 def _install_current_wheel(uv: str, wheel: Path) -> Path:
