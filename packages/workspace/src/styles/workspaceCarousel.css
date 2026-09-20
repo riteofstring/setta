@@ -33,13 +33,14 @@
   min-height: 0;
 }
 
-.setta-workspace-carousel-control {
+.setta-workspace-carousel .setta-workspace-carousel-control {
   position: absolute;
   z-index: 2;
   inset-block-start: 50%;
   display: grid;
   width: 34px;
   height: 42px;
+  padding: 0;
   transform: translateY(-50%);
   place-items: center;
   border: 1px solid rgb(203 213 225 / 85%);
