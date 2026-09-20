@@ -38,11 +38,13 @@ the series and artifact sections resolve that same observation. Series interacti
 shared time cursor and range, and a timed artifact view resolves the nearest admitted frame.
 
 The selection basket is explicit and independent of the visible cohort. Filtering never silently
-deletes a prior selection. Scatter annotation mode converts click and rectangular gestures through
-the live chart projection into exact observation IDs in that basket. A reusable layer around every
-ECharts section captures freehand strokes in normalized chart coordinates, so accepted drawings
-remain aligned when a Workspace section resizes. Each annotation records its intent, text,
-originating section and view, field bindings, filter snapshot, and selected observation IDs.
+deletes a prior selection. Annotation mode converts scatter points, histogram bins, and heatmap
+cells through the live chart projection into their exact observation IDs. Repeating a gesture over
+an already selected mark removes that group, while Shift modifies the existing basket. A reusable
+layer around every ECharts section captures freehand strokes in normalized chart coordinates, so
+accepted drawings remain aligned when a Workspace section resizes. Each annotation records its
+intent, text, originating section and view, field bindings, filter snapshot, and selected
+observation IDs.
 Artifact annotations use the same durable collection with an exact artifact anchor. Passive saved
 overlays do not intercept chart or Workspace input; pointer boundaries apply only while selecting
 or drawing. A managed comparison window overlays the selected series and presents their primary
@@ -91,6 +93,7 @@ selection packet input, and manifest-to-Workspace projection. Component tests co
 interaction and chart lifecycle with a controlled ECharts boundary. Headless browser acceptance
 uses a realistic 864-observation battery project whose three declared views exercise all nine
 built-ins. It verifies filtering, table overflow, bidirectional focus, selection across filters,
-timeline synchronization, chart point selection, drawing, resize alignment, persistence,
+timeline synchronization, point, histogram-bin, and heatmap-cell selection, drawing, resize
+alignment, persistence,
 annotation editing and deletion, managed comparison, exported packet content, light and dark
 rendering, and constrained viewport behavior. It records screenshots for manual visual review.

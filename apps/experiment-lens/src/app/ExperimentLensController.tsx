@@ -28,7 +28,8 @@ import {
   deleteSelectionAnnotation,
   focusObservation,
   focusedObservation,
-  selectObservations,
+  replaceSelectedObservations,
+  selectObservationGroup,
   setArtifactRange,
   setInFilter,
   setRangeFilter,
@@ -284,9 +285,13 @@ export function ExperimentLensController() {
         replaceSelection((current) =>
           setSelectionAnnotation(current, annotation),
         ),
-      selectObservations: (observationIds, additive) =>
+      replaceSelectedObservations: (observationIds) =>
         replaceSelection((current) =>
-          selectObservations(current, observationIds, additive),
+          replaceSelectedObservations(current, observationIds),
+        ),
+      selectObservationGroup: (observationIds, additive) =>
+        replaceSelection((current) =>
+          selectObservationGroup(current, observationIds, additive),
         ),
       setCategoricalFilter: (fieldId, values, allValues) =>
         replaceSelection((current) =>

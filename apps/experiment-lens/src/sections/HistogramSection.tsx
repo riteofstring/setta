@@ -1,5 +1,5 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { HistogramBin } from "../app/aggregation";
 import { useLens } from "../app/lensContext";
@@ -9,15 +9,32 @@ import {
   presentationSection,
 } from "../app/presentationSection";
 import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
+import {
+  chartBandHalfSize,
+  chartDataPixel,
+  chartGesturePixelBounds,
+  pixelRectanglesIntersect,
+  type ChartSelectionGesture,
+} from "../charts/chartSelection";
 import { chartPalette, histogramOption } from "../charts/chartOptions";
+import type { LensChart } from "../charts/EChartSurface";
+import type { Observation } from "../backend/generatedContract";
 
 function histogramBins(
-  values: readonly number[],
+  observations: readonly Observation[],
+  fieldId: string,
   count: number,
 ): HistogramBin[] {
-  if (values.length === 0) {
+  const entries = observations.flatMap((observation) => {
+    const value = observation.values[fieldId];
+    return typeof value === "number" && Number.isFinite(value)
+      ? [{ id: observation.id, value }]
+      : [];
+  });
+  if (entries.length === 0) {
     return [];
   }
+  const values = entries.map((entry) => entry.value);
   const minimum = Math.min(...values);
   const maximum = Math.max(...values);
   const width = maximum === minimum ? 1 : (maximum - minimum) / count;
@@ -27,19 +44,52 @@ function histogramBins(
       count: 0,
       maximum: index === count - 1 ? maximum : minimum + width * (index + 1),
       minimum: minimum + width * index,
+      observationIds: [] as string[],
     }),
   );
-  for (const value of values) {
+  for (const entry of entries) {
     const index =
       maximum === minimum
         ? 0
-        : Math.min(count - 1, Math.floor((value - minimum) / width));
+        : Math.min(count - 1, Math.floor((entry.value - minimum) / width));
     const bin = bins[index];
     if (bin) {
-      bins[index] = { ...bin, count: bin.count + 1 };
+      bins[index] = {
+        ...bin,
+        count: bin.count + 1,
+        observationIds: [...bin.observationIds, entry.id],
+      };
     }
   }
   return bins;
+}
+
+function observationsInHistogramGesture(
+  bins: readonly HistogramBin[],
+  gesture: ChartSelectionGesture,
+  chart: LensChart,
+): string[] {
+  const selection = chartGesturePixelBounds(gesture, chart);
+  const centers = bins.map(
+    (_, index) => chartDataPixel(chart, [index, 0])?.[0] ?? Number.NaN,
+  );
+  return bins.flatMap((bin, index) => {
+    const base = chartDataPixel(chart, [index, 0]);
+    const top = chartDataPixel(chart, [index, bin.count]);
+    const center = centers[index];
+    if (!base || !top || center === undefined || !Number.isFinite(center)) {
+      return [];
+    }
+    const halfWidth = chartBandHalfSize(centers, index, 14);
+    return pixelRectanglesIntersect(selection, {
+      bottom: Math.max(base[1], top[1]),
+      left: center - halfWidth,
+      right: center + halfWidth,
+      top: Math.min(base[1], top[1]),
+    })
+      ? [...bin.observationIds]
+      : [];
+  });
 }
 
 export function HistogramSection({ sectionId }: { sectionId: string }) {
@@ -50,21 +100,25 @@ export function HistogramSection({ sectionId }: { sectionId: string }) {
   if (!field) {
     throw new Error(`Histogram section ${sectionId} has no field.`);
   }
-  const values = lens.visible
-    .map((observation) => observation.values[field.id])
-    .filter(
-      (value): value is number =>
-        typeof value === "number" && Number.isFinite(value),
-    );
-  const bins = histogramBins(values, definition.bins);
+  const bins = useMemo(
+    () => histogramBins(lens.visible, field.id, definition.bins),
+    [definition.bins, field.id, lens.visible],
+  );
+  const valueCount = bins.reduce((sum, bin) => sum + bin.count, 0);
   const option = useMemo(
     () =>
       histogramOption({
         bins,
         field,
         palette: chartPalette(darkMode),
+        selection: lens.selection,
       }),
-    [bins, darkMode, field],
+    [bins, darkMode, field, lens.selection],
+  );
+  const selectionResolver = useCallback(
+    (gesture: ChartSelectionGesture, chart: LensChart) =>
+      observationsInHistogramGesture(bins, gesture, chart),
+    [bins],
   );
   const extent = fieldExtent(lens.snapshot.observations, field.id);
   const events = useMemo(
@@ -95,7 +149,7 @@ export function HistogramSection({ sectionId }: { sectionId: string }) {
       <div className="lens-chart-toolbar">
         <span>{field.label}</span>
         <span className="lens-chart-count">
-          {formatScalar(values.length)} values · click a bar to filter
+          {formatScalar(valueCount)} values · click a bar to filter
         </span>
       </div>
       <AnnotatedChartSurface
@@ -104,6 +158,8 @@ export function HistogramSection({ sectionId }: { sectionId: string }) {
         events={events}
         option={option}
         sectionId={sectionId}
+        selectionLabel="Select bars"
+        selectionResolver={selectionResolver}
       />
     </div>
   );

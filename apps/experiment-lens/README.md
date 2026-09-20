@@ -121,9 +121,11 @@ multiple views at a different position and size. Projects compose the nine built
 supply executable section code.
 
 Filters, focus, the comparison basket, selected artifacts, ranges, and annotations are shared
-durable state. Selecting a point or row focuses the same observation everywhere. Scatter
-annotation mode can select one point or drag across several observations. Every chart can capture
-normalized freehand strokes plus text marked as context, a question, or a follow-up request.
+durable state. Selecting a point or row focuses the same observation everywhere. Annotation mode
+maps scatter points, histogram bars, and heatmap cells to the exact observations they represent.
+Selecting an active mark again removes its observations; Shift adds or removes groups without
+discarding the rest of the basket. Every chart can capture normalized freehand strokes plus text
+marked as context, a question, or a follow-up request.
 Artifact views accept the same typed annotations with an exact artifact anchor. A series pointer
 snaps to the nearest sample and drives any artifact related to that axis. Activating a declared
 view applies its section set, geometry, and viewport, while a managed window compares up to four

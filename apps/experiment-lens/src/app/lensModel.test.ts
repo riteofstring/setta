@@ -6,6 +6,7 @@ import {
   displayArtifactAtCursor,
   focusObservation,
   nearestSeriesSampleX,
+  selectObservationGroup,
   setInFilter,
   setRangeFilter,
   toggleSelectedObservation,
@@ -41,6 +42,36 @@ describe("Experiment Lens model", () => {
 
     expect(focused.focusedObservationId).toBe("observation-b");
     expect(focused.selectedObservationIds).toEqual([]);
+  });
+
+  it("selects, extends, and removes chart observation groups", () => {
+    const snapshot = lensTestSnapshot();
+    const selected = selectObservationGroup(
+      snapshot.selection,
+      ["observation-a", "observation-b"],
+      false,
+    );
+    const extended = selectObservationGroup(selected, ["observation-c"], true);
+    const shiftRemoved = selectObservationGroup(
+      extended,
+      ["observation-a", "observation-b"],
+      true,
+    );
+
+    expect(selected.selectedObservationIds).toEqual([
+      "observation-a",
+      "observation-b",
+    ]);
+    expect(extended.selectedObservationIds).toEqual([
+      "observation-a",
+      "observation-b",
+      "observation-c",
+    ]);
+    expect(shiftRemoved.selectedObservationIds).toEqual(["observation-c"]);
+    expect(
+      selectObservationGroup(shiftRemoved, ["observation-c"], false)
+        .selectedObservationIds,
+    ).toEqual([]);
   });
 
   it("resolves the nearest timed artifact and its declared series axis", () => {

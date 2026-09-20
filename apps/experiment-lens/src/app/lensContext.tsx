@@ -17,7 +17,8 @@ export type LensActions = Readonly<{
   focusObservation: (observationId: string) => void;
   openComparison: () => void;
   saveAnnotation: (annotation: SelectionAnnotation) => void;
-  selectObservations: (
+  replaceSelectedObservations: (observationIds: readonly string[]) => void;
+  selectObservationGroup: (
     observationIds: readonly string[],
     additive: boolean,
   ) => void;

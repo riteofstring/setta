@@ -23,6 +23,7 @@ import {
   type EChartSurfaceProps,
   type LensChart,
 } from "./EChartSurface";
+import type { ChartSelectionGesture } from "./chartSelection";
 
 type AnnotationMode = "draw" | "select";
 
@@ -31,11 +32,6 @@ type NormalizedChartBounds = Readonly<{
   left: number;
   right: number;
   top: number;
-}>;
-
-export type ChartSelectionGesture = Readonly<{
-  additive: boolean;
-  bounds: NormalizedChartBounds;
 }>;
 
 type ChartSelectionResolver = (
@@ -47,6 +43,7 @@ type AnnotatedChartSurfaceProps = EChartSurfaceProps &
   Readonly<{
     chartFieldIds: readonly string[];
     sectionId: string;
+    selectionLabel?: string;
     selectionResolver?: ChartSelectionResolver;
   }>;
 
@@ -188,11 +185,13 @@ function annotationControlLabel(annotationCount: number): string {
 }
 
 function SelectionModeButton({
+  label,
   mode,
   open,
   supportsSelection,
   onSelect,
 }: {
+  label: string;
   mode: AnnotationMode;
   open: boolean;
   supportsSelection: boolean;
@@ -203,7 +202,7 @@ function SelectionModeButton({
   }
   return (
     <button aria-pressed={mode === "select"} onClick={onSelect} type="button">
-      Select points
+      {label}
     </button>
   );
 }
@@ -256,6 +255,7 @@ function AnnotationToolbar({
   onSelect,
   onToggle,
   onUndo,
+  selectionLabel,
 }: {
   annotationCount: number;
   mode: AnnotationMode;
@@ -266,6 +266,7 @@ function AnnotationToolbar({
   onSelect: () => void;
   onToggle: () => void;
   onUndo: () => void;
+  selectionLabel: string;
 }) {
   return (
     <div className="lens-chart-annotation-toolbar">
@@ -273,6 +274,7 @@ function AnnotationToolbar({
         {annotationControlLabel(annotationCount)}
       </button>
       <SelectionModeButton
+        label={selectionLabel}
         mode={mode}
         onSelect={onSelect}
         open={open}
@@ -442,6 +444,7 @@ function ChartAnnotationPanel({
 export function AnnotatedChartSurface({
   chartFieldIds,
   sectionId,
+  selectionLabel = "Select data",
   selectionResolver,
   ...surfaceProps
 }: AnnotatedChartSurfaceProps) {
@@ -506,7 +509,7 @@ export function AnnotatedChartSurface({
     setIntent(annotation.intent);
     setStrokes(annotation.strokes);
     setText(annotation.text);
-    lens.actions.selectObservations(annotation.observationIds, false);
+    lens.actions.replaceSelectedObservations(annotation.observationIds);
   };
 
   const saveAnnotation = () => {
@@ -610,7 +613,7 @@ export function AnnotatedChartSurface({
         { additive: additiveRef.current, bounds: normalizedBounds(start, end) },
         chart,
       );
-      lens.actions.selectObservations(observationIds, additiveRef.current);
+      lens.actions.selectObservationGroup(observationIds, additiveRef.current);
     }
     setSelectionBox(null);
   };
@@ -656,6 +659,7 @@ export function AnnotatedChartSurface({
         onToggle={toggleOpen}
         onUndo={() => setStrokes((current) => current.slice(0, -1))}
         open={open}
+        selectionLabel={selectionLabel}
         strokeCount={strokes.length}
         supportsSelection={supportsSelection}
       />

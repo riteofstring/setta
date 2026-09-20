@@ -183,21 +183,46 @@ export function toggleSelectedObservation(
   };
 }
 
-export function selectObservations(
+export function replaceSelectedObservations(
   selection: LensSelection,
   observationIds: readonly string[],
-  additive: boolean,
 ): LensSelection {
-  const selected = additive
-    ? new Set(selection.selectedObservationIds)
-    : new Set<string>();
-  for (const observationId of observationIds) {
-    selected.add(observationId);
-  }
   return {
     ...selection,
     focusedObservationId:
       observationIds.at(-1) ?? selection.focusedObservationId,
+    selectedObservationIds: [...new Set(observationIds)],
+  };
+}
+
+export function selectObservationGroup(
+  selection: LensSelection,
+  observationIds: readonly string[],
+  additive: boolean,
+): LensSelection {
+  const group = [...new Set(observationIds)];
+  if (group.length === 0) {
+    return additive ? selection : { ...selection, selectedObservationIds: [] };
+  }
+  const selected = new Set(selection.selectedObservationIds);
+  const remove = group.every((observationId) => selected.has(observationId));
+  if (remove) {
+    for (const observationId of group) {
+      selected.delete(observationId);
+    }
+  } else {
+    if (!additive) {
+      selected.clear();
+    }
+    for (const observationId of group) {
+      selected.add(observationId);
+    }
+  }
+  return {
+    ...selection,
+    focusedObservationId: remove
+      ? selection.focusedObservationId
+      : (group.at(-1) ?? selection.focusedObservationId),
     selectedObservationIds: [...selected],
   };
 }

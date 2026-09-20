@@ -11,10 +11,8 @@ import {
   type LensChart,
   type EChartPointerHandler,
 } from "../charts/EChartSurface";
-import {
-  AnnotatedChartSurface,
-  type ChartSelectionGesture,
-} from "../charts/AnnotatedChartSurface";
+import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
+import type { ChartSelectionGesture } from "../charts/chartSelection";
 import { chartPalette, scatterOption } from "../charts/chartOptions";
 
 type ChartPointerEvent = Parameters<EChartPointerHandler>[0];
@@ -93,6 +91,7 @@ function observationsInGesture(
     x: (bounds.left + bounds.right) / 2,
     y: (bounds.top + bounds.bottom) / 2,
   };
+  const selected = new Set(lens.selection.selectedObservationIds);
   const candidates = lens.visible.flatMap((observation) => {
     const x = observation.values[xFieldId];
     const y = observation.values[yFieldId];
@@ -114,20 +113,25 @@ function observationsInGesture(
       {
         distance: Math.hypot(pixel[0] - center.x, pixel[1] - center.y),
         id: observation.id,
+        selected: selected.has(observation.id),
         x: pixel[0],
         y: pixel[1],
       },
     ];
   });
   if (click) {
-    const nearest = candidates.reduce<(typeof candidates)[number] | null>(
+    const nearby = candidates.filter((candidate) => candidate.distance <= 18);
+    const selectable = nearby.some((candidate) => candidate.selected)
+      ? nearby.filter((candidate) => candidate.selected)
+      : nearby;
+    const nearest = selectable.reduce<(typeof candidates)[number] | null>(
       (current, candidate) =>
         current === null || candidate.distance < current.distance
           ? candidate
           : current,
       null,
     );
-    return nearest && nearest.distance <= 18 ? [nearest.id] : [];
+    return nearest ? [nearest.id] : [];
   }
   return candidates
     .filter(
@@ -264,6 +268,7 @@ export function ScatterSection({ sectionId }: { sectionId: string }) {
         onPointer={handlePointer}
         option={option}
         sectionId={sectionId}
+        selectionLabel="Select points"
         selectionResolver={selectionResolver}
       />
     </div>

@@ -218,18 +218,39 @@ export function histogramOption({
   bins,
   field,
   palette,
+  selection,
 }: {
   bins: readonly HistogramBin[];
   field: FieldDefinition;
   palette: LensChartPalette;
+  selection: LensSelection;
 }): EChartsCoreOption {
   const labels = bins.map(
     (bin) =>
       `${formatScalar(bin.minimum, field)}–${formatScalar(bin.maximum, field)}`,
   );
+  const selected = new Set(selection.selectedObservationIds);
   const series: BarSeriesOption = {
     barMaxWidth: 28,
-    data: bins.map((bin) => bin.count),
+    data: bins.map((bin) => {
+      const selectedCount = bin.observationIds.filter((observationId) =>
+        selected.has(observationId),
+      ).length;
+      return {
+        itemStyle:
+          selectedCount > 0
+            ? {
+                borderColor:
+                  selectedCount === bin.observationIds.length
+                    ? "#4ade80"
+                    : "#f8b551",
+                borderWidth: 3,
+                opacity: 1,
+              }
+            : undefined,
+        value: bin.count,
+      };
+    }),
     emphasis: { itemStyle: { color: "#51d6c7" } },
     itemStyle: { color: SERIES_COLORS[0], opacity: 0.82 },
     name: field.label,
@@ -265,6 +286,7 @@ export function heatmapOption({
   aggregation,
   cells,
   palette,
+  selection,
   valueField,
   xChoices,
   xField,
@@ -273,28 +295,49 @@ export function heatmapOption({
 }: {
   aggregation: LensAggregation;
   cells: readonly Readonly<{
+    observationIds: readonly string[];
     value: number | null;
     xIndex: number;
     yIndex: number;
   }>[];
   palette: LensChartPalette;
+  selection: LensSelection;
   valueField: FieldDefinition;
   xChoices: readonly JsonScalar[];
   xField: FieldDefinition;
   yChoices: readonly JsonScalar[];
   yField: FieldDefinition;
 }): EChartsCoreOption {
+  const selected = new Set(selection.selectedObservationIds);
+  const cellData = (cell: (typeof cells)[number], value: number) => {
+    const selectedCount = cell.observationIds.filter((observationId) =>
+      selected.has(observationId),
+    ).length;
+    return {
+      itemStyle:
+        selectedCount > 0
+          ? {
+              borderColor:
+                selectedCount === cell.observationIds.length
+                  ? "#4ade80"
+                  : "#f8b551",
+              borderWidth: 4,
+            }
+          : undefined,
+      value: [cell.xIndex, cell.yIndex, value],
+    };
+  };
   const data = cells
     .filter(
       (cell): cell is typeof cell & { value: number } => cell.value !== null,
     )
-    .map((cell) => [cell.xIndex, cell.yIndex, cell.value]);
-  const values = data.map((cell) => cell[2] ?? 0);
+    .map((cell) => cellData(cell, cell.value));
+  const values = data.map((cell) => cell.value[2] ?? 0);
   const minimum = values.length > 0 ? Math.min(...values) : 0;
   const maximum = values.length > 0 ? Math.max(...values) : 1;
   const missingData = cells
     .filter((cell) => cell.value === null)
-    .map((cell) => [cell.xIndex, cell.yIndex, minimum]);
+    .map((cell) => cellData(cell, minimum));
   const series: HeatmapSeriesOption = {
     data,
     emphasis: { itemStyle: { borderColor: palette.text, borderWidth: 2 } },

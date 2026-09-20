@@ -4,6 +4,7 @@ export type HistogramBin = Readonly<{
   count: number;
   maximum: number;
   minimum: number;
+  observationIds: readonly string[];
 }>;
 
 export function aggregateValues(

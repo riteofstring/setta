@@ -1,5 +1,5 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
-import { useMemo, type CSSProperties } from "react";
+import { useCallback, useMemo, type CSSProperties } from "react";
 
 import { aggregateValues } from "../app/aggregation";
 import { useLens } from "../app/lensContext";
@@ -9,7 +9,70 @@ import {
   presentationSection,
 } from "../app/presentationSection";
 import { AnnotatedChartSurface } from "../charts/AnnotatedChartSurface";
+import {
+  chartBandHalfSize,
+  chartDataPixel,
+  chartGesturePixelBounds,
+  pixelRectanglesIntersect,
+  type ChartSelectionGesture,
+} from "../charts/chartSelection";
 import { chartPalette, heatmapOption } from "../charts/chartOptions";
+import type { LensChart } from "../charts/EChartSurface";
+
+type HeatmapCell = Readonly<{
+  observationIds: readonly string[];
+  value: number | null;
+  xIndex: number;
+  yIndex: number;
+}>;
+
+function observationsInHeatmapGesture(
+  cells: readonly HeatmapCell[],
+  xCount: number,
+  yCount: number,
+  gesture: ChartSelectionGesture,
+  chart: LensChart,
+): string[] {
+  const selection = chartGesturePixelBounds(gesture, chart);
+  const xCenters = Array.from(
+    { length: xCount },
+    (_, index) => chartDataPixel(chart, [index, 0])?.[0] ?? Number.NaN,
+  );
+  const yCenters = Array.from(
+    { length: yCount },
+    (_, index) => chartDataPixel(chart, [0, index])?.[1] ?? Number.NaN,
+  );
+  return cells.flatMap((cell) => {
+    const x = xCenters[cell.xIndex];
+    const y = yCenters[cell.yIndex];
+    if (
+      x === undefined ||
+      y === undefined ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    ) {
+      return [];
+    }
+    const halfWidth = chartBandHalfSize(
+      xCenters,
+      cell.xIndex,
+      chart.getWidth() / 2,
+    );
+    const halfHeight = chartBandHalfSize(
+      yCenters,
+      cell.yIndex,
+      chart.getHeight() / 2,
+    );
+    return pixelRectanglesIntersect(selection, {
+      bottom: y + halfHeight,
+      left: x - halfWidth,
+      right: x + halfWidth,
+      top: y - halfHeight,
+    })
+      ? [...cell.observationIds]
+      : [];
+  });
+}
 
 export function HeatmapSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
@@ -31,18 +94,19 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
   );
   const cells = xChoices.flatMap((xValue, xIndex) =>
     yChoices.map((yValue, yIndex) => {
-      const values = lens.visible
-        .filter(
-          (observation) =>
-            Object.is(observation.values[xField.id] ?? null, xValue) &&
-            Object.is(observation.values[yField.id] ?? null, yValue),
-        )
+      const observations = lens.visible.filter(
+        (observation) =>
+          Object.is(observation.values[xField.id] ?? null, xValue) &&
+          Object.is(observation.values[yField.id] ?? null, yValue),
+      );
+      const values = observations
         .map((observation) => observation.values[valueField.id])
         .filter(
           (value): value is number =>
             typeof value === "number" && Number.isFinite(value),
         );
       return {
+        observationIds: observations.map((observation) => observation.id),
         value: aggregateValues(values, definition.aggregation),
         xIndex,
         yIndex,
@@ -55,6 +119,7 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
         aggregation: definition.aggregation,
         cells,
         palette: chartPalette(darkMode),
+        selection: lens.selection,
         valueField,
         xChoices,
         xField,
@@ -65,12 +130,24 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
       cells,
       darkMode,
       definition.aggregation,
+      lens.selection,
       valueField,
       xChoices,
       xField,
       yChoices,
       yField,
     ],
+  );
+  const selectionResolver = useCallback(
+    (gesture: ChartSelectionGesture, chart: LensChart) =>
+      observationsInHeatmapGesture(
+        cells,
+        xChoices.length,
+        yChoices.length,
+        gesture,
+        chart,
+      ),
+    [cells, xChoices.length, yChoices.length],
   );
   const allXChoices = fieldChoices(lens.snapshot.observations, xField.id).map(
     (choice) => choice.value,
@@ -127,6 +204,8 @@ export function HeatmapSection({ sectionId }: { sectionId: string }) {
           events={events}
           option={option}
           sectionId={sectionId}
+          selectionLabel="Select cells"
+          selectionResolver={selectionResolver}
         />
       </div>
     </div>

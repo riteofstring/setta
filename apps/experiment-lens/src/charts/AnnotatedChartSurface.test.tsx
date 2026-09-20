@@ -52,7 +52,8 @@ function actions(): LensActions {
     focusObservation: vi.fn(),
     openComparison: vi.fn(),
     saveAnnotation: vi.fn(),
-    selectObservations: vi.fn(),
+    replaceSelectedObservations: vi.fn(),
+    selectObservationGroup: vi.fn(),
     setCategoricalFilter: vi.fn(),
     setRange: vi.fn(),
     setRangeFilter: vi.fn(),
@@ -193,7 +194,7 @@ describe("chart annotations", () => {
       },
       mocks.chart,
     );
-    expect(lensActions.selectObservations).toHaveBeenCalledWith(
+    expect(lensActions.selectObservationGroup).toHaveBeenCalledWith(
       ["observation-a", "observation-b"],
       true,
     );
@@ -312,10 +313,9 @@ describe("chart annotations", () => {
         'textarea[aria-label="Chart annotation text"]',
       )?.value,
     ).toBe("Why does this run diverge?");
-    expect(lensActions.selectObservations).toHaveBeenCalledWith(
-      ["observation-a"],
-      false,
-    );
+    expect(lensActions.replaceSelectedObservations).toHaveBeenCalledWith([
+      "observation-a",
+    ]);
     act(() => clickButton(container, "Delete"));
     expect(lensActions.deleteAnnotation).toHaveBeenCalledWith("annotation-a");
   });

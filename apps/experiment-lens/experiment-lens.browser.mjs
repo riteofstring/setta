@@ -1212,6 +1212,22 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "the population selection surface",
     `document.querySelector(${JSON.stringify(selectionSurface)}) !== null`,
   );
+  await clickCanvas(client, selectionSurface, 0.65, 0.45);
+  const chartPointSelected = await waitForSnapshot(
+    origin,
+    "the exact chart point selection",
+    (snapshot) =>
+      snapshot.revision === restoredOverview.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 1,
+  );
+  await clickCanvas(client, selectionSurface, 0.65, 0.45);
+  const chartPointRemoved = await waitForSnapshot(
+    origin,
+    "the removed chart point selection",
+    (snapshot) =>
+      snapshot.revision === chartPointSelected.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 0,
+  );
   await dragSurface(
     client,
     selectionSurface,
@@ -1222,22 +1238,10 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the data-aware chart selection",
     (snapshot) =>
-      snapshot.revision === restoredOverview.revision + 1 &&
-      snapshot.selection.selectedObservationIds.length > 0 &&
+      snapshot.revision === chartPointRemoved.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length > 1 &&
       snapshot.selection.selectedObservationIds.length <
         snapshot.observations.length,
-  );
-  assert.ok(
-    chartSelected.selection.selectedObservationIds.length > 1,
-    "The chart rectangle did not select multiple observations.",
-  );
-  await clickCanvas(client, selectionSurface, 0.16, 0.18);
-  const chartPointSelected = await waitForSnapshot(
-    origin,
-    "the exact chart point selection",
-    (snapshot) =>
-      snapshot.revision === chartSelected.revision + 1 &&
-      snapshot.selection.selectedObservationIds.length === 1,
   );
   await physicalClickMatching(
     client,
@@ -1279,7 +1283,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the chart annotation",
     (snapshot) =>
-      snapshot.revision === chartPointSelected.revision + 1 &&
+      snapshot.revision === chartSelected.revision + 1 &&
       snapshot.selection.annotations.some(
         (annotation) =>
           annotation.kind === "chart" &&
@@ -1288,7 +1292,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
           annotation.intent === "follow-up" &&
           annotation.text === chartAnnotation &&
           annotation.observationIds.length ===
-            chartPointSelected.selection.selectedObservationIds.length &&
+            chartSelected.selection.selectedObservationIds.length &&
           annotation.strokes.length === 1 &&
           annotation.strokes[0].points.every(
             (point) =>
@@ -1532,7 +1536,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "Select points",
   );
   await clickCanvas(client, selectionSurface, 0.98, 0.98);
-  const chartSelectionCleared = await waitForSnapshot(
+  const scatterSelectionCleared = await waitForSnapshot(
     origin,
     "the cleared chart selection",
     (snapshot) =>
@@ -1552,6 +1556,82 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `${populationSelector} .lens-chart-annotation-toolbar button:first-child`,
     "the closed annotation control",
   );
+  const expandedPopulationBounds = await evaluate(
+    client,
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(populationSelector)})?.getBoundingClientRect();
+      return bounds ? { height: bounds.height, width: bounds.width } : null;
+    })()`,
+  );
+  assert.notEqual(expandedPopulationBounds, null);
+  await dragSelector(
+    client,
+    `${populationSelector} .section-resize-handle-bottom-right`,
+    -96,
+    -54,
+    "the expanded population resize handle",
+  );
+  await waitFor(
+    client,
+    "the restored population geometry",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(populationSelector)})?.getBoundingClientRect();
+      return bounds !== undefined &&
+        bounds.width < ${String(expandedPopulationBounds.width - 35)} &&
+        bounds.height < ${String(expandedPopulationBounds.height - 20)};
+    })()`,
+  );
+
+  const histogramSelector = sectionSelector("resistance-distribution");
+  await physicalClickSelector(
+    client,
+    '[data-workspace-outline-item="resistance-distribution"]',
+    "the histogram outline item",
+  );
+  await waitFor(
+    client,
+    "the centered resistance histogram",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(histogramSelector)})?.getBoundingClientRect();
+      return bounds !== undefined &&
+        bounds.left >= 0 && bounds.right <= innerWidth &&
+        bounds.top >= 0 && bounds.bottom <= innerHeight;
+    })()`,
+  );
+  await physicalClickMatching(
+    client,
+    `${histogramSelector} .lens-chart-annotation-toolbar button`,
+    "Annotate",
+  );
+  await physicalClickMatching(
+    client,
+    `${histogramSelector} .lens-chart-annotation-toolbar button`,
+    "Select bars",
+  );
+  const histogramSelectionSurface = `${histogramSelector} svg[aria-label="Select chart observations"]`;
+  await clickCanvas(client, histogramSelectionSurface, 0.52, 0.5);
+  const histogramSelected = await waitForSnapshot(
+    origin,
+    "the histogram bin observation selection",
+    (snapshot) =>
+      snapshot.revision === scatterSelectionCleared.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length > 1 &&
+      snapshot.selection.selectedObservationIds.length <
+        snapshot.observations.length,
+  );
+  await clickCanvas(client, histogramSelectionSurface, 0.52, 0.5);
+  const histogramSelectionCleared = await waitForSnapshot(
+    origin,
+    "the removed histogram bin selection",
+    (snapshot) =>
+      snapshot.revision === histogramSelected.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 0,
+  );
+  await physicalClickSelector(
+    client,
+    `${histogramSelector} .lens-chart-annotation-toolbar button:first-child`,
+    "the closed histogram annotation control",
+  );
 
   await assertCanvasPan(client, "the initial Overview");
   await physicalClickSelector(
@@ -1568,9 +1648,77 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       const sectionBounds = section?.getBoundingClientRect();
       const stageBounds = stage?.getBoundingClientRect();
       return sectionBounds !== undefined && stageBounds !== undefined &&
+        sectionBounds.left >= 0 && sectionBounds.right <= innerWidth &&
         sectionBounds.top >= 0 && sectionBounds.bottom <= innerHeight &&
         stageBounds.width < sectionBounds.width - 100;
     })()`,
+  );
+  const heatmapSelector = sectionSelector("condition-heatmap");
+  await physicalClickMatching(
+    client,
+    `${heatmapSelector} .lens-chart-annotation-toolbar button`,
+    "Annotate",
+  );
+  await physicalClickMatching(
+    client,
+    `${heatmapSelector} .lens-chart-annotation-toolbar button`,
+    "Select cells",
+  );
+  const heatmapSelectionSurface = `${heatmapSelector} svg[aria-label="Select chart observations"]`;
+  const heatmapCandidates = [
+    [0.17, 0.31],
+    [0.39, 0.31],
+    [0.61, 0.31],
+    [0.83, 0.31],
+    [0.17, 0.52],
+    [0.39, 0.52],
+    [0.61, 0.52],
+    [0.83, 0.52],
+    [0.17, 0.73],
+    [0.39, 0.73],
+    [0.61, 0.73],
+    [0.83, 0.73],
+  ];
+  let heatmapSelectionPoint = null;
+  let heatmapSelected = null;
+  for (const [xRatio, yRatio] of heatmapCandidates) {
+    await clickCanvas(client, heatmapSelectionSurface, xRatio, yRatio);
+    await delay(150);
+    const candidate = await jsonRequest(origin, "/api/v1/experiment-lens");
+    if (
+      candidate.revision === histogramSelectionCleared.revision + 1 &&
+      candidate.selection.selectedObservationIds.length > 1 &&
+      candidate.selection.selectedObservationIds.length <
+        candidate.observations.length
+    ) {
+      heatmapSelectionPoint = { xRatio, yRatio };
+      heatmapSelected = candidate;
+      break;
+    }
+  }
+  assert.notEqual(
+    heatmapSelectionPoint,
+    null,
+    "No populated heatmap cell could be selected.",
+  );
+  assert.notEqual(heatmapSelected, null);
+  await clickCanvas(
+    client,
+    heatmapSelectionSurface,
+    heatmapSelectionPoint.xRatio,
+    heatmapSelectionPoint.yRatio,
+  );
+  const heatmapSelectionCleared = await waitForSnapshot(
+    origin,
+    "the removed heatmap cell selection",
+    (snapshot) =>
+      snapshot.revision === heatmapSelected.revision + 1 &&
+      snapshot.selection.selectedObservationIds.length === 0,
+  );
+  await physicalClickSelector(
+    client,
+    `${heatmapSelector} .lens-chart-annotation-toolbar button:first-child`,
+    "the closed heatmap annotation control",
   );
   const heatmapScreenshot = path.join(
     resultDirectory,
@@ -1667,7 +1815,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the durable cycle range",
     (snapshot) =>
-      snapshot.revision === chartSelectionCleared.revision + 1 &&
+      snapshot.revision === heatmapSelectionCleared.revision + 1 &&
       snapshot.selection.filters.some(
         (filter) =>
           filter.fieldId === "cycle" &&
