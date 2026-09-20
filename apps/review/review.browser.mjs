@@ -662,32 +662,6 @@ async function clickWorkspaceControl(client, label) {
   await delay(350);
 }
 
-async function clickSavedViewTab(client, label) {
-  const clicked = await evaluate(
-    client,
-    `(() => {
-      const button = Array.from(document.querySelectorAll('[role="tab"]')).find(
-        (candidate) => candidate.textContent?.trim() === ${JSON.stringify(label)},
-      );
-      if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        return false;
-      }
-      button.click();
-      return true;
-    })()`,
-  );
-  assert.equal(clicked, true, `Review could not activate the ${label} view.`);
-  await waitFor(
-    client,
-    `the active ${label} view`,
-    `Array.from(document.querySelectorAll('[role="tab"]')).some(
-      (candidate) => candidate.textContent?.trim() === ${JSON.stringify(label)} &&
-        candidate.getAttribute('aria-selected') === 'true',
-    )`,
-  );
-  await delay(350);
-}
-
 async function clickSectionButton(client, sectionId, label) {
   const clicked = await evaluate(
     client,
@@ -1149,16 +1123,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       document.querySelector(${JSON.stringify(sectionSelector(completionSectionId))}) !== null &&
       document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) !== null &&
       document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null &&
-      document.querySelector('[data-section-id] [aria-label^="Color tag "]') === null &&
-      document.querySelector('.review-app-actions > button') === null &&
-      Array.from(document.querySelectorAll('[role="tab"]')).some(
-        (candidate) => candidate.textContent?.trim() === "Current" &&
-          candidate.getAttribute('aria-selected') === 'true',
-      ) &&
-      Array.from(document.querySelectorAll('[role="tab"]')).some(
-        (candidate) => candidate.textContent?.trim() === "Old" &&
-          candidate.getAttribute('aria-selected') === 'false',
-      )`,
+      document.querySelector('[data-section-id] [aria-label^="Color tag "]') === null`,
   );
   const initial = await jsonRequest(origin, "/api/v1/review");
   assert.equal(initial.revision, 1);
@@ -1302,19 +1267,6 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await waitFor(
     client,
-    "the finalized matrix leaving Current",
-    `document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) === null`,
-  );
-  await clickSavedViewTab(client, "Old");
-  await waitFor(
-    client,
-    "the finalized matrix appearing in Old",
-    `document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector(completionSectionId))}) === null &&
-      document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) === null`,
-  );
-  await waitFor(
-    client,
     "the persistent confirmed matrix choice",
     `(() => {
       const section = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
@@ -1339,13 +1291,6 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await captureScreenshot(client, matrixScreenshot);
   await clickWorkspaceControl(client, "fit view");
-  await clickSavedViewTab(client, "Current");
-  await waitFor(
-    client,
-    "the unfinished artifact choice returning in Current",
-    `document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) === null`,
-  );
 
   assertChoiceActionsInside(
     await choiceActionLayout(client, artifactChoiceSectionId),
@@ -1473,18 +1418,6 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await waitFor(
     client,
-    "the finalized artifact review leaving Current",
-    `document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) === null`,
-  );
-  await clickSavedViewTab(client, "Old");
-  await waitFor(
-    client,
-    "the finalized artifact review appearing in Old",
-    `document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) !== null`,
-  );
-  await waitFor(
-    client,
     "the persistent revision-request state",
     `(() => {
       const section = document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))});
@@ -1496,6 +1429,39 @@ async function exerciseBrowser(client, origin, resultDirectory) {
 
   const normalScreenshot = path.join(resultDirectory, "review-normal.png");
   await captureScreenshot(client, normalScreenshot);
+
+  const exportPath = path.join(
+    resultDirectory,
+    "review-playground-review-export.json",
+  );
+  await clickElementCenter(
+    client,
+    ".review-app-actions > button",
+    "the export responses action",
+  );
+  const exported = await waitForValue(
+    "the downloaded portable Review export",
+    () => {
+      if (!existsSync(exportPath)) {
+        return null;
+      }
+      try {
+        return JSON.parse(readFileSync(exportPath, "utf8"));
+      } catch {
+        return null;
+      }
+    },
+    (value) => value?.version === 1 && value.projectId === "review-playground",
+  );
+  assert.equal(exported.revision, afterArtifact.revision);
+  assert.equal(exported.responses.length, 3);
+  assert.equal(exported.continuations.length, 3);
+  assert.equal(
+    exported.responses.find(
+      (response) => response.requestId === artifactRequestId,
+    ).annotations.length,
+    1,
+  );
 
   await reloadPage(client);
   await clickSectionButton(
@@ -1520,7 +1486,6 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         row.textContent?.includes("✓ Accepted") === true;
     })()`,
   );
-  await clickSavedViewTab(client, "Old");
   await waitFor(
     client,
     "the matrix choice after reload",
@@ -1563,15 +1528,17 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `(() => {
       const matrix = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
       const evidence = document.querySelector(${JSON.stringify(sectionSelector(consumerEvidenceSectionId))});
+      const exportButton = document.querySelector(".review-app-actions > button");
       const header = document.querySelector(".review-app-bar");
       const headerBounds = header?.getBoundingClientRect();
+      const buttonBounds = exportButton?.getBoundingClientRect();
       const factor = Array.from(matrix?.querySelectorAll("thead button") ?? []).find(
         (candidate) => candidate.textContent?.trim() === "v2 consumers",
       );
       return factor?.getAttribute("aria-pressed") === "true" &&
         evidence?.querySelector(".review-evidence")?.hasAttribute("data-focused") === true &&
         headerBounds?.left === 0 && headerBounds.right <= innerWidth &&
-        document.querySelector(".review-app-actions > button") === null &&
+        buttonBounds?.right <= innerWidth && buttonBounds.left >= 0 &&
         document.documentElement.scrollWidth <= document.documentElement.clientWidth;
     })()`,
   );
@@ -1582,6 +1549,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await captureScreenshot(client, constrainedScreenshot);
 
   return {
+    export: exportPath,
     revision: afterArtifact.revision,
     screenshots: [
       completionScreenshot,
@@ -1640,6 +1608,11 @@ try {
       height: 900,
       mobile: false,
       width: 1_440,
+    }),
+    client.send("Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: artifacts,
+      eventsEnabled: true,
     }),
   ]);
   const issues = collectBrowserIssues(client);

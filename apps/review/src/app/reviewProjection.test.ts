@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReviewSnapshot } from "../backend/generatedContract";
-import { completionResponse } from "./reviewModel";
 import {
   evidenceSectionId,
   projectReviewDocument,
@@ -90,36 +89,6 @@ const snapshot: ReviewSnapshot = {
   version: 1,
 };
 
-function finalizedSnapshot(): ReviewSnapshot {
-  const request = snapshot.requests[0];
-  if (!request) {
-    throw new Error("The projection fixture requires one request.");
-  }
-  const firstDecision = {
-    ...request,
-    response: completionResponse(request, {
-      claimId: "claim",
-      decision: "accepted",
-      qualification: null,
-      rationale: "Verified.",
-    }),
-  };
-  return {
-    ...snapshot,
-    requests: [
-      {
-        ...firstDecision,
-        response: completionResponse(firstDecision, {
-          claimId: "other-claim",
-          decision: "accepted",
-          qualification: null,
-          rationale: "Verified.",
-        }),
-      },
-    ],
-  };
-}
-
 describe("review Workspace projection", () => {
   it("projects request and evidence without a low-information request section", () => {
     const document = projectReviewDocument(snapshot);
@@ -138,41 +107,6 @@ describe("review Workspace projection", () => {
         (section) => section.tagColor === null,
       ),
     ).toBe(true);
-    expect(document.savedViews?.activeViewId).toBe("current");
-    expect(
-      Object.values(document.savedViews?.views ?? {}).map((view) => view.name),
-    ).toEqual(["Current", "Old"]);
-    expect(
-      document.savedViews?.views.current?.sectionVisibility[
-        requestSectionId("request")
-      ],
-    ).toBe(true);
-    expect(
-      document.savedViews?.views.old?.sectionVisibility[
-        requestSectionId("request")
-      ],
-    ).toBe(false);
-  });
-
-  it("moves a finalized request and all of its evidence from Current to Old", () => {
-    const document = projectReviewDocument(finalizedSnapshot());
-    const ids = [
-      requestSectionId("request"),
-      evidenceSectionId("request", "log"),
-    ];
-
-    expect(document.savedViews?.activeViewId).toBe("current");
-    for (const id of ids) {
-      expect(document.savedViews?.views.current?.sectionVisibility[id]).toBe(
-        false,
-      );
-      expect(document.savedViews?.views.old?.sectionVisibility[id]).toBe(true);
-    }
-    expect(
-      document.savedViews?.views.old?.topLevelSections[
-        requestSectionId("request")
-      ]?.y,
-    ).toBe(64);
   });
 
   it("selects only the evidence relation for the active subject", () => {

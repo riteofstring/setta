@@ -131,7 +131,6 @@ function ReviewWorkspace() {
         canvas={canvas}
         includeBuiltInInspector
         includeBuiltInSavedViews={false}
-        includeSavedViewTabs
         leadingPaneShiftsCanvas
         leadingTabs={EMPTY_TABS}
         navigator={{}}
@@ -152,17 +151,16 @@ function ReviewWorkspace() {
 
 export function ReviewView({ host }: { host: WorkspaceHost }) {
   const review = useReview();
-  const oldCount = review.snapshot.requests.filter(
+  const finalCount = review.snapshot.requests.filter(
     (request) => request.response?.status === "final",
   ).length;
-  const currentCount = review.snapshot.requests.length - oldCount;
   return (
     <main className="review-app">
       <header className="review-app-bar">
         <div>
           <strong>{review.snapshot.project.name}</strong>
           <span>
-            {currentCount} current · {oldCount} old
+            {finalCount} of {review.snapshot.requests.length} complete
           </span>
         </div>
         <div className="review-app-actions">
@@ -176,6 +174,12 @@ export function ReviewView({ host }: { host: WorkspaceHost }) {
               Auto-updating
             </span>
           )}
+          <button
+            onClick={() => void review.actions.exportReview().catch(() => {})}
+            type="button"
+          >
+            Export responses
+          </button>
         </div>
       </header>
       <WorkspaceProvider host={host}>

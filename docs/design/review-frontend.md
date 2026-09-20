@@ -18,11 +18,6 @@ focuses exact cited content, and asks Workspace to frame the participating secti
 action is sent only at a coherent user boundary with the observed revision. Project SSE replacement
 retains compatible disposable selection and otherwise chooses a deterministic first subject.
 
-Review uses two system-projected Workspace saved views rather than app-owned navigation. Current
-shows requests without a final response; Old shows requests with one. Each request's decision and
-evidence sections move together, while Workspace preserves independent layout and viewport state
-for both views. Review does not expose saved-view editing for this lifecycle split.
-
 ## Completion review
 
 Each completion request projects one claims section whose title is the submitted request. Every
@@ -60,6 +55,6 @@ imports another app's private frontend code.
 
 The checked-in playground contains real request, diff, JSON, log, image, and choice artifacts. A
 launcher copies it into ignored working state. Component tests cover typed sections and revision
-actions; browser acceptance covers completion selection and resolution, Current-to-Old movement,
-factor-to-evidence highlighting, artifact choice, drawing, reload persistence, and CLI assessment
-ingestion at normal and constrained viewport sizes.
+actions; browser acceptance covers completion selection and resolution, factor-to-evidence
+highlighting, artifact choice, drawing, reload persistence, CLI assessment ingestion, and export at
+normal and constrained viewport sizes.

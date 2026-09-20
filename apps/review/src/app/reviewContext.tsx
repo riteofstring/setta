@@ -29,6 +29,7 @@ export type ReviewActions = Readonly<{
     requestId: string,
     decision: CompletionDecision,
   ) => Promise<void>;
+  exportReview: () => Promise<void>;
   requestChanges: (requestId: string, rationale: string) => Promise<void>;
   selectEvidence: (requestId: string, evidenceId: string) => void;
   selectOption: (requestId: string, optionId: string) => void;
