@@ -14,18 +14,13 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState } from "react";
 
-import type {
-  FieldDefinition,
-  Observation,
-} from "../backend/generatedContract";
+import type { Observation } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
 import { formatScalar } from "../app/lensModel";
-
-function tableFields(fields: readonly FieldDefinition[]): FieldDefinition[] {
-  const factors = fields.filter((field) => field.role === "factor");
-  const metrics = fields.filter((field) => field.role === "metric");
-  return [...factors.slice(0, 4), ...metrics.slice(0, 5)];
-}
+import {
+  presentationFields,
+  presentationSection,
+} from "../app/presentationSection";
 
 function columnWidth(columnId: string): number {
   if (columnId === "selection") {
@@ -37,17 +32,15 @@ function columnWidth(columnId: string): number {
   return 124;
 }
 
-export function ObservationTableSection() {
+export function ObservationTableSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
+  const definition = presentationSection(lens.snapshot, sectionId, "table");
   const [sorting, setSorting] = useState<SortingState>([]);
   const selected = useMemo(
     () => new Set(lens.selection.selectedObservationIds),
     [lens.selection.selectedObservationIds],
   );
-  const fields = useMemo(
-    () => tableFields(lens.snapshot.experiment.fields),
-    [lens.snapshot.experiment.fields],
-  );
+  const fields = presentationFields(lens.snapshot, definition.fieldIds);
   const data = useMemo(() => [...lens.visible], [lens.visible]);
   const columns = useMemo<ColumnDef<Observation>[]>(
     () => [

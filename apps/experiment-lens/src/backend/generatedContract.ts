@@ -99,14 +99,14 @@ export type PresentationPlacement = {
   height: number;
 };
 
-export type PresentationView = {
+type PresentationView = {
   id: string;
   name: string;
   viewport: { x: number; y: number; zoom: number };
   placements: Array<PresentationPlacement>;
 };
 
-export type ExperimentPresentation = {
+type ExperimentPresentation = {
   initialViewId: string;
   sections: Array<PresentationSection>;
   views: Array<PresentationView>;

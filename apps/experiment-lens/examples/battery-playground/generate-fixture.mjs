@@ -360,18 +360,25 @@ const presentation = {
       name: "Compare",
       placements: [
         {
+          height: 260,
+          sectionId: "cohort",
+          width: 1320,
+          x: 64,
+          y: 64,
+        },
+        {
           height: 520,
           sectionId: "multivariate",
           width: 1320,
           x: 64,
-          y: 64,
+          y: 364,
         },
         {
           height: 480,
           sectionId: "observations",
           width: 1320,
           x: 64,
-          y: 624,
+          y: 924,
         },
       ],
       viewport: { x: 260, y: 12, zoom: 0.76 },

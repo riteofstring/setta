@@ -13,7 +13,7 @@ import {
   type LensContextValue,
 } from "../app/lensContext";
 import { lensTestSnapshot } from "../test/lensTestData";
-import { SeriesSection } from "./SeriesSection";
+import { TimelineSection } from "./SeriesSection";
 
 function actions(): LensActions {
   return {
@@ -87,7 +87,7 @@ describe("recorded series section", () => {
       root.render(
         <WorkspaceProvider host={host}>
           <LensContext.Provider value={value}>
-            <SeriesSection />
+            <TimelineSection sectionId="trace" />
           </LensContext.Provider>
         </WorkspaceProvider>,
       );

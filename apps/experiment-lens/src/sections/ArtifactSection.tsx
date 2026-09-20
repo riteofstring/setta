@@ -14,11 +14,12 @@ import type {
 } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
 import {
+  artifactsForObservationRoles,
   artifactTimeline,
-  displayArtifactAtCursor,
   formatScalar,
   noteFor,
 } from "../app/lensModel";
+import { presentationSection } from "../app/presentationSection";
 
 type BinaryArtifactContent = Extract<
   ResolvedArtifactContent,
@@ -212,9 +213,11 @@ function ArtifactNoteForm({
 }
 
 function ArtifactDetails({
+  active,
   artifact,
   observationId,
 }: {
+  active: boolean;
   artifact: ResolvedArtifact;
   observationId: string;
 }) {
@@ -233,7 +236,11 @@ function ArtifactDetails({
     artifact.reference.id,
   );
   return (
-    <div className="lens-artifact" data-lens-section="artifact">
+    <div
+      className="lens-artifact"
+      data-lens-section="artifact"
+      data-timeline-active={active || undefined}
+    >
       <ArtifactToolbar
         artifact={artifact}
         frame={frame}
@@ -257,8 +264,9 @@ function ArtifactDetails({
   );
 }
 
-export function ArtifactSection() {
+export function GallerySection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
+  const definition = presentationSection(lens.snapshot, sectionId, "gallery");
   const focused = lens.focused;
   if (!focused) {
     return (
@@ -267,18 +275,60 @@ export function ArtifactSection() {
       </p>
     );
   }
-  const artifact = displayArtifactAtCursor(
+  const artifacts = artifactsForObservationRoles(
     lens.snapshot,
     focused.id,
-    lens.timeline.cursor,
+    definition.artifactRoles,
   );
-  if (!artifact) {
+  if (artifacts.length === 0) {
     return (
       <div className="lens-empty-state">
         <strong>{focused.id}</strong>
-        <span>No display artifact is attached to this observation.</span>
+        <span>No matching artifact is attached to this observation.</span>
       </div>
     );
   }
-  return <ArtifactDetails artifact={artifact} observationId={focused.id} />;
+  const timed = artifacts
+    .map((artifact) => ({
+      artifact,
+      timeline: artifactTimeline(
+        lens.snapshot,
+        focused.id,
+        artifact.reference.id,
+      ),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is typeof entry & {
+        timeline: NonNullable<typeof entry.timeline>;
+      } => entry.timeline !== null,
+    );
+  const activeArtifactId =
+    lens.timeline.cursor === null || timed.length === 0
+      ? (timed[0]?.artifact.reference.id ?? artifacts[0]?.reference.id ?? null)
+      : timed.reduce((nearest, entry) =>
+          Math.abs(entry.timeline.value - (lens.timeline.cursor ?? 0)) <
+          Math.abs(nearest.timeline.value - (lens.timeline.cursor ?? 0))
+            ? entry
+            : nearest,
+        ).artifact.reference.id;
+  return (
+    <div
+      className={`lens-gallery ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+      data-lens-section="gallery"
+      style={{
+        gridTemplateColumns: `repeat(${String(definition.columns)}, minmax(220px, 1fr))`,
+      }}
+    >
+      {artifacts.map((artifact) => (
+        <ArtifactDetails
+          active={artifact.reference.id === activeArtifactId}
+          artifact={artifact}
+          key={artifact.reference.id}
+          observationId={focused.id}
+        />
+      ))}
+    </div>
+  );
 }

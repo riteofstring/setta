@@ -651,12 +651,13 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await loaded;
   await waitFor(
     client,
-    "the Experiment Lens Atlas",
+    "the Experiment Lens Overview",
     `document.querySelector(".lens-app") !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector("lens:facets"))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector("lens:scatter"))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector("lens:table"))}) !== null &&
-      document.querySelectorAll('[data-lens-observation-id]').length > 1 &&
+      document.querySelector(${JSON.stringify(sectionSelector("cohort"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("headline-metrics"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("retention-population"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("resistance-distribution"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("condition-heatmap"))}) !== null &&
       (document.querySelector('.lens-project-heading strong')?.getBoundingClientRect().width ?? 0) > 150`,
   );
   const initial = await jsonRequest(origin, "/api/v1/experiment-lens");
@@ -668,14 +669,14 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       .length,
     144,
   );
-  await assertBrowserSettles(client, "the initial Atlas");
+  await assertBrowserSettles(client, "the initial Overview");
 
-  const atlasScreenshot = path.join(
+  const overviewScreenshot = path.join(
     resultDirectory,
-    "experiment-lens-atlas-dark.png",
+    "experiment-lens-overview-dark.png",
   );
-  await captureScreenshot(client, atlasScreenshot);
-  await assertCanvasPan(client, "the initial Atlas");
+  await captureScreenshot(client, overviewScreenshot);
+  await assertCanvasPan(client, "the initial Overview");
   await physicalClickSelector(
     client,
     'button[aria-label="toggle minimap"]',
@@ -696,12 +697,25 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "the hidden minimap",
     `document.querySelector('[data-testid="rf__minimap"]') === null`,
   );
+  await physicalClickMatching(
+    client,
+    '[data-testid="workspace-saved-view-tabs"] button',
+    "Compare",
+  );
+  await waitFor(
+    client,
+    "the declared Compare view",
+    `document.querySelector(${JSON.stringify(sectionSelector("cohort"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("multivariate"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("observations"))}) !== null &&
+      document.querySelectorAll('[data-lens-observation-id]').length > 1`,
+  );
   await assertHorizontalScroll(
     client,
-    `${sectionSelector("lens:table")} .lens-table-scroll`,
+    `${sectionSelector("observations")} .lens-table-scroll`,
     "the observation table",
   );
-  const observationSortSelector = `${sectionSelector("lens:table")} button[aria-label="Sort by Observation"]`;
+  const observationSortSelector = `${sectionSelector("observations")} button[aria-label="Sort by Observation"]`;
   await physicalClickSelector(
     client,
     observationSortSelector,
@@ -770,7 +784,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await physicalClickMatching(
     client,
-    `${sectionSelector("lens:facets")} button`,
+    `${sectionSelector("cohort")} button`,
     "Clear filters",
   );
   await waitForSnapshot(
@@ -817,7 +831,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
 
   await physicalClickSelector(
     client,
-    `${sectionSelector("lens:facets")} [data-lens-filter-value="LCO"]`,
+    `${sectionSelector("cohort")} [data-lens-filter-value="LCO"]`,
     "the LCO cohort filter",
   );
   const filtered = await waitForSnapshot(
@@ -839,11 +853,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `document.querySelector('[data-lens-visible-count]')?.textContent === "576" &&
       document.body.textContent?.includes("1 outside cohort") === true`,
   );
-  await assertBrowserSettles(client, "the filtered Atlas");
-  await assertCanvasPan(client, "the filtered Atlas");
+  await assertBrowserSettles(client, "the filtered Compare view");
+  await assertCanvasPan(client, "the filtered Compare view");
   await physicalClickMatching(
     client,
-    `${sectionSelector("lens:facets")} button`,
+    `${sectionSelector("cohort")} button`,
     "Clear filters",
   );
   const clearedCohort = await waitForSnapshot(
@@ -861,7 +875,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await physicalClickSelector(
     client,
-    `${sectionSelector("lens:facets")} [data-lens-filter-value="LCO"]`,
+    `${sectionSelector("cohort")} [data-lens-filter-value="LCO"]`,
     "the restored LCO cohort filter",
   );
   const refiltered = await waitForSnapshot(
@@ -922,14 +936,14 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     "the linked series and cycle artifact",
     `(() => {
-      const series = document.querySelector(${JSON.stringify(sectionSelector("lens:series"))});
-      const artifact = document.querySelector(${JSON.stringify(sectionSelector("lens:artifact"))});
+      const series = document.querySelector(${JSON.stringify(sectionSelector("aging-timeline"))});
+      const artifact = document.querySelector(${JSON.stringify(sectionSelector("thermal-gallery"))});
       const image = artifact?.querySelector('img');
       const seriesBounds = series?.getBoundingClientRect();
       const artifactBounds = artifact?.getBoundingClientRect();
       return seriesBounds !== undefined && seriesBounds.width > 0 && seriesBounds.height > 0 &&
         artifactBounds !== undefined && artifactBounds.width > 0 && artifactBounds.height > 0 &&
-        artifact?.querySelector('[data-lens-artifact-id$="0900"]') !== null &&
+        artifact?.querySelector('[data-timeline-active] [data-lens-artifact-id$="0900"]') !== null &&
         image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0 &&
         (document.querySelector('.lens-project-heading strong')?.getBoundingClientRect().width ?? 0) > 150;
     })()`,
@@ -943,7 +957,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
 
   await clickCanvas(
     client,
-    `${sectionSelector("lens:series")} .lens-echart`,
+    `${sectionSelector("aging-timeline")} .lens-echart`,
     0.32,
     0.48,
   );
@@ -951,9 +965,9 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     "the shared series-to-frame cursor",
     `(() => {
-      const artifact = document.querySelector(${JSON.stringify(sectionSelector("lens:artifact"))});
-      const id = artifact?.querySelector('[data-lens-artifact-id]')?.getAttribute('data-lens-artifact-id');
-      const timeline = document.querySelector(${JSON.stringify(`${sectionSelector("lens:series")} .lens-timeline-status`)})?.textContent ?? "";
+      const artifact = document.querySelector(${JSON.stringify(sectionSelector("thermal-gallery"))});
+      const id = artifact?.querySelector('[data-timeline-active] [data-lens-artifact-id]')?.getAttribute('data-lens-artifact-id');
+      const timeline = document.querySelector(${JSON.stringify(`${sectionSelector("aging-timeline")} .lens-timeline-status`)})?.textContent ?? "";
       return id?.endsWith("0250") === true && timeline.includes("Cycle 300");
     })()`,
   );
@@ -966,13 +980,13 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   const note = "Recheck the accelerated capacity loss around this checkpoint.";
   await typeInputValue(
     client,
-    'input[aria-label="Selection note"]',
+    `${sectionSelector("thermal-gallery")} [data-timeline-active] input[aria-label="Selection note"]`,
     note,
     "the selection note",
   );
   await physicalClickMatching(
     client,
-    `${sectionSelector("lens:artifact")} button`,
+    `${sectionSelector("thermal-gallery")} [data-timeline-active] button`,
     "Save note",
   );
   const noted = await waitForSnapshot(
@@ -988,7 +1002,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await physicalClickMatching(
     client,
-    `${sectionSelector("lens:artifact")} button`,
+    `${sectionSelector("thermal-gallery")} [data-timeline-active] button`,
     "Include artifact",
   );
   const included = await waitForSnapshot(
@@ -1150,7 +1164,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     export: exportPath,
     revision: included.revision,
     screenshots: [
-      atlasScreenshot,
+      overviewScreenshot,
       inspectScreenshot,
       timelineScreenshot,
       comparisonScreenshot,
@@ -1167,17 +1181,17 @@ async function exerciseLightBrowser(client, origin, resultDirectory) {
   await loaded;
   await waitFor(
     client,
-    "the light Experiment Lens Atlas",
+    "the light Experiment Lens Overview",
     `document.querySelector(".lens-app") !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector("lens:facets"))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector("lens:table"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("cohort"))}) !== null &&
+      document.querySelector(${JSON.stringify(sectionSelector("headline-metrics"))}) !== null &&
       document.querySelector('[data-lens-visible-count]')?.textContent === "576" &&
       document.body.textContent?.includes("Compare 2") === true &&
       (document.querySelector('.lens-project-heading strong')?.getBoundingClientRect().width ?? 0) > 150`,
   );
   const lightScreenshot = path.join(
     resultDirectory,
-    "experiment-lens-atlas-light.png",
+    "experiment-lens-overview-light.png",
   );
   await captureScreenshot(client, lightScreenshot);
   return lightScreenshot;

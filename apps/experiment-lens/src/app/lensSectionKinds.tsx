@@ -4,103 +4,87 @@ import {
   registerSectionKinds,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+  type SectionKindDefinition,
   type WorkspaceHost,
   type WorkspaceSectionSearchableText,
 } from "@setta/workspace";
+import type { ReactNode } from "react";
 
-import { ArtifactSection } from "../sections/ArtifactSection";
+import { GallerySection } from "../sections/ArtifactSection";
 import { FacetSection } from "../sections/FacetSection";
+import { HeatmapSection } from "../sections/HeatmapSection";
+import { HistogramSection } from "../sections/HistogramSection";
+import { MetricsSection } from "../sections/MetricsSection";
 import { ObservationTableSection } from "../sections/ObservationTableSection";
 import { ParallelSection } from "../sections/ParallelSection";
 import { ScatterSection } from "../sections/ScatterSection";
-import { SeriesSection } from "../sections/SeriesSection";
-import {
-  LENS_ARTIFACT_SECTION_KIND,
-  LENS_FACETS_SECTION_KIND,
-  LENS_PARALLEL_SECTION_KIND,
-  LENS_SCATTER_SECTION_KIND,
-  LENS_SERIES_SECTION_KIND,
-  LENS_TABLE_SECTION_KIND,
-} from "./lensProjection";
+import { TimelineSection } from "../sections/SeriesSection";
+import { LENS_SECTION_KINDS } from "./lensProjection";
+import { presentationSectionDataId } from "./presentationSection";
 
 const searchableText: WorkspaceSectionSearchableText = (section) =>
   section.name;
 const interactionBoundaryClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`;
 const sectionContentClassName = `lens-section-content ${interactionBoundaryClassName}`;
+const sizeConstraints = {
+  maxHeight: 3_000,
+  maxWidth: 4_000,
+  minHeight: 220,
+  minWidth: 320,
+};
+
+function definition(
+  render: (sectionId: string) => ReactNode,
+  className = sectionContentClassName,
+): SectionKindDefinition {
+  return {
+    assertValidData: (section) => {
+      presentationSectionDataId(section.data);
+    },
+    contentClassName: className,
+    defaultSize: { height: 360, width: 640 },
+    getSectionSearchableText: searchableText,
+    renderContent: (section) => render(presentationSectionDataId(section.data)),
+    sizeConstraints,
+  };
+}
+
+const chartClassName = `${sectionContentClassName} lens-chart-section-content`;
 
 export function registerLensSectionKinds(host: WorkspaceHost): void {
   registerSectionKinds(host, {
-    [LENS_ARTIFACT_SECTION_KIND]: {
-      contentClassName: sectionContentClassName,
-      defaultSize: { height: 380, width: 600 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <ArtifactSection />,
-      sizeConstraints: {
-        maxHeight: 1_200,
-        maxWidth: 1_600,
-        minHeight: 300,
-        minWidth: 360,
-      },
-    },
-    [LENS_FACETS_SECTION_KIND]: {
-      contentClassName: sectionContentClassName,
-      defaultSize: { height: 190, width: 1_320 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <FacetSection />,
-      sizeConstraints: {
-        maxHeight: 720,
-        maxWidth: 2_200,
-        minHeight: 150,
-        minWidth: 420,
-      },
-    },
-    [LENS_PARALLEL_SECTION_KIND]: {
-      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
-      defaultSize: { height: 410, width: 630 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <ParallelSection />,
-      sizeConstraints: {
-        maxHeight: 1_200,
-        maxWidth: 1_800,
-        minHeight: 300,
-        minWidth: 420,
-      },
-    },
-    [LENS_SCATTER_SECTION_KIND]: {
-      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
-      defaultSize: { height: 410, width: 650 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <ScatterSection />,
-      sizeConstraints: {
-        maxHeight: 1_200,
-        maxWidth: 1_800,
-        minHeight: 300,
-        minWidth: 420,
-      },
-    },
-    [LENS_SERIES_SECTION_KIND]: {
-      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
-      defaultSize: { height: 380, width: 680 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <SeriesSection />,
-      sizeConstraints: {
-        maxHeight: 1_200,
-        maxWidth: 1_800,
-        minHeight: 310,
-        minWidth: 420,
-      },
-    },
-    [LENS_TABLE_SECTION_KIND]: {
-      contentClassName: `${sectionContentClassName} lens-table-section-content`,
-      defaultSize: { height: 370, width: 1_320 },
-      getSectionSearchableText: searchableText,
-      renderContent: () => <ObservationTableSection />,
-      sizeConstraints: {
-        maxHeight: 1_400,
-        maxWidth: 2_400,
-        minHeight: 260,
-        minWidth: 480,
-      },
-    },
+    [LENS_SECTION_KINDS.facets]: definition((sectionId) => (
+      <FacetSection sectionId={sectionId} />
+    )),
+    [LENS_SECTION_KINDS.gallery]: definition((sectionId) => (
+      <GallerySection sectionId={sectionId} />
+    )),
+    [LENS_SECTION_KINDS.heatmap]: definition(
+      (sectionId) => <HeatmapSection sectionId={sectionId} />,
+      chartClassName,
+    ),
+    [LENS_SECTION_KINDS.histogram]: definition(
+      (sectionId) => <HistogramSection sectionId={sectionId} />,
+      chartClassName,
+    ),
+    [LENS_SECTION_KINDS.metrics]: definition((sectionId) => (
+      <MetricsSection sectionId={sectionId} />
+    )),
+    [LENS_SECTION_KINDS.parallel]: definition(
+      (sectionId) => <ParallelSection sectionId={sectionId} />,
+      chartClassName,
+    ),
+    [LENS_SECTION_KINDS.scatter]: definition(
+      (sectionId) => <ScatterSection sectionId={sectionId} />,
+      chartClassName,
+    ),
+    [LENS_SECTION_KINDS.table]: definition(
+      (sectionId) => <ObservationTableSection sectionId={sectionId} />,
+      `${sectionContentClassName} lens-table-section-content`,
+    ),
+    [LENS_SECTION_KINDS.timeline]: definition(
+      (sectionId) => <TimelineSection sectionId={sectionId} />,
+      chartClassName,
+    ),
   });
 }

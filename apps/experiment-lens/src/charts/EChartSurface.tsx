@@ -4,7 +4,13 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "@setta/workspace";
-import { LineChart, ParallelChart, ScatterChart } from "echarts/charts";
+import {
+  BarChart,
+  HeatmapChart,
+  LineChart,
+  ParallelChart,
+  ScatterChart,
+} from "echarts/charts";
 import {
   AriaComponent,
   AxisPointerComponent,
@@ -15,6 +21,7 @@ import {
   MarkLineComponent,
   ParallelComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from "echarts/components";
 import {
   init,
@@ -28,10 +35,12 @@ import { useEffect, useRef } from "react";
 registerECharts([
   AriaComponent,
   AxisPointerComponent,
+  BarChart,
   BrushComponent,
   CanvasRenderer,
   DataZoomComponent,
   GridComponent,
+  HeatmapChart,
   LegendComponent,
   LineChart,
   MarkLineComponent,
@@ -39,6 +48,7 @@ registerECharts([
   ParallelComponent,
   ScatterChart,
   TooltipComponent,
+  VisualMapComponent,
 ]);
 
 type EChartEventHandlers = Readonly<

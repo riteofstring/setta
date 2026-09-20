@@ -59,7 +59,7 @@ describe("cohort facets", () => {
     act(() => {
       root.render(
         <LensContext.Provider value={value}>
-          <FacetSection />
+          <FacetSection sectionId="cohort" />
         </LensContext.Provider>,
       );
     });
@@ -120,7 +120,7 @@ describe("cohort facets", () => {
             visible: observations,
           }}
         >
-          <FacetSection />
+          <FacetSection sectionId="cohort" />
         </LensContext.Provider>,
       );
     });

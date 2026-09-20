@@ -36,19 +36,15 @@ import {
   type FieldExtent,
   type TimelineState,
 } from "./lensModel";
-import {
-  LENS_ARTIFACT_SECTION_ID,
-  LENS_COMPACT_VIEWPORT_QUERY,
-  LENS_SERIES_SECTION_ID,
-  LENS_TABLE_SECTION_ID,
-  projectLensDocument,
-} from "./lensProjection";
+import { presentationSectionIds, projectLensDocument } from "./lensProjection";
 import { registerLensSectionKinds } from "./lensSectionKinds";
 
 type ReadyLens = Readonly<{
   host: WorkspaceHost;
   snapshot: LensSnapshot;
 }>;
+
+const INSPECTION_SECTION_TYPES = ["gallery", "table", "timeline"] as const;
 
 function errorMessage(error: unknown): string {
   if (error instanceof LensClientError || error instanceof Error) {
@@ -113,12 +109,7 @@ export function ExperimentLensController() {
         return false;
       }
       if (!current) {
-        commitWorkspaceDocument(
-          host,
-          projectLensDocument(snapshot, {
-            compact: window.matchMedia(LENS_COMPACT_VIEWPORT_QUERY).matches,
-          }),
-        );
+        commitWorkspaceDocument(host, projectLensDocument(snapshot));
       }
       const next = { host, snapshot };
       readyRef.current = next;
@@ -288,9 +279,10 @@ export function ExperimentLensController() {
         const current = readyRef.current;
         if (current) {
           attend(current.host, [
-            LENS_TABLE_SECTION_ID,
-            LENS_SERIES_SECTION_ID,
-            LENS_ARTIFACT_SECTION_ID,
+            ...presentationSectionIds(
+              current.snapshot,
+              INSPECTION_SECTION_TYPES,
+            ),
           ]);
         }
       },

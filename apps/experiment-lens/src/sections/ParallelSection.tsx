@@ -1,26 +1,78 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
 import { useMemo } from "react";
 
+import type {
+  FieldDefinition,
+  Observation,
+} from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
+import { fieldExtent } from "../app/lensModel";
 import {
-  fieldExtent,
-  numericFactorFields,
-  numericMetricFields,
-} from "../app/lensModel";
+  presentationFields,
+  presentationSection,
+} from "../app/presentationSection";
 import { EChartSurface } from "../charts/EChartSurface";
 import { chartPalette, parallelOption } from "../charts/chartOptions";
 
-export function ParallelSection() {
+function axisCandidate(event: unknown): {
+  intervals: unknown;
+  parallelAxisId: string;
+} | null {
+  if (typeof event !== "object" || event === null) {
+    return null;
+  }
+  const candidate = event as {
+    intervals?: unknown;
+    parallelAxisId?: unknown;
+  };
+  return typeof candidate.parallelAxisId === "string"
+    ? {
+        intervals: candidate.intervals,
+        parallelAxisId: candidate.parallelAxisId,
+      }
+    : null;
+}
+
+function numericInterval(intervals: unknown): {
+  maximum: number | null;
+  minimum: number | null;
+} {
+  const interval = Array.isArray(intervals) ? intervals[0] : null;
+  const minimum = Array.isArray(interval) ? interval[0] : null;
+  const maximum = Array.isArray(interval) ? interval[1] : null;
+  return {
+    maximum: typeof maximum === "number" ? maximum : null,
+    minimum: typeof minimum === "number" ? minimum : null,
+  };
+}
+
+function axisSelection(
+  event: unknown,
+  fields: readonly FieldDefinition[],
+  observations: readonly Observation[],
+) {
+  const candidate = axisCandidate(event);
+  if (!candidate) {
+    return null;
+  }
+  const field = fields.find((item) => item.id === candidate.parallelAxisId);
+  const extent = field ? fieldExtent(observations, field.id) : null;
+  if (!field || !extent) {
+    return null;
+  }
+  const interval = numericInterval(candidate.intervals);
+  return {
+    extent,
+    fieldId: field.id,
+    ...interval,
+  };
+}
+
+export function ParallelSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  const fields = useMemo(
-    () =>
-      [
-        ...numericFactorFields(lens.snapshot).slice(0, 3),
-        ...numericMetricFields(lens.snapshot).slice(0, 4),
-      ].slice(0, 6),
-    [lens.snapshot],
-  );
+  const definition = presentationSection(lens.snapshot, sectionId, "parallel");
+  const fields = presentationFields(lens.snapshot, definition.fieldIds);
   const option = useMemo(
     () =>
       parallelOption({
@@ -34,43 +86,20 @@ export function ParallelSection() {
   const events = useMemo(
     () => ({
       axisareaselected: (event: unknown) => {
-        if (typeof event !== "object" || event === null) {
-          return;
-        }
-        const candidate = event as {
-          intervals?: unknown;
-          parallelAxisId?: unknown;
-        };
-        if (typeof candidate.parallelAxisId !== "string") {
-          return;
-        }
-        const field = fields.find(
-          (item) => item.id === candidate.parallelAxisId,
+        const selection = axisSelection(
+          event,
+          fields,
+          lens.snapshot.observations,
         );
-        const extent = field
-          ? fieldExtent(lens.snapshot.observations, field.id)
-          : null;
-        const intervals = Array.isArray(candidate.intervals)
-          ? candidate.intervals
-          : [];
-        const interval = intervals[0];
-        if (!field || !extent) {
+        if (!selection) {
           return;
         }
-        if (
-          Array.isArray(interval) &&
-          typeof interval[0] === "number" &&
-          typeof interval[1] === "number"
-        ) {
-          lens.actions.setRangeFilter(
-            field.id,
-            interval[0],
-            interval[1],
-            extent,
-          );
-        } else {
-          lens.actions.setRangeFilter(field.id, null, null, extent);
-        }
+        lens.actions.setRangeFilter(
+          selection.fieldId,
+          selection.minimum,
+          selection.maximum,
+          selection.extent,
+        );
       },
       click: (event: unknown) => {
         const name =

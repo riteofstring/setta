@@ -198,13 +198,53 @@ button {
 .lens-series,
 .lens-table,
 .lens-artifact,
-.lens-facets {
+.lens-facets,
+.lens-metrics {
   display: flex;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
+}
+
+.lens-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: stretch;
+  overflow: auto;
+}
+
+.lens-metric-card {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 5px;
+  padding: 18px;
+  border-right: 1px solid light-dark(#e1e6ef, #263143);
+  border-bottom: 1px solid light-dark(#e1e6ef, #263143);
+}
+
+.lens-metric-card span,
+.lens-metric-card small {
+  color: light-dark(#64748b, #8290a8);
+  font-size: 11px;
+}
+
+.lens-metric-card strong {
+  overflow: hidden;
+  font-size: clamp(20px, 3cqh, 32px);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lens-metric-card small {
+  text-transform: capitalize;
+}
+
+.lens-metric-count strong {
+  color: light-dark(#1d4ed8, #60a5fa);
 }
 
 .lens-facets {
@@ -576,6 +616,33 @@ button {
   overflow: auto;
   background: light-dark(#f3f6fa, #0a0f16);
   overscroll-behavior: contain;
+}
+
+.lens-gallery {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px;
+  overflow: auto;
+  background: light-dark(#eef2f7, #0a0f16);
+  overscroll-behavior: contain;
+}
+
+.lens-gallery .lens-artifact {
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid light-dark(#d8e0eb, #2b3749);
+  border-radius: 7px;
+  background: light-dark(#fff, #0f1620);
+}
+
+.lens-gallery .lens-artifact[data-timeline-active] {
+  border-color: #4f86f7;
+  box-shadow: 0 0 0 2px rgb(79 134 247 / 22%);
 }
 
 .lens-artifact-image {

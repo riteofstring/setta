@@ -21,6 +21,8 @@ vi.mock("echarts/core", () => ({
   use: mocks.use,
 }));
 vi.mock("echarts/charts", () => ({
+  BarChart: {},
+  HeatmapChart: {},
   LineChart: {},
   ParallelChart: {},
   ScatterChart: {},
@@ -35,6 +37,7 @@ vi.mock("echarts/components", () => ({
   MarkLineComponent: {},
   ParallelComponent: {},
   TooltipComponent: {},
+  VisualMapComponent: {},
 }));
 vi.mock("echarts/renderers", () => ({ CanvasRenderer: {} }));
 

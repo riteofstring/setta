@@ -40,20 +40,6 @@ export function nearestSeriesSampleX(
   ).x;
 }
 
-export function categoricalFactorFields(
-  snapshot: LensSnapshot,
-): FieldDefinition[] {
-  return snapshot.experiment.fields.filter(
-    (field) => field.role === "factor" && field.valueType !== "number",
-  );
-}
-
-export function numericFactorFields(snapshot: LensSnapshot): FieldDefinition[] {
-  return snapshot.experiment.fields.filter(
-    (field) => field.role === "factor" && field.valueType === "number",
-  );
-}
-
 export function numericMetricFields(snapshot: LensSnapshot): FieldDefinition[] {
   return snapshot.experiment.fields.filter(
     (field) => field.role === "metric" && field.valueType === "number",
@@ -230,13 +216,48 @@ function artifactsForObservation(
 export function seriesArtifactForObservation(
   snapshot: LensSnapshot,
   observationId: string | null,
+  role?: string,
 ): ResolvedArtifact | null {
+  const roleArtifactIds = new Set(
+    snapshot.experiment.relations
+      .filter(
+        (relation) =>
+          relation.observationId === observationId &&
+          (role === undefined || relation.role === role),
+      )
+      .map((relation) => relation.artifactId),
+  );
   return (
     artifactsForObservation(snapshot, observationId).find(
       (artifact) =>
+        roleArtifactIds.has(artifact.reference.id) &&
         artifact.reference.mediaType === "application/vnd.setta.series+json",
     ) ?? null
   );
+}
+
+export function artifactsForObservationRoles(
+  snapshot: LensSnapshot,
+  observationId: string | null,
+  roles: readonly string[],
+): ResolvedArtifact[] {
+  if (observationId === null) {
+    return [];
+  }
+  const acceptedRoles = new Set(roles);
+  const artifactIds = snapshot.experiment.relations
+    .filter(
+      (relation) =>
+        relation.observationId === observationId &&
+        acceptedRoles.has(relation.role),
+    )
+    .map((relation) => relation.artifactId);
+  const artifactsByID = new Map(
+    snapshot.artifacts.map((artifact) => [artifact.reference.id, artifact]),
+  );
+  return [...new Set(artifactIds)]
+    .map((artifactId) => artifactsByID.get(artifactId))
+    .filter((artifact): artifact is ResolvedArtifact => artifact !== undefined);
 }
 
 function displayArtifactForObservation(

@@ -7,12 +7,10 @@ import type {
 } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
 import {
-  categoricalFactorFields,
-  fieldChoices,
-  fieldExtent,
-  formatScalar,
-  numericFactorFields,
-} from "../app/lensModel";
+  presentationFields,
+  presentationSection,
+} from "../app/presentationSection";
+import { fieldChoices, fieldExtent, formatScalar } from "../app/lensModel";
 
 function filterFor(
   filters: readonly FieldFilter[],
@@ -158,34 +156,21 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
   );
 }
 
-export function FacetSection() {
+export function FacetSection({ sectionId }: { sectionId: string }) {
   const lens = useLens();
-  const choiceFields = useMemo(() => {
-    const categorical = categoricalFactorFields(lens.snapshot).filter(
-      (field) => fieldChoices(lens.snapshot.observations, field.id).length <= 8,
-    );
-    const numericChoices = numericFactorFields(lens.snapshot).filter(
-      (field) => fieldChoices(lens.snapshot.observations, field.id).length <= 8,
-    );
-    return [...categorical.slice(0, 1), ...numericChoices.slice(0, 2)];
-  }, [lens.snapshot]);
-  const rangeField = useMemo(() => {
-    const chosenIds = new Set(choiceFields.map((field) => field.id));
-    return numericFactorFields(lens.snapshot)
-      .filter((field) => !chosenIds.has(field.id))
-      .sort(
-        (left, right) =>
-          fieldChoices(lens.snapshot.observations, right.id).length -
-          fieldChoices(lens.snapshot.observations, left.id).length,
-      )[0];
-  }, [choiceFields, lens.snapshot]);
+  const definition = presentationSection(lens.snapshot, sectionId, "facets");
+  const fields = presentationFields(lens.snapshot, definition.fieldIds);
   return (
     <div className="lens-facets" data-lens-section="facets">
       <div className="lens-facet-grid">
-        {choiceFields.map((field) => (
-          <ChoiceFacet field={field} key={field.id} />
-        ))}
-        {rangeField ? <RangeFacet field={rangeField} /> : null}
+        {fields.map((field) =>
+          field.valueType === "number" &&
+          fieldChoices(lens.snapshot.observations, field.id).length > 8 ? (
+            <RangeFacet field={field} key={field.id} />
+          ) : (
+            <ChoiceFacet field={field} key={field.id} />
+          ),
+        )}
       </div>
       <div className="lens-cohort-summary">
         <div>

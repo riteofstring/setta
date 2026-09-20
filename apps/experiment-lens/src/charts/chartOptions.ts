@@ -1,5 +1,7 @@
 import type {
+  BarSeriesOption,
   EChartsCoreOption,
+  HeatmapSeriesOption,
   LineSeriesOption,
   ParallelSeriesOption,
   ScatterSeriesOption,
@@ -7,10 +9,12 @@ import type {
 
 import type {
   FieldDefinition,
+  JsonScalar,
   LensSelection,
   Observation,
   SeriesDocument,
 } from "../backend/generatedContract";
+import type { HistogramBin, LensAggregation } from "../app/aggregation";
 import { formatScalar } from "../app/lensModel";
 
 const SERIES_COLORS = [
@@ -203,6 +207,153 @@ export function scatterOption({
       scale: true,
       splitLine: { lineStyle: { color: palette.grid } },
       type: "value",
+    },
+  };
+}
+
+export function histogramOption({
+  bins,
+  field,
+  palette,
+}: {
+  bins: readonly HistogramBin[];
+  field: FieldDefinition;
+  palette: LensChartPalette;
+}): EChartsCoreOption {
+  const labels = bins.map(
+    (bin) =>
+      `${formatScalar(bin.minimum, field)}–${formatScalar(bin.maximum, field)}`,
+  );
+  const series: BarSeriesOption = {
+    barMaxWidth: 28,
+    data: bins.map((bin) => bin.count),
+    emphasis: { itemStyle: { color: "#51d6c7" } },
+    itemStyle: { color: SERIES_COLORS[0], opacity: 0.82 },
+    name: field.label,
+    type: "bar",
+  };
+  return {
+    ...commonOption(palette),
+    grid: { bottom: 48, containLabel: true, left: 18, right: 20, top: 18 },
+    series: [series],
+    tooltip: {
+      ...tooltipOption(palette),
+      formatter: (params: { dataIndex: number; value: number }) =>
+        `${labels[params.dataIndex] ?? field.label}\n${String(params.value)} observations`,
+    },
+    xAxis: {
+      axisLabel: { color: palette.muted, fontSize: 10, hideOverlap: true },
+      axisLine: { lineStyle: { color: palette.axis } },
+      axisTick: { show: false },
+      data: labels,
+      type: "category",
+    },
+    yAxis: {
+      axisLabel: { color: palette.muted, fontSize: 10 },
+      axisLine: { show: false },
+      minInterval: 1,
+      splitLine: { lineStyle: { color: palette.grid } },
+      type: "value",
+    },
+  };
+}
+
+export function heatmapOption({
+  aggregation,
+  cells,
+  palette,
+  valueField,
+  xChoices,
+  xField,
+  yChoices,
+  yField,
+}: {
+  aggregation: LensAggregation;
+  cells: readonly Readonly<{
+    value: number | null;
+    xIndex: number;
+    yIndex: number;
+  }>[];
+  palette: LensChartPalette;
+  valueField: FieldDefinition;
+  xChoices: readonly JsonScalar[];
+  xField: FieldDefinition;
+  yChoices: readonly JsonScalar[];
+  yField: FieldDefinition;
+}): EChartsCoreOption {
+  const data = cells
+    .filter(
+      (cell): cell is typeof cell & { value: number } => cell.value !== null,
+    )
+    .map((cell) => [cell.xIndex, cell.yIndex, cell.value]);
+  const values = data.map((cell) => cell[2] ?? 0);
+  const minimum = values.length > 0 ? Math.min(...values) : 0;
+  const maximum = values.length > 0 ? Math.max(...values) : 1;
+  const series: HeatmapSeriesOption = {
+    data,
+    emphasis: { itemStyle: { borderColor: palette.text, borderWidth: 2 } },
+    label: {
+      color: palette.text,
+      formatter: (params: { value?: unknown }) => {
+        const value = Array.isArray(params.value) ? params.value[2] : null;
+        return typeof value === "number"
+          ? formatScalar(
+              value,
+              aggregation === "count" ? undefined : valueField,
+            )
+          : "";
+      },
+      fontSize: 10,
+      show: data.length <= 36,
+    },
+    type: "heatmap",
+  };
+  return {
+    ...commonOption(palette),
+    grid: { bottom: 52, containLabel: true, left: 20, right: 78, top: 22 },
+    series: [series],
+    tooltip: {
+      ...tooltipOption(palette),
+      formatter: (params: { value: number[] }) => {
+        const xValue = xChoices[params.value[0] ?? -1];
+        const yValue = yChoices[params.value[1] ?? -1];
+        const value = params.value[2];
+        return [
+          `${xField.label}: ${formatScalar(xValue, xField)}`,
+          `${yField.label}: ${formatScalar(yValue, yField)}`,
+          `${aggregation} ${valueField.label}: ${formatScalar(value, aggregation === "count" ? undefined : valueField)}`,
+        ].join("\n");
+      },
+    },
+    visualMap: {
+      calculable: false,
+      inRange: { color: [palette.panel, "#2563eb", "#51d6c7"] },
+      max: maximum === minimum ? minimum + 1 : maximum,
+      min: minimum,
+      orient: "vertical",
+      right: 8,
+      textStyle: { color: palette.muted, fontSize: 10 },
+      top: "middle",
+    },
+    xAxis: {
+      axisLabel: { color: palette.muted, fontSize: 10 },
+      axisLine: { lineStyle: { color: palette.axis } },
+      data: xChoices.map((value) => formatScalar(value, xField)),
+      name: xField.label,
+      nameLocation: "middle",
+      nameTextStyle: { color: palette.muted, padding: 28 },
+      splitArea: { show: true },
+      type: "category",
+    },
+    yAxis: {
+      axisLabel: { color: palette.muted, fontSize: 10 },
+      axisLine: { lineStyle: { color: palette.axis } },
+      data: yChoices.map((value) => formatScalar(value, yField)),
+      name: yField.label,
+      nameLocation: "middle",
+      nameTextStyle: { color: palette.muted, padding: 34 },
+      splitArea: { show: true },
+      type: "category",
     },
   };
 }
