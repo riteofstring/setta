@@ -324,7 +324,7 @@ describe("workspace section attention", () => {
     const { setViewport } = setupXyflowRuntime(testWorkspace);
     const refs = testWorkspace.sectionRefs.getState();
     testWorkspace.sectionRefs.setState({
-      selfOnly: { leaf: refs.selfOnly.leaf },
+      selfOnly: { leaf: refs.selfOnly.leaf ?? null },
       withNested: refs.withNested,
     });
 
@@ -335,7 +335,7 @@ describe("workspace section attention", () => {
 
     testWorkspace.sectionRefs.setState({
       selfOnly: {
-        leaf: refs.selfOnly.leaf,
+        leaf: refs.selfOnly.leaf ?? null,
         nested: createShell({ height: 80, width: 100, x: 300, y: 200 }),
       },
       withNested: refs.withNested,
@@ -347,11 +347,13 @@ describe("workspace section attention", () => {
 
   it("waits for a mounted section shell to acquire positive bounds", async () => {
     let height = 0;
-    let notifyResize: ResizeObserverCallback | null = null;
+    let observerCreated = false;
+    let notifyResize: ResizeObserverCallback = () => undefined;
     vi.stubGlobal(
       "ResizeObserver",
       class {
         constructor(callback: ResizeObserverCallback) {
+          observerCreated = true;
           notifyResize = callback;
         }
         disconnect() {}
@@ -378,7 +380,8 @@ describe("workspace section attention", () => {
     });
     expect(setViewport).not.toHaveBeenCalled();
     height = 80;
-    if (!notifyResize) throw new Error("Expected a section resize observer.");
+    if (!observerCreated)
+      throw new Error("Expected a section resize observer.");
     notifyResize([], {} as ResizeObserver);
     await fit;
 
@@ -400,7 +403,7 @@ describe("workspace section attention", () => {
     const { setViewport } = setupXyflowRuntime(testWorkspace);
     const refs = testWorkspace.sectionRefs.getState();
     testWorkspace.sectionRefs.setState({
-      selfOnly: { leaf: refs.selfOnly.leaf },
+      selfOnly: { leaf: refs.selfOnly.leaf ?? null },
       withNested: refs.withNested,
     });
 
@@ -413,7 +416,7 @@ describe("workspace section attention", () => {
     await Promise.all([superseded, active]);
     testWorkspace.sectionRefs.setState({
       selfOnly: {
-        leaf: refs.selfOnly.leaf,
+        leaf: refs.selfOnly.leaf ?? null,
         nested: createShell({ height: 80, width: 100, x: 300, y: 200 }),
       },
       withNested: refs.withNested,
@@ -430,7 +433,7 @@ describe("workspace section attention", () => {
     const { setViewport } = setupXyflowRuntime(testWorkspace);
     const refs = testWorkspace.sectionRefs.getState();
     testWorkspace.sectionRefs.setState({
-      selfOnly: { leaf: refs.selfOnly.leaf },
+      selfOnly: { leaf: refs.selfOnly.leaf ?? null },
       withNested: refs.withNested,
     });
 
