@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/python-canvas/backend/internal/cli"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/httpapi"
@@ -29,7 +30,6 @@ import (
 	"github.com/setta/python-canvas/backend/internal/pythonenv"
 	"github.com/setta/python-canvas/backend/internal/runner"
 	"github.com/setta/python-canvas/backend/internal/terminal"
-	"github.com/setta/python-canvas/backend/internal/webapp"
 )
 
 const terminalShutdownTimeout = 5 * time.Second
@@ -266,7 +266,7 @@ type serveResources struct {
 	listener         net.Listener
 	origin           string
 	canonicalProject string
-	assets           *webapp.Assets
+	assets           *localweb.Assets
 }
 
 func validateServeStreams(options serveOptions, stdin io.Reader, stdout io.Writer) error {
@@ -280,7 +280,7 @@ func validateServeStreams(options serveOptions, stdin io.Reader, stdout io.Write
 }
 
 func prepareServeResources(ctx context.Context, options serveOptions, stdin io.Reader) (resources serveResources, result error) {
-	listener, err := httpapi.ListenLoopback(options.Port)
+	listener, err := localweb.Listen(options.Port)
 	if err != nil {
 		return serveResources{}, err
 	}
@@ -290,7 +290,7 @@ func prepareServeResources(ctx context.Context, options serveOptions, stdin io.R
 			resources.Close()
 		}
 	}()
-	resources.origin, err = webapp.LoopbackURL(listener)
+	resources.origin, err = localweb.URL(listener)
 	if err != nil {
 		return resources, err
 	}
@@ -301,7 +301,7 @@ func prepareServeResources(ctx context.Context, options serveOptions, stdin io.R
 	if err := validateSessionNonce(options.SessionNonce); err != nil {
 		return resources, err
 	}
-	resources.assets, err = webapp.Open(options.WebRoot)
+	resources.assets, err = localweb.OpenAssets(options.WebRoot)
 	if err != nil {
 		return resources, err
 	}
@@ -448,7 +448,11 @@ func serveOpenedRuntime(resources serveResources, runtime *serviceRuntime, optio
 	if err != nil {
 		return err
 	}
-	return webapp.Serve(resources.context, resources.listener, handler, func() error {
+	secureHandler, err := localweb.SecureHandler(resources.listener, handler)
+	if err != nil {
+		return err
+	}
+	return localweb.ServeReady(resources.context, resources.listener, secureHandler, func() error {
 		return writeReadiness(stdout, resources.canonicalProject, options.SessionNonce, resources.origin)
 	})
 }

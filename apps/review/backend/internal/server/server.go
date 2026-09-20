@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/review/backend/internal/contracts"
 	"github.com/setta/review/backend/internal/coordinator"
-	"github.com/setta/review/backend/internal/localweb"
 )
 
 const maximumJSONBytes = 4 << 20

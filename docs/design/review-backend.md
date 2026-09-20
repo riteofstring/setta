@@ -57,10 +57,12 @@ evidence reads, export, and an SSE stream that begins with current state and pub
 accepted replacement. The CLI emits deterministic JSON on stdout, structured JSON errors on
 stderr, and stable exit semantics.
 
-The service binds loopback, validates its exact origin on mutations, constrains static assets and
-project files, and is supervised through the shared Setta runtime. It has no provider credentials,
-agent process, test runner, source mutation, remote fetch, arbitrary URL resolver, or plug-in
-loader.
+The shared `local-backend/localweb` boundary owns loopback binding, exact listener Host admission,
+common response headers, canonical production-asset confinement, SPA fallback exclusion, and
+bounded serving shutdown. Review retains its route tree, readiness identity, mutation origin
+requirement, and project-file policy. It is supervised through the shared Setta runtime and has no
+provider credentials, agent process, test runner, source mutation, remote fetch, arbitrary URL
+resolver, or plug-in loader.
 
 ## Contract generation
 

@@ -119,16 +119,17 @@ and processes are cleaned up.
 
 ## Local web boundary
 
-The server binds IPv4 loopback and accepts only the exact listener authority plus the matching
-`localhost` alias on that port. This closed `Host` set blocks DNS rebinding before SPA, REST, or
-WebSocket handlers can expose project state. Terminal upgrades additionally validate the exact
-configured browser origin.
+The shared `local-backend/localweb` boundary binds IPv4 loopback and accepts only the exact
+listener authority plus the matching `localhost` alias on that port. This closed `Host` set blocks
+DNS rebinding before SPA, REST, or WebSocket handlers can expose project state. Python Canvas owns
+its route tree and terminal upgrades additionally validate the exact configured browser origin.
 
 Production assets are validated before the project publishes a live session. Only regular,
 non-symlink files under the canonical asset root are served. API paths never fall through to the
 SPA entry document, while an extensionless missing browser route may use that document for client
-navigation. Binding precedes handler construction so the actual origin is available to every
-origin-sensitive route.
+navigation. Shared serving performs bounded shutdown and invokes the application readiness writer
+only after serving starts. Binding precedes handler construction so the actual origin is available
+to every origin-sensitive route.
 
 The Windows ConPTY implementation derives in part from `UserExistsError/conpty`. Its MIT notice is
 retained in the source tree and the built wheel's license directory; this design record does not

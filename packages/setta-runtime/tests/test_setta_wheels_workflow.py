@@ -23,6 +23,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             "scripts/lib/process.mjs",
             "fixtures/packed-consumer/package.json",
             "fixtures/packed-consumer/package.template.json",
+            "packages/local-backend/localweb/localweb.go",
             "apps/playground/package.json",
             "apps/experiment-lens/src/main.tsx",
             "apps/experiment-lens/backend/cmd/experiment-lens/main.go",
@@ -50,6 +51,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
         )[0]
 
         for required in (
+            "go -C packages/local-backend mod verify",
             "go -C apps/experiment-lens/backend mod verify",
             "go -C apps/python-canvas/backend mod verify",
             "go -C apps/realtime/backend mod verify",
@@ -91,6 +93,8 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             with self.subTest(job=name):
                 for required in (
                     "pnpm install --frozen-lockfile --ignore-scripts",
+                    "go -C packages/local-backend test ./...",
+                    "go -C packages/local-backend mod verify",
                     "go -C apps/experiment-lens/backend test ./...",
                     "go -C apps/experiment-lens/backend mod verify",
                     "go -C apps/python-canvas/backend test ./...",
@@ -113,6 +117,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
                     '--web-root "realtime=apps/realtime/dist"',
                     '--web-root "review=apps/review/dist"',
                     "--skip-frontend-build",
+                    "packages/local-backend/.go-version",
                     "apps/experiment-lens/backend/.go-version",
                     "apps/realtime/backend/.go-version",
                     "apps/review/backend/.go-version",

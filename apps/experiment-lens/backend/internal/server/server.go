@@ -17,7 +17,7 @@ import (
 	"github.com/setta/experiment-lens/backend/internal/artifact"
 	"github.com/setta/experiment-lens/backend/internal/contracts"
 	"github.com/setta/experiment-lens/backend/internal/coordinator"
-	"github.com/setta/experiment-lens/backend/internal/localweb"
+	"github.com/setta/local-backend/localweb"
 )
 
 const maximumJSONBytes = 4 << 20

@@ -202,6 +202,11 @@ path. If those constraints produce mostly application conditionals, keep the exi
 
 ### B1. Establish the module boundary
 
+Completion (2026-09-22): `packages/local-backend` is an independently governed Go module with a
+mapped design record, pinned toolchain, quick suite, and explicit one-way dependency edges from all
+four application backends. The repository-local module is compiled into each native server and is
+not a packaged runtime source dependency.
+
 Add `packages/local-backend/go.mod`, the `local-backend` module declaration and dependency edges in
 `.code-polishy.json`, and the mapped design rationale. Add the repository-local exact module
 dependency to each application backend without introducing a `go.work` file or a third-party
@@ -224,6 +229,13 @@ Acceptance criteria:
 - Packaged-runtime staging includes no source-checkout dependency at execution time.
 
 ### B2. Extract `localweb`
+
+Completion (2026-09-22): all four native servers use `local-backend/localweb` for preflighted
+production assets, rooted regular-file serving, API exclusion from SPA fallback, IPv4 loopback
+binding, exact Host and Origin checks, common security headers, readiness-aware startup, and
+bounded shutdown. The four replaced hosting implementations and their duplicate tests were
+removed; application route trees, readiness documents, and origin-required route decisions remain
+in their owning backends.
 
 Start with Review and Experiment Lens because their implementations and server lifecycle are the
 closest. Preserve observable routes and readiness documents while moving these mechanics:

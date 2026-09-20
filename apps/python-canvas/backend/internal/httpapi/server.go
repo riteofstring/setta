@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/project/aggregate"
 	"github.com/setta/python-canvas/backend/internal/project/coordinator"
 )
-
-const shutdownTimeout = 5 * time.Second
 
 var ErrProjectServiceRequired = errors.New("httpapi: project service is required")
 
@@ -645,64 +640,6 @@ func sectionRoute(request *http.Request, collectionPath string) (string, string,
 
 func isExactPath(request *http.Request, path string) bool {
 	return request.URL.Path == path && request.URL.RawPath == "" && request.URL.EscapedPath() == path
-}
-
-func ListenLoopback(port uint16) (net.Listener, error) {
-	return listenLoopback(port, net.Listen)
-}
-
-type listenFunc func(network, address string) (net.Listener, error)
-
-func listenLoopback(port uint16, listen listenFunc) (net.Listener, error) {
-	listener, err := listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port))))
-	if err != nil {
-		return nil, fmt.Errorf("listen on loopback: %w", err)
-	}
-	return listener, nil
-}
-
-func ServeLoopback(ctx context.Context, port uint16, service ProjectService, options HandlerOptions) error {
-	listener, err := ListenLoopback(port)
-	if err != nil {
-		return err
-	}
-	return serve(ctx, listener, service, options)
-}
-
-func serve(ctx context.Context, listener net.Listener, service ProjectService, options HandlerOptions) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if options.Lifecycle == nil {
-		options.Lifecycle = ctx
-	}
-	handler, err := NewHandler(service, options)
-	if err != nil {
-		_ = listener.Close()
-		return err
-	}
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
-	serveResult := make(chan error, 1)
-	go func() { serveResult <- server.Serve(listener) }()
-	select {
-	case err := <-serveResult:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-		shutdownContext, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-		shutdownErr := server.Shutdown(shutdownContext)
-		serveErr := <-serveResult
-		if shutdownErr != nil {
-			return fmt.Errorf("shutdown loopback server: %w", shutdownErr)
-		}
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			return serveErr
-		}
-		return nil
-	}
 }
 
 func requestHasBody(request *http.Request) (bool, error) {

@@ -68,6 +68,10 @@
         "module": "experiment-lens-frontend"
       },
       {
+        "path": "docs/design/local-backend.md",
+        "module": "local-backend"
+      },
+      {
         "path": "docs/design/setta-runtime.md",
         "module": "setta-runtime"
       },
@@ -334,8 +338,13 @@
       "dependsOn": ["workspace"]
     },
     {
+      "name": "local-backend",
+      "paths": ["packages/local-backend/**"]
+    },
+    {
       "name": "python-canvas-backend",
-      "paths": ["apps/python-canvas/backend/**"]
+      "paths": ["apps/python-canvas/backend/**"],
+      "dependsOn": ["local-backend"]
     },
     {
       "name": "python-canvas-frontend",
@@ -348,7 +357,8 @@
     },
     {
       "name": "realtime-backend",
-      "paths": ["apps/realtime/backend/**", "apps/realtime/examples/**"]
+      "paths": ["apps/realtime/backend/**", "apps/realtime/examples/**"],
+      "dependsOn": ["local-backend"]
     },
     {
       "name": "realtime-frontend",
@@ -361,7 +371,8 @@
     },
     {
       "name": "review-backend",
-      "paths": ["apps/review/backend/**", "apps/review/examples/**"]
+      "paths": ["apps/review/backend/**", "apps/review/examples/**"],
+      "dependsOn": ["local-backend"]
     },
     {
       "name": "review-frontend",
@@ -377,7 +388,8 @@
       "paths": [
         "apps/experiment-lens/backend/**",
         "apps/experiment-lens/examples/**"
-      ]
+      ],
+      "dependsOn": ["local-backend"]
     },
     {
       "name": "experiment-lens-frontend",
@@ -432,6 +444,15 @@
       "modules": ["playground"],
       "runOn": ["build"],
       "timeoutSeconds": 900
+    },
+    {
+      "name": "local-backend-build",
+      "provides": ["build"],
+      "argv": ["go", "build", "./..."],
+      "cwd": "packages/local-backend",
+      "modules": ["local-backend"],
+      "runOn": ["build"],
+      "timeoutSeconds": 300
     },
     {
       "name": "python-canvas-backend-build",
@@ -518,6 +539,15 @@
       "timeoutSeconds": 300
     },
     {
+      "name": "local-backend-go-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["go", "mod", "tidy", "-diff"],
+      "cwd": "packages/local-backend",
+      "modules": ["local-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
       "name": "realtime-go-lock-sync",
       "provides": ["lock-sync"],
       "argv": ["go", "mod", "tidy", "-diff"],
@@ -573,6 +603,7 @@
       "apps/experiment-lens/backend/**/*_test.go",
       "apps/experiment-lens/src/**/*.test.ts",
       "apps/experiment-lens/src/**/*.test.tsx",
+      "packages/local-backend/**/*_test.go",
       "packages/setta-runtime/tests/**",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -607,6 +638,11 @@
         ],
         "module": "python-canvas-frontend",
         "focusedSuite": "python-canvas-frontend-focused"
+      },
+      {
+        "paths": ["packages/local-backend/**/*_test.go"],
+        "module": "local-backend",
+        "focusedSuite": "local-backend-focused"
       },
       {
         "paths": ["packages/setta-runtime/tests/**"],
@@ -655,6 +691,18 @@
     ],
     "requiredKinds": ["component", "browser", "contract"],
     "suites": [
+      {
+        "name": "local-backend-focused",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["local-backend"],
+        "paths": ["packages/local-backend/**/*_test.go"],
+        "argv": ["go", "test", "./..."],
+        "cwd": "packages/local-backend",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 300
+      },
       {
         "name": "setta-runtime-focused",
         "kind": "unit",
@@ -1029,6 +1077,11 @@
       "Python-2.0"
     ],
     "releaseArtifacts": [
+      {
+        "name": "local-backend-go",
+        "versionFile": "packages/local-backend/.go-version",
+        "source": "go-toolchain"
+      },
       {
         "name": "go",
         "versionFile": "apps/python-canvas/backend/.go-version",

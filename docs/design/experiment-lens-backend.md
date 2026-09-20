@@ -65,10 +65,12 @@ replacement, packet export, admitted artifact reads, and an SSE stream that begi
 state and publishes every accepted replacement. The CLI emits deterministic JSON on stdout,
 structured JSON errors on stderr, and stable exit semantics.
 
-The service binds loopback, validates its exact origin on mutations, constrains static assets and
-project files, and is supervised through the shared Setta runtime. It has no experiment scheduler,
-provider credentials, agent process, tracker client, source mutation, arbitrary URL resolver,
-dynamic section discovery, or plug-in loader.
+The shared `local-backend/localweb` boundary owns loopback binding, exact listener Host admission,
+common response headers, canonical production-asset confinement, SPA fallback exclusion, and
+bounded serving shutdown. Experiment Lens retains its route tree, readiness identity, mutation
+origin requirement, and project-file policy. It is supervised through the shared Setta runtime and
+has no experiment scheduler, provider credentials, agent process, tracker client, source mutation,
+arbitrary URL resolver, dynamic section discovery, or plug-in loader.
 
 ## Contract generation
 

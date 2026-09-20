@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/setta/experiment-lens/backend/internal/localweb"
 	"github.com/setta/experiment-lens/backend/internal/server"
+	"github.com/setta/local-backend/localweb"
 )
 
 type serveOptions struct {

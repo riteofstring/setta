@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/setta/realtime/backend/internal/localweb"
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/realtime/backend/internal/server"
 )
 

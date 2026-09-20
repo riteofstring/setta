@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/setta/review/backend/internal/localweb"
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/review/backend/internal/server"
 )
 

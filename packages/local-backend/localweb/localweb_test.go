@@ -2,6 +2,7 @@ package localweb
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -34,7 +35,7 @@ func TestHandlerServesAssetsAndKeepsAPIRoutesOutOfSPAFallback(t *testing.T) {
 	}{
 		{path: "/", code: http.StatusOK, body: "index", contentType: "text/html; charset=utf-8"},
 		{path: "/assets/app.js", code: http.StatusOK, body: "script", contentType: "text/javascript; charset=utf-8"},
-		{path: "/review/request", code: http.StatusOK, body: "index", contentType: "text/html; charset=utf-8"},
+		{path: "/workspace/view", code: http.StatusOK, body: "index", contentType: "text/html; charset=utf-8"},
 		{path: "/assets", code: http.StatusNotFound},
 		{path: "/missing.js", code: http.StatusNotFound},
 		{path: "/api", code: http.StatusNotFound, apiCalls: 1},
@@ -133,65 +134,74 @@ func TestOpenAssetsRejectsInvalidRootsAndSymlinks(t *testing.T) {
 	}
 }
 
-func TestHandlerRejectsAssetReplacedBySymlinkAfterPreflight(t *testing.T) {
+func TestHandlerRejectsUnsafeReplacementAfterPreflight(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink permissions vary on Windows")
 	}
-	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "index.html"), "index")
-	assetPath := filepath.Join(root, "app.js")
-	writeTestFile(t, assetPath, "inside")
-	assets, err := OpenAssets(root)
-	if err != nil {
-		t.Fatalf("OpenAssets() error = %v", err)
-	}
-	outside := filepath.Join(t.TempDir(), "outside.js")
-	writeTestFile(t, outside, "outside")
-	if err := os.Remove(assetPath); err != nil {
-		t.Fatalf("Remove() error = %v", err)
-	}
-	if err := os.Symlink(outside, assetPath); err != nil {
-		t.Fatalf("Symlink() error = %v", err)
-	}
-	handler, err := assets.Handler(http.NotFoundHandler())
-	if err != nil {
-		t.Fatalf("Handler() error = %v", err)
-	}
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/app.js", nil))
-	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "outside") {
-		t.Fatalf("GET replaced asset = %d %q", response.Code, response.Body.String())
+	for _, replaceDirectory := range []bool{false, true} {
+		root := t.TempDir()
+		writeTestFile(t, filepath.Join(root, "index.html"), "index")
+		assetDirectory := filepath.Join(root, "assets")
+		assetPath := filepath.Join(assetDirectory, "app.js")
+		writeTestFile(t, assetPath, "inside")
+		assets, err := OpenAssets(root)
+		if err != nil {
+			t.Fatalf("OpenAssets() error = %v", err)
+		}
+		outside := filepath.Join(t.TempDir(), "outside.js")
+		writeTestFile(t, outside, "outside")
+		if replaceDirectory {
+			outsideDirectory := t.TempDir()
+			writeTestFile(t, filepath.Join(outsideDirectory, "app.js"), "outside")
+			if err := os.RemoveAll(assetDirectory); err != nil {
+				t.Fatalf("RemoveAll() error = %v", err)
+			}
+			if err := os.Symlink(outsideDirectory, assetDirectory); err != nil {
+				t.Fatalf("Symlink() error = %v", err)
+			}
+		} else {
+			if err := os.Remove(assetPath); err != nil {
+				t.Fatalf("Remove() error = %v", err)
+			}
+			if err := os.Symlink(outside, assetPath); err != nil {
+				t.Fatalf("Symlink() error = %v", err)
+			}
+		}
+		handler, err := assets.Handler(http.NotFoundHandler())
+		if err != nil {
+			t.Fatalf("Handler() error = %v", err)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/assets/app.js", nil))
+		if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "outside") {
+			t.Fatalf("GET replaced asset = %d %q", response.Code, response.Body.String())
+		}
 	}
 }
 
-func TestHandlerRejectsDirectoryReplacedByOutsideSymlinkAfterPreflight(t *testing.T) {
+func TestHandlerRejectsReplacedRootAfterPreflight(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("symlink permissions vary on Windows")
+		t.Skip("directory replacement behavior varies on Windows")
 	}
-	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "index.html"), "index")
-	assetDirectory := filepath.Join(root, "assets")
-	writeTestFile(t, filepath.Join(assetDirectory, "app.js"), "inside")
+	parent := t.TempDir()
+	root := filepath.Join(parent, "web")
+	writeTestFile(t, filepath.Join(root, "index.html"), "inside")
 	assets, err := OpenAssets(root)
 	if err != nil {
 		t.Fatalf("OpenAssets() error = %v", err)
 	}
-	outside := t.TempDir()
-	writeTestFile(t, filepath.Join(outside, "app.js"), "outside")
-	if err := os.RemoveAll(assetDirectory); err != nil {
-		t.Fatalf("RemoveAll() error = %v", err)
+	if err := os.Rename(root, filepath.Join(parent, "old-web")); err != nil {
+		t.Fatalf("Rename() error = %v", err)
 	}
-	if err := os.Symlink(outside, assetDirectory); err != nil {
-		t.Fatalf("Symlink() error = %v", err)
-	}
+	writeTestFile(t, filepath.Join(root, "index.html"), "replacement")
 	handler, err := assets.Handler(http.NotFoundHandler())
 	if err != nil {
 		t.Fatalf("Handler() error = %v", err)
 	}
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/assets/app.js", nil))
-	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "outside") {
-		t.Fatalf("GET asset through replaced directory = %d %q", response.Code, response.Body.String())
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "replacement") {
+		t.Fatalf("GET replaced root = %d %q", response.Code, response.Body.String())
 	}
 }
 
@@ -300,17 +310,27 @@ func TestListenURLAndServeStayOnLoopbackAndStopWithContext(t *testing.T) {
 		listener.Close()
 		t.Fatalf("URL() error = %v", err)
 	}
-	if !strings.HasPrefix(serverURL, "http://127.0.0.1:") {
+	handler, err := SecureHandler(listener, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	if err != nil {
 		listener.Close()
-		t.Fatalf("URL() = %q", serverURL)
+		t.Fatalf("SecureHandler() error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
+	ready := make(chan struct{})
 	go func() {
-		done <- Serve(ctx, listener, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-			response.WriteHeader(http.StatusNoContent)
-		}))
+		done <- ServeReady(ctx, listener, handler, func() error {
+			close(ready)
+			return nil
+		})
 	}()
+	select {
+	case <-ready:
+	case <-time.After(time.Second):
+		t.Fatal("ServeReady() did not invoke readiness")
+	}
 	response, err := (&http.Client{Timeout: time.Second}).Get(serverURL)
 	if err != nil {
 		cancel()
@@ -328,14 +348,26 @@ func TestListenURLAndServeStayOnLoopbackAndStopWithContext(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatalf("Serve() error = %v", err)
+			t.Fatalf("ServeReady() error = %v", err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("Serve() did not stop after context cancellation")
+		t.Fatal("ServeReady() did not stop after context cancellation")
 	}
 }
 
-func TestPublicFunctionsRejectMissingDependencies(t *testing.T) {
+func TestServeReadyStopsAfterReadinessFailure(t *testing.T) {
+	listener, err := Listen(0)
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	expected := errors.New("readiness failed")
+	err = ServeReady(context.Background(), listener, http.NotFoundHandler(), func() error { return expected })
+	if !errors.Is(err, expected) {
+		t.Fatalf("ServeReady() error = %v", err)
+	}
+}
+
+func TestPublicFunctionsRejectMissingOrInvalidDependencies(t *testing.T) {
 	assets := openTestAssets(t)
 	if _, err := assets.Handler(nil); err == nil {
 		t.Fatal("Handler(nil) error = nil")
@@ -345,6 +377,9 @@ func TestPublicFunctionsRejectMissingDependencies(t *testing.T) {
 	}
 	if _, err := URL(nil); err == nil {
 		t.Fatal("URL(nil) error = nil")
+	}
+	if _, err := URL(&fakeListener{address: &net.TCPAddr{IP: net.ParseIP("0.0.0.0"), Port: 4100}}); err == nil {
+		t.Fatal("URL(non-loopback) error = nil")
 	}
 	if _, err := SecureHandler(nil, http.NotFoundHandler()); err == nil {
 		t.Fatal("SecureHandler(nil, handler) error = nil")
@@ -363,6 +398,27 @@ func TestPublicFunctionsRejectMissingDependencies(t *testing.T) {
 	if err := Serve(nilContext(), listener, http.NotFoundHandler()); err == nil {
 		t.Fatal("Serve(nil context) error = nil")
 	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := Serve(cancelled, listener, http.NotFoundHandler()); err != nil {
+		t.Fatalf("Serve(cancelled context) error = %v", err)
+	}
+}
+
+type fakeListener struct {
+	address net.Addr
+}
+
+func (listener *fakeListener) Accept() (net.Conn, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (listener *fakeListener) Close() error {
+	return nil
+}
+
+func (listener *fakeListener) Addr() net.Addr {
+	return listener.address
 }
 
 func nilContext() context.Context {
@@ -381,12 +437,12 @@ func openTestAssets(t *testing.T) *Assets {
 	return assets
 }
 
-func writeTestFile(t *testing.T, path string, value string) {
+func writeTestFile(t *testing.T, filePath string, value string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	if err := os.WriteFile(path, []byte(value), 0o644); err != nil {
+	if err := os.WriteFile(filePath, []byte(value), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 }

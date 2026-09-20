@@ -11,6 +11,7 @@ on:
       - "apps/*/package.json"
       - "fixtures/packed-consumer/package.json"
       - "fixtures/packed-consumer/package.template.json"
+      - "packages/local-backend/**"
       - "packages/setta-runtime/**"
       - "packages/workspace/**"
       - "package.json"
@@ -33,6 +34,7 @@ on:
       - "apps/*/package.json"
       - "fixtures/packed-consumer/package.json"
       - "fixtures/packed-consumer/package.template.json"
+      - "packages/local-backend/**"
       - "packages/setta-runtime/**"
       - "packages/workspace/**"
       - "package.json"
@@ -108,6 +110,8 @@ jobs:
           experiment_lens_go_version="$(tr -d '\r\n' < apps/experiment-lens/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
           review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
+          local_backend_go_version="$(tr -d '\r\n' < packages/local-backend/.go-version)"
+          test "$local_backend_go_version" = "$expected_go_version"
           test "$experiment_lens_go_version" = "$expected_go_version"
           test "$realtime_go_version" = "$expected_go_version"
           test "$review_go_version" = "$expected_go_version"
@@ -127,6 +131,8 @@ jobs:
           CGO_CFLAGS: "-mmacosx-version-min=13.0"
           CGO_LDFLAGS: "-mmacosx-version-min=13.0"
         run: |
+          go -C packages/local-backend test ./...
+          go -C packages/local-backend mod verify
           go -C apps/experiment-lens/backend test ./...
           go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...
@@ -246,6 +252,8 @@ jobs:
           experiment_lens_go_version="$(tr -d '\r\n' < apps/experiment-lens/backend/.go-version)"
           realtime_go_version="$(tr -d '\r\n' < apps/realtime/backend/.go-version)"
           review_go_version="$(tr -d '\r\n' < apps/review/backend/.go-version)"
+          local_backend_go_version="$(tr -d '\r\n' < packages/local-backend/.go-version)"
+          test "$local_backend_go_version" = "$expected_go_version"
           test "$experiment_lens_go_version" = "$expected_go_version"
           test "$realtime_go_version" = "$expected_go_version"
           test "$review_go_version" = "$expected_go_version"
@@ -261,6 +269,8 @@ jobs:
       - name: Test the native server boundaries
         shell: bash
         run: |
+          go -C packages/local-backend test ./...
+          go -C packages/local-backend mod verify
           go -C apps/experiment-lens/backend test ./...
           go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...
@@ -448,6 +458,8 @@ jobs:
           $experimentLensGoVersion = (Get-Content apps/experiment-lens/backend/.go-version -Raw).Trim()
           $realtimeGoVersion = (Get-Content apps/realtime/backend/.go-version -Raw).Trim()
           $reviewGoVersion = (Get-Content apps/review/backend/.go-version -Raw).Trim()
+          $localBackendGoVersion = (Get-Content packages/local-backend/.go-version -Raw).Trim()
+          if ($localBackendGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           if ($experimentLensGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           if ($realtimeGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
           if ($reviewGoVersion -ne $expectedGoVersion) { throw "Mismatched Go pins" }
@@ -462,6 +474,8 @@ jobs:
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Test the native server boundaries
         run: |
+          go -C packages/local-backend test ./...
+          go -C packages/local-backend mod verify
           go -C apps/experiment-lens/backend test ./...
           go -C apps/experiment-lens/backend mod verify
           go -C apps/python-canvas/backend test ./...

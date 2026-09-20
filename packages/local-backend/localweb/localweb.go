@@ -17,10 +17,14 @@ import (
 	"time"
 )
 
-const shutdownTimeout = 5 * time.Second
+const (
+	shutdownTimeout = 5 * time.Second
+	stopWaitTimeout = time.Second
+)
 
 type Assets struct {
-	root string
+	root     string
+	rootInfo fs.FileInfo
 }
 
 func OpenAssets(webRoot string) (*Assets, error) {
@@ -35,8 +39,8 @@ func OpenAssets(webRoot string) (*Assets, error) {
 	if err != nil {
 		return nil, fmt.Errorf("localweb: resolve web root links: %w", err)
 	}
-	info, err := os.Stat(resolved)
-	if err != nil || !info.IsDir() {
+	info, err := os.Lstat(resolved)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return nil, errors.New("localweb: web root is not a directory")
 	}
 	if err := preflightAssets(resolved); err != nil {
@@ -45,15 +49,18 @@ func OpenAssets(webRoot string) (*Assets, error) {
 	if err := requireRegular(filepath.Join(resolved, "index.html")); err != nil {
 		return nil, fmt.Errorf("localweb: production index: %w", err)
 	}
-	return &Assets{root: resolved}, nil
+	return &Assets{root: resolved, rootInfo: info}, nil
 }
 
 func (assets *Assets) Handler(api http.Handler) (http.Handler, error) {
-	if assets == nil || assets.root == "" || api == nil {
-		return nil, errors.New("localweb: assets and API handler are required")
+	if assets == nil || assets.root == "" || assets.rootInfo == nil {
+		return nil, errors.New("localweb: assets are required")
+	}
+	if api == nil {
+		return nil, errors.New("localweb: API handler is required")
 	}
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/api" || strings.HasPrefix(request.URL.Path, "/api/") {
+		if request != nil && isAPIPath(request.URL.Path) {
 			api.ServeHTTP(response, request)
 			return
 		}
@@ -87,16 +94,18 @@ func SecureHandler(listener net.Listener, next http.Handler) (http.Handler, erro
 	}
 	_, port, err := net.SplitHostPort(authority)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("localweb: listener authority: %w", err)
 	}
 	allowed := map[string]struct{}{
-		strings.ToLower(authority): {}, strings.ToLower(net.JoinHostPort("localhost", port)): {},
+		strings.ToLower(authority):                           {},
+		strings.ToLower(net.JoinHostPort("localhost", port)): {},
 	}
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		response.Header().Set("Cache-Control", "no-store")
-		response.Header().Set("Referrer-Policy", "no-referrer")
-		response.Header().Set("X-Content-Type-Options", "nosniff")
-		response.Header().Set("X-Frame-Options", "DENY")
+		setSecurityHeaders(response.Header())
+		if request == nil {
+			http.Error(response, "Forbidden", http.StatusForbidden)
+			return
+		}
 		if _, exists := allowed[strings.ToLower(request.Host)]; !exists {
 			http.Error(response, "Forbidden", http.StatusForbidden)
 			return
@@ -121,6 +130,14 @@ func OriginAllowed(request *http.Request, serverURL string) bool {
 }
 
 func Serve(ctx context.Context, listener net.Listener, handler http.Handler) error {
+	return serve(ctx, listener, handler, nil)
+}
+
+func ServeReady(ctx context.Context, listener net.Listener, handler http.Handler, ready func() error) error {
+	return serve(ctx, listener, handler, ready)
+}
+
+func serve(ctx context.Context, listener net.Listener, handler http.Handler, ready func() error) error {
 	if ctx == nil || listener == nil || handler == nil {
 		return errors.New("localweb: context, listener, and handler are required")
 	}
@@ -129,23 +146,63 @@ func Serve(ctx context.Context, listener net.Listener, handler http.Handler) err
 	go func() { done <- server.Serve(listener) }()
 	select {
 	case err := <-done:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
+		return normalizeServeError(err)
+	default:
+	}
+	if ready != nil {
+		if err := ready(); err != nil {
+			return errors.Join(err, stopServer(server, done))
 		}
-		return err
+	}
+	select {
+	case err := <-done:
+		return normalizeServeError(err)
 	case <-ctx.Done():
-		shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-		shutdownErr := server.Shutdown(shutdown)
-		serveErr := <-done
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			return serveErr
-		}
-		return shutdownErr
+		return stopServer(server, done)
 	}
 }
 
+func stopServer(server *http.Server, done <-chan error) error {
+	shutdownContext, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownErr := server.Shutdown(shutdownContext)
+	cancel()
+	var closeErr error
+	if shutdownErr != nil {
+		closeErr = server.Close()
+	}
+	timer := time.NewTimer(stopWaitTimeout)
+	defer timer.Stop()
+	select {
+	case serveErr := <-done:
+		return errors.Join(shutdownErr, closeErr, normalizeServeError(serveErr))
+	case <-timer.C:
+		return errors.Join(shutdownErr, closeErr, errors.New("localweb: server did not stop"))
+	}
+}
+
+func normalizeServeError(err error) error {
+	if err == nil || errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func setSecurityHeaders(header http.Header) {
+	header.Set("Cache-Control", "no-store")
+	header.Set("Referrer-Policy", "no-referrer")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("X-Frame-Options", "DENY")
+}
+
+func isAPIPath(requestPath string) bool {
+	return requestPath == "/api" || strings.HasPrefix(requestPath, "/api/")
+}
+
 func (assets *Assets) serve(response http.ResponseWriter, request *http.Request) {
+	if request == nil || request.URL == nil {
+		http.NotFound(response, request)
+		return
+	}
 	if request.Method != http.MethodGet && request.Method != http.MethodHead {
 		response.Header().Set("Allow", "GET, HEAD")
 		http.Error(response, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -157,17 +214,31 @@ func (assets *Assets) serve(response http.ResponseWriter, request *http.Request)
 		return
 	}
 	if relative == "" {
-		relative = "index.html"
+		assets.serveFile(response, request, "index.html")
+		return
 	}
 	file, info, exists := assets.openFile(relative)
-	if file == nil && !exists && path.Ext(relative) == "" {
-		file, info, _ = assets.openFile("index.html")
-		relative = "index.html"
+	if file != nil {
+		assets.serveOpenedFile(response, request, relative, file, info)
+		return
 	}
+	if exists || path.Ext(relative) != "" {
+		http.NotFound(response, request)
+		return
+	}
+	assets.serveFile(response, request, "index.html")
+}
+
+func (assets *Assets) serveFile(response http.ResponseWriter, request *http.Request, relative string) {
+	file, info, _ := assets.openFile(relative)
 	if file == nil {
 		http.NotFound(response, request)
 		return
 	}
+	assets.serveOpenedFile(response, request, relative, file, info)
+}
+
+func (assets *Assets) serveOpenedFile(response http.ResponseWriter, request *http.Request, relative string, file *os.File, info fs.FileInfo) {
 	defer file.Close()
 	if contentType := mime.TypeByExtension(filepath.Ext(relative)); contentType != "" {
 		response.Header().Set("Content-Type", contentType)
@@ -177,12 +248,23 @@ func (assets *Assets) serve(response http.ResponseWriter, request *http.Request)
 }
 
 func (assets *Assets) openFile(relative string) (*os.File, fs.FileInfo, bool) {
+	if !assets.hasAdmittedRoot() {
+		return nil, nil, true
+	}
 	root, err := os.OpenRoot(assets.root)
 	if err != nil {
 		return nil, nil, true
 	}
 	defer root.Close()
-	assetPath := filepath.FromSlash(relative)
+	return openRegularFile(root, filepath.FromSlash(relative))
+}
+
+func (assets *Assets) hasAdmittedRoot() bool {
+	rootInfo, err := os.Lstat(assets.root)
+	return err == nil && rootInfo.IsDir() && rootInfo.Mode()&os.ModeSymlink == 0 && os.SameFile(assets.rootInfo, rootInfo)
+}
+
+func openRegularFile(root *os.Root, assetPath string) (*os.File, fs.FileInfo, bool) {
 	linkInfo, err := root.Lstat(assetPath)
 	if err != nil {
 		return nil, nil, !errors.Is(err, fs.ErrNotExist)
@@ -203,32 +285,44 @@ func (assets *Assets) openFile(relative string) (*os.File, fs.FileInfo, bool) {
 }
 
 func listenerAuthority(listener net.Listener) (string, error) {
+	if listener == nil {
+		return "", errors.New("localweb: listener is required")
+	}
 	address, ok := listener.Addr().(*net.TCPAddr)
-	if !ok || address.IP == nil || !address.IP.Equal(net.ParseIP("127.0.0.1")) || address.Port < 1 || address.Port > 65535 {
+	if !ok || address == nil || address.IP == nil || !address.IP.Equal(net.ParseIP("127.0.0.1")) || address.Port < 1 || address.Port > 65535 {
 		return "", errors.New("localweb: listener is not IPv4 loopback")
 	}
 	return net.JoinHostPort("127.0.0.1", strconv.Itoa(address.Port)), nil
 }
 
 func originAuthority(value string) (string, string, string, error) {
+	if value == "" {
+		return "", "", "", errors.New("localweb: origin is required")
+	}
 	parsed, err := url.Parse(value)
-	if err != nil || value == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" {
+	if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" || parsed.RawPath != "" || parsed.ForceQuery {
 		return "", "", "", errors.New("localweb: origin is invalid")
 	}
 	host, port, err := net.SplitHostPort(parsed.Host)
-	return parsed.Scheme, strings.ToLower(host), port, err
+	if err != nil {
+		return "", "", "", err
+	}
+	return strings.ToLower(parsed.Scheme), strings.ToLower(host), port, nil
 }
 
 func preflightAssets(root string) error {
 	return filepath.WalkDir(root, func(candidate string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return walkErr
+			return fmt.Errorf("localweb: inspect assets: %w", walkErr)
 		}
-		if candidate == root || entry.IsDir() {
+		if candidate == root {
 			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("localweb: asset %q is a symlink", candidate)
+		}
+		if entry.IsDir() {
+			return nil
 		}
 		info, err := entry.Info()
 		if err != nil || !info.Mode().IsRegular() {
@@ -253,6 +347,14 @@ func staticRelativePath(requestURL *url.URL) (string, error) {
 	if requestURL == nil {
 		return "", errors.New("localweb: URL is required")
 	}
+	decoded, err := decodedAssetPath(requestURL)
+	if err != nil {
+		return "", err
+	}
+	return validatedAssetPath(decoded)
+}
+
+func decodedAssetPath(requestURL *url.URL) (string, error) {
 	escaped := requestURL.EscapedPath()
 	if escaped == "" {
 		escaped = requestURL.Path
@@ -261,6 +363,10 @@ func staticRelativePath(requestURL *url.URL) (string, error) {
 	if err != nil || decoded == "" || !strings.HasPrefix(decoded, "/") || strings.ContainsRune(decoded, '\x00') || strings.Contains(decoded, "\\") {
 		return "", errors.New("localweb: asset path is invalid")
 	}
+	return decoded, nil
+}
+
+func validatedAssetPath(decoded string) (string, error) {
 	parts := strings.Split(strings.TrimPrefix(decoded, "/"), "/")
 	if len(parts) == 1 && parts[0] == "" {
 		return "", nil

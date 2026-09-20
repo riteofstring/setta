@@ -16,9 +16,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/realtime/backend/internal/content"
 	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/localweb"
 	"github.com/setta/realtime/backend/internal/project"
 	"github.com/setta/realtime/backend/internal/source"
 )

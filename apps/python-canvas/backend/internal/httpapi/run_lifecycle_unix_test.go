@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/setta/local-backend/localweb"
 	"github.com/setta/python-canvas/backend/internal/contracts"
 	"github.com/setta/python-canvas/backend/internal/runner"
 )
@@ -50,14 +51,22 @@ func TestServeLifecycleCancellationStopsTheOwnedGeneratedRun(t *testing.T) {
 	requestContext, cancelRequest := context.WithCancel(context.Background())
 	serverFinished := make(chan struct{})
 	var serverErr error
+	handler, err := NewHandler(service, HandlerOptions{
+		Terminal:       newTerminalRuntimeStub(),
+		Runner:         runtime,
+		RuntimeSession: runtimeSessionIdentityForTest(),
+		AppOrigin:      "http://127.0.0.1:5173",
+		Lifecycle:      lifecycle,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	secureHandler, err := localweb.SecureHandler(listener, handler)
+	if err != nil {
+		t.Fatalf("secure handler: %v", err)
+	}
 	go func() {
-		serverErr = serve(lifecycle, listener, service, HandlerOptions{
-			Terminal:       newTerminalRuntimeStub(),
-			Runner:         runtime,
-			RuntimeSession: runtimeSessionIdentityForTest(),
-			AppOrigin:      "http://127.0.0.1:5173",
-			Lifecycle:      lifecycle,
-		})
+		serverErr = localweb.Serve(lifecycle, listener, secureHandler)
 		close(serverFinished)
 	}()
 	t.Cleanup(func() {

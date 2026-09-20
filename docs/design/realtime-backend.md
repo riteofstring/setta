@@ -217,10 +217,11 @@ conversion or execution failures structurally.
 
 ## Local host and process lifetime
 
-The HTTP server binds IPv4 loopback and admits only its exact listener authority and matching
-`localhost` alias. Origin-sensitive routes validate the exact configured browser origin. API,
-content, SSE, and WebSocket paths never fall through to the SPA. Production assets must be regular,
-non-symlink files within a canonical validated root before a live session is published.
+The shared `local-backend/localweb` boundary binds IPv4 loopback, admits only its exact listener
+authority and matching `localhost` alias, applies the common response headers, confines production
+assets to a canonical preflighted root, and bounds server shutdown. Realtime retains its route
+tree, readiness document, and decisions about which routes require the exact configured browser
+origin. API, content, SSE, and WebSocket paths never fall through to the SPA.
 
 Containment owns lifecycle and descendant cleanup, not reduced user permissions. The worker uses
 the platform process-tree boundary whose contract matches Python Canvas: Windows Job Objects,
