@@ -1310,7 +1310,9 @@
           "cycle",
           "capacity_retention_pct",
           "resistance_mohm",
-          "peak_temp_c"
+          "peak_temp_c",
+          "charge_efficiency_pct",
+          "voltage_noise_mv"
         ],
         "id": "multivariate",
         "title": "Multivariate relationships",
@@ -1325,7 +1327,9 @@
           "cycle",
           "capacity_retention_pct",
           "resistance_mohm",
-          "peak_temp_c"
+          "peak_temp_c",
+          "charge_efficiency_pct",
+          "voltage_noise_mv"
         ],
         "id": "observations",
         "title": "Observations",
@@ -1394,7 +1398,7 @@
           }
         ],
         "viewport": {
-          "x": 260,
+          "x": 320,
           "y": 12,
           "zoom": 0.76
         }
@@ -1426,7 +1430,7 @@
           }
         ],
         "viewport": {
-          "x": 260,
+          "x": 320,
           "y": 12,
           "zoom": 0.76
         }
@@ -1458,7 +1462,7 @@
           }
         ],
         "viewport": {
-          "x": 260,
+          "x": 320,
           "y": 12,
           "zoom": 0.76
         }

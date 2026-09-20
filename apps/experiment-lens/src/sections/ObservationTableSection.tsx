@@ -1,7 +1,7 @@
 import {
+  MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
 } from "@setta/workspace";
 import {
   flexRender,
@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState } from "react";
+import type { WheelEvent } from "react";
 
 import type { Observation } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
@@ -30,6 +31,20 @@ function columnWidth(columnId: string): number {
     return 164;
   }
   return 124;
+}
+
+function scrollTable(event: WheelEvent<HTMLDivElement>): void {
+  const element = event.currentTarget;
+  const horizontal =
+    event.deltaX !== 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+  const vertical = event.shiftKey ? 0 : event.deltaY;
+  if (horizontal === 0 && vertical === 0) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  element.scrollLeft += horizontal;
+  element.scrollTop += vertical;
 }
 
 export function ObservationTableSection({ sectionId }: { sectionId: string }) {
@@ -124,7 +139,8 @@ export function ObservationTableSection({ sectionId }: { sectionId: string }) {
       </div>
       <div
         aria-label="Experiment observations"
-        className={`lens-table-scroll ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+        className={`lens-table-scroll ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${MANUAL_WHEEL_CLASS_NAME}`}
+        onWheel={scrollTable}
         ref={scrollRef}
         role="table"
       >

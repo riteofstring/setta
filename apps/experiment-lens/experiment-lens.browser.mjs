@@ -300,13 +300,21 @@ async function pointForSelector(client, selector, description) {
         return null;
       }
       const bounds = element.getBoundingClientRect();
-      const x = bounds.left + bounds.width / 2;
-      const y = bounds.top + bounds.height / 2;
-      const hit = document.elementFromPoint(x, y);
-      return bounds.width > 0 && bounds.height > 0 &&
-        hit instanceof Element && (hit === element || element.contains(hit))
-        ? { x, y }
-        : null;
+      const left = Math.max(0, bounds.left);
+      const right = Math.min(innerWidth, bounds.right);
+      const top = Math.max(0, bounds.top);
+      const bottom = Math.min(innerHeight, bounds.bottom);
+      const xStep = Math.max(1, (right - left) / 4);
+      const yStep = Math.max(1, (bottom - top) / 4);
+      for (let y = top + yStep / 2; y < bottom; y += yStep) {
+        for (let x = left + xStep / 2; x < right; x += xStep) {
+          const hit = document.elementFromPoint(x, y);
+          if (hit instanceof Element && (hit === element || element.contains(hit))) {
+            return { x, y };
+          }
+        }
+      }
+      return null;
     })()`,
   );
   assert.notEqual(point, null, `${description} was not physically reachable.`);
@@ -327,13 +335,21 @@ async function pointForMatching(client, selector, label) {
         return null;
       }
       const bounds = element.getBoundingClientRect();
-      const x = bounds.left + bounds.width / 2;
-      const y = bounds.top + bounds.height / 2;
-      const hit = document.elementFromPoint(x, y);
-      return bounds.width > 0 && bounds.height > 0 &&
-        hit instanceof Element && (hit === element || element.contains(hit))
-        ? { x, y }
-        : null;
+      const left = Math.max(0, bounds.left);
+      const right = Math.min(innerWidth, bounds.right);
+      const top = Math.max(0, bounds.top);
+      const bottom = Math.min(innerHeight, bounds.bottom);
+      const xStep = Math.max(1, (right - left) / 4);
+      const yStep = Math.max(1, (bottom - top) / 4);
+      for (let y = top + yStep / 2; y < bottom; y += yStep) {
+        for (let x = left + xStep / 2; x < right; x += xStep) {
+          const hit = document.elementFromPoint(x, y);
+          if (hit instanceof Element && (hit === element || element.contains(hit))) {
+            return { x, y };
+          }
+        }
+      }
+      return null;
     })()`,
   );
   assert.notEqual(point, null, `${label} was not physically reachable.`);
@@ -503,11 +519,19 @@ async function assertHorizontalScroll(client, selector, description) {
         return null;
       }
       const bounds = element.getBoundingClientRect();
-      return {
-        left: element.scrollLeft,
-        x: bounds.left + bounds.width * 0.7,
-        y: bounds.top + Math.min(90, bounds.height * 0.45),
-      };
+      const left = Math.max(1, bounds.left);
+      const right = Math.min(innerWidth - 1, bounds.right);
+      const top = Math.max(1, bounds.top);
+      const bottom = Math.min(innerHeight - 1, bounds.bottom);
+      for (let y = top + 8; y < bottom - 8; y += 16) {
+        for (let x = left + 8; x < right - 8; x += 24) {
+          const hit = document.elementFromPoint(x, y);
+          if (hit instanceof Element && element.contains(hit)) {
+            return { left: element.scrollLeft, x, y };
+          }
+        }
+      }
+      return null;
     })()`,
   );
   assert.notEqual(start, null, `${description} had no horizontal overflow.`);
@@ -530,6 +554,11 @@ async function assertHorizontalScroll(client, selector, description) {
     x: start.x,
     y: start.y,
   });
+  await waitFor(
+    client,
+    `${description} horizontal scroll reset`,
+    `document.querySelector(${JSON.stringify(selector)})?.scrollLeft <= ${String(start.left)}`,
+  );
   await assertBrowserResponsive(client, description);
 }
 
