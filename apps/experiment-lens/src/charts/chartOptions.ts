@@ -152,7 +152,7 @@ export function scatterOption({
           ],
         };
       }),
-      emphasis: { focus: "self", scale: 1.6 },
+      emphasis: { focus: "none", scale: 1.6 },
       large: observations.length > 4_000,
       name,
       type: "scatter",

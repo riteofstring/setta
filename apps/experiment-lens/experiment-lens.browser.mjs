@@ -557,6 +557,89 @@ async function assertChartSurfacesStable(client, selectors, description) {
   );
 }
 
+async function assertScatterHoverDoesNotDim(client, selector, description) {
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: 1,
+    y: 1,
+  });
+  await delay(100);
+  const bounds = await evaluate(
+    client,
+    `(() => {
+      const canvas = document.querySelector(${JSON.stringify(`${selector} canvas`)});
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        return null;
+      }
+      const bounds = canvas.getBoundingClientRect();
+      window.__lensScatterHoverBaseline = canvas.getContext("2d")?.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data ?? null;
+      return { height: bounds.height, left: bounds.left, top: bounds.top, width: bounds.width };
+    })()`,
+  );
+  assert.notEqual(bounds, null, `${description} had no rendered canvas.`);
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: bounds.left + bounds.width * 0.84,
+    y: bounds.top + bounds.height * 0.44,
+  });
+  await delay(100);
+  const difference = await evaluate(
+    client,
+    `(() => {
+      const canvas = document.querySelector(${JSON.stringify(`${selector} canvas`)});
+      const baseline = window.__lensScatterHoverBaseline;
+      if (!(canvas instanceof HTMLCanvasElement) || !(baseline instanceof Uint8ClampedArray)) {
+        return null;
+      }
+      const current = canvas.getContext("2d")?.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      if (!(current instanceof Uint8ClampedArray)) {
+        return null;
+      }
+      let changed = 0;
+      let farChanged = 0;
+      for (let pixel = 0; pixel < baseline.length / 4; pixel += 1) {
+        const offset = pixel * 4;
+        const delta = Math.abs(baseline[offset] - current[offset]) +
+          Math.abs(baseline[offset + 1] - current[offset + 1]) +
+          Math.abs(baseline[offset + 2] - current[offset + 2]) +
+          Math.abs(baseline[offset + 3] - current[offset + 3]);
+        if (delta > 12) {
+          changed += 1;
+          if (pixel % canvas.width < canvas.width * 0.45) {
+            farChanged += 1;
+          }
+        }
+      }
+      delete window.__lensScatterHoverBaseline;
+      return { changed, farChanged };
+    })()`,
+  );
+  assert.notEqual(difference, null, `${description} could not compare frames.`);
+  assert.ok(
+    difference.changed > 1_000,
+    `${description} did not visibly emphasize the hovered point.`,
+  );
+  assert.ok(
+    difference.farChanged < 250,
+    `${description} changed ${String(difference.farChanged)} distant pixels while hovering one point.`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: 1,
+    y: 1,
+  });
+}
+
 async function canvasPanOrigin(client, description) {
   const origin = await evaluate(
     client,
@@ -1099,6 +1182,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     "the restored scatter projection",
     `document.querySelector(${JSON.stringify(scatterXSelector)})?.value === "cycle"`,
+  );
+  await assertScatterHoverDoesNotDim(
+    client,
+    `${sectionSelector("retention-population")} .lens-echart`,
+    "the population scatter hover",
   );
 
   const overviewScreenshot = path.join(
