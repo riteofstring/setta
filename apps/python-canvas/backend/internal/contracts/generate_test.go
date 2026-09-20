@@ -13,7 +13,7 @@ func TestGenerateArtifactsWritesAndChecksOnlyV2Artifacts(t *testing.T) {
 		t.Fatalf("generateArtifacts() error = %v", err)
 	}
 
-	contractPath := filepath.Join(appRoot, "src", "backend", "generatedContract.ts")
+	contractPath := filepath.Join(appRoot, "src", "api", "generatedContract.ts")
 	fixturePath := filepath.Join(appRoot, "backend", "internal", "contracts", "testdata", "project-snapshot-v2.json")
 	contract, err := os.ReadFile(contractPath)
 	if err != nil {

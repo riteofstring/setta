@@ -10,7 +10,7 @@ import {
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,
   type ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 const generatedCodeSeparator = "\n\n";
 

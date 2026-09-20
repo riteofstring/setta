@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import json
 import secrets
 import subprocess
-import urllib.error
 import urllib.request
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ..errors import (
     InvalidInputError,
     RuntimeAssetError,
-    RuntimeExecutionError,
     UnknownCommandError,
 )
 from ..jsonio import write_json
@@ -20,10 +17,26 @@ from ..registry import AppDescriptor, CommandContext
 from ..runtime import PackagedRuntime, resolve_basedpyright_entrypoint
 from ..sessions import LiveSession, LiveSessionStore
 from ..supervisor import ExpectedReadiness, NativeServerSupervisor
+from ._support import (
+    ParsedOptions as _ParsedOptions,
+)
+from ._support import (
+    invoke_native,
+    packaged_runtime_check,
+    validate_live_session,
+)
+from ._support import (
+    is_help as _is_help,
+)
+from ._support import (
+    parse_options as _parse_options,
+)
+from ._support import (
+    required_value as _required_value,
+)
 
 APP_ID = "python-canvas"
 _SESSION_SCHEMA_VERSION = "python-canvas-session/v1"
-_IDENTITY_PATH = "/api/v2/runtime/session"
 
 
 class PythonCanvasAdapter:
@@ -59,21 +72,7 @@ class PythonCanvasAdapter:
         )
 
     def doctor(self, context: CommandContext) -> dict[str, object]:
-        checks: list[dict[str, object]] = []
-        try:
-            runtime = self._runtime(context).app(APP_ID)
-            checks.append(
-                {
-                    "name": "packaged-runtime",
-                    "status": "ok",
-                    "nativeServer": str(runtime.native_server),
-                    "webRoot": str(runtime.web_root),
-                }
-            )
-        except RuntimeAssetError as error:
-            checks.append(
-                {"name": "packaged-runtime", "status": "error", "code": error.code}
-            )
+        checks = [packaged_runtime_check(APP_ID, context)]
         try:
             entrypoint = self._basedpyright()
             checks.append(
@@ -95,7 +94,10 @@ class PythonCanvasAdapter:
             context.stdout.write("Usage: setta python-canvas schema [--pretty]\n")
             return 0
         parsed = _parse_options(
-            arguments, value_flags=frozenset(), boolean_flags={"--pretty"}
+            "Python Canvas",
+            arguments,
+            value_flags=frozenset(),
+            boolean_flags={"--pretty"},
         )
         return self._invoke_native(["schema", *parsed.forwarded], context)
 
@@ -107,6 +109,7 @@ class PythonCanvasAdapter:
             )
             return 0
         parsed = _parse_options(
+            "Python Canvas",
             arguments,
             value_flags={"--project"},
             boolean_flags={"--create", "--no-open"},
@@ -196,6 +199,7 @@ class PythonCanvasAdapter:
             self._write_session_help(context)
             return 0
         parsed = _parse_options(
+            "Python Canvas",
             remaining,
             value_flags={"--project"},
             boolean_flags={"--pretty"},
@@ -230,20 +234,9 @@ class PythonCanvasAdapter:
         return self._invoke_native(forwarded, context)
 
     def _invoke_native(self, arguments: Sequence[str], context: CommandContext) -> int:
-        runtime = self._runtime(context).app(APP_ID)
-        try:
-            completed = subprocess.run(
-                [str(runtime.native_server), *arguments],
-                check=False,
-                stdin=context.stdin,
-                stdout=context.stdout,
-                stderr=context.stderr,
-            )
-        except OSError as error:
-            raise RuntimeExecutionError(
-                "Unable to execute the packaged Python Canvas command."
-            ) from error
-        return completed.returncode
+        return invoke_native(
+            APP_ID, "Python Canvas", arguments, context, runner=subprocess.run
+        )
 
     @staticmethod
     def _runtime(context: CommandContext) -> PackagedRuntime:
@@ -262,34 +255,12 @@ class PythonCanvasAdapter:
 
     @staticmethod
     def _validate_live_session(session: LiveSession) -> bool:
-        request = urllib.request.Request(
-            session.url + _IDENTITY_PATH,
-            headers={"Accept": "application/json"},
-            method="GET",
+        return validate_live_session(
+            session,
+            app_id=APP_ID,
+            schema_version=_SESSION_SCHEMA_VERSION,
+            opener_factory=urllib.request.build_opener,
         )
-        opener = urllib.request.build_opener(_NoRedirect())
-        try:
-            with opener.open(request, timeout=2) as response:
-                if (
-                    response.status != 200
-                    or response.headers.get_content_type() != "application/json"
-                ):
-                    return False
-                payload = response.read(16 * 1024 + 1)
-        except (OSError, urllib.error.HTTPError, urllib.error.URLError):
-            return False
-        if len(payload) > 16 * 1024:
-            return False
-        try:
-            document = json.loads(payload)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return False
-        return document == {
-            "schemaVersion": _SESSION_SCHEMA_VERSION,
-            "appId": APP_ID,
-            "projectPath": session.project_path,
-            "instanceNonce": session.instance_nonce,
-        }
 
     @staticmethod
     def _write_help(context: CommandContext) -> None:
@@ -323,89 +294,6 @@ class PythonCanvasAdapter:
         context.stdout.write(usage[command])
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: object, **kwargs: object) -> None:
-        return None
-
-
-class _ParsedOptions:
-    def __init__(
-        self,
-        values: Mapping[str, str],
-        flags: frozenset[str],
-        forwarded: tuple[str, ...],
-    ):
-        self.values = dict(values)
-        self.flags = flags
-        self.forwarded = forwarded
-
-    def present(self, flag: str) -> bool:
-        return flag in self.flags
-
-    def forwarded_without(self, excluded: set[str]) -> tuple[str, ...]:
-        result: list[str] = []
-        index = 0
-        while index < len(self.forwarded):
-            token = self.forwarded[index]
-            if token in excluded:
-                index += 2
-                continue
-            result.append(token)
-            index += 1
-        return tuple(result)
-
-
-def _parse_options(
-    arguments: Sequence[str],
-    *,
-    value_flags: set[str] | frozenset[str],
-    boolean_flags: set[str],
-) -> _ParsedOptions:
-    values: dict[str, str] = {}
-    flags: set[str] = set()
-    forwarded: list[str] = []
-    index = 0
-    while index < len(arguments):
-        token = arguments[index]
-        if token in boolean_flags:
-            if token in flags:
-                raise InvalidInputError(f"{token} may be supplied only once.")
-            flags.add(token)
-            forwarded.append(token)
-            index += 1
-            continue
-        key, separator, inline_value = token.partition("=")
-        if key in value_flags:
-            if key in values:
-                raise InvalidInputError(f"{key} may be supplied only once.")
-            if separator:
-                value = inline_value
-            else:
-                if index + 1 >= len(arguments):
-                    raise InvalidInputError(f"{key} requires a value.")
-                value = arguments[index + 1]
-                index += 1
-            if not value:
-                raise InvalidInputError(f"{key} requires a value.")
-            values[key] = value
-            forwarded.extend((key, value))
-            index += 1
-            continue
-        raise InvalidInputError(f"Unexpected Python Canvas argument {token!r}.")
-    return _ParsedOptions(values, frozenset(flags), tuple(forwarded))
-
-
-def _required_value(parsed: _ParsedOptions, flag: str, message: str) -> str:
-    value = parsed.values.get(flag)
-    if value is None:
-        raise InvalidInputError(message)
-    return value
-
-
-def _is_help(arguments: Sequence[str]) -> bool:
-    return len(arguments) == 1 and arguments[0] in {"--help", "-h", "help"}
-
-
 def _parse_live_command(command: str, arguments: Sequence[str]) -> _ParsedOptions:
     value_flags: set[str] = {"--project", "--url"}
     boolean_flags = {"--pretty", "--wait-diagnostics"}
@@ -416,7 +304,10 @@ def _parse_live_command(command: str, arguments: Sequence[str]) -> _ParsedOption
     else:
         value_flags.add("--timeout")
     parsed = _parse_options(
-        arguments, value_flags=value_flags, boolean_flags=boolean_flags
+        "Python Canvas",
+        arguments,
+        value_flags=value_flags,
+        boolean_flags=boolean_flags,
     )
     if command == "apply":
         _required_value(parsed, "--file", "apply requires --file PATH|-.")

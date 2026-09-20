@@ -4,7 +4,7 @@ import type {
   WorkspaceGraphPort,
 } from "@setta/workspace";
 
-import type { Binding, Project } from "../backend/generatedContract";
+import type { Binding, Project } from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import {
   canConnectRealtimeGraph,

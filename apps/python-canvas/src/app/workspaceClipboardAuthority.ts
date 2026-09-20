@@ -3,12 +3,12 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import { copyProjectClipboard, pasteProjectClipboard } from "../backend/client";
+import { copyProjectClipboard, pasteProjectClipboard } from "../api/client";
 import {
   PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1,
   type ProjectSnapshotV2,
-} from "../backend/generatedContract";
-import { parseProjectClipboardPayloadV1 } from "../backend/runtimeContract";
+} from "../api/generatedContract";
+import { parseProjectClipboardPayloadV1 } from "../api/runtimeContract";
 import type { MutationState } from "./pythonCanvasAppSupport";
 import {
   canCopyProjectClipboardSelection,

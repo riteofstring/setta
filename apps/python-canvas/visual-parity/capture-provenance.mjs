@@ -25,7 +25,7 @@ export function productSourceDifferences(repositoryRoot, referenceRevision) {
       "--name-only",
       referenceRevision,
       "--",
-      "apps/playground/src",
+      "examples/workspace-playground/src",
       "apps/python-canvas/src",
       "packages/workspace/src",
     ],

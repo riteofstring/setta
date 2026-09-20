@@ -10,7 +10,7 @@ import type {
   Project,
   ProjectOperation,
   Section,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { readHandlerSectionData } from "../sections/sectionData";
 
 type EventName = Extract<Binding["trigger"], { kind: "event" }>["event"];

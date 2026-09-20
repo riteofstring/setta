@@ -113,7 +113,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@xterm/xterm", () => ({ Terminal: mocks.FakeTerminal }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: mocks.FakeFitAddon }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
-vi.mock("../backend/client", () => ({
+vi.mock("../api/client", () => ({
   getTerminalTicket: mocks.getTerminalTicket,
 }));
 vi.mock("@setta/workspace", () => ({

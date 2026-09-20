@@ -6,14 +6,14 @@ import {
   type WorkspaceHost,
 } from "@setta/workspace";
 
-import { getTerminalTicket } from "../backend/client";
+import { getTerminalTicket } from "../api/client";
 import {
   PROJECT_TERMINAL_STREAM_PATH_V2,
   TERMINAL_STREAM_READY_TYPE_V2,
   TERMINAL_STREAM_RESIZE_TYPE_V2,
   type TerminalStreamReadyV2,
   type TerminalStreamResizeV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 const TERMINAL_REUSE_DELAY_MS = 1_200;
 const TERMINAL_RESIZE_THROTTLE_MS = 200;

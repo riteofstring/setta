@@ -73,6 +73,9 @@ state, command, HTTP, and JSON-evidence inputs before Review's closed-shape and 
 `local-backend/httpjson` owns bounded JSON request and response mechanics, while
 `local-backend/sse` frames and flushes Review's named `snapshot` events. Review retains route,
 origin, status, structured-error, subscription, and event-name decisions.
+`local-backend/artifacthttp` owns the exact passive-media allowlist, download query, sandboxed
+preview headers, and admitted-file response mechanics. Review still resolves request and evidence
+identity and verifies the immutable artifact before that response boundary.
 
 ## Contract generation
 

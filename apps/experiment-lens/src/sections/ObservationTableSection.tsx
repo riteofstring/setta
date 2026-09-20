@@ -14,7 +14,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState } from "react";
 
-import type { Observation } from "../backend/generatedContract";
+import type { Observation } from "../api/generatedContract";
 import { useLens } from "../app/lensContext";
 import { formatScalar } from "../app/lensModel";
 import {

@@ -6,7 +6,7 @@ import { repositoryRoot, run } from "./process.mjs";
 
 export const CAPTURE_SCHEMA_VERSION = 1;
 const GOVERNED_PRODUCT_SOURCE_PATHS = [
-  "apps/playground/src",
+  "examples/workspace-playground/src",
   "packages/workspace/src",
 ];
 const PERMITTED_UNREACHABLE_SOURCE_PATHS = new Set([

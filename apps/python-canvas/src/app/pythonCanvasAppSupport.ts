@@ -1,6 +1,6 @@
 import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
-import { ProjectClientError } from "../backend/client";
+import { ProjectClientError } from "../api/client";
 import type {
   CallableV2,
   DictionaryEntryV2,
@@ -8,7 +8,7 @@ import type {
   ParameterDictionaryV2,
   ParameterProposalV2,
   ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { hasBlockingParameterName } from "../sections/parameterNames";
 import {
   callableSectionID,

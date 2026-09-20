@@ -24,7 +24,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
             "fixtures/packed-consumer/package.json",
             "fixtures/packed-consumer/package.template.json",
             "packages/local-backend/localweb/localweb.go",
-            "apps/playground/package.json",
+            "examples/workspace-playground/package.json",
             "apps/experiment-lens/src/main.tsx",
             "apps/experiment-lens/backend/cmd/experiment-lens/main.go",
             "apps/realtime/src/main.tsx",
@@ -39,7 +39,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
 
         self.assertFalse(
             _is_covered_by_any_path_filter(
-                "apps/playground/src/main.tsx", pull_request_paths
+                "examples/workspace-playground/src/main.tsx", pull_request_paths
             ),
             "the wheel workflow must not run for unrelated playground source",
         )

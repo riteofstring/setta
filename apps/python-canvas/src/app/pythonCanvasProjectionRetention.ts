@@ -4,7 +4,7 @@ import type {
   DictionaryEntryV2,
   ParameterProposalV2,
   ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   dictionaryEntryDraft,
   parameterListDraft,

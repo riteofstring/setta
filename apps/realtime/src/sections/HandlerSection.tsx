@@ -9,7 +9,7 @@ import type {
   Binding,
   InvocationStatus,
   RuntimeUpdate,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { readHandlerSectionData } from "./sectionData";
 
 const CANCELLABLE_STATES = new Set([

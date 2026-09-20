@@ -5,10 +5,7 @@ import {
   type WorkspaceCodeSectionData,
 } from "@setta/workspace";
 
-import type {
-  Project,
-  RuntimeSourceDocument,
-} from "../backend/generatedContract";
+import type { Project, RuntimeSourceDocument } from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import {
   createRealtimeSectionKinds,

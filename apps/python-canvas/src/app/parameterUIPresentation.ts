@@ -1,4 +1,4 @@
-import type { ParameterUIV2 } from "../backend/generatedContract";
+import type { ParameterUIV2 } from "../api/generatedContract";
 import type {
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,

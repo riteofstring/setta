@@ -18,7 +18,7 @@ import {
 } from "../charts/chartSelection";
 import { chartPalette, histogramOption } from "../charts/chartOptions";
 import type { LensChart } from "../charts/EChartSurface";
-import type { Observation } from "../backend/generatedContract";
+import type { Observation } from "../api/generatedContract";
 
 function histogramBins(
   observations: readonly Observation[],

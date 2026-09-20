@@ -3,7 +3,7 @@ import { type WorkspaceSection } from "@setta/workspace";
 import {
   PROVIDER_LIFECYCLE_STATE_FAILED_V2,
   type ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   readCallableSectionData,
   type CallableSectionData,

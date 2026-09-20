@@ -6,10 +6,25 @@ backend-path = ["packages/setta-runtime"]
 [project]
 name = "setta"
 version = "0.1.0"
-description = "Setta local application runtime and extensible command line."
-readme = "README.md"
+description = "Visual tools for local Python projects, reviews, and experiments."
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "packages/setta-runtime/licenses/*"]
+authors = [
+  { name = "Kevin Musgrave" },
+  { name = "Jeff Musgrave" },
+]
+keywords = ["local-first", "python", "visual-tools", "workspace"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: User Interfaces",
+]
 dependencies = [
   "basedpyright==1.39.9",
   "nodejs-wheel-binaries==24.16.0",

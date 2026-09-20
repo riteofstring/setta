@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   runTerminal: vi.fn(),
 }));
 
-vi.mock("../backend/client", () => ({
+vi.mock("../api/client", () => ({
   ProjectClientError: class extends Error {},
   closeTerminal: mocks.closeTerminal,
   openTerminal: mocks.openTerminal,
@@ -24,7 +24,7 @@ vi.mock("./generatedPythonTerminalClient", () => ({
     mocks.getGeneratedPythonTerminalDimensions,
 }));
 
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 
 import {
   createGeneratedPythonTerminalRuntime,

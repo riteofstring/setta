@@ -13,6 +13,7 @@ import (
 
 	"github.com/setta/experiment-lens/backend/internal/contracts"
 	"github.com/setta/experiment-lens/backend/internal/project"
+	"github.com/setta/local-backend/artifacthttp"
 )
 
 const (
@@ -78,46 +79,62 @@ func (resolver *Resolver) resolve(reference contracts.ArtifactReference) (contra
 	defer file.Close()
 	switch {
 	case reference.MediaType == "application/vnd.setta.series+json":
-		data, err := readBounded(file, maximumSeriesBytes)
-		if err != nil {
-			return contracts.ResolvedArtifactContent{}, err
-		}
-		var series contracts.SeriesDocument
-		if err := contracts.DecodeStrict(data, &series); err != nil {
-			return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
-		}
-		if err := series.Validate(); err != nil {
-			return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
-		}
-		return contracts.ResolvedArtifactContent{Kind: "series", Series: &series}, nil
+		return resolveSeries(file)
 	case reference.MediaType == "application/json":
-		data, err := readBounded(file, maximumJSONBytes)
-		if err != nil || !json.Valid(data) {
-			return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
-		}
-		return contracts.ResolvedArtifactContent{Kind: "json", JSON: append(json.RawMessage(nil), data...)}, nil
+		return resolveJSON(file)
 	case strings.HasPrefix(reference.MediaType, "text/"):
-		data, err := readBounded(file, maximumTextBytes)
-		if err != nil || !utf8.Valid(data) {
-			return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
-		}
-		text := string(data)
-		truncated := false
-		return contracts.ResolvedArtifactContent{Kind: "text", Text: &text, Truncated: &truncated}, nil
+		return resolveText(file)
 	default:
-		route := "/api/v1/artifacts/" + reference.ID
-		inline := InlineMediaType(reference.MediaType)
-		mediaType := reference.MediaType
-		byteLength := reference.ByteLength
-		digest := reference.SHA256
-		return contracts.ResolvedArtifactContent{
-			Kind:       "artifact",
-			Route:      &route,
-			Inline:     &inline,
-			MediaType:  &mediaType,
-			ByteLength: &byteLength,
-			SHA256:     &digest,
-		}, nil
+		return resolvedArtifact(reference), nil
+	}
+}
+
+func resolveSeries(file *os.File) (contracts.ResolvedArtifactContent, error) {
+	data, err := readBounded(file, maximumSeriesBytes)
+	if err != nil {
+		return contracts.ResolvedArtifactContent{}, err
+	}
+	var series contracts.SeriesDocument
+	if err := contracts.DecodeStrict(data, &series); err != nil {
+		return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
+	}
+	if err := series.Validate(); err != nil {
+		return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
+	}
+	return contracts.ResolvedArtifactContent{Kind: "series", Series: &series}, nil
+}
+
+func resolveJSON(file *os.File) (contracts.ResolvedArtifactContent, error) {
+	data, err := readBounded(file, maximumJSONBytes)
+	if err != nil || !json.Valid(data) {
+		return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
+	}
+	return contracts.ResolvedArtifactContent{Kind: "json", JSON: append(json.RawMessage(nil), data...)}, nil
+}
+
+func resolveText(file *os.File) (contracts.ResolvedArtifactContent, error) {
+	data, err := readBounded(file, maximumTextBytes)
+	if err != nil || !utf8.Valid(data) {
+		return contracts.ResolvedArtifactContent{}, ErrArtifactInvalid
+	}
+	text := string(data)
+	truncated := false
+	return contracts.ResolvedArtifactContent{Kind: "text", Text: &text, Truncated: &truncated}, nil
+}
+
+func resolvedArtifact(reference contracts.ArtifactReference) contracts.ResolvedArtifactContent {
+	route := "/api/v1/artifacts/" + reference.ID
+	inline := artifacthttp.InlineMediaType(reference.MediaType)
+	mediaType := reference.MediaType
+	byteLength := reference.ByteLength
+	digest := reference.SHA256
+	return contracts.ResolvedArtifactContent{
+		Kind:       "artifact",
+		Route:      &route,
+		Inline:     &inline,
+		MediaType:  &mediaType,
+		ByteLength: &byteLength,
+		SHA256:     &digest,
 	}
 }
 
@@ -144,17 +161,6 @@ func (resolver *Resolver) openVerified(reference contracts.ArtifactReference) (*
 		return nil, fmt.Errorf("artifact: rewind: %w", err)
 	}
 	return file, nil
-}
-
-func InlineMediaType(mediaType string) bool {
-	switch mediaType {
-	case "audio/aac", "audio/flac", "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm",
-		"image/avif", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp",
-		"video/mp4", "video/ogg", "video/webm":
-		return true
-	default:
-		return false
-	}
 }
 
 func readBounded(file *os.File, maximum int64) ([]byte, error) {

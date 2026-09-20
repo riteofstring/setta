@@ -18,19 +18,26 @@ from platform_contract import required_platform_tag
 from scripts._stage_setta_wheel import StageAppInputs, StageInputs, stage
 from setta.runtime import RuntimeTarget, current_target
 
-EXPECTED_LICENSE_NAMES = frozenset(
+EXPECTED_LICENSE_PATHS = frozenset(
     {
-        "ajv-MIT.txt",
-        "conpty-MIT.txt",
-        "echarts-Apache-2.0.txt",
-        "echarts-NOTICE.txt",
-        "echarts-d3-BSD-3-Clause.txt",
-        "tanstack-react-table-MIT.txt",
-        "tanstack-react-virtual-MIT.txt",
-        "tanstack-table-core-MIT.txt",
-        "tanstack-virtual-core-MIT.txt",
-        "tslib-0BSD.txt",
-        "zrender-BSD-3-Clause.txt",
+        "LICENSE",
+        "packages/setta-runtime/licenses/ajv-MIT.txt",
+        "packages/setta-runtime/licenses/coder-websocket-ISC.txt",
+        "packages/setta-runtime/licenses/conpty-MIT.txt",
+        "packages/setta-runtime/licenses/creack-pty-MIT.txt",
+        "packages/setta-runtime/licenses/echarts-Apache-2.0.txt",
+        "packages/setta-runtime/licenses/echarts-NOTICE.txt",
+        "packages/setta-runtime/licenses/echarts-d3-BSD-3-Clause.txt",
+        "packages/setta-runtime/licenses/go-pointer-MIT.txt",
+        "packages/setta-runtime/licenses/go-tree-sitter-MIT.txt",
+        "packages/setta-runtime/licenses/golang-x-sys-BSD-3-Clause.txt",
+        "packages/setta-runtime/licenses/tanstack-react-table-MIT.txt",
+        "packages/setta-runtime/licenses/tanstack-react-virtual-MIT.txt",
+        "packages/setta-runtime/licenses/tanstack-table-core-MIT.txt",
+        "packages/setta-runtime/licenses/tanstack-virtual-core-MIT.txt",
+        "packages/setta-runtime/licenses/tslib-0BSD.txt",
+        "packages/setta-runtime/licenses/tree-sitter-python-MIT.txt",
+        "packages/setta-runtime/licenses/zrender-BSD-3-Clause.txt",
     }
 )
 
@@ -94,6 +101,16 @@ class SettaBuildBackendTests(unittest.TestCase):
             wheel = archive.read(f"{dist_info}/WHEEL").decode("utf-8")
             entry_points = archive.read(f"{dist_info}/entry_points.txt").decode("utf-8")
             record = archive.read(f"{dist_info}/RECORD").decode("utf-8")
+            self.assertIn("Metadata-Version: 2.4", metadata)
+            self.assertIn("Description-Content-Type: text/markdown", metadata)
+            self.assertIn("License-Expression: Apache-2.0", metadata)
+            self.assertIn("Author: Kevin Musgrave, Jeff Musgrave", metadata)
+            self.assertIn(
+                "Keywords: local-first,python,visual-tools,workspace", metadata
+            )
+            self.assertIn("Classifier: Development Status :: 3 - Alpha", metadata)
+            self.assertIn("License-File: LICENSE", metadata)
+            self.assertIn("\n\n![Setta logo]", metadata)
             self.assertIn("Requires-Dist: basedpyright==1.39.9", metadata)
             self.assertIn("Requires-Dist: nodejs-wheel-binaries==24.16.0", metadata)
             self.assertIn("Root-Is-Purelib: false", wheel)
@@ -106,20 +123,29 @@ class SettaBuildBackendTests(unittest.TestCase):
             self.assertIn("setta/_guardian.py", names)
             self.assertIn("setta/_runtime/manifest.json", names)
             license_prefix = f"{dist_info}/licenses/"
-            license_names = {
+            license_paths = {
                 name.removeprefix(license_prefix)
                 for name in names
                 if name.startswith(license_prefix)
             }
-            self.assertEqual(license_names, EXPECTED_LICENSE_NAMES)
-            notice_path = f"{license_prefix}conpty-MIT.txt"
+            self.assertEqual(license_paths, EXPECTED_LICENSE_PATHS)
+            notice_path = (
+                f"{license_prefix}packages/setta-runtime/licenses/conpty-MIT.txt"
+            )
             self.assertIn(
                 "Copyright (c) 2020 UserExistsError",
                 archive.read(notice_path).decode("utf-8"),
             )
             self.assertIn(
                 "Apache ECharts",
-                archive.read(f"{license_prefix}echarts-NOTICE.txt").decode("utf-8"),
+                archive.read(
+                    f"{license_prefix}packages/setta-runtime/licenses/"
+                    "echarts-NOTICE.txt"
+                ).decode("utf-8"),
+            )
+            self.assertIn(
+                "Apache License",
+                archive.read(f"{license_prefix}LICENSE").decode("utf-8"),
             )
             self._assert_complete_record(archive, record, names)
             extract_root = self.root / "installed-wheel"
@@ -138,14 +164,14 @@ class SettaBuildBackendTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout, "0.1.0\n")
         self.assertTrue((self.root / "metadata" / metadata_name / "METADATA").is_file())
+        prepared_license_root = self.root / "metadata" / metadata_name / "licenses"
         self.assertEqual(
             {
-                path.name
-                for path in (
-                    self.root / "metadata" / metadata_name / "licenses"
-                ).iterdir()
+                path.relative_to(prepared_license_root).as_posix()
+                for path in prepared_license_root.rglob("*")
+                if path.is_file()
             },
-            EXPECTED_LICENSE_NAMES,
+            EXPECTED_LICENSE_PATHS,
         )
 
     def test_backend_rejects_unmanifested_runtime_content(self) -> None:

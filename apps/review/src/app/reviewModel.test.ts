@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { RequestSnapshot } from "../backend/generatedContract";
+import type { RequestSnapshot } from "../api/generatedContract";
 import {
   changesRequestedResponse,
   completionResponse,

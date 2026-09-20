@@ -1,4 +1,4 @@
-import { PYTHON_KEYWORDS_V2 } from "../backend/generatedContract";
+import { PYTHON_KEYWORDS_V2 } from "../api/generatedContract";
 
 const pythonKeywords: ReadonlySet<string> = new Set(PYTHON_KEYWORDS_V2);
 

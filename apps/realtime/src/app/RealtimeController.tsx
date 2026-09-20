@@ -20,7 +20,7 @@ import {
   fetchRuntimeSource,
   reloadRuntime,
   uploadContent,
-} from "../backend/client";
+} from "../api/client";
 import type {
   ApplyRuntimeSourceResult,
   Binding,
@@ -29,7 +29,7 @@ import type {
   RuntimeCommand,
   RuntimeSourceDocument,
   Section,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   projectWorkspaceDocument,
   replaceSectionDataOperation,

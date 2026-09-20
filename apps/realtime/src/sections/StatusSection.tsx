@@ -10,7 +10,7 @@ import type {
   Binding,
   InvocationStatus,
   RuntimeUpdate,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { readStatusSectionData } from "./sectionData";
 
 const ACTIVE_INVOCATION_STATES = new Set([

@@ -7,7 +7,7 @@ import type {
   LensSnapshot,
   Observation,
   SelectionAnnotation,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import type { FieldExtent, TimelineState } from "./lensModel";
 
 export type LensActions = Readonly<{

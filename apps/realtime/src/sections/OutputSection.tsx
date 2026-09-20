@@ -7,13 +7,13 @@ import {
   type RuntimeViewState,
 } from "../app/runtimeState";
 import { useRealtime } from "../app/runtimeContext";
-import { contentUrl } from "../backend/client";
+import { contentUrl } from "../api/client";
 import {
   type ContentReference,
   type Binding,
   type InvocationStatus,
   validateContentReference,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { readOutputSectionData } from "./sectionData";
 
 const ACTIVE_INVOCATION_STATES = new Set([

@@ -19,7 +19,7 @@ import type {
   AnnotationPoint,
   AnnotationStroke,
   SelectionAnnotation,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   EChartSurface,
   type EChartSurfaceHandle,

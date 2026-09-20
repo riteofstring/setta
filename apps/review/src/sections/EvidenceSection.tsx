@@ -14,7 +14,7 @@ import type {
   EvidenceRelation,
   JsonValue,
   ResolvedEvidenceContent,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   evidenceReference,
   resolvedEvidence,

@@ -1,0 +1,62 @@
+name: Bug report
+description: Report reproducible behavior that is not working as expected
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Setta. Remove credentials and private project data before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Setta version
+      description: Run `setta --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: app
+    attributes:
+      label: Affected app
+      options:
+        - Python Canvas
+        - Realtime
+        - Review
+        - Experiment Lens
+        - Command line or installation
+        - Shared workspace
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      placeholder: macOS 15 arm64, Windows 11 x86-64, Ubuntu 24.04 x86-64
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest reliable sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant diagnostics
+      description: Add sanitized logs, screenshots, or project fragments if useful.
+      render: shell
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: This report contains no vulnerability details, credentials, or private project data.
+          required: true

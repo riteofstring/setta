@@ -43,11 +43,14 @@ function buildBrowserSurface() {
     return;
   }
   runPnpm(["--filter", "@setta/workspace", "run", "build"]);
-  runPnpm(["--filter", "@setta/playground", "run", "build"]);
+  runPnpm(["--filter", "@setta/workspace-playground", "run", "build"]);
 }
 
 function startPreview() {
-  const playgroundRoot = path.join(repositoryRoot, "apps/playground");
+  const playgroundRoot = path.join(
+    repositoryRoot,
+    "examples/workspace-playground",
+  );
   const viteEntry = path.join(playgroundRoot, "node_modules/vite/bin/vite.js");
   const child = spawn(
     process.execPath,

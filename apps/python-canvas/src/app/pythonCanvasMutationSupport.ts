@@ -1,4 +1,4 @@
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import { readGeneratedPythonTarget } from "./workspaceProjection";
 import type {
   AppController,

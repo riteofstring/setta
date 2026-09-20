@@ -82,6 +82,9 @@ state, command, and HTTP inputs before Lens's closed-shape and semantic checks.
 `local-backend/httpjson` owns bounded JSON request and response mechanics, while
 `local-backend/sse` frames and flushes Lens's named `snapshot` events. Lens retains route, origin,
 status, structured-error, subscription, and event-name decisions.
+`local-backend/artifacthttp` owns the exact passive-media allowlist, download query, sandboxed
+preview headers, and admitted-file response mechanics. Lens still resolves artifact identity and
+verifies the immutable file before that response boundary.
 
 ## Contract generation
 

@@ -33,8 +33,14 @@ class ProjectInfo:
     name: str
     version: str
     summary: str
+    description: str
+    description_content_type: str
     requires_python: str
-    license_text: str
+    license_expression: str
+    license_files: tuple[str, ...]
+    authors: tuple[str, ...]
+    keywords: tuple[str, ...]
+    classifiers: tuple[str, ...]
     dependencies: tuple[str, ...]
     scripts: tuple[tuple[str, str], ...]
 
@@ -183,10 +189,18 @@ def _read_project_info(root: Path) -> ProjectInfo:
     summary = _required_string(project, "description")
     requires_python = _required_string(project, "requires-python")
     dependencies = _string_sequence(project.get("dependencies"), "dependencies")
-    license_data = project.get("license")
-    if not isinstance(license_data, dict):
-        raise BuildBackendError("The Setta project license metadata is invalid.")
-    license_text = _required_string(license_data, "text")
+    license_expression = _required_string(project, "license")
+    license_patterns = _string_sequence(project.get("license-files"), "license-files")
+    license_files = _license_file_paths(root, license_patterns)
+    authors = _author_names(project.get("authors"))
+    keywords = _string_sequence(project.get("keywords"), "keywords")
+    classifiers = _string_sequence(project.get("classifiers"), "classifiers")
+    readme = project.get("readme")
+    if not isinstance(readme, dict):
+        raise BuildBackendError("The Setta project readme metadata is invalid.")
+    readme_path = _required_string(readme, "file")
+    description_content_type = _required_string(readme, "content-type")
+    description = _read_project_text(root, readme_path, "readme")
     scripts_data = project.get("scripts")
     if not isinstance(scripts_data, dict) or not scripts_data:
         raise BuildBackendError("The Setta console-script metadata is invalid.")
@@ -197,8 +211,14 @@ def _read_project_info(root: Path) -> ProjectInfo:
         name=name,
         version=version,
         summary=summary,
+        description=description,
+        description_content_type=description_content_type,
         requires_python=requires_python,
-        license_text=license_text,
+        license_expression=license_expression,
+        license_files=license_files,
+        authors=authors,
+        keywords=keywords,
+        classifiers=classifiers,
         dependencies=dependencies,
         scripts=scripts,
     )
@@ -276,11 +296,11 @@ def _runtime_entries(root: Path) -> Iterable[WheelEntry]:
 
 
 def _license_entries(root: Path, project: ProjectInfo) -> Iterable[WheelEntry]:
-    license_root = root / "packages" / "setta-runtime" / "licenses"
-    for path in _regular_files(license_root):
+    for relative_path in project.license_files:
+        path = root / relative_path
+        _require_regular_file(path)
         yield WheelEntry(
-            f"{project.dist_info_name}/licenses/"
-            f"{path.relative_to(license_root).as_posix()}",
+            f"{project.dist_info_name}/licenses/{relative_path}",
             path,
             None,
             0o644,
@@ -329,16 +349,23 @@ def _metadata_entries(context: BuildContext) -> tuple[WheelEntry, ...]:
     dist_info = context.project.dist_info_name
     tag = f"py3-none-{context.platform_tag}"
     metadata_lines = [
-        "Metadata-Version: 2.3",
+        "Metadata-Version: 2.4",
         f"Name: {context.project.name}",
         f"Version: {context.project.version}",
         f"Summary: {context.project.summary}",
-        f"License: {context.project.license_text}",
+        f"Description-Content-Type: {context.project.description_content_type}",
+        f"License-Expression: {context.project.license_expression}",
+        f"Author: {', '.join(context.project.authors)}",
+        f"Keywords: {','.join(context.project.keywords)}",
+        *(f"Classifier: {classifier}" for classifier in context.project.classifiers),
+        *(f"License-File: {path}" for path in context.project.license_files),
         f"Requires-Python: {context.project.requires_python}",
         *(
             f"Requires-Dist: {dependency}"
             for dependency in context.project.dependencies
         ),
+        "",
+        context.project.description.rstrip("\n"),
         "",
     ]
     wheel_lines = [
@@ -453,6 +480,58 @@ def _string_sequence(value: object, field: str) -> tuple[str, ...]:
     ):
         raise BuildBackendError(f"The Setta project {field!r} metadata is invalid.")
     return tuple(cast(list[str], value))
+
+
+def _author_names(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or not value:
+        raise BuildBackendError("The Setta project authors metadata is invalid.")
+    names: list[str] = []
+    for author in value:
+        if not isinstance(author, dict):
+            raise BuildBackendError("The Setta project authors metadata is invalid.")
+        names.append(_required_string(cast(Mapping[str, Any], author), "name"))
+    return tuple(names)
+
+
+def _read_project_text(root: Path, relative_path: str, field: str) -> str:
+    path = _project_file(root, relative_path, field)
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise BuildBackendError(
+            f"Cannot read the Setta project {field} file."
+        ) from error
+
+
+def _license_file_paths(root: Path, patterns: Sequence[str]) -> tuple[str, ...]:
+    paths: set[str] = set()
+    for pattern in patterns:
+        if _unsafe_project_path(pattern):
+            raise BuildBackendError(
+                "The Setta project license-files metadata is invalid."
+            )
+        matches = sorted(root.glob(pattern))
+        if not matches:
+            raise BuildBackendError(
+                f"The Setta project license pattern has no matches: {pattern}"
+            )
+        for path in matches:
+            _require_regular_file(path)
+            paths.add(path.relative_to(root).as_posix())
+    return tuple(sorted(paths))
+
+
+def _project_file(root: Path, relative_path: str, field: str) -> Path:
+    if _unsafe_project_path(relative_path):
+        raise BuildBackendError(f"The Setta project {field} metadata is invalid.")
+    path = root / relative_path
+    _require_regular_file(path)
+    return path
+
+
+def _unsafe_project_path(value: str) -> bool:
+    path = Path(value)
+    return path.is_absolute() or ".." in path.parts
 
 
 def _string_pair(name: object, target: object) -> tuple[str, str]:

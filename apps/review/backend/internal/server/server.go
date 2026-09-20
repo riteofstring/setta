@@ -4,14 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/setta/local-backend/artifacthttp"
 	"github.com/setta/local-backend/httpjson"
 	"github.com/setta/local-backend/localweb"
 	"github.com/setta/local-backend/sse"
@@ -139,7 +138,7 @@ func (handler *Handler) artifact(response http.ResponseWriter, request *http.Req
 		writeError(response, http.StatusMethodNotAllowed, "method_not_allowed", "The request method is not allowed.", nil, nil)
 		return
 	}
-	download, validQuery := artifactDownload(request.URL.RawQuery)
+	download, validQuery := artifacthttp.DownloadRequested(request.URL.RawQuery)
 	if !validQuery {
 		writeError(response, http.StatusBadRequest, "invalid_request", "The artifact query is invalid.", nil, nil)
 		return
@@ -155,25 +154,15 @@ func (handler *Handler) artifact(response http.ResponseWriter, request *http.Req
 		return
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		writeFailure(response, err)
-		return
-	}
-	if !download && !inlineArtifactMediaType(metadata.MediaType) {
+	if !download && !artifacthttp.InlineMediaType(metadata.MediaType) {
 		writeError(response, http.StatusUnsupportedMediaType, "unsupported_media_type", "The artifact media type is not available for inline preview.", nil, nil)
 		return
 	}
-	disposition := "inline"
-	if download {
-		disposition = "attachment"
-	} else {
-		setArtifactPreviewHeaders(response.Header())
+	if err := artifacthttp.Serve(response, request, file, artifacthttp.Metadata{
+		Path: metadata.Path, MediaType: metadata.MediaType, ByteLength: metadata.ByteLength,
+	}, download); err != nil {
+		writeFailure(response, err)
 	}
-	response.Header().Set("Content-Type", metadata.MediaType)
-	response.Header().Set("Content-Length", strconv.FormatInt(metadata.ByteLength, 10))
-	response.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": filepath.Base(metadata.Path)}))
-	http.ServeContent(response, request, filepath.Base(metadata.Path), info.ModTime(), file)
 }
 
 func (handler *Handler) identity(response http.ResponseWriter, request *http.Request) {
@@ -224,40 +213,6 @@ func artifactIdentity(path string) (string, string, bool) {
 		return "", "", false
 	}
 	return parts[0], parts[1], true
-}
-
-func artifactDownload(rawQuery string) (bool, bool) {
-	if rawQuery == "" {
-		return false, true
-	}
-	query, err := url.ParseQuery(rawQuery)
-	if err != nil || len(query) != 1 {
-		return false, false
-	}
-	values, ok := query["download"]
-	if !ok || len(values) != 1 || values[0] != "1" {
-		return false, false
-	}
-	return true, true
-}
-
-func inlineArtifactMediaType(mediaType string) bool {
-	switch mediaType {
-	case "audio/aac", "audio/flac", "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm",
-		"image/avif", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp",
-		"video/mp4", "video/ogg", "video/webm":
-		return true
-	default:
-		return false
-	}
-}
-
-func setArtifactPreviewHeaders(header http.Header) {
-	header.Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox")
-	header.Set("Cross-Origin-Opener-Policy", "same-origin")
-	header.Set("Cross-Origin-Resource-Policy", "same-origin")
-	header.Set("Referrer-Policy", "no-referrer")
-	header.Set("X-Frame-Options", "SAMEORIGIN")
 }
 
 func writeFailure(response http.ResponseWriter, err error) {

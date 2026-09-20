@@ -1,4 +1,4 @@
-import type { LensSnapshot } from "../backend/generatedContract";
+import type { LensSnapshot } from "../api/generatedContract";
 
 const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);

@@ -5,7 +5,7 @@ import {
 } from "@setta/workspace";
 
 import { useRealtime } from "../app/runtimeContext";
-import type { Project } from "../backend/generatedContract";
+import type { Project } from "../api/generatedContract";
 import type { RuntimeSourceViewState } from "../app/runtimeContext";
 
 function ApplySourceIcon({ busy }: { busy: boolean }) {

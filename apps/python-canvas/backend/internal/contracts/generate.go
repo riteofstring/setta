@@ -25,7 +25,7 @@ func generateArtifacts(appRoot string, snapshot ProjectSnapshotV2, check bool) e
 
 	artifacts := []generatedArtifact{
 		{
-			path:    filepath.Join(appRoot, "src", "backend", "generatedContract.ts"),
+			path:    filepath.Join(appRoot, "src", "api", "generatedContract.ts"),
 			content: TypeScriptV2(),
 		},
 		{

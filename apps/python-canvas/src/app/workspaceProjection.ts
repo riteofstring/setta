@@ -20,7 +20,7 @@ import {
   type ParameterDictionaryV2,
   type ParameterV2,
   type ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   type CallableSectionData,
   type ParameterItemData,

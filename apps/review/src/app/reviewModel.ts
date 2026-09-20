@@ -4,7 +4,7 @@ import type {
   RequestSnapshot,
   ReviewRequest,
   ReviewResponse,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 export type CompletionDecisionKind = CompletionDecision["decision"];
 

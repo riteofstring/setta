@@ -1,10 +1,7 @@
 import { useWorkspaceAppearance } from "@setta/workspace";
 import { useMemo } from "react";
 
-import type {
-  FieldDefinition,
-  Observation,
-} from "../backend/generatedContract";
+import type { FieldDefinition, Observation } from "../api/generatedContract";
 import { useLens } from "../app/lensContext";
 import { fieldExtent } from "../app/lensModel";
 import {

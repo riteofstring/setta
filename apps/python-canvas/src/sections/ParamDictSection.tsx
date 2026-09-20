@@ -11,7 +11,7 @@ import {
   DICTIONARY_ENTRY_KIND_LEAF_V2,
   DICTIONARY_ENTRY_KIND_PARENT_V2,
   type DictionaryEntryKindV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 const DICTIONARY_ITEM_LIST_KEY = "python-canvas-parameter-dictionary";
 
 export type ParameterDictionarySectionData = {

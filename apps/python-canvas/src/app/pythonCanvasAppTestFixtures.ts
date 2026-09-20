@@ -1,11 +1,8 @@
 import type { WorkspaceDocument } from "@setta/workspace";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
-import type {
-  DictionaryEntryV2,
-  ParameterV2,
-} from "../backend/generatedContract";
-import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
+import type { DictionaryEntryV2, ParameterV2 } from "../api/generatedContract";
+import { parseProjectSnapshotV2 } from "../api/runtimeContract";
 import {
   callableSectionID,
   dictionaryEntryWorkspaceItemID,

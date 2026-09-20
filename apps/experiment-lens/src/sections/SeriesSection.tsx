@@ -8,7 +8,7 @@ import type {
   Observation,
   ResolvedArtifact,
   SeriesDocument,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { useLens, type LensContextValue } from "../app/lensContext";
 import {
   activeRangeFor,

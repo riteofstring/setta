@@ -9,8 +9,8 @@
       {
         "path": "docs/design/development-tooling.md",
         "sourcePaths": [
-          "apps/playground/vitest.config.ts",
-          "apps/playground/vitest.setup.ts",
+          "examples/workspace-playground/vitest.config.ts",
+          "examples/workspace-playground/vitest.setup.ts",
           "packages/workspace/vite.config.ts",
           "packages/workspace/vitest.setup.ts",
           "scripts/cdp-port.sh",
@@ -87,7 +87,7 @@
         "name": "python-canvas-contracts",
         "outputs": [
           "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
-          "apps/python-canvas/src/backend/generatedContract.ts"
+          "apps/python-canvas/src/api/generatedContract.ts"
         ],
         "inputs": [
           "apps/python-canvas/backend/cmd/generate-contract/*.go",
@@ -127,9 +127,9 @@
           "apps/realtime/backend/internal/contracts/testdata/runtime-source-v1.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/worker-v2.schema.json",
           "apps/realtime/backend/internal/contracts/testdata/content-reference-v1.schema.json",
-          "apps/realtime/src/backend/generatedContract.ts",
-          "apps/realtime/src/backend/generatedValidators.js",
-          "apps/realtime/src/backend/generatedValidators.d.ts"
+          "apps/realtime/src/api/generatedContract.ts",
+          "apps/realtime/src/api/generatedValidators.js",
+          "apps/realtime/src/api/generatedValidators.d.ts"
         ],
         "inputs": [
           "apps/realtime/backend/cmd/generate-contract/*.go",
@@ -164,9 +164,9 @@
           "apps/review/backend/internal/contracts/testdata/review-response-v1.schema.json",
           "apps/review/backend/internal/contracts/testdata/review-snapshot-v1.schema.json",
           "apps/review/backend/internal/contracts/testdata/review-mutation-v1.schema.json",
-          "apps/review/src/backend/generatedContract.ts",
-          "apps/review/src/backend/generatedValidators.js",
-          "apps/review/src/backend/generatedValidators.d.ts"
+          "apps/review/src/api/generatedContract.ts",
+          "apps/review/src/api/generatedValidators.js",
+          "apps/review/src/api/generatedValidators.d.ts"
         ],
         "inputs": [
           "apps/review/backend/cmd/generate-contract/*.go",
@@ -206,9 +206,9 @@
           "apps/experiment-lens/backend/internal/contracts/testdata/export-result-v1.schema.json",
           "apps/experiment-lens/backend/internal/contracts/testdata/structured-error-v1.schema.json",
           "apps/experiment-lens/backend/internal/contracts/testdata/series-v1.schema.json",
-          "apps/experiment-lens/src/backend/generatedContract.ts",
-          "apps/experiment-lens/src/backend/generatedValidators.js",
-          "apps/experiment-lens/src/backend/generatedValidators.d.ts"
+          "apps/experiment-lens/src/api/generatedContract.ts",
+          "apps/experiment-lens/src/api/generatedValidators.js",
+          "apps/experiment-lens/src/api/generatedValidators.d.ts"
         ],
         "inputs": [
           "apps/experiment-lens/backend/cmd/generate-contract/*.go",
@@ -241,24 +241,24 @@
   "scope": {
     "generated": [
       "apps/python-canvas/backend/internal/contracts/testdata/project-snapshot-v2.json",
-      "apps/python-canvas/src/backend/generatedContract.ts",
+      "apps/python-canvas/src/api/generatedContract.ts",
       "apps/realtime/backend/internal/contracts/testdata/*.schema.json",
-      "apps/realtime/src/backend/generatedContract.ts",
-      "apps/realtime/src/backend/generatedValidators.js",
-      "apps/realtime/src/backend/generatedValidators.d.ts",
+      "apps/realtime/src/api/generatedContract.ts",
+      "apps/realtime/src/api/generatedValidators.js",
+      "apps/realtime/src/api/generatedValidators.d.ts",
       "apps/review/backend/internal/contracts/testdata/*.schema.json",
-      "apps/review/src/backend/generatedContract.ts",
-      "apps/review/src/backend/generatedValidators.js",
-      "apps/review/src/backend/generatedValidators.d.ts",
+      "apps/review/src/api/generatedContract.ts",
+      "apps/review/src/api/generatedValidators.js",
+      "apps/review/src/api/generatedValidators.d.ts",
       "apps/experiment-lens/backend/internal/contracts/testdata/*.schema.json",
-      "apps/experiment-lens/src/backend/generatedContract.ts",
-      "apps/experiment-lens/src/backend/generatedValidators.js",
-      "apps/experiment-lens/src/backend/generatedValidators.d.ts",
+      "apps/experiment-lens/src/api/generatedContract.ts",
+      "apps/experiment-lens/src/api/generatedValidators.js",
+      "apps/experiment-lens/src/api/generatedValidators.d.ts",
       "docs/evidence/**/*.json",
       "docs/evidence/**/*.json.gz"
     ],
     "entryPoints": [
-      "apps/playground/vitest.setup.ts",
+      "examples/workspace-playground/vitest.setup.ts",
       "apps/python-canvas/backend/cmd/python-canvas/main.go",
       "apps/python-canvas/src/main.tsx",
       "apps/python-canvas/vitest.setup.ts",
@@ -291,7 +291,7 @@
       "scripts/verify-packed-consumer.mjs"
     ],
     "development": [
-      "apps/playground/**",
+      "examples/workspace-playground/**",
       "apps/python-canvas/vite.config.ts",
       "apps/python-canvas/vitest.config.ts",
       "apps/python-canvas/vitest.setup.ts",
@@ -333,8 +333,8 @@
       ]
     },
     {
-      "name": "playground",
-      "paths": ["apps/playground/**"],
+      "name": "workspace-playground",
+      "paths": ["examples/workspace-playground/**"],
       "dependsOn": ["workspace"]
     },
     {
@@ -425,7 +425,7 @@
       "name": "setta-package-contract",
       "provides": ["package-contract"],
       "argv": ["node", "scripts/check-package-boundary.mjs"],
-      "modules": ["workspace", "playground"],
+      "modules": ["workspace", "workspace-playground"],
       "runOn": ["check", "gate"],
       "timeoutSeconds": 300
     },
@@ -438,10 +438,16 @@
       "timeoutSeconds": 900
     },
     {
-      "name": "playground-build",
+      "name": "workspace-playground-build",
       "provides": ["build"],
-      "argv": ["pnpm", "--filter", "@setta/playground", "run", "build"],
-      "modules": ["playground"],
+      "argv": [
+        "pnpm",
+        "--filter",
+        "@setta/workspace-playground",
+        "run",
+        "build"
+      ],
+      "modules": ["workspace-playground"],
       "runOn": ["build"],
       "timeoutSeconds": 900
     },
@@ -526,7 +532,7 @@
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
-      "modules": ["workspace", "playground"],
+      "modules": ["workspace", "workspace-playground"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -588,8 +594,8 @@
   ],
   "tests": {
     "paths": [
-      "apps/playground/src/**/*.test.ts",
-      "apps/playground/src/**/*.test.tsx",
+      "examples/workspace-playground/src/**/*.test.ts",
+      "examples/workspace-playground/src/**/*.test.tsx",
       "apps/python-canvas/backend/**/*_test.go",
       "apps/python-canvas/*.test.mjs",
       "apps/python-canvas/src/**/*.test.ts",
@@ -619,11 +625,11 @@
       },
       {
         "paths": [
-          "apps/playground/src/**/*.test.ts",
-          "apps/playground/src/**/*.test.tsx"
+          "examples/workspace-playground/src/**/*.test.ts",
+          "examples/workspace-playground/src/**/*.test.tsx"
         ],
-        "module": "playground",
-        "focusedSuite": "playground-focused"
+        "module": "workspace-playground",
+        "focusedSuite": "workspace-playground-focused"
       },
       {
         "paths": ["apps/python-canvas/backend/**/*_test.go"],
@@ -740,16 +746,16 @@
         "timeoutSeconds": 1200
       },
       {
-        "name": "playground-focused",
+        "name": "workspace-playground-focused",
         "kind": "component",
         "scope": "module",
         "cost": "quick",
-        "modules": ["playground"],
+        "modules": ["workspace-playground"],
         "paths": [
-          "apps/playground/src/**/*.test.ts",
-          "apps/playground/src/**/*.test.tsx"
+          "examples/workspace-playground/src/**/*.test.ts",
+          "examples/workspace-playground/src/**/*.test.tsx"
         ],
-        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
+        "argv": ["pnpm", "--filter", "@setta/workspace-playground", "test"],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 1200
       },
@@ -865,7 +871,7 @@
         "cost": "quick",
         "paths": [
           "apps/realtime/backend/internal/contracts/**",
-          "apps/realtime/src/backend/**",
+          "apps/realtime/src/api/**",
           "apps/realtime/scripts/compile-validators.mjs",
           "apps/realtime/package.json"
         ],
@@ -886,7 +892,7 @@
         "cost": "quick",
         "paths": [
           "apps/review/backend/internal/contracts/**",
-          "apps/review/src/backend/**",
+          "apps/review/src/api/**",
           "apps/review/scripts/compile-validators.mjs",
           "apps/review/package.json"
         ],
@@ -901,7 +907,7 @@
         "cost": "quick",
         "paths": [
           "apps/experiment-lens/backend/internal/contracts/**",
-          "apps/experiment-lens/src/backend/**",
+          "apps/experiment-lens/src/api/**",
           "apps/experiment-lens/scripts/compile-validators.mjs",
           "apps/experiment-lens/package.json"
         ],
@@ -922,7 +928,7 @@
         "cost": "quick",
         "paths": [
           "apps/python-canvas/backend/internal/contracts/**",
-          "apps/python-canvas/src/backend/generatedContract.ts",
+          "apps/python-canvas/src/api/generatedContract.ts",
           "apps/python-canvas/package.json"
         ],
         "argv": [
@@ -942,7 +948,7 @@
         "cost": "quick",
         "paths": [
           "apps/python-canvas/backend/internal/contracts/**",
-          "apps/python-canvas/src/backend/**"
+          "apps/python-canvas/src/api/**"
         ],
         "argv": [
           "pnpm",
@@ -951,8 +957,8 @@
           "exec",
           "vitest",
           "run",
-          "src/backend/generatedContract.test.ts",
-          "src/backend/runtimeContract.test.ts"
+          "src/api/generatedContract.test.ts",
+          "src/api/runtimeContract.test.ts"
         ],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 300
@@ -963,7 +969,7 @@
         "scope": "repository",
         "cost": "standard",
         "paths": [
-          "apps/playground/**",
+          "examples/workspace-playground/**",
           "packages/workspace/src/canvas/**",
           "packages/workspace/src/windowing/**",
           "scripts/lib/cdp-client.mjs",

@@ -1,7 +1,7 @@
 import type { WorkspaceDocument, WorkspaceSection } from "@setta/workspace";
 import { describe, expect, it } from "vitest";
 
-import type { ListV2 } from "../backend/generatedContract";
+import type { ListV2 } from "../api/generatedContract";
 import { callableSectionID, listSectionID } from "./workspaceProjectionIds";
 import { projectWorkspaceForestProposal } from "./workspaceForestProjection";
 

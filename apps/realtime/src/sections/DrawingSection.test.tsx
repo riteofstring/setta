@@ -14,7 +14,7 @@ import {
   runtimeValueKey,
   type RuntimeViewState,
 } from "../app/runtimeState";
-import type { ContentReference, Project } from "../backend/generatedContract";
+import type { ContentReference, Project } from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import { DrawingSection } from "./DrawingSection";
 

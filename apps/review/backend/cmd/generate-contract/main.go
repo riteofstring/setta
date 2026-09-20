@@ -62,7 +62,7 @@ func generatedOutputs() ([]output, error) {
 		{path: "internal/contracts/testdata/review-response-v1.schema.json", data: response},
 		{path: "internal/contracts/testdata/review-snapshot-v1.schema.json", data: snapshot},
 		{path: "internal/contracts/testdata/review-mutation-v1.schema.json", data: mutation},
-		{path: filepath.Join("..", "src", "backend", "generatedContract.ts"), data: []byte(contracts.TypeScriptContract())},
+		{path: filepath.Join("..", "src", "api", "generatedContract.ts"), data: []byte(contracts.TypeScriptContract())},
 	}, nil
 }
 

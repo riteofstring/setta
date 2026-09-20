@@ -1,6 +1,6 @@
 import type { WorkspaceDocument } from "@setta/workspace";
 
-import type { ListV2 } from "../backend/generatedContract";
+import type { ListV2 } from "../api/generatedContract";
 
 type ForestSectionDescriptor = {
   canonicalId: string;

@@ -13,9 +13,9 @@ import type {
   Section,
   TopLevelSectionLayout,
   Viewport,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
-export type { ProjectOperation } from "../backend/generatedContract";
+export type { ProjectOperation } from "../api/generatedContract";
 
 function projectSection(
   section: Section,

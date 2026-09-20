@@ -9,7 +9,7 @@ import type {
   LensSnapshot,
   PresentationPlacement,
   PresentationSection,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 export const LENS_COMPACT_VIEWPORT_QUERY = "(max-width: 720px)";
 

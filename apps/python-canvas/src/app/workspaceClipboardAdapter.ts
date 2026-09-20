@@ -7,7 +7,7 @@ import type {
   CopyProjectClipboardRequestV2,
   ProjectClipboardPayloadV1,
   ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   CALLABLE_SECTION_KIND,
   LIST_SECTION_KIND,

@@ -8,7 +8,7 @@ import {
   type ParameterPassingStyleV2,
   type ProviderAvailabilityV2,
   type ProviderLifecycleStateV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   ItemDndContext,
   TextValueEditor,

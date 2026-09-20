@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
-import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
+import { parseProjectSnapshotV2 } from "../api/runtimeContract";
 
 const CODE_UI = {
   type: "CodeParam",
@@ -86,7 +86,7 @@ function MockWorkspaceCanvas() {
   return <div data-testid="workspace-canvas" />;
 }
 
-vi.mock("../backend/client", () => ({
+vi.mock("../api/client", () => ({
   ProjectClientError: class extends Error {
     public readonly code: string | undefined;
 
@@ -167,7 +167,7 @@ vi.mock("./pythonCanvasSavedViewsPreferences", () => ({
 }));
 
 import { PythonCanvasApp } from "./PythonCanvasApp";
-import { ProjectClientError } from "../backend/client";
+import { ProjectClientError } from "../api/client";
 import {
   GENERATED_PYTHON_SECTION_ID,
   callableSectionID,

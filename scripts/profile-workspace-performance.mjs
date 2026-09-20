@@ -39,9 +39,9 @@ const GESTURE_SETTLE_MS = 250;
 const GESTURE_VECTOR = { x: 150, y: 75 };
 const PAN_VECTOR = { x: 180, y: 90 };
 const PROFILE_INPUT_PATHS = [
-  "apps/playground/src/main.tsx",
-  "apps/playground/src/PerformanceProfileApp.tsx",
-  "apps/playground/src/performanceProfileDocument.ts",
+  "examples/workspace-playground/src/main.tsx",
+  "examples/workspace-playground/src/PerformanceProfileApp.tsx",
+  "examples/workspace-playground/src/performanceProfileDocument.ts",
   "packages/workspace/src/canvas/nodeInternalsActions.ts",
   "scripts/lib/cdp-client.mjs",
   "scripts/lib/interaction-profile.mjs",
@@ -74,7 +74,7 @@ function buildProfileSurface(skipBuild) {
     return;
   }
   runPnpm(["--filter", "@setta/workspace", "run", "build"]);
-  runPnpm(["--filter", "@setta/playground", "run", "build"]);
+  runPnpm(["--filter", "@setta/workspace-playground", "run", "build"]);
 }
 
 function profileInputSha256() {
@@ -114,7 +114,10 @@ function directorySha256(relativeDirectory) {
 }
 
 function startPreview() {
-  const playgroundRoot = path.join(repositoryRoot, "apps/playground");
+  const playgroundRoot = path.join(
+    repositoryRoot,
+    "examples/workspace-playground",
+  );
   const viteEntry = path.join(playgroundRoot, "node_modules/vite/bin/vite.js");
   const child = spawn(
     process.execPath,
@@ -774,7 +777,7 @@ async function main() {
       context: {
         artifactSha256: {
           packageDist: directorySha256("packages/workspace/dist"),
-          playgroundDist: directorySha256("apps/playground/dist"),
+          playgroundDist: directorySha256("examples/workspace-playground/dist"),
         },
         baseCommit: run("git", ["rev-parse", "HEAD"], {
           capture: true,

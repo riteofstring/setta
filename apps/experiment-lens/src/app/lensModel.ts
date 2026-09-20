@@ -9,7 +9,7 @@ import type {
   ResolvedArtifact,
   SelectionAnnotation,
   SeriesDocument,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 export type TimelineState = Readonly<{
   artifactId: string | null;

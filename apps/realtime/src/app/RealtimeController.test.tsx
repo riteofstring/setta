@@ -11,7 +11,7 @@ import type {
   Project,
   ProjectOperation,
   RuntimeEnvelope,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import { RealtimeController } from "./RealtimeController";
 import type { RealtimeActions } from "./runtimeContext";
@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => ({
   uploadContent: vi.fn(),
 }));
 
-vi.mock("../backend/client", () => ({
+vi.mock("../api/client", () => ({
   RealtimeClientError: class RealtimeClientError extends Error {
     public constructor(
       public readonly kind: string,

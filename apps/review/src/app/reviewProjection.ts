@@ -13,7 +13,7 @@ import type {
   EvidenceReference,
   RequestSnapshot,
   ReviewSnapshot,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import type { ReviewSubjectSelection } from "./reviewContext";
 
 export const REVIEW_CLAIMS_SECTION_KIND = "review.claims";

@@ -17,7 +17,7 @@ import {
   runtimeValueKey,
   type RuntimeViewState,
 } from "../app/runtimeState";
-import type { Binding, Project } from "../backend/generatedContract";
+import type { Binding, Project } from "../api/generatedContract";
 import {
   RealtimeDrawingRuntime,
   type DrawingCreationColorTarget,

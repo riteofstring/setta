@@ -41,11 +41,11 @@ const applyRuntimeSourceResultSchemaPath = new URL(
   import.meta.url,
 );
 const outputPath = new URL(
-  "../src/backend/generatedValidators.js",
+  "../src/api/generatedValidators.js",
   import.meta.url,
 );
 const declarationPath = new URL(
-  "../src/backend/generatedValidators.d.ts",
+  "../src/api/generatedValidators.d.ts",
   import.meta.url,
 );
 

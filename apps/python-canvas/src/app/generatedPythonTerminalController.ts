@@ -3,8 +3,8 @@ import {
   openTerminal,
   ProjectClientError,
   runTerminal,
-} from "../backend/client";
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+} from "../api/client";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import {
   disposeGeneratedPythonTerminal,
   getGeneratedPythonTerminalDimensions,

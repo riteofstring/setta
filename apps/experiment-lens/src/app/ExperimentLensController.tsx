@@ -15,13 +15,13 @@ import {
   fetchLensSnapshot,
   LensClientError,
   subscribeLensSnapshots,
-} from "../backend/client";
+} from "../api/client";
 import type {
   ArtifactRange,
   LensSelection,
   LensSnapshot,
   SelectionPacket,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { ExperimentLensView } from "./ExperimentLensView";
 import { LensContext, type LensActions } from "./lensContext";
 import {

@@ -15,7 +15,7 @@ import type {
   ResolvedArtifact,
   ResolvedArtifactContent,
   SelectionAnnotation,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { useLens } from "../app/lensContext";
 import {
   artifactAnnotationFor,

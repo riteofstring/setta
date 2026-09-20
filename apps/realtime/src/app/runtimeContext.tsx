@@ -13,7 +13,7 @@ import type {
   RuntimeCancelRequest,
   RuntimeEvent,
   RuntimeSourceDocument,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import type { RuntimeViewState } from "./runtimeState";
 
 export type RealtimeActions = {

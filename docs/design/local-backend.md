@@ -50,6 +50,9 @@ fields in closed Go shapes. Application semantic validation always follows decod
   value publication.
 - `strictjson` owns the shared lexical JSON boundary. `httpjson` and `sse` own bounded HTTP and
   event-stream mechanics, not product statuses, errors, routes, or event names.
+- `artifacthttp` owns the closed passive-media allowlist, exact attachment query, sandboxed preview
+  headers, and file-response mechanics shared by Review and Experiment Lens. Applications retain
+  artifact identity, verified admission, routes, and structured errors.
 - `proctree` owns only platform descendant containment, bounded termination, wait, and cleanup.
   It creates and assigns kill-on-close Windows Job Objects, revalidates POSIX group identity before
   signaling, adopts and reaps Linux descendants under an explicit deadline, and supplies the fixed
@@ -81,6 +84,11 @@ checks flush capability and owns standard no-cache, keep-alive, anti-buffering h
 event names, JSON data framing, initial and per-event flushes, and termination with the request
 context or source channel. The application obtains the stream and maps failures before transport
 starts; `latestvalue` supplies initial-current and coalescing semantics.
+
+`artifacthttp` receives only an already opened verified file and admitted metadata. It does not
+resolve a caller-supplied path, infer a media type, admit active content, or decide whether a
+product exposes a download. Review and Experiment Lens perform those decisions before the shared
+response boundary.
 
 `proctree` does not construct application commands or decide when work is cooperative, timed out,
 restarted, or reported. Python Canvas keeps its runner and terminal as distinct lifecycle owners;

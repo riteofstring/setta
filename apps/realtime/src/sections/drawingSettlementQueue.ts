@@ -1,6 +1,6 @@
 import type { WorkspaceSectionData } from "@setta/workspace";
 
-import type { ContentReference } from "../backend/generatedContract";
+import type { ContentReference } from "../api/generatedContract";
 
 export type DrawingSnapshot = {
   blob: Blob;

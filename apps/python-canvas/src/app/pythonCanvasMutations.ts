@@ -15,8 +15,8 @@ import {
   replaceSectionForest,
   setCallableParameters,
   setParameterDictionaryEntries,
-} from "../backend/client";
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+} from "../api/client";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import {
   setDictionaryEntryExpression,
   setDictionaryEntryName,

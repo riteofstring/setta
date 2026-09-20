@@ -7,7 +7,7 @@ import {
   type LensActions,
   type LensContextValue,
 } from "../app/lensContext";
-import type { SelectionAnnotation } from "../backend/generatedContract";
+import type { SelectionAnnotation } from "../api/generatedContract";
 import { lensTestSnapshot } from "../test/lensTestData";
 import { AnnotatedChartSurface } from "./AnnotatedChartSurface";
 

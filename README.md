@@ -55,5 +55,6 @@ setta review --help
 setta experiment-lens --help
 ```
 
-For contributor guidance, see [AGENTS.md](AGENTS.md) and the current
-[design notes](docs/design/). Setta is licensed under [Apache 2.0](LICENSE).
+Learn how to [contribute](CONTRIBUTING.md), [get support](SUPPORT.md), or
+[report a security issue](SECURITY.md). Setta is licensed under
+[Apache 2.0](LICENSE).

@@ -9,8 +9,8 @@ import {
 } from "@setta/workspace";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
-import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
-import { ProjectClientError } from "../backend/client";
+import { parseProjectSnapshotV2 } from "../api/runtimeContract";
+import { ProjectClientError } from "../api/client";
 
 const mocks = vi.hoisted(() => ({
   commitCallable: vi.fn(),
@@ -263,7 +263,7 @@ function invokeMockCreationCommand(
   return section;
 }
 
-vi.mock("../backend/client", () => ({
+vi.mock("../api/client", () => ({
   ProjectClientError: class extends Error {
     public readonly code: string | undefined;
 

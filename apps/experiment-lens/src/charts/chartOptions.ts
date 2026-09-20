@@ -13,7 +13,7 @@ import type {
   LensSelection,
   Observation,
   SeriesDocument,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import type { HistogramBin, LensAggregation } from "../app/aggregation";
 import { formatScalar } from "../app/lensModel";
 

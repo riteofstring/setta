@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PYTHON_KEYWORDS_V2 } from "../backend/generatedContract";
+import { PYTHON_KEYWORDS_V2 } from "../api/generatedContract";
 import {
   hasBlockingParameterName,
   parameterNameErrors,

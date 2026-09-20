@@ -25,7 +25,7 @@ import type {
   ArtifactAnnotation as ArtifactAnnotationContract,
   RequestSnapshot,
   ReviewSnapshot,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { ArtifactChoiceSection } from "./ArtifactChoiceSection";
 import { ArtifactSection } from "./ArtifactSection";
 import { ChoiceMatrixSection } from "./ChoiceMatrixSection";

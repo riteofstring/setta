@@ -1,4 +1,4 @@
-import type { Project } from "./backend/generatedContract";
+import type { Project } from "./api/generatedContract";
 
 export function makeProject(): Project {
   return {

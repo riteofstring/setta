@@ -7,7 +7,7 @@ import type {
   RuntimeSnapshot,
   RuntimeUpdate,
   StructuredError,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 type RuntimeConnectionState =
   "connecting" | "connected" | "disconnected" | "invalid";

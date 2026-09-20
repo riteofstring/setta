@@ -5,7 +5,7 @@ import type {
   FieldDefinition,
   FieldFilter,
   JsonScalar,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { useLens } from "../app/lensContext";
 import {
   presentationFields,

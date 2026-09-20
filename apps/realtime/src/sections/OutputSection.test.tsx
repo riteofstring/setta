@@ -9,7 +9,7 @@ import {
   runtimeValueKey,
   type RuntimeViewState,
 } from "../app/runtimeState";
-import type { InvocationStatus } from "../backend/generatedContract";
+import type { InvocationStatus } from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import { OutputSection } from "./OutputSection";
 

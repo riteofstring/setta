@@ -5,7 +5,7 @@ import {
   confirmedChoiceOptionId,
   findRequestSnapshot,
 } from "../app/reviewModel";
-import type { RequestSnapshot } from "../backend/generatedContract";
+import type { RequestSnapshot } from "../api/generatedContract";
 import { ChoiceActions } from "./ChoiceActions";
 import { sectionRequestId } from "./sectionModel";
 

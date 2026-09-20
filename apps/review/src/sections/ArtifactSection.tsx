@@ -11,7 +11,7 @@ import type {
   ChoiceOption,
   RequestSnapshot,
   ResolvedEvidenceContent,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { ArtifactAnnotation } from "./ArtifactAnnotation";
 import {
   containedImageBounds,

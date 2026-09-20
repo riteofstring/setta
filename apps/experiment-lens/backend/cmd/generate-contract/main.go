@@ -63,7 +63,7 @@ func generatedOutputs() ([]output, error) {
 		}
 		outputs = append(outputs, output{path: filepath.Join("internal", "contracts", "testdata", candidate.name), data: encoded})
 	}
-	outputs = append(outputs, output{path: filepath.Join("..", "src", "backend", "generatedContract.ts"), data: []byte(contracts.TypeScriptContract())})
+	outputs = append(outputs, output{path: filepath.Join("..", "src", "api", "generatedContract.ts"), data: []byte(contracts.TypeScriptContract())})
 	return outputs, nil
 }
 

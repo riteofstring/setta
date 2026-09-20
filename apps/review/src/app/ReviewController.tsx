@@ -12,7 +12,7 @@ import {
   fetchReviewSnapshot,
   ReviewClientError,
   subscribeReviewSnapshots,
-} from "../backend/client";
+} from "../api/client";
 import type {
   ArtifactAnnotation,
   CompletionDecision,
@@ -20,7 +20,7 @@ import type {
   RequestSnapshot,
   ReviewResponse,
   ReviewSnapshot,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   ReviewContext,
   type ReviewActions,

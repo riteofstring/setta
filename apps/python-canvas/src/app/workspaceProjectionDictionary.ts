@@ -17,7 +17,7 @@ import {
   type DictionaryEntryV2,
   type ParameterDictionaryV2,
   type ProjectSnapshotV2,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   type ParameterDictionarySectionData,
   readDictionaryEntryItem,

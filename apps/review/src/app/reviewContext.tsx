@@ -5,7 +5,7 @@ import type {
   CompletionDecision,
   NormalizedPoint,
   ReviewSnapshot,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 export type ReviewSubjectSelection = Readonly<{
   requestId: string;

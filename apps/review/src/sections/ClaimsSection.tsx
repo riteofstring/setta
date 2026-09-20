@@ -7,7 +7,7 @@ import { useReview } from "../app/reviewContext";
 import type {
   CompletionClaim,
   ExternalAssessment,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { sectionRequestId } from "./sectionModel";
 
 type ClaimSignal =

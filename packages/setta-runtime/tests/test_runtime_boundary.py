@@ -48,6 +48,18 @@ class RuntimeBoundaryCheckerTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("root dispatcher", findings[0].message)
 
+    def test_allows_app_dependency_on_shared_adapter_support(self) -> None:
+        with _fixture_source(
+            {
+                "setta/__init__.py": "",
+                "setta/apps/__init__.py": "",
+                "setta/apps/_support.py": "",
+                "setta/apps/fixture.py": "from ._support import parse_options\n",
+            }
+        ) as source_root:
+            findings = check_import_boundaries(source_root)
+        self.assertEqual(findings, [])
+
     def test_rejects_function_over_documented_complexity_ceiling(self) -> None:
         decisions = "\n".join(
             f"    if flag_{index}: pass" for index in range(MAX_PRODUCTION_COMPLEXITY)

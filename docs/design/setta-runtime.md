@@ -11,6 +11,12 @@ owns exact application IDs and aliases and dispatches without product-specific b
 command context contains only services every registered application can use; application-specific
 tools remain on their owning adapter.
 
+Private adapter support owns only the closed option-token mechanics, packaged-runtime check shape,
+native subprocess boundary, regular non-symlink input reads, bounded JSON responses, and exact live
+session identity probe used through the same contract by multiple adapters. Each adapter still
+declares its accepted flags, commands, byte limits, response error path, environment, application
+identity, and schema version. The support module cannot import an application adapter.
+
 Python Canvas, Realtime, Review, and Experiment Lens have distinct IDs, project identities, native
 servers, web roots, and live-session records. A session key includes the application ID, so
 identical local project paths cannot collide across applications. Compatibility aliases exist only
@@ -33,6 +39,11 @@ roots, registry listing, and doctor output.
 Application bootstraps and other non-web runtime assets must be embedded in the native executable
 or explicitly named by the application descriptor and copied into the wheel. A source-checkout
 path is never a packaged runtime dependency.
+
+`pyproject.toml` is the single checked-in release-version authority. Source-checkout imports read
+that value directly; an installed runtime reads the version from its distribution metadata. The
+custom wheel backend emits core metadata 2.4 from the same project metadata and preserves project
+and third-party license paths beneath the wheel's `.dist-info/licenses` directory.
 
 ## Live server supervision
 

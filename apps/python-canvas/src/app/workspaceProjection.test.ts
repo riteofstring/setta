@@ -10,7 +10,7 @@ import {
 } from "@setta/workspace";
 import { describe, expect, it } from "vitest";
 
-import { parseProjectSnapshotV2 } from "../backend/runtimeContract";
+import { parseProjectSnapshotV2 } from "../api/runtimeContract";
 import { readCallableSectionData } from "../sections/CallableSection";
 import { readParameterDictionarySectionData } from "../sections/ParamDictSection";
 import { registerPythonCanvasSectionKinds } from "./pythonCanvasSectionKinds";

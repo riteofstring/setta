@@ -1,5 +1,5 @@
-import { setPythonTarget } from "../backend/client";
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import { setPythonTarget } from "../api/client";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import {
   changedCanonicalParameterCallableIds,
   sameCanonicalPythonTarget,

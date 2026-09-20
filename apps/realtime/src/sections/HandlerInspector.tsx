@@ -7,7 +7,7 @@ import {
 
 import { realtimeAutomaticStartupSource } from "../app/realtimeGraph";
 import { useRealtime } from "../app/runtimeContext";
-import type { Binding, JsonValue, Project } from "../backend/generatedContract";
+import type { Binding, JsonValue, Project } from "../api/generatedContract";
 import { readHandlerSectionData } from "./sectionData";
 
 const HANDLER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;

@@ -46,8 +46,12 @@ can corrupt the MCP transport stream; protocol stdout remains clean.
 
 ## Live Playground inspection
 
-`pnpm playground:inspect` launches an isolated headless Chrome target against an already running
-Playground. It does not build the package, start a server, or run an application test suite. The
+The Workspace-only playground lives under `examples/` rather than `apps/` because it exercises the
+shared package without defining a fifth Setta product. Its private package name makes that
+ownership explicit while retaining an ordinary workspace dependency.
+
+`pnpm workspace:playground:inspect` launches an isolated headless Chrome target against an already
+running Playground. It does not build the package, start a server, or run an application test suite. The
 default route waits for the real workspace shell and XYFlow surface, records their computed
 geometry, captures a viewport screenshot, reports browser exceptions and console errors, and exits
 nonzero when a measured layout invariant fails. A URL with `focused-section` selects the focused
@@ -56,9 +60,9 @@ header, body, and descendant geometry; and requires both the root and section fr
 owners.
 
 The Playground resolves `@setta/workspace` from its built package. Start it with
-`pnpm --dir apps/playground dev`; that initial command builds the workspace. After any workspace
-source change, run `pnpm --filter @setta/workspace run build` before inspection because the running
-Vite process does not hot-reload unbuilt package source.
+`pnpm workspace:playground`; that initial command builds the workspace. After any workspace source
+change, run `pnpm --filter @setta/workspace run build` before inspection because the running Vite
+process does not hot-reload unbuilt package source.
 
 The default target is `http://localhost:5174/`, the default viewport is 1492 by 696 CSS pixels, and
 the default screenshot is `/tmp/setta-playground-inspection.png`. Callers can provide `--url`,
@@ -68,9 +72,9 @@ before handoff, and the resulting image is reviewed alongside the JSON receipt r
 from source or build output.
 
 ```sh
-pnpm playground:inspect -- --width 630 --height 364 --require-tabs \
+pnpm workspace:playground:inspect -- --width 630 --height 364 --require-tabs \
   --screenshot /tmp/setta-playground-tabs.png
-pnpm playground:inspect -- \
+pnpm workspace:playground:inspect -- \
   --url 'http://localhost:5174/?focused-section=root-group&color-mode=light' \
   --screenshot /tmp/setta-playground-focused-section.png
 ```

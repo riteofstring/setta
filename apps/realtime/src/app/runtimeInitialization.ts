@@ -1,8 +1,4 @@
-import type {
-  Binding,
-  Project,
-  RuntimeEvent,
-} from "../backend/generatedContract";
+import type { Binding, Project, RuntimeEvent } from "../api/generatedContract";
 import { realtimeAutomaticStartupSource } from "./realtimeGraph";
 import { runtimeCanInvoke, type RuntimeViewState } from "./runtimeState";
 

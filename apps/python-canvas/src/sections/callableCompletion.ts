@@ -3,7 +3,7 @@ import type {
   TextValueCompletionResult,
 } from "@setta/workspace";
 
-import { ProjectClientError, completeCallable } from "../backend/client";
+import { ProjectClientError, completeCallable } from "../api/client";
 
 type CallableIdentifierSegmentBounds = {
   from: number;

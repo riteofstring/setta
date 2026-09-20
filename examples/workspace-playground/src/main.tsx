@@ -8,7 +8,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { FocusedSectionApp } from "./FocusedSectionApp";
-import "@setta/playground/styles.css";
+import "@setta/workspace-playground/styles.css";
 import {
   registerPlaygroundKeyBindings,
   registerPlaygroundMenuExtensions,

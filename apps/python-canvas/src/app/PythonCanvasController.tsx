@@ -13,8 +13,8 @@ import {
   connectProjectSnapshotStream,
   fetchProjectSnapshot,
   refreshCallableParameters,
-} from "../backend/client";
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+} from "../api/client";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
 import { createPythonTargetCompletionProvider } from "../sections/pythonTargetCompletion";
 import {

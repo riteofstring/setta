@@ -4,7 +4,7 @@ import type {
   EvidenceReference,
   RequestSnapshot,
   ResolvedEvidence,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 function dataRecord(section: WorkspaceSection): Record<string, unknown> {
   if (

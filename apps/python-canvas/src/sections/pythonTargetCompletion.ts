@@ -3,7 +3,7 @@ import type {
   WorkspaceCodeSectionCompletionResult,
 } from "@setta/workspace";
 
-import { ProjectClientError, completePythonTarget } from "../backend/client";
+import { ProjectClientError, completePythonTarget } from "../api/client";
 import { callableIdentifierSegmentBounds } from "./callableCompletion";
 
 type PythonTargetCompletionProviderOptions = {

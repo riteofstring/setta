@@ -1,6 +1,6 @@
 import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
 
-import type { ProjectSnapshotV2 } from "../backend/generatedContract";
+import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import {
   dictionaryEntryParentPromotionRequired,
   promoteDictionaryEntryParents,

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   InvocationIdentity,
   RuntimeEnvelope,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import { makeProject } from "../testProject";
 import {
   applyRuntimeEnvelope,

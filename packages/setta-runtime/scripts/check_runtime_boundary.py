@@ -165,14 +165,17 @@ def _import_violation(importer: str, imported: str) -> str | None:
         return "platform core modules must not depend on app adapters"
     if not is_app:
         return None
+    return _app_import_violation(importer, imported)
+
+
+def _app_import_violation(importer: str, imported: str) -> str | None:
     if imported == "setta.cli" or imported.startswith("setta.cli."):
         return "app adapters must not import the root dispatcher"
-    if imported.startswith("setta.apps."):
-        if importer == "setta.apps":
-            return None
-        if imported != importer:
-            return "app adapters must not depend on another app implementation"
-    return None
+    if not imported.startswith("setta.apps.") or importer == "setta.apps":
+        return None
+    if imported in {"setta.apps._support", importer}:
+        return None
+    return "app adapters must not depend on another app implementation"
 
 
 def _functions(tree: ast.Module) -> Iterable[ast.FunctionDef | ast.AsyncFunctionDef]:

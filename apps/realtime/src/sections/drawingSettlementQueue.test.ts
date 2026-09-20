@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ContentReference } from "../backend/generatedContract";
+import type { ContentReference } from "../api/generatedContract";
 import {
   DrawingSettlementQueue,
   type DrawingSnapshot,

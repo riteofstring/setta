@@ -45,7 +45,7 @@ function validateManifest(relativePath) {
 const manifestPaths = [
   "package.json",
   "packages/workspace/package.json",
-  "apps/playground/package.json",
+  "examples/workspace-playground/package.json",
   "fixtures/packed-consumer/package.json",
   "fixtures/packed-consumer/package.template.json",
 ];

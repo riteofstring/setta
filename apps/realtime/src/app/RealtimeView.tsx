@@ -14,7 +14,7 @@ import type {
   InvocationStatus,
   Project,
   RuntimeDeclaration,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 import {
   RealtimeContext,
   useRealtime,

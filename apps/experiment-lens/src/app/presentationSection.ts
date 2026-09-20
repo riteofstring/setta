@@ -2,7 +2,7 @@ import type {
   FieldDefinition,
   LensSnapshot,
   PresentationSection,
-} from "../backend/generatedContract";
+} from "../api/generatedContract";
 
 type PresentationSectionType = PresentationSection["type"];
 
