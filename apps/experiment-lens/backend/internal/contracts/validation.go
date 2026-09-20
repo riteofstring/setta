@@ -79,6 +79,29 @@ func (provenance Provenance) Validate() error {
 }
 
 func (manifest ExperimentManifest) Validate() error {
+	if err := manifest.validateShape(); err != nil {
+		return err
+	}
+	if err := validateManifestFields(manifest.Fields); err != nil {
+		return err
+	}
+	if err := manifest.Observations.Validate(); err != nil {
+		return fmt.Errorf("observation source: %w", err)
+	}
+	artifactIDs, err := validateManifestArtifacts(manifest.Artifacts, manifest.Observations.Path)
+	if err != nil {
+		return err
+	}
+	if err := validateManifestRelations(manifest.Relations, artifactIDs); err != nil {
+		return err
+	}
+	if err := manifest.Presentation.Validate(manifest.Fields, manifest.Artifacts, manifest.Relations); err != nil {
+		return fmt.Errorf("presentation: %w", err)
+	}
+	return manifest.Provenance.Validate()
+}
+
+func (manifest ExperimentManifest) validateShape() error {
 	if manifest.Version != ContractVersion {
 		return fmt.Errorf("unsupported manifest version %d", manifest.Version)
 	}
@@ -100,9 +123,13 @@ func (manifest ExperimentManifest) Validate() error {
 	if manifest.Relations == nil || len(manifest.Relations) > maximumRelations {
 		return errors.New("experiment relations are invalid")
 	}
+	return nil
+}
+
+func validateManifestFields(fields []FieldDefinition) error {
 	fieldIDs := map[string]struct{}{}
 	timestamps := 0
-	for _, field := range manifest.Fields {
+	for _, field := range fields {
 		if err := field.Validate(); err != nil {
 			return fmt.Errorf("field %q: %w", field.ID, err)
 		}
@@ -117,25 +144,30 @@ func (manifest ExperimentManifest) Validate() error {
 	if timestamps > 1 {
 		return errors.New("at most one timestamp field is allowed")
 	}
-	if err := manifest.Observations.Validate(); err != nil {
-		return fmt.Errorf("observation source: %w", err)
-	}
+	return nil
+}
+
+func validateManifestArtifacts(artifacts []ArtifactReference, observationPath string) (map[string]struct{}, error) {
 	artifactIDs := map[string]struct{}{}
-	paths := map[string]struct{}{manifest.Observations.Path: {}}
-	for _, artifact := range manifest.Artifacts {
+	paths := map[string]struct{}{observationPath: {}}
+	for _, artifact := range artifacts {
 		if err := artifact.Validate(); err != nil {
-			return fmt.Errorf("artifact %q: %w", artifact.ID, err)
+			return nil, fmt.Errorf("artifact %q: %w", artifact.ID, err)
 		}
 		if _, exists := artifactIDs[artifact.ID]; exists {
-			return fmt.Errorf("artifact %q is repeated", artifact.ID)
+			return nil, fmt.Errorf("artifact %q is repeated", artifact.ID)
 		}
 		if _, exists := paths[artifact.Path]; exists {
-			return fmt.Errorf("input path %q is repeated", artifact.Path)
+			return nil, fmt.Errorf("input path %q is repeated", artifact.Path)
 		}
 		artifactIDs[artifact.ID] = struct{}{}
 		paths[artifact.Path] = struct{}{}
 	}
-	for _, relation := range manifest.Relations {
+	return artifactIDs, nil
+}
+
+func validateManifestRelations(relations []ArtifactRelation, artifactIDs map[string]struct{}) error {
+	for _, relation := range relations {
 		if err := relation.Validate(); err != nil {
 			return err
 		}
@@ -143,10 +175,7 @@ func (manifest ExperimentManifest) Validate() error {
 			return fmt.Errorf("relation references unknown artifact %q", relation.ArtifactID)
 		}
 	}
-	if err := manifest.Presentation.Validate(manifest.Fields, manifest.Artifacts, manifest.Relations); err != nil {
-		return fmt.Errorf("presentation: %w", err)
-	}
-	return manifest.Provenance.Validate()
+	return nil
 }
 
 func (field FieldDefinition) Validate() error {
@@ -260,28 +289,43 @@ func (source ObservationSource) ValidateAgainst(manifest ExperimentManifest) err
 	if source.ExperimentID != manifest.ID {
 		return errors.New("observation source targets another experiment")
 	}
-	fields := map[string]FieldDefinition{}
-	for _, field := range manifest.Fields {
-		fields[field.ID] = field
+	observationIDs, err := validateObservationsAgainstFields(source.Observations, indexFields(manifest.Fields))
+	if err != nil {
+		return err
 	}
+	return validateRelationObservationReferences(manifest.Relations, observationIDs)
+}
+
+func validateObservationsAgainstFields(observations []Observation, fields map[string]FieldDefinition) (map[string]struct{}, error) {
 	observationIDs := map[string]struct{}{}
-	for _, observation := range source.Observations {
+	for _, observation := range observations {
 		observationIDs[observation.ID] = struct{}{}
-		if len(observation.Values) != len(fields) {
-			return fmt.Errorf("observation %q does not contain every declared field", observation.ID)
-		}
-		for fieldID, field := range fields {
-			value, exists := observation.Values[fieldID]
-			if !exists {
-				return fmt.Errorf("observation %q is missing field %q", observation.ID, fieldID)
-			}
-			if err := validateScalar(value, field); err != nil {
-				return fmt.Errorf("observation %q field %q: %w", observation.ID, fieldID, err)
-			}
+		if err := validateObservationAgainstFields(observation, fields); err != nil {
+			return nil, err
 		}
 	}
+	return observationIDs, nil
+}
+
+func validateObservationAgainstFields(observation Observation, fields map[string]FieldDefinition) error {
+	if len(observation.Values) != len(fields) {
+		return fmt.Errorf("observation %q does not contain every declared field", observation.ID)
+	}
+	for fieldID, field := range fields {
+		value, exists := observation.Values[fieldID]
+		if !exists {
+			return fmt.Errorf("observation %q is missing field %q", observation.ID, fieldID)
+		}
+		if err := validateScalar(value, field); err != nil {
+			return fmt.Errorf("observation %q field %q: %w", observation.ID, fieldID, err)
+		}
+	}
+	return nil
+}
+
+func validateRelationObservationReferences(relations []ArtifactRelation, observationIDs map[string]struct{}) error {
 	seenRelations := map[string]struct{}{}
-	for _, relation := range manifest.Relations {
+	for _, relation := range relations {
 		if _, exists := observationIDs[relation.ObservationID]; !exists {
 			return fmt.Errorf("relation references unknown observation %q", relation.ObservationID)
 		}
@@ -323,14 +367,41 @@ func EmptySelection() LensSelection {
 }
 
 func (selection LensSelection) Validate() error {
+	if err := selection.validateShape(); err != nil {
+		return err
+	}
+	if err := validateFieldFilters(selection.Filters); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier(selection.FocusedObservationID, "focused observation id"); err != nil {
+		return err
+	}
+	if err := uniqueIdentifiers(selection.SelectedObservationIDs, "selected observation"); err != nil {
+		return err
+	}
+	if err := uniqueIdentifiers(selection.SelectedArtifactIDs, "selected artifact"); err != nil {
+		return err
+	}
+	rangeIDs, err := validateArtifactRanges(selection.Ranges)
+	if err != nil {
+		return err
+	}
+	return validateSelectionNotes(selection.Notes, rangeIDs)
+}
+
+func (selection LensSelection) validateShape() error {
 	if selection.Filters == nil || selection.SelectedObservationIDs == nil || selection.SelectedArtifactIDs == nil || selection.Ranges == nil || selection.Notes == nil {
 		return errors.New("selection collections are required")
 	}
 	if len(selection.Filters) > maximumFields || len(selection.SelectedObservationIDs) > maximumSelectionIDs || len(selection.SelectedArtifactIDs) > maximumSelectionIDs || len(selection.Ranges) > maximumRanges || len(selection.Notes) > maximumNotes {
 		return errors.New("selection exceeds a size limit")
 	}
+	return nil
+}
+
+func validateFieldFilters(filters []FieldFilter) error {
 	filterFields := map[string]struct{}{}
-	for _, filter := range selection.Filters {
+	for _, filter := range filters {
 		if err := filter.Validate(); err != nil {
 			return err
 		}
@@ -339,29 +410,33 @@ func (selection LensSelection) Validate() error {
 		}
 		filterFields[filter.FieldID] = struct{}{}
 	}
-	if selection.FocusedObservationID != nil {
-		if err := identifier(*selection.FocusedObservationID, "focused observation id"); err != nil {
-			return err
-		}
+	return nil
+}
+
+func validateOptionalIdentifier(value *string, label string) error {
+	if value == nil {
+		return nil
 	}
-	if err := uniqueIdentifiers(selection.SelectedObservationIDs, "selected observation"); err != nil {
-		return err
-	}
-	if err := uniqueIdentifiers(selection.SelectedArtifactIDs, "selected artifact"); err != nil {
-		return err
-	}
+	return identifier(*value, label)
+}
+
+func validateArtifactRanges(ranges []ArtifactRange) (map[string]struct{}, error) {
 	rangeIDs := map[string]struct{}{}
-	for _, selectedRange := range selection.Ranges {
+	for _, selectedRange := range ranges {
 		if err := selectedRange.Validate(); err != nil {
-			return err
+			return nil, err
 		}
 		if _, exists := rangeIDs[selectedRange.ID]; exists {
-			return fmt.Errorf("range %q is repeated", selectedRange.ID)
+			return nil, fmt.Errorf("range %q is repeated", selectedRange.ID)
 		}
 		rangeIDs[selectedRange.ID] = struct{}{}
 	}
+	return rangeIDs, nil
+}
+
+func validateSelectionNotes(notes []SelectionNote, rangeIDs map[string]struct{}) error {
 	noteIDs := map[string]struct{}{}
-	for _, note := range selection.Notes {
+	for _, note := range notes {
 		if err := note.Validate(); err != nil {
 			return err
 		}
@@ -382,19 +457,45 @@ func (selection LensSelection) ValidateAgainst(manifest ExperimentManifest, sour
 	if err := selection.Validate(); err != nil {
 		return err
 	}
-	fields := map[string]FieldDefinition{}
-	for _, field := range manifest.Fields {
-		fields[field.ID] = field
+	fields := indexFields(manifest.Fields)
+	observations := indexObservations(source.Observations)
+	artifacts := indexArtifacts(manifest.Artifacts)
+	if err := validateFiltersAgainstFields(selection.Filters, fields); err != nil {
+		return err
 	}
-	observations := map[string]struct{}{}
-	for _, observation := range source.Observations {
-		observations[observation.ID] = struct{}{}
+	if err := validateFocusedObservationAgainst(selection.FocusedObservationID, observations); err != nil {
+		return err
 	}
-	artifacts := map[string]ArtifactReference{}
-	for _, artifact := range manifest.Artifacts {
-		artifacts[artifact.ID] = artifact
+	if err := validateSelectedObservationsAgainst(selection.SelectedObservationIDs, observations); err != nil {
+		return err
 	}
-	for _, filter := range selection.Filters {
+	if err := validateSelectedArtifactsAgainst(selection.SelectedArtifactIDs, artifacts); err != nil {
+		return err
+	}
+	if err := validateRangesAgainstArtifacts(selection.Ranges, artifacts); err != nil {
+		return err
+	}
+	return validateNotesAgainstInputs(selection.Notes, observations, artifacts)
+}
+
+func indexObservations(observations []Observation) map[string]struct{} {
+	indexed := make(map[string]struct{}, len(observations))
+	for _, observation := range observations {
+		indexed[observation.ID] = struct{}{}
+	}
+	return indexed
+}
+
+func indexArtifacts(artifacts []ArtifactReference) map[string]ArtifactReference {
+	indexed := make(map[string]ArtifactReference, len(artifacts))
+	for _, artifact := range artifacts {
+		indexed[artifact.ID] = artifact
+	}
+	return indexed
+}
+
+func validateFiltersAgainstFields(filters []FieldFilter, fields map[string]FieldDefinition) error {
+	for _, filter := range filters {
 		field, exists := fields[filter.FieldID]
 		if !exists {
 			return fmt.Errorf("selection references unknown field %q", filter.FieldID)
@@ -403,22 +504,39 @@ func (selection LensSelection) ValidateAgainst(manifest ExperimentManifest, sour
 			return err
 		}
 	}
-	if selection.FocusedObservationID != nil {
-		if _, exists := observations[*selection.FocusedObservationID]; !exists {
-			return fmt.Errorf("selection references unknown observation %q", *selection.FocusedObservationID)
-		}
+	return nil
+}
+
+func validateFocusedObservationAgainst(focused *string, observations map[string]struct{}) error {
+	if focused == nil {
+		return nil
 	}
-	for _, id := range selection.SelectedObservationIDs {
+	if _, exists := observations[*focused]; !exists {
+		return fmt.Errorf("selection references unknown observation %q", *focused)
+	}
+	return nil
+}
+
+func validateSelectedObservationsAgainst(selected []string, observations map[string]struct{}) error {
+	for _, id := range selected {
 		if _, exists := observations[id]; !exists {
 			return fmt.Errorf("selection references unknown observation %q", id)
 		}
 	}
-	for _, id := range selection.SelectedArtifactIDs {
+	return nil
+}
+
+func validateSelectedArtifactsAgainst(selected []string, artifacts map[string]ArtifactReference) error {
+	for _, id := range selected {
 		if _, exists := artifacts[id]; !exists {
 			return fmt.Errorf("selection references unknown artifact %q", id)
 		}
 	}
-	for _, selectedRange := range selection.Ranges {
+	return nil
+}
+
+func validateRangesAgainstArtifacts(ranges []ArtifactRange, artifacts map[string]ArtifactReference) error {
+	for _, selectedRange := range ranges {
 		artifact, exists := artifacts[selectedRange.ArtifactID]
 		if !exists {
 			return fmt.Errorf("range %q references unknown artifact %q", selectedRange.ID, selectedRange.ArtifactID)
@@ -427,18 +545,30 @@ func (selection LensSelection) ValidateAgainst(manifest ExperimentManifest, sour
 			return fmt.Errorf("range %q artifact identity does not match", selectedRange.ID)
 		}
 	}
-	for _, note := range selection.Notes {
-		if note.ObservationID != nil {
-			if _, exists := observations[*note.ObservationID]; !exists {
-				return fmt.Errorf("note %q references unknown observation %q", note.ID, *note.ObservationID)
-			}
+	return nil
+}
+
+func validateNotesAgainstInputs(notes []SelectionNote, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
+	for _, note := range notes {
+		if err := validateNoteAgainstInputs(note, observations, artifacts); err != nil {
+			return err
 		}
-		if note.ArtifactID != nil {
-			artifact, exists := artifacts[*note.ArtifactID]
-			if !exists || note.ArtifactSHA256 == nil || artifact.SHA256 != *note.ArtifactSHA256 {
-				return fmt.Errorf("note %q artifact identity does not match", note.ID)
-			}
+	}
+	return nil
+}
+
+func validateNoteAgainstInputs(note SelectionNote, observations map[string]struct{}, artifacts map[string]ArtifactReference) error {
+	if note.ObservationID != nil {
+		if _, exists := observations[*note.ObservationID]; !exists {
+			return fmt.Errorf("note %q references unknown observation %q", note.ID, *note.ObservationID)
 		}
+	}
+	if note.ArtifactID == nil {
+		return nil
+	}
+	artifact, exists := artifacts[*note.ArtifactID]
+	if !exists || note.ArtifactSHA256 == nil || artifact.SHA256 != *note.ArtifactSHA256 {
+		return fmt.Errorf("note %q artifact identity does not match", note.ID)
 	}
 	return nil
 }
@@ -454,16 +584,24 @@ func (filter FieldFilter) Validate() error {
 		return errors.New("filter values are required")
 	}
 	if filter.Operator == "in" {
-		if len(filter.Values) == 0 || len(filter.Values) > 1000 || filter.Minimum != nil || filter.Maximum != nil {
-			return errors.New("in filter shape is invalid")
-		}
-		for _, value := range filter.Values {
-			if _, err := scalar(value); err != nil {
-				return err
-			}
-		}
-		return nil
+		return filter.validateIn()
 	}
+	return filter.validateRange()
+}
+
+func (filter FieldFilter) validateIn() error {
+	if len(filter.Values) == 0 || len(filter.Values) > 1000 || filter.Minimum != nil || filter.Maximum != nil {
+		return errors.New("in filter shape is invalid")
+	}
+	for _, value := range filter.Values {
+		if _, err := scalar(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (filter FieldFilter) validateRange() error {
 	if len(filter.Values) != 0 || filter.Minimum == nil && filter.Maximum == nil {
 		return errors.New("range filter shape is invalid")
 	}
@@ -520,37 +658,61 @@ func (note SelectionNote) Validate() error {
 	if err := requiredText(note.Text, 8000, "note text"); err != nil {
 		return err
 	}
-	anchors := 0
-	if note.ObservationID != nil {
-		anchors++
-		if err := identifier(*note.ObservationID, "note observation id"); err != nil {
-			return err
-		}
+	observationAnchors, err := validateNoteObservationAnchor(note.ObservationID)
+	if err != nil {
+		return err
 	}
-	if note.ArtifactID != nil {
-		anchors++
-		if note.ArtifactSHA256 == nil {
-			return errors.New("artifact note requires an artifact digest")
-		}
-		if err := identifier(*note.ArtifactID, "note artifact id"); err != nil {
-			return err
-		}
-		if err := digest(*note.ArtifactSHA256, "note artifact digest"); err != nil {
-			return err
-		}
-	} else if note.ArtifactSHA256 != nil {
-		return errors.New("note artifact digest requires an artifact id")
+	artifactAnchors, err := validateNoteArtifactAnchor(note.ArtifactID, note.ArtifactSHA256)
+	if err != nil {
+		return err
 	}
-	if note.RangeID != nil {
-		anchors++
-		if err := identifier(*note.RangeID, "note range id"); err != nil {
-			return err
-		}
+	rangeAnchors, err := validateNoteRangeAnchor(note.RangeID)
+	if err != nil {
+		return err
 	}
-	if anchors == 0 {
+	if observationAnchors+artifactAnchors+rangeAnchors == 0 {
 		return errors.New("note requires an observation, artifact, or range anchor")
 	}
 	return nil
+}
+
+func validateNoteObservationAnchor(observationID *string) (int, error) {
+	if observationID == nil {
+		return 0, nil
+	}
+	if err := identifier(*observationID, "note observation id"); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+func validateNoteArtifactAnchor(artifactID *string, artifactSHA256 *string) (int, error) {
+	if artifactID == nil {
+		if artifactSHA256 != nil {
+			return 0, errors.New("note artifact digest requires an artifact id")
+		}
+		return 0, nil
+	}
+	if artifactSHA256 == nil {
+		return 0, errors.New("artifact note requires an artifact digest")
+	}
+	if err := identifier(*artifactID, "note artifact id"); err != nil {
+		return 0, err
+	}
+	if err := digest(*artifactSHA256, "note artifact digest"); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+func validateNoteRangeAnchor(rangeID *string) (int, error) {
+	if rangeID == nil {
+		return 0, nil
+	}
+	if err := identifier(*rangeID, "note range id"); err != nil {
+		return 0, err
+	}
+	return 1, nil
 }
 
 func (mutation LensMutation) Validate() error {
@@ -573,30 +735,56 @@ func (series SeriesDocument) Validate() error {
 	if err := series.Axis.Validate(); err != nil {
 		return err
 	}
+	if err := series.validateShape(); err != nil {
+		return err
+	}
+	definitions, err := validateSeriesDefinitions(series.Series)
+	if err != nil {
+		return err
+	}
+	return validateSeriesSamples(series.Samples, definitions)
+}
+
+func (series SeriesDocument) validateShape() error {
 	if len(series.Series) == 0 || len(series.Series) > 64 || len(series.Samples) == 0 || len(series.Samples) > 100000 {
 		return errors.New("series dimensions are invalid")
 	}
+	return nil
+}
+
+func validateSeriesDefinitions(series []SeriesDefinition) (map[string]struct{}, error) {
 	definitions := map[string]struct{}{}
-	for _, definition := range series.Series {
+	for _, definition := range series {
 		if err := definition.Validate(); err != nil {
-			return err
+			return nil, err
 		}
 		if _, exists := definitions[definition.ID]; exists {
-			return fmt.Errorf("series %q is repeated", definition.ID)
+			return nil, fmt.Errorf("series %q is repeated", definition.ID)
 		}
 		definitions[definition.ID] = struct{}{}
 	}
+	return definitions, nil
+}
+
+func validateSeriesSamples(samples []SeriesSample, definitions map[string]struct{}) error {
 	last := math.Inf(-1)
-	for _, sample := range series.Samples {
+	for _, sample := range samples {
 		if !finite(sample.X) || sample.X < last || len(sample.Values) != len(definitions) {
 			return errors.New("series sample axis or values are invalid")
 		}
 		last = sample.X
-		for id := range definitions {
-			value, exists := sample.Values[id]
-			if !exists || value != nil && !finite(*value) {
-				return fmt.Errorf("series sample value %q is invalid", id)
-			}
+		if err := validateSeriesSampleValues(sample, definitions); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSeriesSampleValues(sample SeriesSample, definitions map[string]struct{}) error {
+	for id := range definitions {
+		value, exists := sample.Values[id]
+		if !exists || value != nil && !finite(*value) {
+			return fmt.Errorf("series sample value %q is invalid", id)
 		}
 	}
 	return nil
@@ -628,122 +816,63 @@ func (definition SeriesDefinition) Validate() error {
 	return nil
 }
 
-func (snapshot LensSnapshot) Validate() error {
-	if snapshot.Version != ContractVersion || snapshot.ManifestPath != "experiment.json" {
-		return errors.New("snapshot identity is invalid")
-	}
-	if err := digest(snapshot.ManifestSHA256, "snapshot manifest digest"); err != nil {
-		return err
-	}
-	if snapshot.ObservationSourcePath != snapshot.Experiment.Observations.Path || snapshot.ObservationSourceSHA256 != snapshot.Experiment.Observations.SHA256 {
-		return errors.New("snapshot observation source identity does not match")
-	}
-	if err := snapshot.Experiment.Validate(); err != nil {
-		return err
-	}
-	source := ObservationSource{Version: ContractVersion, ExperimentID: snapshot.Experiment.ID, Observations: snapshot.Observations}
-	if err := source.ValidateAgainst(snapshot.Experiment); err != nil {
-		return err
-	}
-	if len(snapshot.Artifacts) != len(snapshot.Experiment.Artifacts) {
-		return errors.New("snapshot artifact collection does not match")
-	}
-	for index, artifact := range snapshot.Artifacts {
-		if artifact.Reference.ID != snapshot.Experiment.Artifacts[index].ID {
-			return errors.New("snapshot artifact order does not match")
-		}
-		if !oneOf(artifact.Status, "resolved", "failed") || artifact.Status == "resolved" && (artifact.Content == nil || artifact.Error != nil) || artifact.Status == "failed" && (artifact.Content != nil || artifact.Error == nil) {
-			return errors.New("snapshot artifact resolution is invalid")
-		}
-	}
-	return snapshot.Selection.ValidateAgainst(snapshot.Experiment, source)
-}
-
-func (packet SelectionPacket) Validate() error {
-	if packet.Version != ContractVersion || packet.ID != fmt.Sprintf("%s-r%d", packet.Experiment.ID, packet.Revision) {
-		return errors.New("selection packet identity is invalid")
-	}
-	if err := identifier(packet.Experiment.ID, "packet experiment id"); err != nil {
-		return err
-	}
-	if err := requiredText(packet.Experiment.Title, 300, "packet experiment title"); err != nil {
-		return err
-	}
-	if err := requiredText(packet.Experiment.Summary, 4000, "packet experiment summary"); err != nil {
-		return err
-	}
-	if packet.Source.ManifestPath != "experiment.json" {
-		return errors.New("packet manifest path is invalid")
-	}
-	if err := digest(packet.Source.ManifestSHA256, "packet manifest digest"); err != nil {
-		return err
-	}
-	if err := relativePath(packet.Source.ObservationSourcePath); err != nil {
-		return err
-	}
-	if err := digest(packet.Source.ObservationSourceSHA256, "packet observation digest"); err != nil {
-		return err
-	}
-	if err := packet.Selection.Validate(); err != nil {
-		return err
-	}
-	for _, observation := range packet.Observations {
-		if err := observation.Validate(); err != nil {
-			return err
-		}
-	}
-	for _, artifact := range packet.Artifacts {
-		if err := artifact.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (result MutationResult) Validate() error {
-	if result.Version != ContractVersion {
-		return errors.New("mutation result version is invalid")
-	}
-	return result.Snapshot.Validate()
-}
-
-func (result ExportResult) Validate() error {
-	if result.Version != ContractVersion {
-		return errors.New("export result version is invalid")
-	}
-	return result.Packet.Validate()
-}
-
 func validateScalar(raw json.RawMessage, field FieldDefinition) error {
 	value, err := scalar(raw)
 	if err != nil {
 		return err
 	}
 	if value == nil {
-		if field.Nullable {
-			return nil
-		}
-		return errors.New("null is not allowed")
+		return validateNullableScalar(field.Nullable)
 	}
 	switch field.ValueType {
 	case "number":
-		if _, ok := value.(float64); !ok {
-			return errors.New("value must be a number")
-		}
+		return validateNumberScalar(value)
 	case "string":
-		if text, ok := value.(string); !ok || len(text) > 4000 {
-			return errors.New("value must be a bounded string")
-		}
+		return validateStringScalar(value)
 	case "boolean":
-		if _, ok := value.(bool); !ok {
-			return errors.New("value must be a boolean")
-		}
+		return validateBooleanScalar(value)
 	case "timestamp":
-		text, ok := value.(string)
-		parsed, parseErr := time.Parse(time.RFC3339, text)
-		if !ok || parseErr != nil || parsed.Format(time.RFC3339) != text {
-			return errors.New("value must be a canonical RFC3339 timestamp")
-		}
+		return validateTimestampScalar(value)
+	}
+	return nil
+}
+
+func validateNullableScalar(nullable bool) error {
+	if nullable {
+		return nil
+	}
+	return errors.New("null is not allowed")
+}
+
+func validateNumberScalar(value any) error {
+	if _, ok := value.(float64); !ok {
+		return errors.New("value must be a number")
+	}
+	return nil
+}
+
+func validateStringScalar(value any) error {
+	if text, ok := value.(string); !ok || len(text) > 4000 {
+		return errors.New("value must be a bounded string")
+	}
+	return nil
+}
+
+func validateBooleanScalar(value any) error {
+	if _, ok := value.(bool); !ok {
+		return errors.New("value must be a boolean")
+	}
+	return nil
+}
+
+func validateTimestampScalar(value any) error {
+	text, ok := value.(string)
+	if !ok {
+		return errors.New("value must be a canonical RFC3339 timestamp")
+	}
+	parsed, err := time.Parse(time.RFC3339, text)
+	if err != nil || parsed.Format(time.RFC3339) != text {
+		return errors.New("value must be a canonical RFC3339 timestamp")
 	}
 	return nil
 }
