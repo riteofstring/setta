@@ -168,7 +168,7 @@ drawn feedback to an exact artifact revision.
 - Attention and framing bring every source for the selected subject into view.
 - Managed windows make candidate, diff, log, artifact, and proposal comparison a first-class
   interaction.
-- Saved views can provide Request, Evidence, Compare, and Response presentations over one record.
+- Native Current and Old saved views keep active work focused without discarding finished reviews.
 - Inspector controls can record a small decision without turning the app into a form builder.
 
 Historical questions, approval cards, agent-run events, tool calls, Git views, previews,
@@ -183,7 +183,8 @@ foundation.
    questions, proposals, and candidate sets with type-specific presentations.
 3. Resolve Git hunks, UTF-8 text or log ranges, JSON results, and local file artifacts, and attach
    drawing overlays to exact artifact revisions.
-4. Export a versioned review response and optional continuation packet.
+4. Persist a versioned response that any producer can read; offer file materialization only as an
+   optional CLI boundary for external tools.
 
 The first version does not run or resume an agent, edit source, execute tests, invoke tools, commit
 or push Git changes, contact providers, authenticate remote services, or infer whether a claim is

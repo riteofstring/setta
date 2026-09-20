@@ -87,7 +87,6 @@ button {
   flex: 0 0 auto;
 }
 
-.review-app-actions > button,
 .review-choice-actions button,
 .review-decision-actions button,
 .review-artifact-toolbar button {
@@ -101,14 +100,12 @@ button {
   font-weight: 650;
 }
 
-.review-app-actions > button:hover,
 .review-choice-actions button:hover,
 .review-decision-actions button:hover,
 .review-artifact-toolbar button:hover {
   border-color: #4f86f7;
 }
 
-.review-app-actions > button:disabled,
 .review-choice-actions button:disabled,
 .review-decision-actions button:disabled,
 .review-artifact-toolbar button:disabled {
@@ -919,12 +916,6 @@ button {
 
   .review-app-actions > span {
     display: none;
-  }
-
-  .review-app-actions > button {
-    min-height: 28px;
-    padding: 4px 7px;
-    font-size: 11px;
   }
 
   .review-human-decision-fields {

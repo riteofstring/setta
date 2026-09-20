@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   applyReviewMutation,
-  exportReview,
   fetchReviewSnapshot,
   ReviewClientError,
   subscribeReviewSnapshots,
@@ -162,18 +161,6 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return "Review could not complete the operation.";
-}
-
-function downloadExport(snapshot: ReviewSnapshot, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2), "\n"], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.download = `${snapshot.project.id}-review-export.json`;
-  anchor.href = url;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function frameSections(
@@ -451,20 +438,6 @@ export function ReviewController() {
         applyResponse(requestId, (request) =>
           completionResponse(request, decision),
         ),
-      exportReview: async () => {
-        const current = readyRef.current;
-        if (!current) {
-          throw new Error("Review is still loading.");
-        }
-        try {
-          const result = await exportReview(true);
-          downloadExport(current.snapshot, result.export);
-          setError(null);
-        } catch (caught) {
-          setError(errorMessage(caught));
-          throw caught;
-        }
-      },
       requestChanges: (requestId, rationale) =>
         applyResponse(requestId, (request) =>
           changesRequestedResponse(
