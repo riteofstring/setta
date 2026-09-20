@@ -5,6 +5,11 @@ import {
   fitWorkspaceViewportToBounds,
   type WorkspaceViewportBoundsFitOptions,
 } from "../canvas/viewportHelpers";
+import { getReactFlowStore } from "../canvas/store";
+import {
+  getWorkspaceXyflowRuntime,
+  subscribeWorkspaceXyflowRuntime,
+} from "../canvas/xyflow/workspaceXyflowRuntime";
 import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
 import { getWorkspaceDocumentStore } from "../document/stores";
 import { getSectionRefsStore } from "../section/sectionRefs";
@@ -38,7 +43,16 @@ type WorkspaceSectionAttentionStoreState = WorkspaceSectionAttentionState & {
 };
 
 type WorkspaceSectionAttentionRuntime = {
+  currentFit: WorkspaceSectionFitOperation | null;
+  fitOwner: number;
   store: ReturnType<typeof createWorkspaceSectionAttentionStore>;
+};
+
+type WorkspaceSectionFitOperation = {
+  cleanup: () => void;
+  owner: number;
+  resolve: () => void;
+  settled: boolean;
 };
 
 const EMPTY_SECTION_IDS: ReadonlyArray<string> = Object.freeze([]);
@@ -65,10 +79,13 @@ function getWorkspaceSectionAttentionRuntime(
     return existing;
   }
   const runtime: WorkspaceSectionAttentionRuntime = {
+    currentFit: null,
+    fitOwner: 0,
     store: createWorkspaceSectionAttentionStore(),
   };
   runtimesByHost.set(host, runtime);
   registerWorkspaceHostCleanup(host, () => {
+    cancelWorkspaceSectionFit(runtime);
     runtimesByHost.delete(host);
   });
   return runtime;
@@ -107,17 +124,12 @@ function hasPositiveSectionBounds(bounds: Rect | null): bounds is Rect {
   );
 }
 
-function getValidatedWorkspaceSectionBounds(
+function getValidatedWorkspaceSectionIds(
   host: WorkspaceHost,
   sectionIds: ReadonlyArray<string>,
-): { bounds: Rect; sectionIds: ReadonlyArray<string> } {
+): ReadonlyArray<string> {
   const uniqueIds = getUniqueSectionIds(sectionIds);
-  if (uniqueIds.length === 0) {
-    throw new Error("Cannot fit an empty workspace section set.");
-  }
   const documentState = getWorkspaceDocumentStore(host).getState();
-  const refs = getSectionRefsStore(host).getState();
-  const rects: Array<Rect> = [];
   for (const sectionId of uniqueIds) {
     if (!Object.hasOwn(documentState.sections, sectionId)) {
       throw new Error(`Cannot attend unknown workspace section ${sectionId}.`);
@@ -125,27 +137,27 @@ function getValidatedWorkspaceSectionBounds(
     if (!isWorkspaceSectionVisible(documentState, sectionId)) {
       throw new Error(`Cannot attend hidden workspace section ${sectionId}.`);
     }
-    if (!refs.selfOnly[sectionId] && !refs.withNested[sectionId]) {
-      throw new Error(
-        `Cannot attend workspace section ${sectionId} before its section shell mounted.`,
-      );
-    }
+  }
+  return uniqueIds;
+}
+
+function getReadyWorkspaceSectionBounds(
+  host: WorkspaceHost,
+  sectionIds: ReadonlyArray<string>,
+): Rect | null {
+  const refs = getSectionRefsStore(host).getState();
+  const rects: Array<Rect> = [];
+  for (const sectionId of sectionIds) {
+    if (!refs.selfOnly[sectionId] && !refs.withNested[sectionId]) return null;
     const bounds = getSectionRect(host, sectionId, true);
-    if (!hasPositiveSectionBounds(bounds)) {
-      throw new Error(
-        `Cannot attend workspace section ${sectionId} with empty section shell bounds.`,
-      );
-    }
+    if (!hasPositiveSectionBounds(bounds)) return null;
     rects.push(bounds);
   }
   const left = Math.min(...rects.map((rect) => rect.x));
   const top = Math.min(...rects.map((rect) => rect.y));
   const right = Math.max(...rects.map((rect) => rect.x + rect.width));
   const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
-  return {
-    bounds: { x: left, y: top, width: right - left, height: bottom - top },
-    sectionIds: uniqueIds,
-  };
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function assertWorkspaceSectionFitOptions(
@@ -206,29 +218,155 @@ function settleWorkspaceSectionFitTransition(
   runtime.store.setState({ isTransitioning: false });
 }
 
+function settleWorkspaceSectionFitOperation(
+  runtime: WorkspaceSectionAttentionRuntime,
+  operation: WorkspaceSectionFitOperation,
+): void {
+  if (operation.settled) return;
+  operation.settled = true;
+  operation.cleanup();
+  if (runtime.currentFit === operation) runtime.currentFit = null;
+  operation.resolve();
+}
+
+function cancelWorkspaceSectionFit(
+  runtime: WorkspaceSectionAttentionRuntime,
+): void {
+  runtime.fitOwner += 1;
+  const operation = runtime.currentFit;
+  if (operation) settleWorkspaceSectionFitOperation(runtime, operation);
+  const current = runtime.store.getState();
+  runtime.store.setState({
+    isTransitioning: false,
+    transitionOwner: current.transitionOwner + 1,
+  });
+}
+
+function isWorkspaceSectionFitSurfaceReady(host: WorkspaceHost): boolean {
+  const { height, viewportInsets, width } = getReactFlowStore(host).getState();
+  return (
+    [height, width, ...Object.values(viewportInsets)].every(Number.isFinite) &&
+    width - viewportInsets.left - viewportInsets.right > 0 &&
+    height - viewportInsets.top - viewportInsets.bottom > 0 &&
+    getWorkspaceXyflowRuntime(host).getInstance() !== null
+  );
+}
+
+function observeWorkspaceSectionFitElements(
+  host: WorkspaceHost,
+  sectionIds: ReadonlyArray<string>,
+  observer: ResizeObserver | null,
+  observedElements: Set<HTMLElement>,
+): void {
+  if (!observer) return;
+  const refs = getSectionRefsStore(host).getState();
+  for (const sectionId of sectionIds) {
+    const element = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
+    if (element && !observedElements.has(element)) {
+      observedElements.add(element);
+      observer.observe(element);
+    }
+  }
+}
+
 export function fitWorkspaceSections(
   host: WorkspaceHost,
   sectionIds: ReadonlyArray<string>,
   options?: WorkspaceSectionFitOptions,
-): void {
-  const target = getValidatedWorkspaceSectionBounds(host, sectionIds);
-  const fit = fitWorkspaceViewportToBounds(
-    host,
-    target.bounds,
-    resolveWorkspaceSectionFitOptions(options),
-  );
-  const runtime = getWorkspaceSectionAttentionRuntime(host);
-  const transitionOwner = setWorkspaceSectionFitTransition(
-    runtime,
-    fit.duration,
-  );
-  if (fit.duration === 0) {
-    return;
+): Promise<void> {
+  const targetSectionIds = getValidatedWorkspaceSectionIds(host, sectionIds);
+  if (targetSectionIds.length === 0) {
+    throw new Error("Cannot fit an empty workspace section set.");
   }
-  void fit.transition.then(
-    () => settleWorkspaceSectionFitTransition(runtime, transitionOwner),
-    () => settleWorkspaceSectionFitTransition(runtime, transitionOwner),
+  const fitOptions = resolveWorkspaceSectionFitOptions(options);
+  const runtime = getWorkspaceSectionAttentionRuntime(host);
+  cancelWorkspaceSectionFit(runtime);
+  const owner = runtime.fitOwner + 1;
+  runtime.fitOwner = owner;
+  let resolveOperation = () => {};
+  const result = new Promise<void>((resolve) => {
+    resolveOperation = resolve;
+  });
+  const operation: WorkspaceSectionFitOperation = {
+    cleanup: () => {},
+    owner,
+    resolve: resolveOperation,
+    settled: false,
+  };
+  runtime.currentFit = operation;
+  const observedElements = new Set<HTMLElement>();
+  let attempting = false;
+  let readinessSettled = false;
+  let attempt = () => {};
+  const resizeObserver =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => attempt());
+  const unsubscribeDocument = getWorkspaceDocumentStore(host).subscribe(() =>
+    attempt(),
   );
+  const unsubscribeRefs = getSectionRefsStore(host).subscribe(() => attempt());
+  const unsubscribeCanvas = getReactFlowStore(host).subscribe(() => attempt());
+  const unsubscribeRuntime = subscribeWorkspaceXyflowRuntime(host, () =>
+    attempt(),
+  );
+  const cleanupReadiness = () => {
+    if (readinessSettled) return;
+    readinessSettled = true;
+    resizeObserver?.disconnect();
+    unsubscribeCanvas();
+    unsubscribeDocument();
+    unsubscribeRefs();
+    unsubscribeRuntime();
+  };
+  operation.cleanup = cleanupReadiness;
+  attempt = () => {
+    if (
+      attempting ||
+      operation.settled ||
+      runtime.currentFit !== operation ||
+      runtime.fitOwner !== operation.owner
+    ) {
+      return;
+    }
+    attempting = true;
+    try {
+      try {
+        getValidatedWorkspaceSectionIds(host, targetSectionIds);
+      } catch {
+        settleWorkspaceSectionFitOperation(runtime, operation);
+        return;
+      }
+      observeWorkspaceSectionFitElements(
+        host,
+        targetSectionIds,
+        resizeObserver,
+        observedElements,
+      );
+      const bounds = getReadyWorkspaceSectionBounds(host, targetSectionIds);
+      if (!bounds || !isWorkspaceSectionFitSurfaceReady(host)) return;
+      cleanupReadiness();
+      const fit = fitWorkspaceViewportToBounds(host, bounds, fitOptions);
+      const transitionOwner = setWorkspaceSectionFitTransition(
+        runtime,
+        fit.duration,
+      );
+      void fit.transition.then(
+        () => {
+          settleWorkspaceSectionFitTransition(runtime, transitionOwner);
+          settleWorkspaceSectionFitOperation(runtime, operation);
+        },
+        () => {
+          settleWorkspaceSectionFitTransition(runtime, transitionOwner);
+          settleWorkspaceSectionFitOperation(runtime, operation);
+        },
+      );
+    } finally {
+      attempting = false;
+    }
+  };
+  attempt();
+  return result;
 }
 
 export function setWorkspaceSectionAttention(
@@ -243,16 +381,15 @@ export function setWorkspaceSectionAttention(
     }
     return;
   }
-  const target = getValidatedWorkspaceSectionBounds(host, uniqueIds);
-  if (
-    !sectionIdsEqual(runtime.store.getState().sectionIds, target.sectionIds)
-  ) {
-    runtime.store.setState({ sectionIds: target.sectionIds });
+  const targetSectionIds = getValidatedWorkspaceSectionIds(host, uniqueIds);
+  if (!sectionIdsEqual(runtime.store.getState().sectionIds, targetSectionIds)) {
+    runtime.store.setState({ sectionIds: targetSectionIds });
   }
 }
 
 export function resetWorkspaceSectionAttention(host: WorkspaceHost): void {
   const runtime = getWorkspaceSectionAttentionRuntime(host);
+  cancelWorkspaceSectionFit(runtime);
   const current = runtime.store.getState();
   runtime.store.setState({
     isTransitioning: false,

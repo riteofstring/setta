@@ -281,7 +281,7 @@ describe("workspace section attention", () => {
     expect(setViewport).not.toHaveBeenCalled();
   });
 
-  it("rejects hidden, unmounted, and empty-shell targets without a partial attention change", () => {
+  it("rejects hidden targets but accepts known visible attention before measurement", () => {
     setWorkspaceSectionAttention(testWorkspace.host, ["leaf"]);
     testWorkspace.document.setState({ savedViews: createSavedViews() });
 
@@ -298,11 +298,11 @@ describe("workspace section attention", () => {
         root: createShell({ height: 500, width: 700, x: 100, y: 100 }),
       },
     });
-    expect(() =>
-      setWorkspaceSectionAttention(testWorkspace.host, ["nested"]),
-    ).toThrowError(
-      "Cannot attend workspace section nested before its section shell mounted.",
-    );
+    setWorkspaceSectionAttention(testWorkspace.host, ["nested"]);
+    expect(getWorkspaceSectionAttentionState(testWorkspace.host)).toEqual({
+      isTransitioning: false,
+      sectionIds: ["nested"],
+    });
 
     testWorkspace.sectionRefs.setState({
       selfOnly: {
@@ -313,15 +313,140 @@ describe("workspace section attention", () => {
         root: createShell({ height: 500, width: 700, x: 100, y: 100 }),
       },
     });
-    expect(() =>
-      setWorkspaceSectionAttention(testWorkspace.host, ["nested"]),
-    ).toThrowError(
-      "Cannot attend workspace section nested with empty section shell bounds.",
-    );
+    setWorkspaceSectionAttention(testWorkspace.host, ["nested"]);
     expect(getWorkspaceSectionAttentionState(testWorkspace.host)).toEqual({
       isTransitioning: false,
-      sectionIds: ["leaf"],
+      sectionIds: ["nested"],
     });
+  });
+
+  it("waits for a requested section shell to mount before fitting", async () => {
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+    const refs = testWorkspace.sectionRefs.getState();
+    testWorkspace.sectionRefs.setState({
+      selfOnly: { leaf: refs.selfOnly.leaf },
+      withNested: refs.withNested,
+    });
+
+    const fit = fitWorkspaceSections(testWorkspace.host, ["nested"], {
+      duration: 0,
+    });
+    expect(setViewport).not.toHaveBeenCalled();
+
+    testWorkspace.sectionRefs.setState({
+      selfOnly: {
+        leaf: refs.selfOnly.leaf,
+        nested: createShell({ height: 80, width: 100, x: 300, y: 200 }),
+      },
+      withNested: refs.withNested,
+    });
+    await fit;
+
+    expect(setViewport).toHaveBeenCalledOnce();
+  });
+
+  it("waits for a mounted section shell to acquire positive bounds", async () => {
+    let height = 0;
+    let notifyResize: ResizeObserverCallback | null = null;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = callback;
+        }
+        disconnect() {}
+        observe() {}
+        unobserve() {}
+      },
+    );
+    const shell = {
+      get clientHeight() {
+        return height;
+      },
+      clientWidth: 100,
+      getBoundingClientRect: () => ({ x: 300, y: 200 }),
+    } as unknown as HTMLElement;
+    const refs = testWorkspace.sectionRefs.getState();
+    testWorkspace.sectionRefs.setState({
+      selfOnly: { ...refs.selfOnly, nested: shell },
+      withNested: refs.withNested,
+    });
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+
+    const fit = fitWorkspaceSections(testWorkspace.host, ["nested"], {
+      duration: 0,
+    });
+    expect(setViewport).not.toHaveBeenCalled();
+    height = 80;
+    if (!notifyResize) throw new Error("Expected a section resize observer.");
+    notifyResize([], {} as ResizeObserver);
+    await fit;
+
+    expect(setViewport).toHaveBeenCalledOnce();
+  });
+
+  it("waits for the canvas runtime after section projection is ready", async () => {
+    const fit = fitWorkspaceSections(testWorkspace.host, ["nested"], {
+      duration: 0,
+    });
+
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+    await fit;
+
+    expect(setViewport).toHaveBeenCalledOnce();
+  });
+
+  it("settles a superseded pending fit without applying it later", async () => {
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+    const refs = testWorkspace.sectionRefs.getState();
+    testWorkspace.sectionRefs.setState({
+      selfOnly: { leaf: refs.selfOnly.leaf },
+      withNested: refs.withNested,
+    });
+
+    const superseded = fitWorkspaceSections(testWorkspace.host, ["nested"], {
+      duration: 0,
+    });
+    const active = fitWorkspaceSections(testWorkspace.host, ["leaf"], {
+      duration: 0,
+    });
+    await Promise.all([superseded, active]);
+    testWorkspace.sectionRefs.setState({
+      selfOnly: {
+        leaf: refs.selfOnly.leaf,
+        nested: createShell({ height: 80, width: 100, x: 300, y: 200 }),
+      },
+      withNested: refs.withNested,
+    });
+
+    expect(setViewport).toHaveBeenCalledOnce();
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: -125, y: -50, zoom: 1 },
+      { duration: 0 },
+    );
+  });
+
+  it("settles pending fits when their target becomes hidden or is deleted", async () => {
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+    const refs = testWorkspace.sectionRefs.getState();
+    testWorkspace.sectionRefs.setState({
+      selfOnly: { leaf: refs.selfOnly.leaf },
+      withNested: refs.withNested,
+    });
+
+    const hidden = fitWorkspaceSections(testWorkspace.host, ["nested"]);
+    testWorkspace.document.setState({ savedViews: createSavedViews() });
+    await hidden;
+
+    testWorkspace.document.setState({ savedViews: null });
+    const deleted = fitWorkspaceSections(testWorkspace.host, ["nested"]);
+    const document = testWorkspace.document.getState();
+    const sections = { ...document.sections };
+    delete sections.nested;
+    testWorkspace.document.setState({ sections });
+    await deleted;
+
+    expect(setViewport).not.toHaveBeenCalled();
   });
 
   it("releases the gesture lock when XYFlow reports the transition complete", async () => {
@@ -458,6 +583,36 @@ describe("workspace section attention", () => {
     expect(
       getWorkspaceSectionAttentionState(testWorkspace.host).isTransitioning,
     ).toBe(false);
+  });
+
+  it("settles an unmeasured fit when a replacement document loads", async () => {
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
+    setupXyflowRuntime(testWorkspace);
+    testWorkspace.sectionRefs.setState({ selfOnly: {}, withNested: {} });
+    const fit = fitWorkspaceSections(testWorkspace.host, ["leaf"]);
+
+    loadWorkspaceDocument(testWorkspace.host, createLoadedDocument());
+    await fit;
+
+    expect(getWorkspaceSectionAttentionState(testWorkspace.host)).toEqual({
+      isTransitioning: false,
+      sectionIds: [],
+    });
+  });
+
+  it("settles an unmeasured fit when its host is disposed", async () => {
+    const workspace = createWorkspaceTestHost();
+    populateWorkspace(workspace);
+    workspace.sectionRefs.setState({ selfOnly: {}, withNested: {} });
+    const { setViewport } = setupXyflowRuntime(workspace);
+    const fit = fitWorkspaceSections(workspace.host, ["nested"]);
+
+    workspace.host.dispose();
+    await fit;
+
+    expect(setViewport).not.toHaveBeenCalled();
   });
 
   it("keeps attention isolated between workspace hosts", () => {

@@ -113,11 +113,14 @@ once and returns the original `DataTransfer` and drag event to the host. MIME in
 authorization, creation, persistence, and feedback remain application responsibilities. Browser
 objects never enter the document.
 
-Multi-section attention is host-owned transient presentation state. One command fits the union of
-validated mounted section-shell bounds and another controls the highlighted section set. A fit
-temporarily disables conflicting viewport input until the renderer transition settles; highlight
-removal lingers to preserve main's visual cadence. Complete document load clears the runtime. The
-feature neither changes selection nor writes presentation state into `WorkspaceDocument`.
+Multi-section attention is host-owned transient presentation state. Semantic validation rejects an
+unknown or hidden target without depending on render timing. Highlight state can therefore precede
+the target's active canvas or managed-window projection. A fit waits on package-owned shell,
+canvas, and renderer readiness signals, then frames the measured union and temporarily disables
+conflicting viewport input until the renderer transition settles. Supersession, target
+invalidation, complete document load, and host disposal settle a pending fit without applying stale
+geometry. Highlight removal lingers to preserve main's visual cadence. The feature neither changes
+selection nor writes presentation state into `WorkspaceDocument`.
 
 ## Managed-window geometry authority
 

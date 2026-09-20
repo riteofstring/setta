@@ -435,7 +435,7 @@ function PlaygroundCanvasActions({
         className="playground-menu-action"
         onClick={() => {
           try {
-            fitWorkspaceSections(host, PLAYGROUND_ATTENTION_SECTION_IDS);
+            void fitWorkspaceSections(host, PLAYGROUND_ATTENTION_SECTION_IDS);
             setWorkspaceSectionAttention(
               host,
               PLAYGROUND_ATTENTION_SECTION_IDS,

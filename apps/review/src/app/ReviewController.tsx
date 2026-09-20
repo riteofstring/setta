@@ -167,23 +167,12 @@ function frameSections(
   host: WorkspaceHost,
   sectionIds: readonly string[],
 ): void {
-  if (sectionIds.length === 0) {
-    return;
-  }
-  const attempt = (retry: boolean) => {
-    try {
-      fitWorkspaceSections(host, sectionIds, {
-        duration: 320,
-        maxZoom: 0.95,
-        padding: 0.12,
-      });
-    } catch {
-      if (retry) {
-        requestAnimationFrame(() => attempt(false));
-      }
-    }
-  };
-  requestAnimationFrame(() => attempt(true));
+  if (sectionIds.length === 0) return;
+  void fitWorkspaceSections(host, sectionIds, {
+    duration: 320,
+    maxZoom: 0.95,
+    padding: 0.12,
+  });
 }
 
 export function ReviewController() {

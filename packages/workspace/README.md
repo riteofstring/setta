@@ -172,19 +172,21 @@ both hover and drop evaluation. When omitted, reconnect validation falls back to
 Multi-section attention is an imperative, host-scoped presentation aid:
 
 ```tsx
-fitWorkspaceSections(host, ["source", "result"]);
+await fitWorkspaceSections(host, ["source", "result"]);
 setWorkspaceSectionAttention(host, ["source", "result"]);
 
 setWorkspaceSectionAttention(host, []);
 ```
 
-`fitWorkspaceSections` frames the union of the mounted section shells, including nested sections,
-with default padding `0.1`, maximum zoom `1`, and a reduced-motion-aware `500 ms` transition.
-Conflicting viewport gestures pause until that transition settles. `setWorkspaceSectionAttention`
-applies the package-owned animated outline independently; clearing it retains the outline for
-`650 ms` before removal. Both commands validate every requested section before changing runtime
-state and reject unknown, hidden, unmounted, or empty-bound sections. Attention is transient and is
-cleared by a complete document load.
+`fitWorkspaceSections` frames the union of section shells, including nested sections, with default
+padding `0.1`, maximum zoom `1`, and a reduced-motion-aware `500 ms` transition. It waits for known
+visible targets, the canvas, and the zoom runtime to acquire positive measurements. Its promise
+settles after the transition or after document load, target invalidation, host disposal, or a newer
+fit supersedes it. Conflicting viewport gestures pause only while the transition is active.
+`setWorkspaceSectionAttention` applies the package-owned animated outline independently and may be
+called before the active section projection mounts; clearing it retains the outline for `650 ms`
+before removal. Both commands reject unknown or hidden targets synchronously. Attention is
+transient and is cleared by a complete document load.
 
 ## Managed windows, section handoff, and Window Spaces
 

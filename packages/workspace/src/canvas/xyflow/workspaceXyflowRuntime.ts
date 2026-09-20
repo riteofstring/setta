@@ -26,6 +26,7 @@ type WorkspaceXyflowRuntime = {
 
 type WorkspaceXyflowRuntimeState = {
   instance: WorkspaceXyflowInstance | null;
+  listeners: Set<() => void>;
   runtime: WorkspaceXyflowRuntime;
 };
 
@@ -37,6 +38,7 @@ const runtimesByHost = new WeakMap<
 function createWorkspaceXyflowRuntimeState(): WorkspaceXyflowRuntimeState {
   const state: WorkspaceXyflowRuntimeState = {
     instance: null,
+    listeners: new Set(),
     runtime: {
       getInstance: () => state.instance,
       getViewport: () => state.instance?.getViewport() ?? null,
@@ -75,6 +77,7 @@ function getWorkspaceXyflowRuntimeState(
   runtimesByHost.set(host, state);
   registerWorkspaceHostCleanup(host, () => {
     state.instance = null;
+    state.listeners.clear();
     runtimesByHost.delete(host);
   });
   return state;
@@ -92,9 +95,20 @@ export function registerWorkspaceXyflowInstance(
 ): () => void {
   const state = getWorkspaceXyflowRuntimeState(host);
   state.instance = instance;
+  for (const listener of state.listeners) listener();
   return () => {
     if (state.instance === instance) {
       state.instance = null;
+      for (const listener of state.listeners) listener();
     }
   };
+}
+
+export function subscribeWorkspaceXyflowRuntime(
+  host: WorkspaceHost,
+  listener: () => void,
+): () => void {
+  const state = getWorkspaceXyflowRuntimeState(host);
+  state.listeners.add(listener);
+  return () => state.listeners.delete(listener);
 }

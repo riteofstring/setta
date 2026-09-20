@@ -69,13 +69,7 @@ function downloadPacket(snapshot: LensSnapshot, packet: SelectionPacket): void {
 }
 
 function attend(host: WorkspaceHost, sectionIds: readonly string[]): void {
-  requestAnimationFrame(() => {
-    try {
-      setWorkspaceSectionAttention(host, sectionIds);
-    } catch {
-      return;
-    }
-  });
+  setWorkspaceSectionAttention(host, sectionIds);
 }
 
 function sameSelection(left: LensSelection, right: LensSelection): boolean {
