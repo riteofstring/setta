@@ -167,7 +167,12 @@ export function ReviewView({ host }: { host: WorkspaceHost }) {
           {review.error ? (
             <span role="alert">{review.error}</span>
           ) : (
-            <span className="review-live">Live</span>
+            <span
+              className="review-live"
+              title="New review submissions appear automatically"
+            >
+              Auto-updating
+            </span>
           )}
           <button
             onClick={() => void review.actions.exportReview().catch(() => {})}

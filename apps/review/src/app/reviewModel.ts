@@ -8,6 +8,19 @@ import type {
 
 export type CompletionDecisionKind = CompletionDecision["decision"];
 
+export function confirmedChoiceOptionId(
+  response: ReviewResponse | null,
+): string | null {
+  if (
+    response?.type !== "choice" ||
+    (response.choice.outcome !== "selected" &&
+      response.choice.outcome !== "qualified")
+  ) {
+    return null;
+  }
+  return response.choice.optionIds[0] ?? null;
+}
+
 export function findRequestSnapshot(
   requests: readonly RequestSnapshot[],
   requestId: string,

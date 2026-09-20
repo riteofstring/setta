@@ -1,11 +1,11 @@
 import { NO_WHEEL_CLASS_NAME, type WorkspaceSection } from "@setta/workspace";
 
 import { useReview, type ReviewSubjectSelection } from "../app/reviewContext";
-import { findRequestSnapshot } from "../app/reviewModel";
-import type {
-  RequestSnapshot,
-  ReviewResponse,
-} from "../backend/generatedContract";
+import {
+  confirmedChoiceOptionId,
+  findRequestSnapshot,
+} from "../app/reviewModel";
+import type { RequestSnapshot } from "../backend/generatedContract";
 import { ChoiceActions } from "./ChoiceActions";
 import { sectionRequestId } from "./sectionModel";
 
@@ -30,13 +30,6 @@ function selectedFactorId(
   return selection.subjectId;
 }
 
-function confirmedOptionId(response: ReviewResponse | null): string | null {
-  if (response?.type !== "choice") {
-    return null;
-  }
-  return response.choice.optionIds[0] ?? null;
-}
-
 export function ChoiceMatrixSection({
   section,
 }: {
@@ -49,7 +42,7 @@ export function ChoiceMatrixSection({
   const choice = matrixChoice(snapshot, requestId);
   const selectedOption = review.selectedOptions[requestId] ?? null;
   const selectedFactor = selectedFactorId(review.selection, requestId);
-  const responseOption = confirmedOptionId(snapshot.response);
+  const responseOption = confirmedChoiceOptionId(snapshot.response);
 
   return (
     <div className="review-choice review-choice-matrix-wrap">
@@ -87,12 +80,18 @@ export function ChoiceMatrixSection({
             {choice.options.map((option) => {
               const selected = selectedOption === option.id;
               const recommended = choice.recommendation?.optionId === option.id;
+              const confirmed = responseOption === option.id;
               return (
-                <tr data-selected={selected || undefined} key={option.id}>
+                <tr
+                  data-confirmed={confirmed || undefined}
+                  data-selected={selected || undefined}
+                  key={option.id}
+                >
                   <th scope="row">
                     <button
                       aria-pressed={selected}
                       className="review-option-button"
+                      data-confirmed={confirmed || undefined}
                       onClick={() =>
                         review.actions.selectOption(requestId, option.id)
                       }
@@ -105,11 +104,10 @@ export function ChoiceMatrixSection({
                       />
                       <span>
                         <strong>{option.label}</strong>
-                        {recommended ? (
+                        {confirmed ? (
+                          <small data-confirmed>Your choice</small>
+                        ) : recommended ? (
                           <small>Producer recommendation</small>
-                        ) : null}
-                        {responseOption === option.id ? (
-                          <small>Previously confirmed</small>
                         ) : null}
                       </span>
                     </button>

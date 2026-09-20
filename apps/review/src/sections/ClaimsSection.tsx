@@ -55,6 +55,20 @@ const signalMark: Record<ClaimSignal, string> = {
   unproven: "?",
 };
 
+const decisionLabel: Record<CompletionDecisionKind, string> = {
+  accepted: "Accepted",
+  needsEvidence: "Evidence requested",
+  qualified: "Qualified",
+  rejected: "Rejected",
+};
+
+const decisionMark: Record<CompletionDecisionKind, string> = {
+  accepted: "✓",
+  needsEvidence: "?",
+  qualified: "~",
+  rejected: "×",
+};
+
 function ClaimAssessmentList({
   assessments,
 }: {
@@ -107,6 +121,8 @@ function HumanDecision({
     decision?.qualification ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingDecision, setPendingDecision] =
+    useState<CompletionDecisionKind | null>(null);
 
   const decide = async (kind: CompletionDecisionKind) => {
     if (kind === "qualified" && qualification.trim() === "") {
@@ -115,12 +131,35 @@ function HumanDecision({
     }
     try {
       setFormError(null);
+      setPendingDecision(kind);
       await onDecide(kind, rationale, qualification);
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : "Unable to save the decision.",
       );
+    } finally {
+      setPendingDecision(null);
     }
+  };
+
+  const action = (kind: CompletionDecisionKind, label: string) => {
+    const current = decision?.decision === kind;
+    const pending = pendingDecision === kind;
+    return (
+      <button
+        aria-pressed={current}
+        data-decision-kind={kind}
+        disabled={disabled || pendingDecision !== null || current}
+        onClick={() => void decide(kind)}
+        type="button"
+      >
+        {pending
+          ? "Saving…"
+          : current
+            ? `${decisionMark[kind]} ${decisionLabel[kind]}`
+            : label}
+      </button>
+    );
   };
 
   return (
@@ -148,34 +187,10 @@ function HumanDecision({
         </label>
       </div>
       <div aria-label="Human decision" className="review-decision-actions">
-        <button
-          disabled={disabled}
-          onClick={() => void decide("accepted")}
-          type="button"
-        >
-          Accept
-        </button>
-        <button
-          disabled={disabled}
-          onClick={() => void decide("qualified")}
-          type="button"
-        >
-          Qualify
-        </button>
-        <button
-          disabled={disabled}
-          onClick={() => void decide("rejected")}
-          type="button"
-        >
-          Reject
-        </button>
-        <button
-          disabled={disabled}
-          onClick={() => void decide("needsEvidence")}
-          type="button"
-        >
-          Need evidence
-        </button>
+        {action("accepted", "Accept")}
+        {action("qualified", "Qualify")}
+        {action("rejected", "Reject")}
+        {action("needsEvidence", "Need evidence")}
       </div>
       {formError ? (
         <p className="review-form-error" role="alert">
@@ -226,6 +241,7 @@ export function ClaimsSection({ section }: { section: WorkspaceSection }) {
             <button
               aria-expanded={selected}
               className="review-claim-row"
+              data-decision={decision?.decision}
               data-selected={selected || undefined}
               data-signal={signal}
               key={claim.id}
@@ -242,8 +258,13 @@ export function ClaimsSection({ section }: { section: WorkspaceSection }) {
                 {signalMark[signal]}
               </span>
               <strong>{claim.text}</strong>
-              <span>
-                {decision ? `You: ${decision.decision}` : signalLabel[signal]}
+              <span
+                className="review-claim-state"
+                data-decision={decision?.decision}
+              >
+                {decision
+                  ? `${decisionMark[decision.decision]} ${decisionLabel[decision.decision]}`
+                  : signalLabel[signal]}
               </span>
             </button>
           );

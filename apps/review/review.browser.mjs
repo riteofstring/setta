@@ -1050,6 +1050,39 @@ async function attemptLetterboxStroke(client) {
   assert.equal(drew, false, "A letterbox gesture created artifact feedback.");
 }
 
+async function choiceActionLayout(client, sectionId) {
+  return evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(sectionId))});
+      const actions = section?.querySelector(".review-choice-actions");
+      if (!(section instanceof HTMLElement) || !(actions instanceof HTMLElement)) {
+        return null;
+      }
+      const sectionBounds = section.getBoundingClientRect();
+      const actionBounds = actions.getBoundingClientRect();
+      return {
+        actionBottom: actionBounds.bottom,
+        actionLeft: actionBounds.left,
+        actionRight: actionBounds.right,
+        sectionBottom: sectionBounds.bottom,
+        sectionLeft: sectionBounds.left,
+        sectionRight: sectionBounds.right,
+      };
+    })()`,
+  );
+}
+
+function assertChoiceActionsInside(layout, label) {
+  assert.ok(layout !== null, `${label} action row did not render.`);
+  assert.ok(
+    layout.actionBottom <= layout.sectionBottom + 1 &&
+      layout.actionLeft >= layout.sectionLeft - 1 &&
+      layout.actionRight <= layout.sectionRight + 1,
+    `${label} action row escaped its section: ${JSON.stringify(layout)}.`,
+  );
+}
+
 async function captureScreenshot(client, outputPath) {
   const screenshot = await client.send("Page.captureScreenshot", {
     captureBeyondViewport: false,
@@ -1071,7 +1104,7 @@ async function reloadPage(client) {
   await waitFor(
     client,
     "the reloaded live Review workspace",
-    `document.querySelector(".review-live") !== null &&
+    `document.querySelector(".review-live")?.textContent?.includes("Auto-updating") === true &&
       document.querySelector(${JSON.stringify(sectionSelector(completionSectionId))}) !== null`,
   );
 }
@@ -1086,10 +1119,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await waitFor(
     client,
     "the connected Review workspace",
-    `document.querySelector(".review-live") !== null &&
+    `document.querySelector(".review-live")?.textContent?.includes("Auto-updating") === true &&
       document.querySelector(${JSON.stringify(sectionSelector(completionSectionId))}) !== null &&
       document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))}) !== null &&
-      document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null`,
+      document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))}) !== null &&
+      document.querySelector('[data-section-id] [aria-label^="Color tag "]') === null`,
   );
   const initial = await jsonRequest(origin, "/api/v1/review");
   assert.equal(initial.revision, 1);
@@ -1164,7 +1198,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         (candidate) => candidate.querySelector("strong")?.textContent?.trim() ===
           "No database migration is required",
       );
-      return row?.textContent?.includes("You: accepted") === true;
+      const action = section?.querySelector('button[data-decision-kind="accepted"]');
+      return row?.getAttribute("data-decision") === "accepted" &&
+        row.textContent?.includes("✓ Accepted") === true &&
+        action?.getAttribute("aria-pressed") === "true" &&
+        action.textContent?.includes("Accepted") === true;
     })()`,
   );
   await focusSectionFromOutline(client, completionSectionId);
@@ -1196,32 +1234,9 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         evidence?.querySelector("diffs-container") === null;
     })()`,
   );
-  const matrixLayout = await evaluate(
-    client,
-    `(() => {
-      const section = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
-      const actions = section?.querySelector(".review-choice-actions");
-      if (!(section instanceof HTMLElement) || !(actions instanceof HTMLElement)) {
-        return null;
-      }
-      const sectionBounds = section.getBoundingClientRect();
-      const actionBounds = actions.getBoundingClientRect();
-      return {
-        actionBottom: actionBounds.bottom,
-        actionLeft: actionBounds.left,
-        actionRight: actionBounds.right,
-        sectionBottom: sectionBounds.bottom,
-        sectionLeft: sectionBounds.left,
-        sectionRight: sectionBounds.right,
-      };
-    })()`,
-  );
-  assert.ok(matrixLayout !== null, "The matrix action row did not render.");
-  assert.ok(
-    matrixLayout.actionBottom <= matrixLayout.sectionBottom + 1 &&
-      matrixLayout.actionLeft >= matrixLayout.sectionLeft - 1 &&
-      matrixLayout.actionRight <= matrixLayout.sectionRight + 1,
-    `The matrix action row escaped its section: ${JSON.stringify(matrixLayout)}.`,
+  assertChoiceActionsInside(
+    await choiceActionLayout(client, matrixSectionId),
+    "The matrix",
   );
   await clickSectionButton(client, matrixSectionId, "A · Immediate cutover");
   await waitFor(
@@ -1250,6 +1265,22 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       );
     },
   );
+  await waitFor(
+    client,
+    "the persistent confirmed matrix choice",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
+      const row = Array.from(section?.querySelectorAll("tbody tr") ?? []).find(
+        (candidate) => candidate.querySelector("strong")?.textContent?.trim() ===
+          "A · Immediate cutover",
+      );
+      const action = section?.querySelector('button[data-action-state="confirmed"]');
+      return row?.getAttribute("data-confirmed") === "true" &&
+        row.textContent?.includes("Your choice") === true &&
+        action?.getAttribute("aria-pressed") === "true" &&
+        action.textContent?.includes("Choice confirmed") === true;
+    })()`,
+  );
   await focusSectionFromOutline(client, matrixSectionId);
   await clickWorkspaceControl(client, "zoom out");
   await clickWorkspaceControl(client, "zoom out");
@@ -1260,6 +1291,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await captureScreenshot(client, matrixScreenshot);
   await clickWorkspaceControl(client, "fit view");
+
+  assertChoiceActionsInside(
+    await choiceActionLayout(client, artifactChoiceSectionId),
+    "The artifact choice",
+  );
 
   await clickSectionButton(client, artifactChoiceSectionId, "C · Aperture");
   await waitFor(
@@ -1272,7 +1308,10 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         (button) => button.querySelector("strong")?.textContent?.trim() === "C · Aperture",
       );
       const image = artifact?.querySelector(".review-artifact-stage img");
+      const artifactBody = artifact?.querySelector(".review-artifact");
       return option?.getAttribute("aria-pressed") === "true" &&
+        artifactBody instanceof HTMLElement &&
+        getComputedStyle(artifactBody).boxShadow === "none" &&
         image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
     })()`,
   );
@@ -1377,6 +1416,16 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         revisionText,
       ),
   );
+  await waitFor(
+    client,
+    "the persistent revision-request state",
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(artifactChoiceSectionId))});
+      const action = section?.querySelector('button[data-action-state="changes-requested"]');
+      return action?.getAttribute("aria-pressed") === "true" &&
+        action.textContent?.includes("Changes requested") === true;
+    })()`,
+  );
 
   const normalScreenshot = path.join(resultDirectory, "review-normal.png");
   await captureScreenshot(client, normalScreenshot);
@@ -1433,7 +1482,8 @@ async function exerciseBrowser(client, origin, resultDirectory) {
           "No database migration is required",
       );
       return input instanceof HTMLInputElement && input.value === ${JSON.stringify(completionNote)} &&
-        row?.textContent?.includes("You: accepted") === true;
+        row?.getAttribute("data-decision") === "accepted" &&
+        row.textContent?.includes("✓ Accepted") === true;
     })()`,
   );
   await waitFor(
@@ -1444,8 +1494,10 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       return Array.from(section?.querySelectorAll(".review-option-button") ?? []).some(
         (button) => button.querySelector("strong")?.textContent?.trim() ===
           "A · Immediate cutover" && button.getAttribute("aria-pressed") === "true" &&
-          button.textContent?.includes("Previously confirmed"),
-      );
+          button.textContent?.includes("Your choice"),
+      ) && section?.querySelector('button[data-action-state="confirmed"]')?.getAttribute(
+        "aria-pressed",
+      ) === "true";
     })()`,
   );
   await clickSectionButton(client, artifactChoiceSectionId, "C · Aperture");

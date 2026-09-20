@@ -102,6 +102,11 @@ describe("review Workspace projection", () => {
     expect(document.sections[evidenceSectionId("request", "log")]?.name).toBe(
       "run.log",
     );
+    expect(
+      Object.values(document.sections).every(
+        (section) => section.tagColor === null,
+      ),
+    ).toBe(true);
   });
 
   it("selects only the evidence relation for the active subject", () => {

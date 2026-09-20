@@ -9,7 +9,11 @@ import {
   type ReviewContextValue,
   type ReviewSubjectSelection,
 } from "../app/reviewContext";
-import { changesRequestedResponse } from "../app/reviewModel";
+import {
+  changesRequestedResponse,
+  completionResponse,
+  selectedChoiceResponse,
+} from "../app/reviewModel";
 import {
   REVIEW_ARTIFACT_CHOICE_SECTION_KIND,
   REVIEW_ARTIFACT_SECTION_KIND,
@@ -696,6 +700,40 @@ describe("Review section interactions", () => {
       qualification: null,
       rationale: "Recovery rehearsal passed.",
     });
+
+    const decided = {
+      ...COMPLETION_REQUEST,
+      response: completionResponse(COMPLETION_REQUEST, {
+        claimId: "rollback",
+        decision: "accepted",
+        qualification: null,
+        rationale: "Recovery rehearsal passed.",
+      }),
+    };
+    render(
+      <ReviewContext.Provider
+        value={contextValue(snapshotFor(decided), actions, {
+          selection: {
+            requestId: "completion-request",
+            subjectId: "rollback",
+            subjectKind: "claim",
+          },
+        })}
+      >
+        <ClaimsSection section={COMPLETION_SECTION} />
+      </ReviewContext.Provider>,
+    );
+    const decidedRow = buttonContaining(
+      container,
+      "Rollback restores the previous schema",
+    );
+    const accepted = container.querySelector<HTMLButtonElement>(
+      'button[data-decision-kind="accepted"]',
+    );
+    expect(decidedRow.dataset.decision).toBe("accepted");
+    expect(decidedRow.textContent).toContain("✓ Accepted");
+    expect(accepted?.getAttribute("aria-pressed")).toBe("true");
+    expect(accepted?.disabled).toBe(true);
   });
 
   it("links a selected matrix factor to its evidence and keeps option selection provisional", async () => {
@@ -725,6 +763,29 @@ describe("Review section interactions", () => {
     await click(confirm);
     expect(confirmChoice).toHaveBeenCalledTimes(1);
     expect(confirmChoice).toHaveBeenCalledWith("rollout-request", "");
+
+    const confirmedRequest = {
+      ...MATRIX_REQUEST,
+      response: selectedChoiceResponse(MATRIX_REQUEST, ["gradual"], ""),
+    };
+    render(
+      <ReviewContext.Provider
+        value={contextValue(snapshotFor(confirmedRequest), createActions(), {
+          selectedOptions: { "rollout-request": "gradual" },
+        })}
+      >
+        <ChoiceMatrixSection section={MATRIX_SECTION} />
+      </ReviewContext.Provider>,
+    );
+    const savedChoice = container.querySelector<HTMLButtonElement>(
+      'button[data-action-state="confirmed"]',
+    );
+    expect(savedChoice?.textContent).toContain("Choice confirmed");
+    expect(savedChoice?.getAttribute("aria-pressed")).toBe("true");
+    expect(savedChoice?.disabled).toBe(true);
+    expect(
+      container.querySelector("tr[data-confirmed]")?.textContent,
+    ).toContain("Your choice");
   });
 
   it("keeps artifact strokes normalized and accepts revision feedback only with a note or drawing", async () => {

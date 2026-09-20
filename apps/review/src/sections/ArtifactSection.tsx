@@ -2,7 +2,10 @@ import type { WorkspaceSection } from "@setta/workspace";
 import { useLayoutEffect, useState, type CSSProperties } from "react";
 
 import { useReview, type ReviewContextValue } from "../app/reviewContext";
-import { findRequestSnapshot } from "../app/reviewModel";
+import {
+  confirmedChoiceOptionId,
+  findRequestSnapshot,
+} from "../app/reviewModel";
 import type {
   ArtifactAnnotation as ArtifactAnnotationContract,
   ChoiceOption,
@@ -129,6 +132,7 @@ type ArtifactModel =
   | Readonly<{ message: string; status: "failed" }>
   | Readonly<{
       content: ResolvedArtifactContent;
+      confirmed: boolean;
       drawable: boolean;
       drawMode: boolean;
       option: ChoiceOption | null;
@@ -199,6 +203,9 @@ function buildArtifactModel(
   const previewKind = artifactPreviewKind(resolved.content.mediaType);
   return {
     content: resolved.content,
+    confirmed:
+      option !== null &&
+      confirmedChoiceOptionId(snapshot.response) === option.id,
     drawable: previewKind === "image",
     drawMode: artifactDrawMode(review, requestId, evidenceId),
     option,
@@ -220,16 +227,21 @@ function ArtifactToolbar({
   requestId: string;
   review: ReviewContextValue;
 }>) {
-  const { drawable, drawMode, option, selected, strokes } = model;
+  const { confirmed, drawable, drawMode, option, selected, strokes } = model;
   return (
     <div className="review-artifact-toolbar">
       {option ? (
         <button
           aria-pressed={selected}
+          data-confirmed={confirmed || undefined}
           onClick={() => review.actions.selectOption(requestId, option.id)}
           type="button"
         >
-          {selected ? "Selected" : "Select candidate"}
+          {confirmed
+            ? "✓ Your choice"
+            : selected
+              ? "Selected for review"
+              : "Select candidate"}
         </button>
       ) : (
         <button
@@ -391,10 +403,7 @@ function ResolvedArtifactSection({
   sectionName: string;
 }>) {
   return (
-    <div
-      className="review-artifact"
-      data-selected={model.selected || undefined}
-    >
+    <div className="review-artifact">
       <ArtifactToolbar
         evidenceId={evidenceId}
         model={model}

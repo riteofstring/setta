@@ -92,7 +92,6 @@ type ReviewSectionDefinition = Readonly<{
   kind: string;
   name: string;
   size: { width: number; height: number | "auto" };
-  tagColor: string | null;
 }>;
 
 function makeSection({
@@ -101,7 +100,6 @@ function makeSection({
   kind,
   name,
   size,
-  tagColor,
 }: ReviewSectionDefinition): WorkspaceSectionInput {
   return {
     children: [],
@@ -115,7 +113,7 @@ function makeSection({
     positionAndSizeLocked: false,
     size,
     styleColor: null,
-    tagColor,
+    tagColor: null,
   };
 }
 
@@ -136,7 +134,11 @@ function requestSize(request: RequestSnapshot): {
     return { height: "auto", width: 560 };
   }
   if (request.request.choice.presentation === "artifacts") {
-    return { height: "auto", width: 440 };
+    const height = Math.min(
+      520,
+      Math.max(320, 212 + request.request.choice.options.length * 58),
+    );
+    return { height, width: 440 };
   }
   const width = Math.min(
     1_040,
@@ -147,16 +149,6 @@ function requestSize(request: RequestSnapshot): {
     Math.max(288, 176 + request.request.choice.options.length * 56),
   );
   return { height, width };
-}
-
-function requestTagColor(request: RequestSnapshot): string {
-  if (request.response?.status === "final") {
-    return "#4ade80";
-  }
-  if (request.response?.status === "draft") {
-    return "#f2bc66";
-  }
-  return "#6680ad";
 }
 
 function evidenceSize(reference: EvidenceReference): {
@@ -246,7 +238,6 @@ export function projectReviewDocument(
         kind: requestKind(request),
         name: request.request.title,
         size: controlSize,
-        tagColor: requestTagColor(request),
       }),
       current,
     );
@@ -261,9 +252,6 @@ export function projectReviewDocument(
 
     request.request.evidence.forEach((reference, evidenceIndex) => {
       const evidenceId = evidenceSectionId(request.request.id, reference.id);
-      const resolved = request.evidence.find(
-        (candidate) => candidate.evidenceId === reference.id,
-      );
       const kind =
         reference.kind === "artifact"
           ? REVIEW_ARTIFACT_SECTION_KIND
@@ -276,7 +264,6 @@ export function projectReviewDocument(
           kind,
           name: evidenceTitle(request, reference),
           size,
-          tagColor: resolved?.status === "failed" ? "#fb7185" : "#6680ad",
         }),
         current,
       );

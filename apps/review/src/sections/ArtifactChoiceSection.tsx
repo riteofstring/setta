@@ -1,7 +1,10 @@
 import type { WorkspaceSection } from "@setta/workspace";
 
 import { useReview } from "../app/reviewContext";
-import { findRequestSnapshot } from "../app/reviewModel";
+import {
+  confirmedChoiceOptionId,
+  findRequestSnapshot,
+} from "../app/reviewModel";
 import { ChoiceActions } from "./ChoiceActions";
 import { sectionRequestId } from "./sectionModel";
 
@@ -22,6 +25,7 @@ export function ArtifactChoiceSection({
   }
   const choice = request.choice;
   const selectedOption = review.selectedOptions[requestId] ?? null;
+  const confirmedOption = confirmedChoiceOptionId(snapshot.response);
 
   return (
     <div className="review-choice review-artifact-choice">
@@ -30,9 +34,11 @@ export function ArtifactChoiceSection({
         {choice.options.map((option) => {
           const selected = selectedOption === option.id;
           const recommended = choice.recommendation?.optionId === option.id;
+          const confirmed = confirmedOption === option.id;
           return (
             <button
               aria-pressed={selected}
+              data-confirmed={confirmed || undefined}
               data-selected={selected || undefined}
               key={option.id}
               onClick={() => review.actions.selectOption(requestId, option.id)}
@@ -45,7 +51,11 @@ export function ArtifactChoiceSection({
                   <small>{option.description}</small>
                 ) : null}
               </span>
-              {recommended ? <em>Recommended</em> : null}
+              {confirmed ? (
+                <em data-confirmed>Your choice</em>
+              ) : recommended ? (
+                <em>Recommended</em>
+              ) : null}
             </button>
           );
         })}

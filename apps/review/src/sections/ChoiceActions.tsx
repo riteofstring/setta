@@ -1,30 +1,47 @@
 import { useState } from "react";
 
 import { useReview } from "../app/reviewContext";
+import {
+  confirmedChoiceOptionId,
+  findRequestSnapshot,
+} from "../app/reviewModel";
 
 export function ChoiceActions({ requestId }: { requestId: string }) {
   const review = useReview();
   const [showRevision, setShowRevision] = useState(false);
   const [revision, setRevision] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    "confirm" | "revision" | null
+  >(null);
   const selected = review.selectedOptions[requestId] ?? null;
   const busy = review.busyRequestId === requestId;
+  const snapshot = findRequestSnapshot(review.snapshot.requests, requestId);
+  const response =
+    snapshot.response?.type === "choice" ? snapshot.response : null;
+  const confirmed =
+    selected !== null && confirmedChoiceOptionId(response) === selected;
+  const changesRequested = response?.choice.outcome === "changesRequested";
 
   const requestChanges = async () => {
     try {
       setFormError(null);
+      setPendingAction("revision");
       await review.actions.requestChanges(requestId, revision);
       setShowRevision(false);
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : "Unable to request changes.",
       );
+    } finally {
+      setPendingAction(null);
     }
   };
 
   const confirmChoice = async () => {
     try {
       setFormError(null);
+      setPendingAction("confirm");
       await review.actions.confirmChoice(requestId, "");
     } catch (error) {
       setFormError(
@@ -32,6 +49,8 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
           ? error.message
           : "Unable to confirm the choice.",
       );
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -44,7 +63,7 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
             <textarea
               aria-label="Requested changes"
               autoFocus
-              disabled={busy}
+              disabled={busy || pendingAction !== null}
               onChange={(event) => setRevision(event.currentTarget.value)}
               placeholder="Describe the revision, or draw directly on an artifact."
               rows={3}
@@ -53,14 +72,14 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
           </label>
           <div>
             <button
-              disabled={busy}
+              disabled={busy || pendingAction !== null}
               onClick={() => void requestChanges()}
               type="button"
             >
-              Send feedback
+              {pendingAction === "revision" ? "Sending…" : "Send feedback"}
             </button>
             <button
-              disabled={busy}
+              disabled={busy || pendingAction !== null}
               onClick={() => setShowRevision(false)}
               type="button"
             >
@@ -76,22 +95,32 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
       ) : (
         <div className="review-choice-action-row">
           <button
-            className="review-primary-action"
-            disabled={!selected || busy}
+            aria-pressed={confirmed}
+            className={confirmed ? undefined : "review-primary-action"}
+            data-action-state={confirmed ? "confirmed" : undefined}
+            disabled={!selected || busy || pendingAction !== null || confirmed}
             onClick={() => void confirmChoice()}
             type="button"
           >
-            Confirm choice
+            {pendingAction === "confirm"
+              ? "Saving…"
+              : confirmed
+                ? "✓ Choice confirmed"
+                : "Confirm choice"}
           </button>
           <button
-            disabled={busy}
+            aria-pressed={changesRequested}
+            data-action-state={
+              changesRequested ? "changes-requested" : undefined
+            }
+            disabled={busy || pendingAction !== null}
             onClick={() => {
               setFormError(null);
               setShowRevision(true);
             }}
             type="button"
           >
-            Request changes
+            {changesRequested ? "✓ Changes requested" : "Request changes"}
           </button>
         </div>
       )}
