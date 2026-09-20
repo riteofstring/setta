@@ -263,7 +263,10 @@ describe("WorkspaceWindowManager", () => {
       "Restore Window minimized",
     );
 
-    await act(async () => pills[0]?.click());
+    await act(async () => {
+      pills[0]?.click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+    });
 
     expect(onChange).toHaveBeenCalledOnce();
     const nextState = onChange.mock.calls[0]?.[0];
@@ -293,7 +296,10 @@ describe("WorkspaceWindowManager", () => {
       '[data-testid="workspace-bottom-dock-pill"]',
     );
     if (!pill) throw new Error("Expected a minimized-window recovery pill.");
-    await act(async () => pill.click());
+    await act(async () => {
+      pill.click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+    });
 
     expect(onChange).toHaveBeenCalledOnce();
     expect(getWindow("minimized").dataset.focused).toBe("true");
@@ -353,9 +359,8 @@ describe("WorkspaceWindowManager", () => {
     onChange.mockClear();
 
     await act(async () => {
-      getWindow("lower").dispatchEvent(
-        createPointerEvent("pointerdown", { clientX: 180, clientY: 150 }),
-      );
+      getWindow("lower").click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
     });
 
     expect(onChange).not.toHaveBeenCalled();
@@ -365,9 +370,8 @@ describe("WorkspaceWindowManager", () => {
     expect(getWindow("lower").dataset.focused).toBe("true");
     const focusedZIndex = getWindow("lower").style.zIndex;
     await act(async () => {
-      getWindow("lower").dispatchEvent(
-        createPointerEvent("pointerdown", { clientX: 180, clientY: 150 }),
-      );
+      getWindow("lower").click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
     });
     expect(getWindow("lower").style.zIndex).toBe(focusedZIndex);
   });

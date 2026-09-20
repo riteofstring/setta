@@ -209,7 +209,7 @@ function WorkspaceWindowTitleDisplay({
       ref={titleRef}
       className="setta-workspace-window-surface-title"
       tabIndex={0}
-      onClick={onFocus}
+      onClick={onFocus ? () => globalThis.setTimeout(onFocus, 0) : undefined}
       onDoubleClick={(event) =>
         handleWorkspaceWindowTitleDoubleClick(event, canEditTitle, beginEditing)
       }
@@ -319,7 +319,7 @@ export function WorkspaceWindowActionButton({
     <button
       type="button"
       className="setta-workspace-window-surface-action"
-      onClick={action.onClick}
+      onClick={() => globalThis.setTimeout(action.onClick, 0)}
       disabled={action.disabled}
       aria-label={action.label}
       title={action.label}

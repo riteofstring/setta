@@ -151,7 +151,7 @@ function MiniMapControls(props: {
   return (
     <>
       <button
-        onClick={() => toggleMiniMap(host)}
+        onClick={() => globalThis.setTimeout(() => toggleMiniMap(host), 0)}
         className={getToggleControlClassName(props.showMinimap)}
         aria-label="toggle minimap"
         aria-pressed={props.showMinimap}
@@ -164,7 +164,7 @@ function MiniMapControls(props: {
         <IoMapOutline {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onClick={() => toggleMiniMapSide(host)}
+        onClick={() => globalThis.setTimeout(() => toggleMiniMapSide(host), 0)}
         className={`${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label={moveMinimapLabel}
         data-testid="rf__toggle-minimap-side"

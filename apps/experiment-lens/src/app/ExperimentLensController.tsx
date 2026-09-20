@@ -3,6 +3,7 @@ import {
   createWorkspaceHost,
   setWorkspaceCapabilities,
   setWorkspaceColorMode,
+  setWorkspaceMiniMapVisibility,
   setWorkspaceSectionAttention,
   type WorkspaceHost,
 } from "@setta/workspace";
@@ -138,6 +139,7 @@ export function ExperimentLensController() {
       canEditLayout: true,
       canEditStructure: false,
     });
+    setWorkspaceMiniMapVisibility(host, false);
     setWorkspaceColorMode(host, "system");
     let active = true;
     let disconnect = () => {};
@@ -183,59 +185,65 @@ export function ExperimentLensController() {
 
   const replaceSelection = useCallback(
     (build: (current: LensSelection) => LensSelection): void => {
-      const currentSelection = selectionRef.current;
-      if (!currentSelection) {
-        return;
-      }
-      const desired = build(currentSelection);
-      if (sameSelection(currentSelection, desired)) {
-        return;
-      }
-      selectionRef.current = desired;
-      setSelection(desired);
-      pendingRef.current += 1;
-      setBusy(true);
-      const operation = async () => {
-        try {
-          const current = readyRef.current;
-          if (!current) {
-            throw new Error("Experiment Lens is still loading.");
-          }
-          const result = await applyLensMutation({
-            experimentId: current.snapshot.experiment.id,
-            expectedRevision: current.snapshot.revision,
-            manifestSha256: current.snapshot.manifestSha256,
-            observationSourceSha256: current.snapshot.observationSourceSha256,
-            selection: desired,
-          });
-          acceptSnapshot(current.host, result.snapshot, pendingRef.current > 1);
-        } catch (caught) {
-          setError(errorMessage(caught));
-          if (caught instanceof LensClientError && caught.status === 409) {
-            try {
-              const refreshed = await fetchLensSnapshot();
+      window.setTimeout(() => {
+        const currentSelection = selectionRef.current;
+        if (!currentSelection) {
+          return;
+        }
+        const desired = build(currentSelection);
+        if (sameSelection(currentSelection, desired)) {
+          return;
+        }
+        selectionRef.current = desired;
+        setSelection(desired);
+        pendingRef.current += 1;
+        setBusy(true);
+        const operation = async () => {
+          try {
+            const current = readyRef.current;
+            if (!current) {
+              throw new Error("Experiment Lens is still loading.");
+            }
+            const result = await applyLensMutation({
+              experimentId: current.snapshot.experiment.id,
+              expectedRevision: current.snapshot.revision,
+              manifestSha256: current.snapshot.manifestSha256,
+              observationSourceSha256: current.snapshot.observationSourceSha256,
+              selection: desired,
+            });
+            acceptSnapshot(
+              current.host,
+              result.snapshot,
+              pendingRef.current > 1,
+            );
+          } catch (caught) {
+            setError(errorMessage(caught));
+            if (caught instanceof LensClientError && caught.status === 409) {
+              try {
+                const refreshed = await fetchLensSnapshot();
+                const current = readyRef.current;
+                if (current) {
+                  acceptSnapshot(current.host, refreshed, false);
+                }
+              } catch (refreshError) {
+                setError(errorMessage(refreshError));
+              }
+            }
+          } finally {
+            pendingRef.current -= 1;
+            if (pendingRef.current === 0) {
+              setBusy(false);
               const current = readyRef.current;
               if (current) {
-                acceptSnapshot(current.host, refreshed, false);
+                selectionRef.current = current.snapshot.selection;
+                setSelection(current.snapshot.selection);
               }
-            } catch (refreshError) {
-              setError(errorMessage(refreshError));
             }
           }
-        } finally {
-          pendingRef.current -= 1;
-          if (pendingRef.current === 0) {
-            setBusy(false);
-            const current = readyRef.current;
-            if (current) {
-              selectionRef.current = current.snapshot.selection;
-              setSelection(current.snapshot.selection);
-            }
-          }
-        }
-      };
-      const queued = mutationChainRef.current.then(operation, operation);
-      mutationChainRef.current = queued.catch(() => {});
+        };
+        const queued = mutationChainRef.current.then(operation, operation);
+        mutationChainRef.current = queued.catch(() => {});
+      }, 0);
     },
     [acceptSnapshot],
   );
@@ -285,7 +293,9 @@ export function ExperimentLensController() {
           ]);
         }
       },
-      openComparison: () => setComparisonRequest((value) => value + 1),
+      openComparison: () => {
+        window.setTimeout(() => setComparisonRequest((value) => value + 1), 0);
+      },
       setCategoricalFilter: (fieldId, values, allValues) =>
         replaceSelection((current) =>
           setInFilter(current, fieldId, values, allValues),
@@ -296,8 +306,9 @@ export function ExperimentLensController() {
         replaceSelection((current) =>
           setRangeFilter(current, fieldId, minimum, maximum, extent),
         ),
-      setTimelineCursor: (artifactId, cursor) =>
-        setTimeline({ artifactId, cursor }),
+      setTimelineCursor: (artifactId, cursor) => {
+        window.setTimeout(() => setTimeline({ artifactId, cursor }), 0);
+      },
       toggleArtifact: (artifactId) =>
         replaceSelection((current) => {
           const selected = new Set(current.selectedArtifactIds);

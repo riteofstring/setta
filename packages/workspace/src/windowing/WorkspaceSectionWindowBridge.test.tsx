@@ -48,6 +48,10 @@ function createPointerEvent(
   return event;
 }
 
+function flushDeferredInteraction(): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+}
+
 function makeSection(): WorkspaceSection {
   return {
     children: [],
@@ -197,6 +201,7 @@ describe("workspace section/window bridge", () => {
           pointerId: 7,
         }),
       );
+      await flushDeferredInteraction();
     });
 
     expect(Number.parseFloat(floatingWindow.style.left)).toBe(initialLeft + 80);
@@ -225,7 +230,10 @@ describe("workspace section/window bridge", () => {
       "Show section in canvas",
     );
 
-    await act(async () => getButton("workspace-window-dock").click());
+    await act(async () => {
+      getButton("workspace-window-dock").click();
+      await flushDeferredInteraction();
+    });
     expect(
       host.querySelector('[data-testid="workspace-bottom-dock-window-panel"]'),
     ).not.toBeNull();
@@ -233,9 +241,10 @@ describe("workspace section/window bridge", () => {
       host.querySelectorAll('[data-testid="registered-body"]'),
     ).toHaveLength(1);
 
-    await act(async () =>
-      getButton("workspace-bottom-dock-window-show-in-canvas").click(),
-    );
+    await act(async () => {
+      getButton("workspace-bottom-dock-window-show-in-canvas").click();
+      await flushDeferredInteraction();
+    });
     expect(
       host.querySelectorAll('[data-testid="registered-body"]'),
     ).toHaveLength(1);

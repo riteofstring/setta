@@ -80,7 +80,7 @@ function WorkspaceBottomDockRecoveryPill({
       data-compact={compact ? "true" : undefined}
       data-testid="workspace-bottom-dock-pill"
       data-workspace-window-id={window.id}
-      onClick={() => onOpenWindow(window)}
+      onClick={() => globalThis.setTimeout(() => onOpenWindow(window), 0)}
       title={window.title}
       type="button"
     >

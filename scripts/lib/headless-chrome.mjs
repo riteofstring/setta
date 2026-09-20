@@ -73,7 +73,13 @@ export async function waitForHeadlessChrome(
       );
     }
     if (existsSync(portFile)) {
-      const [rawPort] = readFileSync(portFile, "utf8").split("\n");
+      const [rawPort, webSocketPath] = readFileSync(portFile, "utf8").split(
+        "\n",
+      );
+      if (!rawPort?.trim() || !webSocketPath?.trim()) {
+        await delay(50);
+        continue;
+      }
       const port = Number(rawPort);
       if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
         throw new Error(

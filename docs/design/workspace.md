@@ -72,6 +72,12 @@ canonical publication boundary. Programmatic fit, saved-view activation, documen
 and scroll-bridge commands read and update the current host's private renderer instance. Each
 mounted `WorkspaceHost` owns a separate instance and registration lifetime.
 
+Managed-window drag and resize geometry stays in an interaction session until pointer release. Pointer
+release completes before committed bounds, focus, window actions, or recovery actions are
+projected through React, so the pointer target is not reconciled while it still owns the gesture.
+Minimap visibility and placement controls follow the same release boundary because they mount or
+reposition canvas-owned interaction surfaces.
+
 Workspace remains the presentation owner. It supplies the background and grid, minimap, selection
 bounds, section shells and bodies, managed windows, controls, menus, portals, focus treatment, and
 all canvas CSS. XYFlow still receives no product edges and renders no product handles or ports;
@@ -149,7 +155,9 @@ does not duplicate the document hierarchy. The optional saved-view tab surface a
 bookmark controls and renders bookmarked views at the bottom of the shell. Its shell-owned height
 becomes a shell-wide bottom row and the shared bottom boundary for panes, rails, canvas,
 package controls, and integrated or host-composed window chrome. Docked windows and
-minimized-window recovery controls stay above the tab strip.
+minimized-window recovery controls stay above the tab strip. Tab activation begins after the
+initiating pointer task has finished so replacing the visible node projection cannot retain that
+pointer in the outgoing XYFlow layout.
 
 The active view and the live top-level layout and viewport are one synchronized contract. Every
 live coordinate, measurement, stacking, or camera publication refreshes the active snapshot before

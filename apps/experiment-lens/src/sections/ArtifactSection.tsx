@@ -3,7 +3,7 @@ import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "@setta/workspace";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ResolvedArtifact } from "../backend/generatedContract";
 import { useLens } from "../app/lensContext";
@@ -107,10 +107,12 @@ export function ArtifactSection() {
     ? noteFor(lens.selection, lens.focused.id, artifactId)
     : null;
   const [note, setNote] = useState(existingNote?.text ?? "");
-  useEffect(
-    () => setNote(existingNote?.text ?? ""),
-    [existingNote?.id, existingNote?.text],
-  );
+  const noteRef = useRef(note);
+  useEffect(() => {
+    const value = existingNote?.text ?? "";
+    noteRef.current = value;
+    setNote(value);
+  }, [existingNote?.id, existingNote?.text]);
   if (!lens.focused) {
     return (
       <p className="lens-empty">
@@ -163,14 +165,19 @@ export function ArtifactSection() {
         className="lens-note-form"
         onSubmit={(event) => {
           event.preventDefault();
-          lens.actions.addNote(lens.focused!.id, artifact, note);
+          lens.actions.addNote(lens.focused!.id, artifact, noteRef.current);
         }}
       >
         <input
+          key={`${artifact.reference.id}:${existingNote?.id ?? "new"}:${existingNote?.text ?? ""}`}
           aria-label="Selection note"
-          onChange={(event) => setNote(event.target.value)}
+          defaultValue={existingNote?.text ?? ""}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            noteRef.current = value;
+            window.setTimeout(() => setNote(value), 0);
+          }}
           placeholder="Add a note for the next person or agent"
-          value={note}
         />
         <button
           disabled={note.trim() === (existingNote?.text ?? "")}

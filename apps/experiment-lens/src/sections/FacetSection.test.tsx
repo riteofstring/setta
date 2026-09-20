@@ -77,4 +77,76 @@ describe("cohort facets", () => {
       container.querySelector("[data-lens-visible-count]")?.textContent,
     ).toBe("3");
   });
+
+  it("does not recommit an unchanged range field when focus leaves it", () => {
+    const base = lensTestSnapshot();
+    const observations = Array.from({ length: 9 }, (_, index) => ({
+      id: `observation-${String(index + 1)}`,
+      values: {
+        chemistry: "LFP",
+        cycle: (index + 1) * 100,
+        retention: 98 - index,
+      },
+    }));
+    const snapshot = {
+      ...base,
+      observations,
+      selection: {
+        ...base.selection,
+        filters: [
+          {
+            fieldId: "cycle",
+            maximum: null,
+            minimum: 100,
+            operator: "range" as const,
+            values: [],
+          },
+        ],
+      },
+    };
+    const lensActions = actions();
+    act(() => {
+      root.render(
+        <LensContext.Provider
+          value={{
+            actions: lensActions,
+            busy: false,
+            comparisonRequest: 0,
+            error: null,
+            focused: observations[0] ?? null,
+            selection: snapshot.selection,
+            snapshot,
+            timeline: { artifactId: null, cursor: null },
+            visible: observations,
+          }}
+        >
+          <FacetSection />
+        </LensContext.Provider>,
+      );
+    });
+    const maximum = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Cycle maximum"]',
+    );
+    if (!maximum) {
+      throw new Error("Expected the cycle maximum range field.");
+    }
+    act(() => {
+      maximum.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(lensActions.setRangeFilter).not.toHaveBeenCalled();
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(maximum, "800");
+      maximum.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(lensActions.setRangeFilter).toHaveBeenCalledOnce();
+    expect(lensActions.setRangeFilter).toHaveBeenCalledWith("cycle", 100, 800, {
+      maximum: 900,
+      minimum: 100,
+    });
+  });
 });

@@ -102,7 +102,10 @@ describe("WorkspaceWindowSurface", () => {
       "Window body",
     );
 
-    await act(async () => getTitle().click());
+    await act(async () => {
+      getTitle().click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+    });
     expect(onFocus).toHaveBeenCalledOnce();
 
     await mount({ showHeader: false });

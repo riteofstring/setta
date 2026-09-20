@@ -167,7 +167,10 @@ describe("WorkspaceBottomDock", () => {
       host.querySelector('[data-testid="workspace-bottom-dock-manager"]'),
     ).not.toBeNull();
 
-    await act(async () => recoveryPill?.click());
+    await act(async () => {
+      recoveryPill?.click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+    });
     expect(callbacks.onFocusWindow).toHaveBeenCalledWith("one");
     expect(dockPanelIds()).toEqual(["one", "two"]);
   });
@@ -282,7 +285,10 @@ describe("WorkspaceBottomDock", () => {
     const pill = host.querySelector<HTMLButtonElement>(
       '[data-workspace-window-id="minimized"]',
     );
-    await act(async () => pill?.click());
+    await act(async () => {
+      pill?.click();
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+    });
     expect(callbacks.onReopenWindow).toHaveBeenCalledWith("minimized");
   });
 

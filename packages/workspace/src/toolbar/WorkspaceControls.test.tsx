@@ -271,6 +271,7 @@ describe("WorkspaceControls", () => {
 
     await act(async () => {
       toggleButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
     });
 
     expect(testWorkspace.options.getState().showMinimap).toBe(false);
@@ -289,6 +290,7 @@ describe("WorkspaceControls", () => {
 
     await act(async () => {
       sideButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
     });
 
     expect(testWorkspace.options.getState().minimapSide).toBe("right");

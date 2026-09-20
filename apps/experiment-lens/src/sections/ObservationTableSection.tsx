@@ -99,7 +99,9 @@ export function ObservationTableSection() {
     getCoreRowModel: getCoreRowModel(),
     getRowId: (observation) => observation.id,
     getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
+    onSortingChange: (next) => {
+      window.setTimeout(() => setSorting(next), 0);
+    },
     state: { sorting },
   });
   const rows = table.getRowModel().rows;

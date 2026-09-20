@@ -100,6 +100,13 @@ export function toggleMiniMap(host: WorkspaceHost) {
   }));
 }
 
+export function setWorkspaceMiniMapVisibility(
+  host: WorkspaceHost,
+  visible: boolean,
+) {
+  getWorkspaceOptionsStore(host).setState({ showMinimap: visible });
+}
+
 export function toggleMiniMapSide(host: WorkspaceHost) {
   getWorkspaceOptionsStore(host).setState((state) => ({
     minimapSide: state.minimapSide === "left" ? "right" : "left",

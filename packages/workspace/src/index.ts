@@ -103,7 +103,10 @@ export type {
 } from "./builtin/textSectionData";
 export { createWorkspaceTextSection } from "./builtin/textSectionKind";
 export type { WorkspaceTextSectionRegistration } from "./builtin/textSectionKind";
-export { useWorkspaceOptions } from "./canvas/options";
+export {
+  setWorkspaceMiniMapVisibility,
+  useWorkspaceOptions,
+} from "./canvas/options";
 export { subscribeWorkspaceCanvasPanScrolling } from "./canvas/store";
 export type {
   MiniMapSide,
@@ -365,6 +368,7 @@ export {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "./interaction";
 export {
   deleteLastWorkspaceItem,

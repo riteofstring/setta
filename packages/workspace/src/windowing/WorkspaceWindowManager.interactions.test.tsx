@@ -126,6 +126,10 @@ function flushAnimationFrame(): Promise<void> {
   });
 }
 
+function flushDeferredInteraction(): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+}
+
 function Harness({
   initialState,
   onChange,
@@ -312,6 +316,7 @@ describe("WorkspaceWindowManager interactions", () => {
           pointerId: 4,
         }),
       );
+      await flushDeferredInteraction();
     });
     expect(getLastStateChange().windows[0]?.bounds).toMatchObject({
       height: 300,
@@ -351,6 +356,7 @@ describe("WorkspaceWindowManager interactions", () => {
           pointerId: 9,
         }),
       );
+      await flushDeferredInteraction();
     });
 
     expect(onChange).toHaveBeenCalledOnce();
@@ -359,6 +365,45 @@ describe("WorkspaceWindowManager interactions", () => {
       width: 470,
       x: 120,
       y: 100,
+    });
+  });
+
+  it("preserves the previewed snap target through the deferred commit", async () => {
+    await mount();
+    await resizeManager(800);
+    onChange.mockClear();
+    const title = getTitleDragHandle("one");
+
+    await act(async () => {
+      title.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 220,
+          clientY: 120,
+          pointerId: 10,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 5,
+          clientY: 5,
+          pointerId: 10,
+        }),
+      );
+      title.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 5,
+          clientY: 5,
+          pointerId: 10,
+        }),
+      );
+      await flushDeferredInteraction();
+    });
+
+    expect(getLastStateChange().windows[0]?.bounds).toEqual({
+      height: 300,
+      width: 400,
+      x: 0,
+      y: 0,
     });
   });
 
@@ -393,7 +438,7 @@ describe("WorkspaceWindowManager interactions", () => {
     expect(firstCapture).toHaveBeenCalledWith(41);
     expect(getOverlayWindowIds()).toEqual(["one", "two"]);
     expect(getTitleDragHandle("one")).toBe(firstTitle);
-    expect(Number(getWindow("one").style.zIndex)).toBeGreaterThan(
+    expect(Number(getWindow("one").style.zIndex)).toBeLessThan(
       Number(getWindow("two").style.zIndex),
     );
 
@@ -412,7 +457,12 @@ describe("WorkspaceWindowManager interactions", () => {
           pointerId: 41,
         }),
       );
+      await flushDeferredInteraction();
     });
+
+    expect(Number(getWindow("one").style.zIndex)).toBeGreaterThan(
+      Number(getWindow("two").style.zIndex),
+    );
 
     const secondTitle = getTitleDragHandle("two");
     const secondCapture = vi.fn();
@@ -449,6 +499,7 @@ describe("WorkspaceWindowManager interactions", () => {
           pointerId: 42,
         }),
       );
+      await flushDeferredInteraction();
     });
 
     expect(getLastStateChange().windows).toMatchObject([
@@ -499,6 +550,7 @@ describe("WorkspaceWindowManager interactions", () => {
           pointerId: 5,
         }),
       );
+      await flushDeferredInteraction();
     });
     expect(onChange).toHaveBeenCalledOnce();
     expect(getLastStateChange().windows.map((window) => window.bounds)).toEqual(

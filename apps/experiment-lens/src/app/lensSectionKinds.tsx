@@ -1,5 +1,9 @@
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   registerSectionKinds,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
   type WorkspaceHost,
   type WorkspaceSectionSearchableText,
 } from "@setta/workspace";
@@ -21,11 +25,13 @@ import {
 
 const searchableText: WorkspaceSectionSearchableText = (section) =>
   section.name;
+const interactionBoundaryClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`;
+const sectionContentClassName = `lens-section-content ${interactionBoundaryClassName}`;
 
 export function registerLensSectionKinds(host: WorkspaceHost): void {
   registerSectionKinds(host, {
     [LENS_ARTIFACT_SECTION_KIND]: {
-      contentClassName: "lens-section-content",
+      contentClassName: sectionContentClassName,
       defaultSize: { height: 380, width: 600 },
       getSectionSearchableText: searchableText,
       renderContent: () => <ArtifactSection />,
@@ -37,7 +43,7 @@ export function registerLensSectionKinds(host: WorkspaceHost): void {
       },
     },
     [LENS_FACETS_SECTION_KIND]: {
-      contentClassName: "lens-section-content",
+      contentClassName: sectionContentClassName,
       defaultSize: { height: 190, width: 1_320 },
       getSectionSearchableText: searchableText,
       renderContent: () => <FacetSection />,
@@ -49,7 +55,7 @@ export function registerLensSectionKinds(host: WorkspaceHost): void {
       },
     },
     [LENS_PARALLEL_SECTION_KIND]: {
-      contentClassName: "lens-section-content lens-chart-section-content",
+      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
       defaultSize: { height: 410, width: 630 },
       getSectionSearchableText: searchableText,
       renderContent: () => <ParallelSection />,
@@ -61,7 +67,7 @@ export function registerLensSectionKinds(host: WorkspaceHost): void {
       },
     },
     [LENS_SCATTER_SECTION_KIND]: {
-      contentClassName: "lens-section-content lens-chart-section-content",
+      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
       defaultSize: { height: 410, width: 650 },
       getSectionSearchableText: searchableText,
       renderContent: () => <ScatterSection />,
@@ -73,7 +79,7 @@ export function registerLensSectionKinds(host: WorkspaceHost): void {
       },
     },
     [LENS_SERIES_SECTION_KIND]: {
-      contentClassName: "lens-section-content lens-chart-section-content",
+      contentClassName: `${sectionContentClassName} lens-chart-section-content`,
       defaultSize: { height: 380, width: 680 },
       getSectionSearchableText: searchableText,
       renderContent: () => <SeriesSection />,
@@ -85,7 +91,7 @@ export function registerLensSectionKinds(host: WorkspaceHost): void {
       },
     },
     [LENS_TABLE_SECTION_KIND]: {
-      contentClassName: "lens-section-content lens-table-section-content",
+      contentClassName: `${sectionContentClassName} lens-table-section-content`,
       defaultSize: { height: 370, width: 1_320 },
       getSectionSearchableText: searchableText,
       renderContent: () => <ObservationTableSection />,

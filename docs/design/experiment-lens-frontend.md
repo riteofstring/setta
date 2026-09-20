@@ -56,6 +56,16 @@ wrap with container queries, tables own horizontal scrolling, and media remains 
 Narrow initial loads begin with the outline closed and a compact saved-view viewport so mounting
 does not shift or resize an already-live canvas across the breakpoint.
 
+Lens starts with the Workspace minimap hidden because its fixed overlay can obstruct dense table
+controls. The standard Workspace toolbar remains the explicit way to reveal it when navigation
+context is more valuable than the underlying interaction area.
+
+Lens section bodies are interaction boundaries; section movement remains available from section
+chrome. Linked mutations and local projections that replace interactive descendants begin on the
+next browser task so a trusted pointer or keyboard event can finish before React projects a
+different cohort, row order, or controlled value across rich sections. This avoids coupling a
+Workspace input session to the reconciliation it initiated.
+
 Experiment data is read-only while Workspace layout remains editable. The host disables structural
 editing but retains section movement, resizing, saved-view activation, and section handoff into
 managed windows.

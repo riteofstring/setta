@@ -215,12 +215,11 @@ export function useWorkspaceWindowManagerInteractions({
         startedSnapped,
         windowId: window.id,
       };
-      updateSnapPreview(null);
-      focusWindow(window.id);
+      event.stopPropagation();
       event.preventDefault();
       captureWorkspaceWindowPointer(event.currentTarget, event.pointerId);
     },
-    [focusWindow, rootRef, updateSnapPreview, viewport],
+    [rootRef, viewport],
   );
   const handleTitlePointerMove = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -249,24 +248,29 @@ export function useWorkspaceWindowManagerInteractions({
       const session = dragSessionRef.current;
       if (!session || !viewport || session.pointerId !== event.pointerId)
         return;
-      if (commit) {
-        const nextState = resolveWorkspaceWindowTitleDragNextState(
-          session,
-          snapPreviewRef.current,
-          stateRef.current,
-          viewport,
-          mutationOptions,
-        );
-        if (nextState) emitState(nextState);
-      }
+      const committedSnapPreview = snapPreviewRef.current;
       clearPreviews([session.windowId]);
       updateSnapPreview(null);
       dragSessionRef.current = null;
       releaseWorkspaceWindowPointer(event.currentTarget, event.pointerId);
+      if (commit) {
+        window.setTimeout(() => {
+          const nextState = resolveWorkspaceWindowTitleDragNextState(
+            session,
+            committedSnapPreview,
+            stateRef.current,
+            viewport,
+            mutationOptions,
+          );
+          if (nextState) emitState(nextState);
+          focusWindow(session.windowId);
+        }, 0);
+      }
     },
     [
       clearPreviews,
       emitState,
+      focusWindow,
       mutationOptions,
       stateRef,
       updateSnapPreview,
@@ -290,12 +294,11 @@ export function useWorkspaceWindowManagerInteractions({
         startPointer: getWorkspaceWindowLocalPointer(event, root),
         windowId: window.id,
       };
-      updateSnapPreview(null);
-      focusWindow(window.id);
+      event.stopPropagation();
       event.preventDefault();
       captureWorkspaceWindowPointer(event.currentTarget, event.pointerId);
     },
-    [focusWindow, rootRef, updateSnapPreview, viewport],
+    [rootRef, viewport],
   );
   const handleFreeResizePointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -328,22 +331,32 @@ export function useWorkspaceWindowManagerInteractions({
       const session = freeResizeSessionRef.current;
       if (!session || !viewport || session.pointerId !== event.pointerId)
         return;
-      if (commit) {
-        emitState(
-          resizeWorkspaceFloatingWindow(
-            stateRef.current,
-            session.windowId,
-            session.lastBounds,
-            viewport,
-            mutationOptions,
-          ),
-        );
-      }
       clearPreviews([session.windowId]);
       freeResizeSessionRef.current = null;
       releaseWorkspaceWindowPointer(event.currentTarget, event.pointerId);
+      if (commit) {
+        globalThis.setTimeout(() => {
+          emitState(
+            resizeWorkspaceFloatingWindow(
+              stateRef.current,
+              session.windowId,
+              session.lastBounds,
+              viewport,
+              mutationOptions,
+            ),
+          );
+          focusWindow(session.windowId);
+        }, 0);
+      }
     },
-    [clearPreviews, emitState, mutationOptions, stateRef, viewport],
+    [
+      clearPreviews,
+      emitState,
+      focusWindow,
+      mutationOptions,
+      stateRef,
+      viewport,
+    ],
   );
 
   const handleSnapResizePointerDown = useCallback(
@@ -376,11 +389,11 @@ export function useWorkspaceWindowManagerInteractions({
         startBoundsByWindowId,
         startPointerPosition: seam.axis === "vertical" ? pointer.x : pointer.y,
       };
-      updateSnapPreview(null);
+      event.stopPropagation();
       event.preventDefault();
       captureWorkspaceWindowPointer(event.currentTarget, event.pointerId);
     },
-    [rootRef, stateRef, updateSnapPreview],
+    [rootRef, stateRef],
   );
   const handleSnapResizePointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -410,26 +423,28 @@ export function useWorkspaceWindowManagerInteractions({
     (event: PointerEvent<HTMLDivElement>, commit: boolean) => {
       const session = snapResizeSessionRef.current;
       if (!session || session.pointerId !== event.pointerId) return;
-      if (commit) {
-        emitState(
-          setWorkspaceWindowBoundsAtomically(
-            stateRef.current,
-            Object.entries(session.lastBoundsByWindowId).map(
-              ([id, bounds]) => ({
-                bounds,
-                id,
-              }),
-            ),
-            mutationOptions,
-          ),
-        );
-      }
       clearPreviews([
         ...session.seam.leadingWindowIds,
         ...session.seam.trailingWindowIds,
       ]);
       snapResizeSessionRef.current = null;
       releaseWorkspaceWindowPointer(event.currentTarget, event.pointerId);
+      if (commit) {
+        globalThis.setTimeout(() => {
+          emitState(
+            setWorkspaceWindowBoundsAtomically(
+              stateRef.current,
+              Object.entries(session.lastBoundsByWindowId).map(
+                ([id, bounds]) => ({
+                  bounds,
+                  id,
+                }),
+              ),
+              mutationOptions,
+            ),
+          );
+        }, 0);
+      }
     },
     [clearPreviews, emitState, mutationOptions, stateRef],
   );

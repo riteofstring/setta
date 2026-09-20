@@ -52,6 +52,10 @@ function createPointerEvent(
   return event;
 }
 
+function flushDeferredInteraction(): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+}
+
 function requireValue<Value>(
   value: Value | null | undefined,
   description: string,
@@ -140,7 +144,10 @@ describe("playground floating-window demo", () => {
     if (!button) {
       throw new Error(`Expected ${selector} to be rendered.`);
     }
-    await act(async () => button.click());
+    await act(async () => {
+      button.click();
+      await flushDeferredInteraction();
+    });
   }
 
   it("records section-window drag acceptance and canvas-owned wheel routing", async () => {
@@ -195,7 +202,7 @@ describe("playground floating-window demo", () => {
           pointerId: 13,
         }),
       );
-      await Promise.resolve();
+      await flushDeferredInteraction();
     });
     const currentFloatingSection = requireElement<HTMLElement>(
       host,
@@ -297,7 +304,10 @@ describe("playground floating-window demo", () => {
       "500px",
     );
 
-    await act(async () => recovery.click());
+    await act(async () => {
+      recovery.click();
+      await flushDeferredInteraction();
+    });
 
     expect(
       host.querySelectorAll('[data-testid="workspace-window-manager-window"]'),

@@ -62,12 +62,14 @@ export function WorkspaceSavedViewTabs({
     getWorkspaceSavedViewsOperationDisabledReason(host, "activate");
 
   function activate(view: WorkspaceSavedView): void {
-    const result = activateWorkspaceSavedView(host, view.id);
-    setStatus(
-      result.status === "unavailable"
-        ? result.reason
-        : `${view.name} is now active.`,
-    );
+    window.setTimeout(() => {
+      const result = activateWorkspaceSavedView(host, view.id);
+      setStatus(
+        result.status === "unavailable"
+          ? result.reason
+          : `${view.name} is now active.`,
+      );
+    }, 0);
   }
 
   function handleKeyDown(

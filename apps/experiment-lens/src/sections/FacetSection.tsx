@@ -101,7 +101,15 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
           key={`minimum:${String(minimum)}`}
           max={maximum ?? extent.maximum}
           min={extent.minimum}
-          onBlur={(event) => commit(Number(event.currentTarget.value), maximum)}
+          onBlur={(event) => {
+            const value = event.currentTarget.valueAsNumber;
+            if (
+              Number.isFinite(value) &&
+              value !== (minimum ?? extent.minimum)
+            ) {
+              commit(value, maximum);
+            }
+          }}
           step="any"
           type="number"
         />
@@ -115,7 +123,15 @@ function RangeFacet({ field }: { field: FieldDefinition }) {
           key={`maximum:${String(maximum)}`}
           max={extent.maximum}
           min={minimum ?? extent.minimum}
-          onBlur={(event) => commit(minimum, Number(event.currentTarget.value))}
+          onBlur={(event) => {
+            const value = event.currentTarget.valueAsNumber;
+            if (
+              Number.isFinite(value) &&
+              value !== (maximum ?? extent.maximum)
+            ) {
+              commit(minimum, value);
+            }
+          }}
           step="any"
           type="number"
         />

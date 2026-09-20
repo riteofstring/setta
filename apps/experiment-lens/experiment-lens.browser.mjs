@@ -259,7 +259,7 @@ async function waitForSnapshot(origin, description, accept) {
     await delay(75);
   }
   throw new Error(
-    `${description} did not occur: ${JSON.stringify(snapshot?.selection)}`,
+    `${description} did not occur: ${JSON.stringify({ revision: snapshot?.revision, selection: snapshot?.selection })}`,
   );
 }
 
@@ -267,8 +267,31 @@ function sectionSelector(sectionId) {
   return `[data-workspace-section-shell="true"][data-section-id="${sectionId}"]`;
 }
 
-async function clickMatching(client, selector, label) {
-  const clicked = await evaluate(
+async function pointForSelector(client, selector, description) {
+  const point = await evaluate(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement) ||
+        (element instanceof HTMLButtonElement && element.disabled)) {
+        return null;
+      }
+      const bounds = element.getBoundingClientRect();
+      const x = bounds.left + bounds.width / 2;
+      const y = bounds.top + bounds.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return bounds.width > 0 && bounds.height > 0 &&
+        hit instanceof Element && (hit === element || element.contains(hit))
+        ? { x, y }
+        : null;
+    })()`,
+  );
+  assert.notEqual(point, null, `${description} was not physically reachable.`);
+  return point;
+}
+
+async function pointForMatching(client, selector, label) {
+  const point = await evaluate(
     client,
     `(() => {
       const candidates = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
@@ -278,57 +301,238 @@ async function clickMatching(client, selector, label) {
       );
       if (!(element instanceof HTMLElement) ||
         (element instanceof HTMLButtonElement && element.disabled)) {
-        return false;
+        return null;
       }
-      element.click();
-      return true;
+      const bounds = element.getBoundingClientRect();
+      const x = bounds.left + bounds.width / 2;
+      const y = bounds.top + bounds.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return bounds.width > 0 && bounds.height > 0 &&
+        hit instanceof Element && (hit === element || element.contains(hit))
+        ? { x, y }
+        : null;
     })()`,
   );
-  assert.equal(clicked, true, `Could not activate ${label}.`);
+  assert.notEqual(point, null, `${label} was not physically reachable.`);
+  return point;
 }
 
-async function clickSelector(client, selector, description) {
-  const clicked = await evaluate(
+async function clickPoint(client, point) {
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+  });
+}
+
+async function physicalClickSelector(client, selector, description) {
+  await clickPoint(
+    client,
+    await pointForSelector(client, selector, description),
+  );
+}
+
+async function physicalClickMatching(client, selector, label) {
+  await clickPoint(client, await pointForMatching(client, selector, label));
+}
+
+async function dragSelector(client, selector, deltaX, deltaY, description) {
+  const start = await pointForSelector(client, selector, description);
+  const end = { x: start.x + deltaX, y: start.y + deltaY };
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: start.x,
+    y: start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: start.x,
+    y: start.y,
+  });
+  for (let step = 1; step <= 4; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: start.x + (deltaX * step) / 4,
+      y: start.y + (deltaY * step) / 4,
+    });
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: end.x,
+    y: end.y,
+  });
+}
+
+async function assertBrowserResponsive(client, description) {
+  const result = await evaluate(
+    client,
+    `new Promise((resolve) => requestAnimationFrame(() =>
+      requestAnimationFrame(() => resolve(document.querySelector(".lens-app") !== null))
+    ))`,
+  );
+  assert.equal(result, true, `${description} left the browser unresponsive.`);
+}
+
+async function assertCanvasPan(client, description) {
+  const start = await evaluate(
+    client,
+    `(() => {
+      const pane = document.querySelector(".react-flow__pane");
+      const viewport = document.querySelector(".react-flow__viewport");
+      if (!(pane instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+        return null;
+      }
+      const bounds = pane.getBoundingClientRect();
+      for (let y = bounds.top + 24; y < bounds.bottom - 24; y += 32) {
+        for (let x = bounds.left + 24; x < bounds.right - 24; x += 32) {
+          if (document.elementFromPoint(x, y) === pane) {
+            return { transform: getComputedStyle(viewport).transform, x, y };
+          }
+        }
+      }
+      return null;
+    })()`,
+  );
+  assert.notEqual(start, null, `${description} had no reachable canvas.`);
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: start.x,
+    y: start.y,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 36,
+    deltaY: 24,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await assertBrowserResponsive(client, description);
+  const transform = await evaluate(
+    client,
+    `getComputedStyle(document.querySelector(".react-flow__viewport")).transform`,
+  );
+  assert.notEqual(transform, start.transform, `${description} could not pan.`);
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: -36,
+    deltaY: -24,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await assertBrowserResponsive(client, `${description} reverse pan`);
+  await delay(200);
+}
+
+async function assertHorizontalScroll(client, selector, description) {
+  const start = await evaluate(
     client,
     `(() => {
       const element = document.querySelector(${JSON.stringify(selector)});
-      if (!(element instanceof HTMLElement) ||
-        (element instanceof HTMLButtonElement && element.disabled)) {
-        return false;
+      if (!(element instanceof HTMLElement) || element.scrollWidth <= element.clientWidth) {
+        return null;
       }
-      element.click();
-      return true;
+      const bounds = element.getBoundingClientRect();
+      return {
+        left: element.scrollLeft,
+        x: bounds.left + bounds.width * 0.7,
+        y: bounds.top + Math.min(90, bounds.height * 0.45),
+      };
     })()`,
   );
-  assert.equal(clicked, true, `Could not activate ${description}.`);
+  assert.notEqual(start, null, `${description} had no horizontal overflow.`);
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 240,
+    deltaY: 0,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await waitFor(
+    client,
+    `${description} horizontal scroll`,
+    `document.querySelector(${JSON.stringify(selector)})?.scrollLeft > ${String(start.left)}`,
+  );
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: -240,
+    deltaY: 0,
+    type: "mouseWheel",
+    x: start.x,
+    y: start.y,
+  });
+  await assertBrowserResponsive(client, description);
 }
 
-async function fillControl(client, selector, value) {
-  const changed = await evaluate(
+async function typeInputValue(client, selector, value, description) {
+  await physicalClickSelector(client, selector, description);
+  const selected = await evaluate(
     client,
     `(() => {
       const control = document.querySelector(${JSON.stringify(selector)});
-      if (!(control instanceof HTMLInputElement) && !(control instanceof HTMLTextAreaElement)) {
+      if (!(control instanceof HTMLInputElement) || document.activeElement !== control) {
         return false;
       }
-      const prototype = control instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-      if (!setter) {
-        return false;
-      }
-      setter.call(control, ${JSON.stringify(value)});
-      control.dispatchEvent(new Event("input", { bubbles: true }));
-      control.dispatchEvent(new Event("change", { bubbles: true }));
-      return control.value === ${JSON.stringify(value)};
+      control.select();
+      return true;
     })()`,
   );
-  assert.equal(changed, true, `Could not edit ${selector}.`);
+  assert.equal(selected, true, `${description} did not receive focus.`);
+  await assertBrowserResponsive(client, `${description} focus`);
+  const characters = Array.from(String(value));
+  for (const [index, character] of characters.entries()) {
+    try {
+      await client.send("Input.dispatchKeyEvent", {
+        text: character,
+        type: "char",
+        unmodifiedText: character,
+      });
+    } catch (error) {
+      throw new Error(
+        `${description} stopped accepting input at character ${String(index)} (${JSON.stringify(character)}).`,
+        { cause: error },
+      );
+    }
+  }
+  await client.send("Input.dispatchKeyEvent", {
+    code: "Tab",
+    key: "Tab",
+    type: "keyDown",
+    windowsVirtualKeyCode: 9,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "Tab",
+    key: "Tab",
+    type: "keyUp",
+    windowsVirtualKeyCode: 9,
+  });
+  await assertBrowserResponsive(client, `${description} input`);
 }
 
 async function clickCanvas(client, selector, xRatio, yRatio) {
-  const clicked = await evaluate(
+  const point = await evaluate(
     client,
     `(() => {
       const surface = document.querySelector(${JSON.stringify(selector)});
@@ -337,17 +541,15 @@ async function clickCanvas(client, selector, xRatio, yRatio) {
       }
       const bounds = surface.getBoundingClientRect();
       if (bounds.width < 100 || bounds.height < 100) {
-        return false;
+        return null;
       }
-      surface.dispatchEvent(new MouseEvent("click", {
-        bubbles: true,
-        clientX: bounds.left + bounds.width * ${String(xRatio)},
-        clientY: bounds.top + bounds.height * ${String(yRatio)},
-      }));
-      return true;
+      const x = bounds.left + bounds.width * ${String(xRatio)};
+      const y = bounds.top + bounds.height * ${String(yRatio)};
+      return surface.contains(document.elementFromPoint(x, y)) ? { x, y } : null;
     })()`,
   );
-  assert.equal(clicked, true, "The recorded-series chart was not clickable.");
+  assert.notEqual(point, null, "The recorded-series chart was not clickable.");
+  await clickPoint(client, point);
 }
 
 async function captureScreenshot(client, outputPath) {
@@ -425,13 +627,123 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "experiment-lens-atlas-dark.png",
   );
   await captureScreenshot(client, atlasScreenshot);
+  await assertCanvasPan(client, "the initial Atlas");
+  await physicalClickSelector(
+    client,
+    'button[aria-label="toggle minimap"]',
+    "the minimap toggle",
+  );
+  await waitFor(
+    client,
+    "the visible minimap",
+    `document.querySelector('[data-testid="rf__minimap"]') !== null`,
+  );
+  await physicalClickSelector(
+    client,
+    'button[aria-label="toggle minimap"]',
+    "the minimap toggle",
+  );
+  await waitFor(
+    client,
+    "the hidden minimap",
+    `document.querySelector('[data-testid="rf__minimap"]') === null`,
+  );
+  await assertHorizontalScroll(
+    client,
+    `${sectionSelector("lens:table")} .lens-table-scroll`,
+    "the observation table",
+  );
+  const observationSortSelector = `${sectionSelector("lens:table")} button[aria-label="Sort by Observation"]`;
+  await physicalClickSelector(
+    client,
+    observationSortSelector,
+    "the observation sort control",
+  );
+  await waitFor(
+    client,
+    "ascending observation sorting",
+    `document.querySelector(${JSON.stringify(observationSortSelector)})?.textContent?.includes("↑") === true`,
+  );
+  await physicalClickSelector(
+    client,
+    observationSortSelector,
+    "the observation sort control",
+  );
+  await waitFor(
+    client,
+    "descending observation sorting",
+    `document.querySelector(${JSON.stringify(observationSortSelector)})?.textContent?.includes("↓") === true`,
+  );
+  await physicalClickSelector(
+    client,
+    observationSortSelector,
+    "the observation sort control",
+  );
+  await waitFor(
+    client,
+    "cleared observation sorting",
+    `(() => {
+      const text = document.querySelector(${JSON.stringify(observationSortSelector)})?.textContent ?? "";
+      return !text.includes("↑") && !text.includes("↓");
+    })()`,
+  );
+  const cycleFilteredCount = initial.observations.filter(
+    (observation) => Number(observation.values.cycle) >= 100,
+  ).length;
+  await typeInputValue(
+    client,
+    'input[aria-label="Cycle minimum"]',
+    100,
+    "the cycle minimum filter",
+  );
+  const rangeFiltered = await waitForSnapshot(
+    origin,
+    "the durable cycle range",
+    (snapshot) =>
+      snapshot.revision === initial.revision + 1 &&
+      snapshot.selection.filters.some(
+        (filter) =>
+          filter.fieldId === "cycle" &&
+          filter.operator === "range" &&
+          filter.minimum === 100,
+      ),
+  );
+  await waitFor(
+    client,
+    "the range-filtered cohort",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === ${JSON.stringify(String(cycleFilteredCount))}`,
+  );
+  await delay(300);
+  const settledRange = await jsonRequest(origin, "/api/v1/experiment-lens");
+  assert.equal(
+    settledRange.revision,
+    rangeFiltered.revision,
+    "The cycle range input emitted more than one durable mutation.",
+  );
+  await physicalClickMatching(
+    client,
+    `${sectionSelector("lens:facets")} button`,
+    "Clear filters",
+  );
+  await waitForSnapshot(
+    origin,
+    "the cleared cycle range",
+    (snapshot) =>
+      snapshot.revision === rangeFiltered.revision + 1 &&
+      snapshot.selection.filters.length === 0,
+  );
+  await waitFor(
+    client,
+    "the restored full cohort",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === "864"`,
+  );
 
   const firstObservationId = await evaluate(
     client,
     `document.querySelector('[data-lens-observation-id]')?.getAttribute('data-lens-observation-id') ?? null`,
   );
   assert.equal(typeof firstObservationId, "string");
-  await clickSelector(
+  await physicalClickSelector(
     client,
     `[data-lens-observation-id="${firstObservationId}"]`,
     "the first observation",
@@ -442,7 +754,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     (snapshot) =>
       snapshot.selection.focusedObservationId === firstObservationId,
   );
-  await clickSelector(
+  await physicalClickSelector(
     client,
     `[data-lens-select-observation="${firstObservationId}"]`,
     "the first comparison selection",
@@ -455,7 +767,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       snapshot.selection.selectedObservationIds.includes(firstObservationId),
   );
 
-  await clickSelector(
+  await physicalClickSelector(
     client,
     `${sectionSelector("lens:facets")} [data-lens-filter-value="LCO"]`,
     "the LCO cohort filter",
@@ -479,6 +791,47 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     `document.querySelector('[data-lens-visible-count]')?.textContent === "576" &&
       document.body.textContent?.includes("1 outside cohort") === true`,
   );
+  await assertCanvasPan(client, "the filtered Atlas");
+  await physicalClickMatching(
+    client,
+    `${sectionSelector("lens:facets")} button`,
+    "Clear filters",
+  );
+  const clearedCohort = await waitForSnapshot(
+    origin,
+    "the cleared categorical filter",
+    (snapshot) =>
+      snapshot.revision === filtered.revision + 1 &&
+      snapshot.selection.filters.length === 0 &&
+      snapshot.selection.selectedObservationIds.includes(firstObservationId),
+  );
+  await waitFor(
+    client,
+    "the unfiltered linked cohort",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === "864"`,
+  );
+  await physicalClickSelector(
+    client,
+    `${sectionSelector("lens:facets")} [data-lens-filter-value="LCO"]`,
+    "the restored LCO cohort filter",
+  );
+  const refiltered = await waitForSnapshot(
+    origin,
+    "the restored LCO exclusion",
+    (snapshot) =>
+      snapshot.revision === clearedCohort.revision + 1 &&
+      snapshot.selection.filters.some(
+        (filter) =>
+          filter.fieldId === "chemistry" &&
+          filter.operator === "in" &&
+          !filter.values.includes("LCO"),
+      ),
+  );
+  await waitFor(
+    client,
+    "the restored filtered cohort",
+    `document.querySelector('[data-lens-visible-count]')?.textContent === "576"`,
+  );
 
   const secondObservationId = await evaluate(
     client,
@@ -486,7 +839,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   assert.equal(typeof secondObservationId, "string");
   assert.notEqual(secondObservationId, firstObservationId);
-  await clickSelector(
+  await physicalClickSelector(
     client,
     `[data-lens-observation-id="${secondObservationId}"]`,
     "the visible comparison observation",
@@ -495,10 +848,10 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     origin,
     "the linked table focus",
     (snapshot) =>
-      snapshot.revision === filtered.revision + 1 &&
+      snapshot.revision === refiltered.revision + 1 &&
       snapshot.selection.focusedObservationId === secondObservationId,
   );
-  await clickSelector(
+  await physicalClickSelector(
     client,
     `[data-lens-select-observation="${secondObservationId}"]`,
     "the second comparison selection",
@@ -511,7 +864,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       snapshot.selection.selectedObservationIds.length === 2,
   );
 
-  await clickMatching(client, "button", "Inspect");
+  await physicalClickMatching(
+    client,
+    '[data-testid="workspace-saved-view-tabs"] button',
+    "Inspect",
+  );
   await waitFor(
     client,
     "the linked series and cycle artifact",
@@ -558,8 +915,13 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await captureScreenshot(client, timelineScreenshot);
 
   const note = "Recheck the accelerated capacity loss around this checkpoint.";
-  await fillControl(client, 'input[aria-label="Selection note"]', note);
-  await clickMatching(
+  await typeInputValue(
+    client,
+    'input[aria-label="Selection note"]',
+    note,
+    "the selection note",
+  );
+  await physicalClickMatching(
     client,
     `${sectionSelector("lens:artifact")} button`,
     "Save note",
@@ -575,7 +937,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
           candidate.text === note,
       ),
   );
-  await clickMatching(
+  await physicalClickMatching(
     client,
     `${sectionSelector("lens:artifact")} button`,
     "Include artifact",
@@ -588,7 +950,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       snapshot.selection.selectedArtifactIds.length === 1,
   );
 
-  await clickMatching(client, ".lens-app-actions button", "Compare 2");
+  await physicalClickMatching(client, ".lens-app-actions button", "Compare 2");
   await waitFor(
     client,
     "the managed comparison window",
@@ -605,7 +967,106 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await captureScreenshot(client, comparisonScreenshot);
 
-  await clickMatching(client, ".lens-app-actions button", "Export selection");
+  const comparisonWindowSelector =
+    'article[aria-label="Window Selected observations"]';
+  const comparisonBounds = await evaluate(
+    client,
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(comparisonWindowSelector)})?.getBoundingClientRect();
+      return bounds
+        ? { height: bounds.height, left: bounds.left, top: bounds.top, width: bounds.width }
+        : null;
+    })()`,
+  );
+  assert.notEqual(comparisonBounds, null);
+  await dragSelector(
+    client,
+    `${comparisonWindowSelector} [data-workspace-window-title="true"]`,
+    48,
+    32,
+    "the comparison window title",
+  );
+  await waitFor(
+    client,
+    "the comparison window move",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(comparisonWindowSelector)})?.getBoundingClientRect();
+      return bounds !== undefined &&
+        Math.abs(bounds.left - ${String(comparisonBounds.left)}) >= 24 &&
+        Math.abs(bounds.top - ${String(comparisonBounds.top)}) >= 16;
+    })()`,
+  );
+  await assertBrowserResponsive(client, "the settled comparison window move");
+  const movedComparisonBounds = await evaluate(
+    client,
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(comparisonWindowSelector)})?.getBoundingClientRect();
+      return bounds ? { height: bounds.height, width: bounds.width } : null;
+    })()`,
+  );
+  assert.notEqual(movedComparisonBounds, null);
+  await dragSelector(
+    client,
+    `${comparisonWindowSelector} [data-testid="workspace-window-free-resize-handle"][data-direction="bottom_right"]`,
+    44,
+    36,
+    "the comparison window resize handle",
+  );
+  await waitFor(
+    client,
+    "the comparison window resize",
+    `(() => {
+      const bounds = document.querySelector(${JSON.stringify(comparisonWindowSelector)})?.getBoundingClientRect();
+      return bounds !== undefined &&
+        bounds.width >= ${String(movedComparisonBounds.width + 24)} &&
+        bounds.height >= ${String(movedComparisonBounds.height + 20)};
+    })()`,
+  );
+  await assertBrowserResponsive(client, "the comparison window resize");
+  await evaluate(
+    client,
+    `(() => {
+      window.__lensMinimizeClickCount = 0;
+      document.querySelector('button[aria-label="Minimize Selected observations"]')?.addEventListener(
+        "click",
+        () => { window.__lensMinimizeClickCount += 1; },
+      );
+      return true;
+    })()`,
+  );
+  await physicalClickSelector(
+    client,
+    'button[aria-label="Minimize Selected observations"]',
+    "the comparison window minimize control",
+  );
+  assert.equal(
+    await evaluate(client, "window.__lensMinimizeClickCount"),
+    1,
+    "The comparison window minimize control did not receive a click.",
+  );
+  await waitFor(
+    client,
+    "the minimized comparison window",
+    `${JSON.stringify(null)} === document.querySelector(${JSON.stringify(comparisonWindowSelector)}) &&
+      document.querySelector('button[aria-label="Restore Selected observations"]') !== null`,
+  );
+  await physicalClickSelector(
+    client,
+    'button[aria-label="Restore Selected observations"]',
+    "the comparison window restore control",
+  );
+  await waitFor(
+    client,
+    "the restored comparison window",
+    `document.querySelector(${JSON.stringify(comparisonWindowSelector)}) !== null`,
+  );
+  await assertBrowserResponsive(client, "the comparison window lifecycle");
+
+  await physicalClickMatching(
+    client,
+    ".lens-app-actions button",
+    "Export selection",
+  );
   const exportPath = path.join(
     resultDirectory,
     "battery-aging-study-selection.json",

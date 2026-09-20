@@ -20,7 +20,11 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { toggleMiniMap, useWorkspaceOptions } from "../canvas/options";
+import {
+  setWorkspaceMiniMapVisibility,
+  toggleMiniMap,
+  useWorkspaceOptions,
+} from "../canvas/options";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import {
@@ -191,5 +195,20 @@ describe("ResponsiveMiniMap", () => {
       toggleMiniMap(testWorkspace.host);
     });
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
+  });
+
+  it("accepts a host-scoped initial visibility choice", async () => {
+    setWorkspaceMiniMapVisibility(testWorkspace.host, false);
+
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          {<WorkspaceCanvas />}
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    expect(host.querySelector('[data-testid="rf__minimap"]')).toBe(null);
+    expect(testWorkspace.options.getState().showMinimap).toBe(false);
   });
 });
