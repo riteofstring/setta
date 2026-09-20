@@ -16,10 +16,5 @@
     "realtime:playground": "python3 packages/setta-runtime/scripts/run_realtime_playground.py",
     "review:playground": "python3 packages/setta-runtime/scripts/run_review_playground.py",
     "workspace:browser:test": "node scripts/workspace-browser-interactions.mjs"
-  },
-  "pnpm": {
-    "overrides": {
-      "fast-uri": "3.1.6"
-    }
   }
 }

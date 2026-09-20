@@ -1105,19 +1105,6 @@
     ],
     "releaseAgeAssessments": [
       {
-        "id": "fast-uri-3-1-6-security-fix",
-        "ecosystem": "pnpm",
-        "package": "fast-uri",
-        "version": "3.1.6",
-        "scope": "pnpm-lock.yaml",
-        "category": "security-fix",
-        "evidence": "https://github.com/fastify/fast-uri/security/advisories/GHSA-5jgf-p345-68v8",
-        "reason": "This exact release fixes the high-severity host-confusion and SSRF vulnerabilities in the newest dependency release old enough for ordinary admission.",
-        "owner": "realtime-frontend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-22"
-      },
-      {
         "id": "xyflow-react-12-11-5-supported-release",
         "ecosystem": "pnpm",
         "package": "@xyflow/react",
@@ -1145,18 +1132,6 @@
       }
     ],
     "vulnerabilityAssessments": [],
-    "dependencyOverridePolicies": [
-      {
-        "id": "fast-uri-security-fix",
-        "ecosystem": "pnpm",
-        "path": "package.json",
-        "field": "pnpm.overrides",
-        "contentSha256": "f4b60c0a7fbf9308dde0b4562a5b2ea674d5c41d314304eb347e7e1a421ce742",
-        "reason": "Ajv allows the vulnerable fast-uri release; force the first fixed 3.x release until normal minimum-age resolution can select it without an override.",
-        "owner": "realtime-frontend",
-        "reviewed": "2026-09-07",
-        "expires": "2026-09-22"
-      }
-    ]
+    "dependencyOverridePolicies": []
   }
 }
