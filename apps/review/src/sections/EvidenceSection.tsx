@@ -1,5 +1,10 @@
-import { File, PatchDiff } from "@pierre/diffs/react";
-import { NO_WHEEL_CLASS_NAME, type WorkspaceSection } from "@setta/workspace";
+import { PatchDiff } from "@pierre/diffs/react";
+import {
+  createWorkspaceCodeSection,
+  createWorkspaceCodeSectionData,
+  NO_WHEEL_CLASS_NAME,
+  type WorkspaceSection,
+} from "@setta/workspace";
 
 import { useReview } from "../app/reviewContext";
 import { findRequestSnapshot } from "../app/reviewModel";
@@ -16,10 +21,12 @@ import {
   sectionRequestId,
 } from "./sectionModel";
 
-const REVIEW_CODE_THEME = {
-  dark: "nord",
+const REVIEW_DIFF_THEME = {
+  dark: "vesper",
   light: "github-light-default",
 } as const;
+
+const JSON_CODE_SECTION = createWorkspaceCodeSection({ languages: ["json"] });
 
 function activeRelations(
   relations: readonly EvidenceRelation[],
@@ -103,13 +110,23 @@ function jsonSummary(value: JsonValue): string {
 function JsonEvidence({
   content,
   citations,
+  section,
 }: {
   content: Extract<ResolvedEvidenceContent, { kind: "json" }>;
   citations: readonly EvidenceCitation[];
+  section: WorkspaceSection;
 }) {
   const pointers = citations.flatMap((citation) =>
     citation.kind === "jsonPointer" ? [citation.pointer] : [],
   );
+  const codeSection = {
+    ...section,
+    data: createWorkspaceCodeSectionData({
+      code: jsonSummary(content.json),
+      language: "json",
+      mode: "read-only",
+    }),
+  };
   return (
     <div className="review-json-evidence">
       {pointers.length > 0 ? (
@@ -119,21 +136,7 @@ function JsonEvidence({
           ))}
         </div>
       ) : null}
-      <File
-        disableWorkerPool
-        file={{
-          contents: jsonSummary(content.json),
-          lang: "json",
-          name: "evidence.json",
-        }}
-        options={{
-          disableFileHeader: true,
-          disableLineNumbers: true,
-          overflow: "scroll",
-          theme: REVIEW_CODE_THEME,
-          themeType: "system",
-        }}
-      />
+      {JSON_CODE_SECTION.renderContent(codeSection)}
     </div>
   );
 }
@@ -152,7 +155,7 @@ function DiffEvidence({
           disableFileHeader: true,
           hunkSeparators: "line-info",
           overflow: "wrap",
-          theme: REVIEW_CODE_THEME,
+          theme: REVIEW_DIFF_THEME,
           themeType: "system",
         }}
         patch={content.unifiedDiff}
@@ -201,7 +204,11 @@ export function EvidenceSection({ section }: { section: WorkspaceSection }) {
       ) : resolved.content.kind === "text" ? (
         <TextEvidence citations={citations} content={resolved.content} />
       ) : resolved.content.kind === "json" ? (
-        <JsonEvidence citations={citations} content={resolved.content} />
+        <JsonEvidence
+          citations={citations}
+          content={resolved.content}
+          section={section}
+        />
       ) : (
         <div className="review-evidence-failure" role="alert">
           Unexpected evidence kind.

@@ -1188,15 +1188,12 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       );
       const pointers = Array.from(evidence?.querySelectorAll(".review-json-pointers code") ?? [])
         .map((candidate) => candidate.textContent?.trim());
-      const renderer = evidence?.querySelector(".review-json-evidence diffs-container");
-      const tokenColors = new Set(
-        Array.from(renderer?.shadowRoot?.querySelectorAll("[data-line] span") ?? [])
-          .map((candidate) => getComputedStyle(candidate).color),
-      );
+      const editor = evidence?.querySelector('[data-workspace-section-editor="read-only"]');
       return factor?.getAttribute("aria-pressed") === "true" &&
         evidence?.querySelector(".review-evidence")?.hasAttribute("data-focused") === true &&
         pointers.includes("/mismatch_rate") && pointers.includes("/mismatches") &&
-        tokenColors.size >= 2;
+        editor?.textContent?.includes("mismatch_rate") === true &&
+        evidence?.querySelector("diffs-container") === null;
     })()`,
   );
   const matrixLayout = await evaluate(
