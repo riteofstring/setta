@@ -1,4 +1,4 @@
-import type { WorkspaceSection } from "@setta/workspace";
+import { NO_WHEEL_CLASS_NAME, type WorkspaceSection } from "@setta/workspace";
 
 import { useReview, type ReviewSubjectSelection } from "../app/reviewContext";
 import { findRequestSnapshot } from "../app/reviewModel";
@@ -54,7 +54,7 @@ export function ChoiceMatrixSection({
   return (
     <div className="review-choice review-choice-matrix-wrap">
       <p className="review-requested-decision">{request.requestedDecision}</p>
-      <div className="review-choice-table-scroll">
+      <div className={`review-choice-table-scroll ${NO_WHEEL_CLASS_NAME}`}>
         <table className="review-choice-table">
           <thead>
             <tr>

@@ -3,7 +3,6 @@ import {
   createWorkspaceHost,
   fitWorkspaceSections,
   setWorkspaceColorMode,
-  setWorkspaceSectionAttention,
   type WorkspaceHost,
 } from "@setta/workspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -177,13 +176,15 @@ function downloadExport(snapshot: ReviewSnapshot, value: unknown): void {
   URL.revokeObjectURL(url);
 }
 
-function attend(host: WorkspaceHost, sectionIds: readonly string[]): void {
+function frameSections(
+  host: WorkspaceHost,
+  sectionIds: readonly string[],
+): void {
   if (sectionIds.length === 0) {
     return;
   }
   const attempt = (retry: boolean) => {
     try {
-      setWorkspaceSectionAttention(host, sectionIds);
       fitWorkspaceSections(host, sectionIds, {
         duration: 320,
         maxZoom: 0.95,
@@ -476,7 +477,9 @@ export function ReviewController() {
         setSelectedEvidenceId(evidenceId);
         const current = readyRef.current;
         if (current) {
-          attend(current.host, [evidenceSectionId(requestId, evidenceId)]);
+          frameSections(current.host, [
+            evidenceSectionId(requestId, evidenceId),
+          ]);
         }
       },
       selectOption: (requestId, optionId) => {
@@ -492,7 +495,7 @@ export function ReviewController() {
         setSelection(nextSelection);
         const current = readyRef.current;
         if (current) {
-          attend(
+          frameSections(
             current.host,
             relatedSectionIds(current.snapshot, nextSelection),
           );
@@ -502,7 +505,7 @@ export function ReviewController() {
         setSelection(nextSelection);
         const current = readyRef.current;
         if (current) {
-          attend(
+          frameSections(
             current.host,
             relatedSectionIds(current.snapshot, nextSelection),
           );

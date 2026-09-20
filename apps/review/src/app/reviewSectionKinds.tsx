@@ -39,7 +39,7 @@ export function registerReviewSectionKinds(host: WorkspaceHost): void {
     },
     [REVIEW_CHOICE_SECTION_KIND]: {
       contentClassName: "review-section-content review-choice-section-content",
-      defaultSize: { height: "auto", width: 760 },
+      defaultSize: { height: 344, width: 760 },
       getSectionSearchableText: searchableSectionText,
       renderContent: (section) => <ChoiceMatrixSection section={section} />,
     },

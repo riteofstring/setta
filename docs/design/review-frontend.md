@@ -13,10 +13,10 @@ its typed section bodies, controlled semantic graph, disposable exploration stat
 actions.
 
 Claim, option, factor, candidate, and evidence selection is disposable browser state. Selecting a
-subject never replaces evidence content. It highlights canonical relations, focuses exact cited
-content, and asks Workspace to attend to or frame the participating sections. A durable action is
-sent only at a coherent user boundary with the observed revision. Project SSE replacement retains
-compatible disposable selection and otherwise chooses a deterministic first subject.
+subject never replaces evidence content. It projects only that subject's canonical relations,
+focuses exact cited content, and asks Workspace to frame the participating sections. A durable
+action is sent only at a coherent user boundary with the observed revision. Project SSE replacement
+retains compatible disposable selection and otherwise chooses a deterministic first subject.
 
 ## Completion review
 

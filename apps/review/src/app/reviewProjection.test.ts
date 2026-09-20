@@ -34,7 +34,12 @@ const snapshot: ReviewSnapshot = {
       ],
       path: "request.json",
       request: {
-        completion: { claims: [{ id: "claim", text: "It works" }] },
+        completion: {
+          claims: [
+            { id: "claim", text: "It works" },
+            { id: "other-claim", text: "It is fast" },
+          ],
+        },
         evidence: [
           {
             id: "log",
@@ -60,6 +65,14 @@ const snapshot: ReviewSnapshot = {
             id: "claim-log",
             role: "supports",
             subjectId: "claim",
+            subjectKind: "claim",
+          },
+          {
+            citations: [{ endLine: 4, kind: "lineRange", startLine: 4 }],
+            evidenceId: "log",
+            id: "other-claim-log",
+            role: "qualifies",
+            subjectId: "other-claim",
             subjectKind: "claim",
           },
         ],
@@ -102,5 +115,12 @@ describe("review Workspace projection", () => {
     expect([...graph.selectedEdgeIds]).toEqual([
       "review:edge:request:claim-log",
     ]);
+  });
+
+  it("does not project relationship wiring without an active subject", () => {
+    const graph = projectReviewGraph(snapshot, null);
+    expect(graph.edges).toEqual([]);
+    expect(graph.ports).toEqual([]);
+    expect(graph.selectedEdgeIds.size).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
-import { PatchDiff } from "@pierre/diffs/react";
-import type { WorkspaceSection } from "@setta/workspace";
+import { File, PatchDiff } from "@pierre/diffs/react";
+import { NO_WHEEL_CLASS_NAME, type WorkspaceSection } from "@setta/workspace";
 
 import { useReview } from "../app/reviewContext";
 import { findRequestSnapshot } from "../app/reviewModel";
@@ -15,6 +15,11 @@ import {
   sectionEvidenceId,
   sectionRequestId,
 } from "./sectionModel";
+
+const REVIEW_CODE_THEME = {
+  dark: "nord",
+  light: "github-light-default",
+} as const;
 
 function activeRelations(
   relations: readonly EvidenceRelation[],
@@ -114,7 +119,21 @@ function JsonEvidence({
           ))}
         </div>
       ) : null}
-      <pre>{jsonSummary(content.json)}</pre>
+      <File
+        disableWorkerPool
+        file={{
+          contents: jsonSummary(content.json),
+          lang: "json",
+          name: "evidence.json",
+        }}
+        options={{
+          disableFileHeader: true,
+          disableLineNumbers: true,
+          overflow: "scroll",
+          theme: REVIEW_CODE_THEME,
+          themeType: "system",
+        }}
+      />
     </div>
   );
 }
@@ -133,6 +152,7 @@ function DiffEvidence({
           disableFileHeader: true,
           hunkSeparators: "line-info",
           overflow: "wrap",
+          theme: REVIEW_CODE_THEME,
           themeType: "system",
         }}
         patch={content.unifiedDiff}
@@ -166,7 +186,7 @@ export function EvidenceSection({ section }: { section: WorkspaceSection }) {
 
   return (
     <div
-      className="review-evidence"
+      className={`review-evidence ${NO_WHEEL_CLASS_NAME}`}
       data-focused={relations.length > 0 || undefined}
       onPointerDown={() => review.actions.selectEvidence(requestId, evidenceId)}
     >

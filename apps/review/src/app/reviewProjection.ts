@@ -139,10 +139,14 @@ function requestSize(request: RequestSnapshot): {
     return { height: "auto", width: 440 };
   }
   const width = Math.min(
-    1_120,
-    Math.max(640, 320 + request.request.choice.factors.length * 178),
+    1_040,
+    Math.max(620, 290 + request.request.choice.factors.length * 160),
   );
-  return { height: "auto", width };
+  const height = Math.min(
+    480,
+    Math.max(288, 176 + request.request.choice.options.length * 56),
+  );
+  return { height, width };
 }
 
 function requestTagColor(request: RequestSnapshot): string {
@@ -248,7 +252,7 @@ export function projectReviewDocument(
     );
     const previousControl = current?.topLevelSections[controlId];
     topLevelSections[controlId] = previousControl ?? {
-      h: null,
+      h: controlSize.height === "auto" ? null : controlSize.height,
       w: controlSize.width,
       x: REQUEST_X,
       y: laneY,
@@ -325,7 +329,15 @@ export function projectReviewGraph(
 
   for (const request of snapshot.requests) {
     const requestId = request.request.id;
-    request.request.relations.forEach((relation, index) => {
+    const relations = selection
+      ? request.request.relations.filter(
+          (relation) =>
+            selection.requestId === requestId &&
+            selection.subjectKind === relation.subjectKind &&
+            selection.subjectId === relation.subjectId,
+        )
+      : [];
+    relations.forEach((relation, index) => {
       const sourcePortId = relationPortId(relation.id, "source");
       const targetPortId = relationPortId(relation.id, "target");
       const edgeId = relationEdgeId(requestId, relation.id);
@@ -334,10 +346,7 @@ export function projectReviewGraph(
           family: "data",
           id: sourcePortId,
           label: relation.role,
-          position: distributedPosition(
-            index,
-            request.request.relations.length,
-          ),
+          position: distributedPosition(index, relations.length),
           sectionId: requestSectionId(requestId),
           side: "right",
           type: "source",
@@ -365,13 +374,7 @@ export function projectReviewGraph(
           sectionId: evidenceSectionId(requestId, relation.evidenceId),
         },
       });
-      if (
-        selection?.requestId === requestId &&
-        selection.subjectKind === relation.subjectKind &&
-        selection.subjectId === relation.subjectId
-      ) {
-        selectedEdgeIds.add(edgeId);
-      }
+      selectedEdgeIds.add(edgeId);
     });
   }
   return { edges, ports, selectedEdgeIds };

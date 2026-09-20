@@ -42,6 +42,7 @@ const artifactRequestId = "launch-poster";
 const completionSectionId = `review:request:${completionRequestId}`;
 const matrixSectionId = `review:request:${matrixRequestId}`;
 const artifactChoiceSectionId = `review:request:${artifactRequestId}`;
+const checkoutLogSectionId = `review:evidence:${completionRequestId}:checkout-log`;
 const shadowEvidenceSectionId = `review:evidence:${matrixRequestId}:shadow-read`;
 const consumerEvidenceSectionId = `review:evidence:${matrixRequestId}:consumer-compatibility`;
 const apertureEvidenceSectionId = `review:evidence:${artifactRequestId}:poster-aperture`;
@@ -756,6 +757,47 @@ async function clickElementCenter(client, selector, description) {
   });
 }
 
+async function scrollSectionHorizontally(client, sectionId) {
+  await focusSectionFromOutline(client, sectionId);
+  const surface = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(sectionId))});
+      const evidence = section?.querySelector(".review-evidence");
+      const lines = evidence?.querySelector(".review-code-lines");
+      if (!(evidence instanceof HTMLElement) || !(lines instanceof HTMLElement)) {
+        return null;
+      }
+      if (evidence.scrollWidth <= evidence.clientWidth) {
+        lines.style.minWidth = String(evidence.clientWidth + 500) + "px";
+      }
+      evidence.scrollLeft = 0;
+      const bounds = evidence.getBoundingClientRect();
+      return {
+        x: Math.max(1, Math.min(innerWidth - 1, bounds.left + bounds.width / 2)),
+        y: Math.max(1, Math.min(innerHeight - 1, bounds.top + bounds.height / 2)),
+      };
+    })()`,
+  );
+  assert.ok(surface !== null, `${sectionId} had no horizontal overflow.`);
+  await client.send("Input.dispatchMouseEvent", {
+    deltaX: 180,
+    deltaY: 0,
+    type: "mouseWheel",
+    x: surface.x,
+    y: surface.y,
+  });
+  await waitFor(
+    client,
+    `horizontal trackpad scrolling in ${sectionId}`,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(sectionId))});
+      const evidence = section?.querySelector(".review-evidence");
+      return evidence instanceof HTMLElement && evidence.scrollLeft > 0;
+    })()`,
+  );
+}
+
 function requestSnapshot(snapshot, requestId) {
   const request = snapshot.requests.find(
     (candidate) => candidate.request.id === requestId,
@@ -1080,6 +1122,14 @@ async function exerciseBrowser(client, origin, resultDirectory) {
         text.includes("Claude Sonnet 4.5 · Claude Code");
     })()`,
   );
+  assert.equal(
+    await evaluate(
+      client,
+      'document.querySelector(".setta-workspace-section-attention-active") === null',
+    ),
+    true,
+    "Review rendered an unexplained animated attention outline.",
+  );
   const completionNote = "Accepted after checking the audit sink caveat.";
   await fillSectionControl(
     client,
@@ -1124,6 +1174,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     "review-completion.png",
   );
   await captureScreenshot(client, completionScreenshot);
+  await scrollSectionHorizontally(client, checkoutLogSectionId);
 
   await clickSectionButton(client, matrixSectionId, "Mismatch");
   await waitFor(
@@ -1137,10 +1188,43 @@ async function exerciseBrowser(client, origin, resultDirectory) {
       );
       const pointers = Array.from(evidence?.querySelectorAll(".review-json-pointers code") ?? [])
         .map((candidate) => candidate.textContent?.trim());
+      const renderer = evidence?.querySelector(".review-json-evidence diffs-container");
+      const tokenColors = new Set(
+        Array.from(renderer?.shadowRoot?.querySelectorAll("[data-line] span") ?? [])
+          .map((candidate) => getComputedStyle(candidate).color),
+      );
       return factor?.getAttribute("aria-pressed") === "true" &&
         evidence?.querySelector(".review-evidence")?.hasAttribute("data-focused") === true &&
-        pointers.includes("/mismatch_rate") && pointers.includes("/mismatches");
+        pointers.includes("/mismatch_rate") && pointers.includes("/mismatches") &&
+        tokenColors.size >= 2;
     })()`,
+  );
+  const matrixLayout = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(sectionSelector(matrixSectionId))});
+      const actions = section?.querySelector(".review-choice-actions");
+      if (!(section instanceof HTMLElement) || !(actions instanceof HTMLElement)) {
+        return null;
+      }
+      const sectionBounds = section.getBoundingClientRect();
+      const actionBounds = actions.getBoundingClientRect();
+      return {
+        actionBottom: actionBounds.bottom,
+        actionLeft: actionBounds.left,
+        actionRight: actionBounds.right,
+        sectionBottom: sectionBounds.bottom,
+        sectionLeft: sectionBounds.left,
+        sectionRight: sectionBounds.right,
+      };
+    })()`,
+  );
+  assert.ok(matrixLayout !== null, "The matrix action row did not render.");
+  assert.ok(
+    matrixLayout.actionBottom <= matrixLayout.sectionBottom + 1 &&
+      matrixLayout.actionLeft >= matrixLayout.sectionLeft - 1 &&
+      matrixLayout.actionRight <= matrixLayout.sectionRight + 1,
+    `The matrix action row escaped its section: ${JSON.stringify(matrixLayout)}.`,
   );
   await clickSectionButton(client, matrixSectionId, "A · Immediate cutover");
   await waitFor(
