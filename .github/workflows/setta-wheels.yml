@@ -504,19 +504,17 @@ jobs:
           if (-not ((uv --version) -match "^uv 0\.8\.19")) { throw "Wrong uv" }
           if (-not [Environment]::Is64BitOperatingSystem) { throw "Windows amd64 runner required" }
       - name: Review dependencies before installation
-        shell: bash
         run: |
-          ./code-polishyw setup
-          ./code-polishyw dependency-review --base origin/main
+          .\code-polishyw.ps1 setup
+          .\code-polishyw.ps1 dependency-review --base origin/main
       - name: Install frozen build dependencies
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
           uv sync --frozen --no-build --no-install-project
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
       - name: Verify installed dependency metadata and notices
-        shell: bash
         run: |
-          ./code-polishyw supply-chain --offline
+          .\code-polishyw.ps1 supply-chain --offline
           python packages/setta-runtime/scripts/frontend_notices.py
       - name: Test the native server boundaries
         run: |
