@@ -98,27 +98,19 @@ function getSectionDescendants(
   return ids;
 }
 
-function getHighestVerticalGroupAncestor(
+function getHighestVerticalAncestor(
   state: WorkspaceDocumentState,
   sectionId: string,
 ): string {
-  const parentIdGetter = (id: string) => {
-    const section = getSectionOrThrow(state, id);
-    const parentId = state.parentSectionMap[id] ?? null;
-    if (
-      parentId &&
-      isGroupSection(section) &&
-      !section.isHorizontalOrientation
-    ) {
-      return parentId;
-    }
-    return null;
-  };
   let highestAncestor = sectionId;
-  let parentId = parentIdGetter(sectionId);
+  let parentId = state.parentSectionMap[highestAncestor];
   while (parentId) {
+    const parent = getSectionOrThrow(state, parentId);
+    if (isGroupSection(parent) && parent.isHorizontalOrientation) {
+      break;
+    }
     highestAncestor = parentId;
-    parentId = parentIdGetter(parentId);
+    parentId = state.parentSectionMap[highestAncestor];
   }
   return highestAncestor;
 }
@@ -136,7 +128,7 @@ export function setSelfParentSiblingChildrenWidths(
     updatedSectionSizes,
   );
   if (changedSize.width !== undefined) {
-    const highestAncestor = getHighestVerticalGroupAncestor(state, sectionId);
+    const highestAncestor = getHighestVerticalAncestor(state, sectionId);
     for (const descendantId of getSectionDescendants(state, highestAncestor)) {
       if (descendantId === sectionId) {
         continue;

@@ -43,85 +43,93 @@ function makeState(
 }
 
 describe("setSelfParentSiblingChildrenWidths", () => {
-  it("updates only the resized leaf when it has no group ancestry to climb", () => {
+  it("shares a child's width with its vertical parent and siblings while preserving their heights", () => {
     const state = makeState(
       [
         makeSection("group", { kind: "group", children: ["leaf-a", "leaf-b"] }),
         makeSection("leaf-a"),
-        makeSection("leaf-b"),
+        makeSection("leaf-b", { size: { width: 100, height: 90 } }),
+        makeSection("unrelated"),
       ],
       { "leaf-a": "group", "leaf-b": "group" },
     );
 
-    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
-      state,
-      "leaf-a",
-      {
+    const { sections, updatedSectionSizes } =
+      setSelfParentSiblingChildrenWidths(state, "leaf-a", {
         width: 240,
-      },
-    );
+        height: 160,
+      });
 
     expect(updatedSectionSizes).toEqual({
-      "leaf-a": { width: 240, height: 50 },
+      group: { width: 240, height: 50 },
+      "leaf-a": { width: 240, height: 160 },
+      "leaf-b": { width: 240, height: 90 },
     });
+    expect(sections["unrelated"]?.size).toEqual({ width: 100, height: 50 });
   });
 
-  it("climbs vertical group ancestry and writes the width across the whole subtree", () => {
+  it.each(["group", "app.list"])(
+    "shares a nested child's width through %s ancestors",
+    (kind) => {
+      const state = makeState(
+        [
+          makeSection("outer", {
+            kind,
+            children: ["inner", "outer-leaf"],
+          }),
+          makeSection("inner", { kind, children: ["inner-leaf"] }),
+          makeSection("outer-leaf"),
+          makeSection("inner-leaf"),
+        ],
+        { inner: "outer", "outer-leaf": "outer", "inner-leaf": "inner" },
+      );
+
+      const { updatedSectionSizes, sections } =
+        setSelfParentSiblingChildrenWidths(state, "inner-leaf", {
+          width: 300,
+        });
+
+      expect(Object.keys(updatedSectionSizes).sort()).toEqual([
+        "inner",
+        "inner-leaf",
+        "outer",
+        "outer-leaf",
+      ]);
+      expect(sections["outer"]?.size.width).toBe(300);
+      expect(sections["outer-leaf"]?.size.width).toBe(300);
+      expect(sections["inner-leaf"]?.size.width).toBe(300);
+    },
+  );
+
+  it("stops at a horizontal parent and leaves the other columns unchanged", () => {
     const state = makeState(
       [
         makeSection("outer", {
           kind: "group",
+          isHorizontalOrientation: true,
           children: ["inner", "outer-leaf"],
         }),
-        makeSection("inner", { kind: "group", children: ["inner-leaf"] }),
-        makeSection("outer-leaf"),
+        makeSection("inner", {
+          kind: "group",
+          children: ["inner-leaf"],
+        }),
         makeSection("inner-leaf"),
+        makeSection("outer-leaf"),
       ],
-      { inner: "outer", "outer-leaf": "outer", "inner-leaf": "inner" },
+      { inner: "outer", "inner-leaf": "inner", "outer-leaf": "outer" },
     );
 
-    const { updatedSectionSizes, sections } =
-      setSelfParentSiblingChildrenWidths(state, "inner", {
+    const { sections, updatedSectionSizes } =
+      setSelfParentSiblingChildrenWidths(state, "inner-leaf", {
         width: 300,
       });
 
     expect(Object.keys(updatedSectionSizes).sort()).toEqual([
       "inner",
       "inner-leaf",
-      "outer",
-      "outer-leaf",
     ]);
-    expect(sections["outer"]?.size.width).toBe(300);
-    expect(sections["outer-leaf"]?.size.width).toBe(300);
-    expect(sections["inner-leaf"]?.size.width).toBe(300);
-  });
-
-  it("stops the climb at a horizontal group", () => {
-    const state = makeState(
-      [
-        makeSection("outer", { kind: "group", children: ["inner"] }),
-        makeSection("inner", {
-          kind: "group",
-          isHorizontalOrientation: true,
-          children: ["inner-leaf"],
-        }),
-        makeSection("inner-leaf"),
-      ],
-      { inner: "outer", "inner-leaf": "inner" },
-    );
-
-    const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
-      state,
-      "inner",
-      {
-        width: 300,
-      },
-    );
-
-    expect(Object.keys(updatedSectionSizes).sort()).toEqual([
-      "inner",
-      "inner-leaf",
-    ]);
+    expect(sections["outer"]?.size.width).toBe(100);
+    expect(sections["outer-leaf"]?.size.width).toBe(100);
   });
 
   it("does not propagate height changes", () => {
@@ -135,13 +143,15 @@ describe("setSelfParentSiblingChildrenWidths", () => {
 
     const { updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
       state,
-      "group",
+      "leaf-a",
       {
         height: 400,
       },
     );
 
-    expect(updatedSectionSizes).toEqual({ group: { width: 100, height: 400 } });
+    expect(updatedSectionSizes).toEqual({
+      "leaf-a": { width: 100, height: 400 },
+    });
   });
 });
 

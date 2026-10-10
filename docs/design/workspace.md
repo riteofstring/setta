@@ -27,6 +27,12 @@ package. Opaque host data is validated for serializability and otherwise remains
 Minimization constrains a section's rendered surface to its header without replacing the section's
 authored size; expanding the section restores that size.
 
+Width resizing follows the owning layout. A child climbs through vertically arranged parents,
+including application-defined list sections, and applies the same width update as resizing that
+ancestor directly. A horizontal parent stops the climb so separate columns remain independent.
+Heights belong to individual sections, and every affected section retains its registered size
+constraints.
+
 Every complete document replacement validates all cross-resource invariants before the first
 store write. Internal publication stages the document, node geometry, and selection together so a
 synchronous read triggered while the individual stores publish still observes one coherent next

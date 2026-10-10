@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
 import { exerciseParameterOverflow } from "./parameter-overflow.browser.mjs";
+import { exerciseSharedSectionWidths } from "./section-width.browser.mjs";
 import {
   exerciseCallableCommitParity,
   waitForSnapshot,
@@ -318,6 +319,10 @@ export async function exerciseParamDictAndListSlice(
     outerChildIds,
     topLevelCallableSize,
   );
+  await exerciseSharedSectionWidths(client, [
+    listSectionSelector(outerList.id),
+    ...outerChildIds.map(callableSectionSelector),
+  ]);
 
   const firstChild = requireCallable(listWithChildren, outerChildIds[0]);
   const renamedFirstChild = await renameCallable(
