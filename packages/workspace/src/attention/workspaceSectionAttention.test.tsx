@@ -245,6 +245,27 @@ describe("workspace section attention", () => {
     });
   });
 
+  it("frames a section together with its attached runtime result", () => {
+    const { setViewport } = setupXyflowRuntime(testWorkspace);
+    const joined = document.createElement("div");
+    joined.setAttribute("data-workspace-joined-section-group", "");
+    Object.defineProperties(joined, {
+      clientWidth: { value: 100 },
+      clientHeight: { value: 400 },
+    });
+    const shell = createShell({ height: 80, width: 100, x: 300, y: 200 });
+    Object.defineProperty(shell, "parentElement", { value: joined });
+    testWorkspace.sectionRefs.setState({ selfOnly: { nested: shell } });
+    fitWorkspaceSections(testWorkspace.host, ["nested"], {
+      duration: 0,
+      padding: 0,
+    });
+    expect(setViewport).toHaveBeenCalledWith(
+      { x: 200, y: -100, zoom: 1 },
+      { duration: 0 },
+    );
+  });
+
   it("makes reduced-motion section fits immediate without holding the gesture lock", () => {
     vi.stubGlobal("window", {
       matchMedia: vi.fn(() => ({ matches: true })),

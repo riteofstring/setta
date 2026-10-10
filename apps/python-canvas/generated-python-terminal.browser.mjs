@@ -86,26 +86,27 @@ export async function exerciseGeneratedPythonTerminalLifecycle(
   const editorAfterCreate = await generatedTerminalGeometry(client);
   assert.ok(editorAfterCreate.pane, "The joined terminal pane is missing.");
   assertApproximately(
-    editorAfterCreate.pane.height,
-    220,
+    editorAfterCreate.pane.layoutHeight,
+    400,
     2,
-    "The attached terminal did not use main's 220 px default height.",
+    "The attached terminal did not use its 400 px default height.",
   );
   assertApproximately(
-    editorAfterCreate.editor.height,
-    editorBeforeCreate.editor.height,
+    editorAfterCreate.editor.layoutHeight,
+    editorBeforeCreate.editor.layoutHeight,
     2,
     "Creating the terminal changed the code editor height.",
   );
   assertApproximately(
-    editorAfterCreate.section.height,
-    editorBeforeCreate.section.height,
+    editorAfterCreate.section.layoutHeight,
+    editorBeforeCreate.section.layoutHeight,
     2,
     "Creating the terminal changed the authored Generated Python height.",
   );
   assertApproximately(
-    editorAfterCreate.group.height - editorBeforeCreate.group.height,
-    editorAfterCreate.pane.height,
+    editorAfterCreate.group.layoutHeight -
+      editorBeforeCreate.group.layoutHeight,
+    editorAfterCreate.pane.layoutHeight,
     2,
     "The joined Generated Python group did not grow by the terminal height.",
   );
@@ -835,7 +836,7 @@ async function generatedTerminalGeometry(client) {
       }
       const box = (element) => {
         const rect = element.getBoundingClientRect();
-        return { bottom: rect.bottom, height: rect.height, left: rect.left, right: rect.right, top: rect.top, width: rect.width };
+        return { bottom: rect.bottom, height: rect.height, layoutHeight: element.offsetHeight, left: rect.left, right: rect.right, top: rect.top, width: rect.width };
       };
       return {
         editor: box(editor),

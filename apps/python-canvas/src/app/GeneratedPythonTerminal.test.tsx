@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cleanupTerminal: vi.fn(),
   mountGeneratedPythonTerminal: vi.fn(),
+  fitWorkspaceSections: vi.fn(),
   workspaceHost: {} as never,
 }));
 
@@ -14,6 +15,7 @@ vi.mock("@setta/workspace", () => ({
   NO_PAN_CLASS_NAME: "nopan",
   NO_WHEEL_CLASS_NAME: "nowheel",
   useWorkspaceHost: () => mocks.workspaceHost,
+  fitWorkspaceSections: mocks.fitWorkspaceSections,
 }));
 
 vi.mock("./generatedPythonTerminalClient", () => ({

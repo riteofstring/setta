@@ -1,15 +1,20 @@
-import type { WorkspaceDocumentInput } from "@setta/workspace";
+import {
+  createWorkspaceSavedViewsState,
+  type WorkspaceDocumentInput,
+} from "@setta/workspace";
 
-export function rocketLabLayout(
+export function modelWorkshopLayout(
   document: WorkspaceDocumentInput,
 ): WorkspaceDocumentInput {
-  const settings = "python-canvas:parameter-dictionary:launch-settings";
-  const flights = "python-canvas:list:flights";
+  const data = "python-canvas:callable:data";
+  const steps = "python-canvas:list:steps";
+  const pipeline = "python-canvas:callable:pipeline";
   const generated = "python-canvas:generated-python";
   const placements = {
-    [settings]: { x: 0, y: 0, w: 390, h: 220, zIndex: 0 },
-    [flights]: { x: 0, y: 268, w: 390, h: null, zIndex: 1 },
-    [generated]: { x: 438, y: 0, w: 700, h: 320, zIndex: 2 },
+    [data]: { x: 0, y: 0, w: 400, h: 260, zIndex: 0 },
+    [steps]: { x: 0, y: 0, w: 400, h: null, zIndex: 1 },
+    [pipeline]: { x: 0, y: 308, w: 400, h: 180, zIndex: 2 },
+    [generated]: { x: 448, y: 0, w: 720, h: 260, zIndex: 3 },
   };
   const sections = { ...document.sections };
   const topLevelSections = { ...document.topLevelSections };
@@ -22,13 +27,44 @@ export function rocketLabLayout(
     };
     topLevelSections[id] = placement;
   }
-  for (const id of [
-    "python-canvas:callable:earth",
-    "python-canvas:callable:moon",
-  ]) {
+  for (const [id, height] of [
+    ["python-canvas:callable:scale", 120],
+    ["python-canvas:callable:features", 200],
+    ["python-canvas:callable:classifier", 200],
+  ] as const) {
     const section = sections[id];
-    if (section)
-      sections[id] = { ...section, size: { width: 390, height: 270 } };
+    if (section) sections[id] = { ...section, size: { width: 400, height } };
   }
-  return { ...document, sections, topLevelSections };
+  const arranged = { ...document, sections, topLevelSections };
+  const build = createWorkspaceSavedViewsState(arranged, {
+    id: "build",
+    name: "Build & run",
+    isTab: true,
+  }).views.build!;
+  const explore = createWorkspaceSavedViewsState(arranged, {
+    id: "data",
+    name: "Data & wiring",
+    isTab: true,
+  }).views.data!;
+  return {
+    ...arranged,
+    savedViews: {
+      activeViewId: "build",
+      views: {
+        build: {
+          ...build,
+          sectionVisibility: {
+            ...build.sectionVisibility,
+            [data]: false,
+            [pipeline]: false,
+          },
+        },
+        data: {
+          ...explore,
+          sortIndex: 1,
+          sectionVisibility: { ...explore.sectionVisibility, [steps]: false },
+        },
+      },
+    },
+  };
 }

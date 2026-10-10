@@ -10,7 +10,7 @@ import {
   loadPythonCanvasSavedViews,
   persistPythonCanvasSavedViews,
 } from "./pythonCanvasSavedViewsPreferences";
-import { rocketLabLayout } from "./pythonCanvasPlaygroundLayout";
+import { modelWorkshopLayout } from "./pythonCanvasPlaygroundLayout";
 
 type PythonCanvasSavedViewsBootstrap = {
   document: WorkspaceDocumentInput;
@@ -75,16 +75,17 @@ export function bootstrapPythonCanvasSavedViews(
   projectId: string,
 ): PythonCanvasSavedViewsBootstrap {
   const loaded = loadPythonCanvasSavedViews(projectId);
-  if (projectId === "rocket-lab" && loaded.kind !== "loaded") {
-    document = rocketLabLayout(document);
+  if (projectId === "model-workshop" && loaded.kind !== "loaded") {
+    document = modelWorkshopLayout(document);
   }
   const savedViews =
     loaded.kind === "loaded"
       ? loaded.savedViews
-      : createWorkspaceSavedViewsState(document, {
+      : (document.savedViews ??
+        createWorkspaceSavedViewsState(document, {
           id: "overview",
           name: "Overview",
-        });
+        }));
   return {
     document: projectWorkspaceDocumentSavedViews({
       ...document,

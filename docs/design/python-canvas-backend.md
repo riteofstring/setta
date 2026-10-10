@@ -94,6 +94,10 @@ Basedpyright runs as one startup-supplied absolute executable; the backend never
 documents and cannot change the canonical generated document. UTF-8 byte ranges are converted to
 and from LSP UTF-16 positions at the adapter boundary, rejecting offsets inside code points or
 surrogate pairs.
+Signature lookup renders a detached candidate with the queried callable's arguments removed. Their
+UI overrides are removed from that candidate as well, so controls cannot reference absent
+parameters. The canonical authored controls and values remain intact and participate in the normal
+signature reconciliation and durable refresh.
 
 Every event-stream subscription starts with the current complete snapshot. Publication is
 latest-value: a slow subscriber may skip superseded intermediate snapshots while retaining the
@@ -147,14 +151,25 @@ The Windows ConPTY implementation derives in part from `UserExistsError/conpty`.
 retained in the source tree and the built wheel's license directory; this design record does not
 replace that attribution.
 
-## Rocket lab example
+## Model workshop example
 
-The checked-in rocket lab is an ordinary V2 project: one Parameter Dictionary controls speed and
-angle, and a List of Objects contains Earth and Moon callables referencing those values. Its
-standard-library function returns a terminal trajectory and physical quantities; invalid numeric
-settings return a correction message. Nothing runs automatically. A local Basedpyright project
-configuration uses standard checking and permits the generated constructor's intentional `state`
-parameter name, so a valid first launch has no misleading generated-code diagnostics.
-The `rocket_lab:trajectory` entry-point contract records the function consumed by the two
-`project.json` callables. Its caller is generated Python, so no handwritten Python import callsite
-exists inside the example project.
+The checked-in model workshop exercises Python object composition: a List of Objects constructs
+scikit-learn preprocessing and estimator instances, and a separate `make_pipeline` callable consumes
+that list through its variadic positional parameter. The dataset is another ordinary callable.
+The generated suffix invokes `model_workshop.show` only on explicit Run and explains invalid recipe
+values without terminating the app or changing saved inputs. The reporting helper splits data
+before fitting a cloned pipeline, keeping both preprocessing and training separate from held-out
+evaluation. Seeded local synthetic data needs no downloaded dataset or service.
+
+The colored decision map uses the existing terminal; there is no new output protocol, scheduler,
+artifact server, or Realtime dependency. A short handwritten `recipe.py` makes the comparison with
+ordinary Python concrete. The example tests whether visual composition and signature discovery
+justify the canvas's extra navigation; a more attractive result alone does not establish that.
+
+NumPy 2.5.1 and scikit-learn 1.9.0 are exact project dependencies from their official PyPI releases,
+both older than 90 days at admission. Their frozen transitive graph passed dependency review on
+2026-10-09 without new vulnerability or release-age assessments. A fixed resolver cutoff preserves
+the 30-day admission window; setup admits wheels only and executes no build hooks. These libraries
+belong to the example environment rather than the Setta runtime. The local Basedpyright configuration
+permits the generated constructor's intentional `state` parameter name. The `model_workshop:show`
+entry-point contract records the suffix invocation authored in `project.json`.

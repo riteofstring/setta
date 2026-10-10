@@ -286,10 +286,10 @@
     ],
     "pythonContracts": [
       {
-        "project": "apps/python-canvas/examples/rocket-lab/fixture/pyproject.toml",
+        "project": "apps/python-canvas/examples/model-workshop/fixture/pyproject.toml",
         "kind": "entry-point",
-        "target": "rocket_lab:trajectory",
-        "reason": "The Earth and Moon callables in the adjacent project.json reference rocket_lab.trajectory; Python Canvas generates and executes those calls when Run is pressed."
+        "target": "model_workshop:show",
+        "reason": "The adjacent project.json suffix calls model_workshop.show with the composed scikit-learn pipeline and dataset; Python Canvas executes it on explicit Run."
       }
     ],
     "entryPoints": [
@@ -633,7 +633,7 @@
       "name": "python-canvas-playground-lock-sync",
       "provides": ["lock-sync"],
       "argv": ["uv", "lock", "--check"],
-      "cwd": "apps/python-canvas/examples/rocket-lab/fixture",
+      "cwd": "apps/python-canvas/examples/model-workshop/fixture",
       "modules": ["python-canvas-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
@@ -644,6 +644,7 @@
       "examples/workspace-playground/src/**/*.test.ts",
       "examples/workspace-playground/src/**/*.test.tsx",
       "apps/python-canvas/backend/**/*_test.go",
+      "apps/python-canvas/examples/**/test_*.py",
       "apps/python-canvas/*.test.mjs",
       "apps/python-canvas/src/**/*.test.ts",
       "apps/python-canvas/src/**/*.test.tsx",
@@ -682,6 +683,11 @@
         "paths": ["apps/python-canvas/backend/**/*_test.go"],
         "module": "python-canvas-backend",
         "focusedSuite": "python-canvas-backend-focused"
+      },
+      {
+        "paths": ["apps/python-canvas/examples/**/test_*.py"],
+        "module": "python-canvas-backend",
+        "focusedSuite": "python-canvas-model-workshop"
       },
       {
         "paths": [
@@ -805,6 +811,28 @@
         "argv": ["pnpm", "--filter", "@setta/workspace-playground", "test"],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 1200
+      },
+      {
+        "name": "python-canvas-model-workshop",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-backend"],
+        "paths": ["apps/python-canvas/examples/model-workshop/**"],
+        "argv": [
+          "uv",
+          "run",
+          "--frozen",
+          "--no-build",
+          "--no-install-project",
+          "python",
+          "-m",
+          "unittest",
+          "test_model_workshop"
+        ],
+        "cwd": "apps/python-canvas/examples/model-workshop/fixture",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 60
       },
       {
         "name": "python-canvas-backend-focused",

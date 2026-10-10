@@ -202,7 +202,7 @@ function PythonCanvasReadyWorkspace({
 }: PythonCanvasReadyWorkspaceProps) {
   const [shellViewState, setShellViewState] = useState<WorkspaceShellViewState>(
     () =>
-      state.projectId === "rocket-lab"
+      state.projectId === "model-workshop"
         ? createWorkspaceShellViewState({
             leadingTabId: "start-here",
             trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
@@ -234,7 +234,7 @@ function PythonCanvasReadyWorkspace({
           >
             <WorkspaceProvider host={state.host}>
               <PythonCanvasWorkspaceShell
-                isPlayground={state.projectId === "rocket-lab"}
+                isPlayground={state.projectId === "model-workshop"}
                 onViewStateChange={handleShellViewStateChange}
                 viewState={shellViewState}
               />

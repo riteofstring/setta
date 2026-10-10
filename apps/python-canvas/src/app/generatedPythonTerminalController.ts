@@ -10,7 +10,7 @@ import {
   getGeneratedPythonTerminalDimensions,
 } from "./generatedPythonTerminalClient";
 
-const GENERATED_PYTHON_TERMINAL_DEFAULT_HEIGHT = 220;
+const GENERATED_PYTHON_TERMINAL_DEFAULT_HEIGHT = 400;
 const GENERATED_PYTHON_TERMINAL_MINIMUM_HEIGHT = 100;
 
 export type GeneratedPythonTerminalState = Readonly<{

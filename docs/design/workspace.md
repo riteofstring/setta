@@ -127,6 +127,10 @@ conflicting viewport input until the renderer transition settles. Supersession, 
 invalidation, complete document load, and host disposal settle a pending fit without applying stale
 geometry. Highlight removal lingers to preserve main's visual cadence. The feature neither changes
 selection nor writes presentation state into `WorkspaceDocument`.
+Section framing includes the package-owned joined attachment group when one exists, so a terminal
+or other attached runtime result stays inside the visible canvas along with its owning card. The
+fit observes that group for measurement readiness; ordinary shell sizing and selection geometry
+retain their existing boundaries.
 
 ## Managed-window geometry authority
 

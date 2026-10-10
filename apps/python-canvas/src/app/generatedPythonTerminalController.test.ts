@@ -51,7 +51,7 @@ describe("Generated Python terminal runtime", () => {
     await flushMicrotasks();
 
     expect(harness.currentState.status).toBe("visible");
-    expect(harness.currentState.terminalHeight).toBe(220);
+    expect(harness.currentState.terminalHeight).toBe(400);
     expect(mocks.runTerminal).not.toHaveBeenCalled();
 
     harness.runtime.resize(310);
@@ -197,7 +197,7 @@ function createRuntimeHarness({
     projectId: null,
     sessionKey: null,
     status: "absent",
-    terminalHeight: 220,
+    terminalHeight: 400,
   };
   return {
     get currentState() {

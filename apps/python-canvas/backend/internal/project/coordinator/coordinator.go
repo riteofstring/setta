@@ -897,6 +897,9 @@ func (coordinator *Coordinator) signatureRequest(
 			continue
 		}
 		candidate.Callables[index].AuthoredExpression = expression
+		for _, parameter := range candidate.Callables[index].Parameters {
+			delete(candidate.ParameterUIOverrides, parameter.ID)
+		}
 		candidate.Callables[index].Parameters = []aggregate.Parameter{}
 		found = true
 		break

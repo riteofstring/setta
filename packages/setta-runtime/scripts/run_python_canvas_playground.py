@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-FIXTURE_ROOT = ROOT / "apps/python-canvas/examples/rocket-lab/fixture"
-WORKSPACE_ROOT = ROOT / "tmp/python-canvas-playground/rocket-lab"
-REQUIRED_FILES = ("project.json", "rocket_lab.py")
+FIXTURE_ROOT = ROOT / "apps/python-canvas/examples/model-workshop/fixture"
+WORKSPACE_ROOT = ROOT / "tmp/python-canvas-playground/model-workshop"
+REQUIRED_FILES = (
+    "project.json",
+    "model_workshop.py",
+    "pyproject.toml",
+    "uv.lock",
+    "uv.toml",
+)
 
 
 class PlaygroundError(RuntimeError):
@@ -27,7 +34,33 @@ def main(arguments: Sequence[str] | None = None) -> int:
     )
     if isinstance(options, int):
         return options
-    return playground_server.run("python-canvas", options, prepare_workspace)
+    return playground_server.run("python-canvas", options, _prepare_launch)
+
+
+def _prepare_launch(workspace: Path) -> Path:
+    workspace = prepare_workspace(workspace)
+    uv = shutil.which("uv")
+    if uv is None:
+        raise PlaygroundError(
+            "uv is required to prepare the playground's Python environment"
+        )
+    try:
+        subprocess.run(
+            [
+                uv,
+                "sync",
+                "--frozen",
+                "--no-build",
+                "--no-install-project",
+                "--project",
+                str(workspace),
+            ],
+            cwd=workspace,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise PlaygroundError(f"cannot sync project environment: {error}") from error
+    return workspace
 
 
 def prepare_workspace(workspace: Path | None = None) -> Path:
@@ -43,9 +76,15 @@ def prepare_workspace(workspace: Path | None = None) -> Path:
         _validate_project(FIXTURE_ROOT)
         workspace.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".rocket-lab-", dir=workspace.parent
+            prefix=".model-workshop-", dir=workspace.parent
         ) as staging:
-            shutil.copytree(FIXTURE_ROOT, staging, dirs_exist_ok=True, symlinks=True)
+            shutil.copytree(
+                FIXTURE_ROOT,
+                staging,
+                dirs_exist_ok=True,
+                symlinks=True,
+                ignore=shutil.ignore_patterns(".venv", "__pycache__"),
+            )
             _validate_project(Path(staging))
             Path(staging).rename(workspace)
     except OSError as error:

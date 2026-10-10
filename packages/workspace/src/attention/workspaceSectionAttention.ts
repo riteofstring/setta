@@ -151,6 +151,11 @@ function getReadyWorkspaceSectionBounds(
     if (!refs.selfOnly[sectionId] && !refs.withNested[sectionId]) return null;
     const bounds = getSectionRect(host, sectionId, true);
     if (!hasPositiveSectionBounds(bounds)) return null;
+    const joinedGroup = refs.selfOnly[sectionId]?.parentElement;
+    if (joinedGroup?.hasAttribute("data-workspace-joined-section-group")) {
+      bounds.width = Math.max(bounds.width, joinedGroup.clientWidth);
+      bounds.height = Math.max(bounds.height, joinedGroup.clientHeight);
+    }
     rects.push(bounds);
   }
   const left = Math.min(...rects.map((rect) => rect.x));
@@ -261,7 +266,11 @@ function observeWorkspaceSectionFitElements(
   if (!observer) return;
   const refs = getSectionRefsStore(host).getState();
   for (const sectionId of sectionIds) {
-    const element = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
+    const shell = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
+    const parent = shell?.parentElement;
+    const element = parent?.hasAttribute("data-workspace-joined-section-group")
+      ? parent
+      : shell;
     if (element && !observedElements.has(element)) {
       observedElements.add(element);
       observer.observe(element);

@@ -9,11 +9,14 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
+  fitWorkspaceSections,
+  isWorkspaceSavedViewSectionVisible,
   useWorkspaceHost,
 } from "@setta/workspace";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";
+import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";
 
 export function GeneratedPythonTerminalHeaderControls() {
   const { actions, state } = useGeneratedPythonTerminal();
@@ -41,6 +44,7 @@ export function GeneratedPythonTerminalHeaderControls() {
         type="button"
       >
         <PlayIcon />
+        <span>Run</span>
       </button>
       <button
         aria-label={terminalLabel}
@@ -126,6 +130,14 @@ function GeneratedPythonTerminalPane({
     if (container === null) {
       return;
     }
+    let targets: string[] = [GENERATED_PYTHON_SECTION_ID];
+    if (projectId === "model-workshop") {
+      const document = workspaceHost.getSnapshot();
+      targets = Object.keys(document.topLevelSections).filter((id) =>
+        isWorkspaceSavedViewSectionVisible(document.savedViews, {}, id),
+      );
+    }
+    void fitWorkspaceSections(workspaceHost, targets, { duration: 0 });
     return mountGeneratedPythonTerminal({
       container,
       onError: onStreamError,

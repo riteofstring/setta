@@ -155,11 +155,22 @@ failures retain their visible feedback. Later completion requests use the curren
 
 ## Playground guidance
 
-The canonical `rocket-lab` project enables a Start here shell tab and seeds a readable first canvas
-layout before saved-view bootstrap. Existing saved views retain authority. Guide steps frame the
-generated program, launch settings, or Moon callable and explain Run and commit boundaries. The
-guide uses Workspace's shared quick-start surface; application code owns the example content.
+The canonical `model-workshop` project enables a Start here shell tab and seeds two saved views
+before bootstrap. Build & run puts the composed ingredients beside Generated Python; Data & wiring
+shows the dataset and the callable consuming the ingredient list. Visibility changes presentation
+only; both views execute the same complete recipe. Existing saved views retain authority. Guide
+steps activate the relevant view and frame its section, explaining Run, parameter changes, and
+swapping an actual library class. The guide uses Workspace's shared quick-start surface;
+application code owns the example content.
 This sample-only tab is not persisted as a global shell preference for unrelated projects. On a
 narrow screen a guide jump collapses the guide pane before framing to make room for the destination.
-The initial code pane leaves room for the terminal opened by Run, so the first result stays visible
-on a typical laptop screen.
+The initial code pane leaves room for the terminal opened by Run. A visible Run label makes the
+action discoverable, and the terminal's initial 400-pixel height accommodates a small report or
+traceback without requiring a resize before reading the result.
+Opening or showing the terminal immediately frames the Generated Python section with its attached
+result. The model workshop frames its current view's visible roots together so ingredients and
+results remain usable side by side. This does not animate or temporarily block canvas gestures.
+Download Python reads the public Workspace code-section data at click time, including visible
+prefix and suffix drafts, and saves a Python file through the browser. It does not mutate the
+project, run code, or bundle dependencies. Download failure leaves the editor available and the
+same control offers retry.

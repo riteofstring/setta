@@ -135,11 +135,14 @@ copy or the explicit `--workspace`, never creates a project or builds an applica
 successful when that copy is already stopped. Checked-in fixture directories cannot
 be selected as working copies. Each application retains its own seeding and validation semantics.
 
-Python Canvas copies the rocket lab atomically before opening its project through the same local
-packaged runtime. Its Python functions use only the standard library; no example dependency
-installation is needed. The fixture contains ordinary project metadata and an empty frozen lock
-so its source is independently analyzable. Partial copies never become working projects, and
-relaunching preserves settings and authored Python.
+Python Canvas copies the model workshop atomically before opening its project through the same
+local packaged runtime. It synchronizes the example's frozen Python lock with builds and project
+installation disabled, so the nearest project-local environment provides both signature discovery
+and execution. Fixture virtual environments and Python caches are excluded from copying. A failed
+dependency download leaves the working project intact and can be retried with the same launch
+command. Partial fixture copies never become working projects, and relaunching preserves settings
+and authored Python. A new example uses a distinct default working directory; earlier local projects
+are never rewritten into a new example.
 
 The shared playground launcher starts the installed `setta APP open --no-open` process in an
 independent operating-system session with detached standard streams. It waits for the public

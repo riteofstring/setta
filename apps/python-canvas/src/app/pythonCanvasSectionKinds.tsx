@@ -36,6 +36,7 @@ import {
   readCallableParameterRows,
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
+import { DownloadPythonButton } from "./DownloadPythonButton";
 import {
   GeneratedPythonTerminalAttachment,
   GeneratedPythonTerminalHeaderControls,
@@ -197,7 +198,10 @@ export function registerPythonCanvasSectionKinds(
       },
       renderHeaderControls: (section) =>
         section.id === GENERATED_PYTHON_SECTION_ID ? (
-          <GeneratedPythonTerminalHeaderControls />
+          <>
+            <DownloadPythonButton />
+            <GeneratedPythonTerminalHeaderControls />
+          </>
         ) : null,
       renderAttachedContent: (section) =>
         section.id === GENERATED_PYTHON_SECTION_ID ? (

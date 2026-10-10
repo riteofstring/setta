@@ -10,21 +10,39 @@ revision, so stale writes fail with a typed conflict instead of replacing newer 
 
 ## Playground
 
-After [source setup](../../CONTRIBUTING.md#source-setup), launch the rocket flight lab:
+After [source setup](../../CONTRIBUTING.md#source-setup), launch the model workshop:
 
 ```console
 pnpm python-canvas:playground
 ```
 
-The **Start here** pane walks you through a working example. First find **Generated Python** and
-press **Run**: the attached terminal draws Earth and Moon flight paths and reports range, height,
-and flight time. Change the speed and angle sliders in **Launch settings** and run again. Try
-30°, 45°, and 60° at the same speed, then expand a callable in **Flights** to explore gravity.
-The example uses only Python's standard library and ignores air resistance.
+The **Start here** pane walks through assembling real scikit-learn objects into a classifier.
+Press **Run** in **Generated Python**: the terminal draws its learned decision boundary, marks
+mistakes on unseen samples, and reports training and unseen accuracy. The initial recipe uses
+`StandardScaler`, `PolynomialFeatures`, and `LogisticRegression`. Change **Features → degree**
+from 1 to 3 and run again: the straight boundary becomes curved. Try beating 90% on unseen samples,
+then raise **Data → noise** or replace the classifier expression with `SVC` and press Enter.
 
-Your working project is `tmp/python-canvas-playground/rocket-lab`. Settings and code changes stay
-there across launches; the checked-in fixture stays untouched. The initial canvas puts the launch
-controls beside the generated program, and later saved views retain your own arrangement.
+**Build & run** shows the ingredients beside the program. **Data & wiring** shows the shared
+dataset and the `make_pipeline(*steps)` composition. The guide switches views for you; both are
+also available through Saved Views. The plotted A/B samples come from the held-out 30% of the data;
+only the training split fits the pipeline, including its preprocessing. A fixed seed keeps the
+example repeatable. This small synthetic exercise illustrates composition and generalization; its
+score is not an estimate of performance on real-world data.
+
+Your working project is `tmp/python-canvas-playground/model-workshop`. The launcher prepares its
+pinned, frozen NumPy/scikit-learn environment automatically using prebuilt wheels. The first launch
+needs network access for uncached packages. Later launches preserve settings, code, and your canvas
+arrangement; the checked-in fixture stays untouched.
+
+The working folder includes `recipe.py`, a short handwritten equivalent of the starting recipe.
+Run it with `uv run --frozen --no-build python recipe.py` from that folder to compare the same
+workflow without Setta. It is a reference recipe, not a synchronized export of later canvas edits.
+**Download Python** in the Generated Python header saves the currently displayed program as
+`canvas_recipe.py`, including your prefix and suffix drafts. Place it in the working folder beside
+`model_workshop.py` and run `uv run --frozen --no-build python canvas_recipe.py` there to use your
+edited recipe independently. The download contains code; its imports still need the project's
+helper and dependencies.
 
 ```console
 pnpm python-canvas:playground --fresh

@@ -291,6 +291,11 @@ body {
 }
 
 .python-canvas-generated-python-run-control {
+  inline-size: auto;
+  gap: 0.2rem;
+  padding-inline: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
   color: hsl(219 25% 34%);
 }
 
@@ -319,6 +324,7 @@ body {
 }
 
 .python-canvas-generated-python-run-control:focus-visible,
+.python-canvas-download-python:focus-visible,
 .python-canvas-generated-python-terminal-control:focus-visible,
 .python-canvas-generated-python-terminal-trash:focus-visible,
 .python-canvas-generated-python-terminal-splitter:focus-visible {
@@ -337,6 +343,21 @@ body {
   inline-size: 1em;
   block-size: 1em;
   fill: currentcolor;
+}
+
+.python-canvas-download-python {
+  padding-inline: 0.4rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+.python-canvas-download-python:hover {
+  background: rgb(148 163 184 / 15%);
+  color: #2dd4bf;
 }
 
 .python-canvas-generated-python-terminal-control svg {
