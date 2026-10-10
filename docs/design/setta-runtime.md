@@ -45,8 +45,11 @@ that value directly; an installed runtime reads the version from its distributio
 custom wheel backend emits core metadata 2.4 from the same project metadata and preserves project
 and third-party license paths beneath the wheel's `.dist-info/licenses` directory.
 
-Frontend notices inventory the complete installed production graph of all four apps, conservatively
-including optional and tree-shaken packages. The offline generator reads package metadata and
+Frontend notices inventory the installed browser dependency graph of all four apps, conservatively
+including optional and tree-shaken packages. The separately installed `basedpyright` language
+server owns its dependency notices and is excluded from the browser inventory, including its
+macOS-only `fsevents` watcher. That keeps the browser notices consistent across host platforms.
+The offline generator reads package metadata and
 license files, supplemented by exact, sourced notices where published leaf packages omit their
 license. It never downloads or executes dependency code. Generation verification catches missing
 notices after a dependency change; wheel tests verify that the resulting notices are shipped.

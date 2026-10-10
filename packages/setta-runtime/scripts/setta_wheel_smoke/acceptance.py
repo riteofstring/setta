@@ -775,6 +775,33 @@ def _experiment_lens_manifest() -> dict[str, object]:
         },
         "artifacts": [],
         "relations": [],
+        "presentation": {
+            "initialViewId": "overview",
+            "sections": [
+                {
+                    "id": "observations",
+                    "title": "Observations",
+                    "type": "table",
+                    "fieldIds": ["score"],
+                }
+            ],
+            "views": [
+                {
+                    "id": "overview",
+                    "name": "Overview",
+                    "viewport": {"x": 0, "y": 0, "zoom": 1},
+                    "placements": [
+                        {
+                            "sectionId": "observations",
+                            "x": 40,
+                            "y": 40,
+                            "width": 640,
+                            "height": 420,
+                        }
+                    ],
+                }
+            ],
+        },
         "provenance": {
             "producer": {
                 "kind": "application",
@@ -792,7 +819,7 @@ def _experiment_lens_selection(*, selected: bool) -> dict[str, object]:
         "selectedObservationIds": ["run-1"] if selected else [],
         "selectedArtifactIds": [],
         "ranges": [],
-        "notes": [],
+        "annotations": [],
     }
 
 

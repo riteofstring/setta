@@ -101,7 +101,7 @@ maintainer handles, so they are part of the repository cutover rather than guess
 
 ### Local license-audit result
 
-The 2026-10-09 inventory includes 376 exact installed production dependency releases across the
+The 2026-10-09 browser inventory includes 374 exact installed dependency releases across the
 four apps. `frontend_notices.py` collects published license and notice files and exact sourced
 supplements for the 45 releases whose archive omits a top-level license file. This deliberately
 includes optional and tree-shaken code. The wheel also includes Go's standard-library notice,

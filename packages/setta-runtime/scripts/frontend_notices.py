@@ -15,6 +15,19 @@ APPS = ("experiment-lens", "python-canvas", "realtime", "review")
 LICENSE_NAME = re.compile(r"^(licen[cs]e|copying|notice)(?:$|[.-])", re.IGNORECASE)
 
 
+def _collect_packages(node: dict, packages: dict[str, Path]) -> None:
+    for group in ("dependencies", "optionalDependencies"):
+        for dependency in node.get(group, {}).values():
+            directory = Path(dependency["path"])
+            manifest = json.loads((directory / "package.json").read_text())
+            name = manifest["name"]
+            if name == "basedpyright":
+                continue
+            if not name.startswith("@setta/"):
+                packages[f"{name}@{manifest['version']}"] = directory
+            _collect_packages(dependency, packages)
+
+
 def production_packages() -> dict[str, Path]:
     pnpm = shutil.which("pnpm")
     if pnpm is None:
@@ -27,19 +40,8 @@ def production_packages() -> dict[str, Path]:
         command, cwd=ROOT, check=True, capture_output=True, text=True
     )
     packages: dict[str, Path] = {}
-
-    def visit(node: dict) -> None:
-        for group in ("dependencies", "optionalDependencies"):
-            for dependency in node.get(group, {}).values():
-                directory = Path(dependency["path"])
-                manifest = json.loads((directory / "package.json").read_text())
-                name = manifest["name"]
-                if not name.startswith("@setta/"):
-                    packages[f"{name}@{manifest['version']}"] = directory
-                visit(dependency)
-
     for project in json.loads(completed.stdout):
-        visit(project)
+        _collect_packages(project, packages)
     if not packages:
         raise RuntimeError(
             "no installed production dependencies; run frozen setup first"
@@ -51,9 +53,10 @@ def render_notices(packages: dict[str, Path], supplements: dict) -> str:
     sections = [
         (
             "Setta frontend third-party notices\n\n"
-            "This inventory includes the installed production dependency graph of all "
+            "This inventory includes the installed browser dependency graph of all "
             "four\napps, including optional and tree-shaken code that may not reach "
-            "a browser.\nSeparate wheel dependencies retain their own distribution "
+            "a browser.\nThe separately installed basedpyright language server and "
+            "its dependencies\nretain their own distribution "
             "notices.\nRegenerate with: python "
             "packages/setta-runtime/scripts/frontend_notices.py --write\n"
         )
