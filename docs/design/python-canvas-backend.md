@@ -155,3 +155,6 @@ standard-library function returns a terminal trajectory and physical quantities;
 settings return a correction message. Nothing runs automatically. A local Basedpyright project
 configuration uses standard checking and permits the generated constructor's intentional `state`
 parameter name, so a valid first launch has no misleading generated-code diagnostics.
+The `rocket_lab:trajectory` entry-point contract records the function consumed by the two
+`project.json` callables. Its caller is generated Python, so no handwritten Python import callsite
+exists inside the example project.

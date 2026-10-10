@@ -9,7 +9,7 @@ export function rocketLabLayout(
   const placements = {
     [settings]: { x: 0, y: 0, w: 390, h: 220, zIndex: 0 },
     [flights]: { x: 0, y: 268, w: 390, h: null, zIndex: 1 },
-    [generated]: { x: 438, y: 0, w: 700, h: 640, zIndex: 2 },
+    [generated]: { x: 438, y: 0, w: 700, h: 320, zIndex: 2 },
   };
   const sections = { ...document.sections };
   const topLevelSections = { ...document.topLevelSections };

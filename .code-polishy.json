@@ -284,6 +284,14 @@
       "docs/evidence/**/*.json.gz",
       "packages/setta-runtime/licenses/frontend-NOTICES.txt"
     ],
+    "pythonContracts": [
+      {
+        "project": "apps/python-canvas/examples/rocket-lab/fixture/pyproject.toml",
+        "kind": "entry-point",
+        "target": "rocket_lab:trajectory",
+        "reason": "The Earth and Moon callables in the adjacent project.json reference rocket_lab.trajectory; Python Canvas generates and executes those calls when Run is pressed."
+      }
+    ],
     "entryPoints": [
       "examples/workspace-playground/vitest.setup.ts",
       "apps/python-canvas/backend/cmd/python-canvas/main.go",

@@ -152,7 +152,9 @@ failures retain their visible feedback. Later completion requests use the curren
 
 The canonical `rocket-lab` project enables a Start here shell tab and seeds a readable first canvas
 layout before saved-view bootstrap. Existing saved views retain authority. Guide steps frame the
-generated program, launch settings, or flight list and explain Run and commit boundaries. The
+generated program, launch settings, or Moon callable and explain Run and commit boundaries. The
 guide uses Workspace's shared quick-start surface; application code owns the example content.
 This sample-only tab is not persisted as a global shell preference for unrelated projects. On a
 narrow screen a guide jump collapses the guide pane before framing to make room for the destination.
+The initial code pane leaves room for the terminal opened by Run, so the first result stays visible
+on a typical laptop screen.
