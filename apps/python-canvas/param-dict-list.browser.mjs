@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { fetchCanonicalSnapshot } from "./browser-processes.mjs";
+import { exerciseParameterOverflow } from "./parameter-overflow.browser.mjs";
 import {
   exerciseCallableCommitParity,
   waitForSnapshot,
@@ -281,6 +282,7 @@ export async function exerciseParamDictAndListSlice(
   );
   await assertSectionSize(client, dictionarySelector, dictionarySize);
   assertGeneratedDictionary(correctedDictionary, "4");
+  await exerciseParameterOverflow(client, dictionarySelector);
 
   const outerList = await createPaneSection(client, backendOrigin, {
     collection: "lists",

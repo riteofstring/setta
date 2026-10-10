@@ -127,6 +127,11 @@ Application feedback stays outside package-private DOM. Completion errors, termi
 commit presentation, and contextual pane content use public workspace composition seams and
 application-labelled live regions.
 
+Callable and Parameter Dictionary body wrappers pass the section's available height through to
+Workspace's item-list scroll region. They can shrink below their contents, so resized cards keep
+parameter rows inside their boundaries and reachable by scrolling. The shared item list retains
+scroll and wheel ownership; application wrappers do not introduce another scroll region.
+
 ## Visual parity tooling boundaries
 
 The Python Canvas parity capture serializes browser-visible public state at one boundary and

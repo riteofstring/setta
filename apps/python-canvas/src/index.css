@@ -533,8 +533,15 @@ body {
 
 .python-canvas-callable-section {
   position: relative;
-  display: grid;
-  gap: 0.625rem;
+}
+
+.python-canvas-callable-section,
+.python-canvas-callable-parameter-authoring,
+.python-canvas-parameter-dictionary-section {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
   min-inline-size: 0;
 }
 
@@ -580,11 +587,6 @@ body {
 .python-canvas-callable-section p,
 .python-canvas-callable-field p {
   margin: 0;
-}
-
-.python-canvas-parameter-dictionary-section {
-  display: grid;
-  min-inline-size: 0;
 }
 
 .python-canvas-parameter-label {

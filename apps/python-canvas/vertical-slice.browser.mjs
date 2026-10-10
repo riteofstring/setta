@@ -23,6 +23,7 @@ import {
 import { exerciseDependencyOrderingProductionAcceptance } from "./python-dependency-ordering.browser.mjs";
 import { exerciseParamDictAndListSlice } from "./param-dict-list.browser.mjs";
 import { exerciseStructuralDiagnostics } from "./structural-diagnostics.browser.mjs";
+import { exerciseParameterOverflow } from "./parameter-overflow.browser.mjs";
 import {
   assertGeneratedMultilineCollection,
   assertListRootFixedHeight,
@@ -212,6 +213,10 @@ await runAgainstProductionApp(
       client,
       backendOrigin,
       findRequiredCallable(sampleWithProviderParameters, sampleCallableName),
+    );
+    await exerciseParameterOverflow(
+      client,
+      callableSectionSelector(sampleCallableName),
     );
     await observeGeneratedDocumentBoundaries(client, backendOrigin);
     await observeTargetDiagnostics(client, backendOrigin);
