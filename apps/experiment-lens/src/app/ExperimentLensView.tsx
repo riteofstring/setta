@@ -6,6 +6,7 @@ import {
   reopenWorkspaceWindow,
   WorkspaceProvider,
   WorkspaceShell,
+  WorkspaceQuickStartIcon,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
@@ -18,14 +19,20 @@ import { SelectionComparisonWindow } from "../windows/SelectionComparisonWindow"
 import { useLens } from "./lensContext";
 import { LENS_COMPACT_VIEWPORT_QUERY } from "./lensProjection";
 
+import { ExperimentLensPlayground } from "./ExperimentLensPlayground";
+
 const EMPTY_TABS: readonly WorkspaceShellTabDefinition[] = [];
 const COMPARISON_WINDOW_ID = "lens-selection-comparison";
 
 function LensWorkspace() {
   const lens = useLens();
+  const isPlayground = lens.snapshot.experiment.id === "battery-aging-study";
   const [viewState, setViewState] = useState(() => {
-    const initial = createWorkspaceShellViewState();
-    return window.matchMedia(LENS_COMPACT_VIEWPORT_QUERY).matches
+    const initial = createWorkspaceShellViewState({
+      leadingTabId: isPlayground ? "start-here" : undefined,
+    });
+    return !isPlayground &&
+      window.matchMedia(LENS_COMPACT_VIEWPORT_QUERY).matches
       ? {
           ...initial,
           leading: { ...initial.leading, visible: false },
@@ -93,7 +100,29 @@ function LensWorkspace() {
         includeBuiltInSavedViews
         includeSavedViewTabs
         leadingPaneShiftsCanvas
-        leadingTabs={EMPTY_TABS}
+        leadingTabs={
+          isPlayground
+            ? [
+                {
+                  id: "start-here",
+                  label: "Start here",
+                  icon: WorkspaceQuickStartIcon,
+                  renderContent: () => (
+                    <ExperimentLensPlayground
+                      onNavigate={() => {
+                        if (window.matchMedia("(max-width: 720px)").matches) {
+                          setViewState((current) => ({
+                            ...current,
+                            leading: { ...current.leading, visible: false },
+                          }));
+                        }
+                      }}
+                    />
+                  ),
+                },
+              ]
+            : EMPTY_TABS
+        }
         navigator={{}}
         onViewStateChange={handleViewStateChange}
         trailingTabs={EMPTY_TABS}

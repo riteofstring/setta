@@ -1,0 +1,121 @@
+.setta-workspace-quick-start {
+  padding: 20px 16px;
+  color: rgb(51 65 85);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.setta-workspace-quick-start-eyebrow {
+  color: rgb(15 118 110);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.setta-workspace-quick-start h2 {
+  margin: 8px 0;
+  color: rgb(15 23 42);
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.setta-workspace-quick-start p {
+  margin: 8px 0 12px;
+}
+
+.setta-workspace-quick-start ol {
+  display: grid;
+  gap: 18px;
+  margin: 24px 0;
+  padding-inline-start: 24px;
+}
+
+.setta-workspace-quick-start li::marker {
+  color: rgb(15 118 110);
+  font-weight: 750;
+}
+
+.setta-workspace-quick-start h3 {
+  margin: 0;
+  color: rgb(15 23 42);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.setta-workspace-quick-start button {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 7px;
+  background: rgb(255 255 255);
+  color: rgb(15 118 110);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+
+.setta-workspace-quick-start button:hover:not(:disabled) {
+  border-color: currentColor;
+  background: rgb(240 253 250);
+}
+
+.setta-workspace-quick-start button:focus-visible,
+.setta-workspace-quick-start summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.setta-workspace-quick-start button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.setta-workspace-quick-start aside {
+  padding: 12px;
+  border-inline-start: 3px solid rgb(13 148 136);
+  border-radius: 4px;
+  background: rgb(240 253 250);
+}
+
+.setta-workspace-quick-start details {
+  margin-top: 18px;
+}
+
+.setta-workspace-quick-start summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.setta-workspace-dark .setta-workspace-quick-start {
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-dark .setta-workspace-quick-start h2,
+.setta-workspace-dark .setta-workspace-quick-start h3 {
+  color: rgb(241 245 249);
+}
+
+.setta-workspace-dark .setta-workspace-quick-start-eyebrow,
+.setta-workspace-dark .setta-workspace-quick-start li::marker {
+  color: rgb(94 234 212);
+}
+
+.setta-workspace-dark .setta-workspace-quick-start button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(94 234 212);
+}
+
+.setta-workspace-dark .setta-workspace-quick-start button:hover:not(:disabled),
+.setta-workspace-dark .setta-workspace-quick-start aside {
+  background: rgb(13 148 136 / 12%);
+}

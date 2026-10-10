@@ -147,3 +147,12 @@ Automatic Python target completion can race a newer canonical generated body. A 
 completion draft produces no suggestions and clears stale completion feedback; it does not report
 a failed project edit. The backend still validates the protected region, and transport or provider
 failures retain their visible feedback. Later completion requests use the current draft normally.
+
+## Playground guidance
+
+The canonical `rocket-lab` project enables a Start here shell tab and seeds a readable first canvas
+layout before saved-view bootstrap. Existing saved views retain authority. Guide steps frame the
+generated program, launch settings, or flight list and explain Run and commit boundaries. The
+guide uses Workspace's shared quick-start surface; application code owns the example content.
+This sample-only tab is not persisted as a global shell preference for unrelated projects. On a
+narrow screen a guide jump collapses the guide pane before framing to make room for the destination.

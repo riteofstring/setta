@@ -841,7 +841,11 @@ export function PythonCanvasController() {
           updateAnnouncement,
         });
         synchronizeReactProjection(initialSnapshot, null, null);
-        setState({ kind: "ready", host });
+        setState({
+          kind: "ready",
+          host,
+          projectId: initialSnapshot.project.id,
+        });
         disconnectProjectSnapshotStream = connectProjectSnapshotStream({
           onProtocolError: () => {
             updateAnnouncement({

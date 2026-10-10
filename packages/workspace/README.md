@@ -1406,3 +1406,12 @@ resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
 
 The package remains private and unpublished. Publication metadata and a final package-name decision
 are intentionally absent.
+
+## Quick-start pane
+
+Use `WorkspaceQuickStart` inside a host-supplied `WorkspaceShell` tab to offer short guided
+experiments. Pass `title`, `description`, `tip`, and `steps`, each with a `title`, `description`,
+`actionLabel`, `sectionId`, and optional `viewId`. `WorkspaceQuickStartIcon` supplies a matching
+tab icon. The component switches the named saved view and frames the section; missing or hidden
+targets produce a usable explanation. An optional `onNavigate` callback runs before framing, for
+example to collapse the pane on a narrow screen. Product actions and progress remain host-owned.

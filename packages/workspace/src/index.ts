@@ -440,6 +440,14 @@ export {
   WorkspaceSectionSettingsIcon,
 } from "./shell/WorkspaceShellIcons";
 export { WorkspaceSavedViewsPane } from "./shell/WorkspaceSavedViewsPane";
+export {
+  WorkspaceQuickStart,
+  WorkspaceQuickStartIcon,
+} from "./shell/WorkspaceQuickStart";
+export type {
+  WorkspaceQuickStartProps,
+  WorkspaceQuickStartStep,
+} from "./shell/WorkspaceQuickStart";
 export type { WorkspaceSavedViewsPaneProps } from "./shell/WorkspaceSavedViewsPane";
 export {
   WorkspaceInspectorSettingsGroup,

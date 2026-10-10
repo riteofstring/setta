@@ -8,6 +8,34 @@ The project contains callables, Parameter Dictionaries, Lists of Objects, their 
 one generated Python document. Every browser or CLI mutation is bound to the current project ID and
 revision, so stale writes fail with a typed conflict instead of replacing newer work.
 
+## Playground
+
+After [source setup](../../CONTRIBUTING.md#source-setup), launch the rocket flight lab:
+
+```console
+pnpm python-canvas:playground
+```
+
+The **Start here** pane walks you through a working example. First find **Generated Python** and
+press **Run**: the attached terminal draws Earth and Moon flight paths and reports range, height,
+and flight time. Change the speed and angle sliders in **Launch settings** and run again. Try
+30°, 45°, and 60° at the same speed, then expand a callable in **Flights** to explore gravity.
+The example uses only Python's standard library and ignores air resistance.
+
+Your working project is `tmp/python-canvas-playground/rocket-lab`. Settings and code changes stay
+there across launches; the checked-in fixture stays untouched. The initial canvas puts the launch
+controls beside the generated program, and later saved views retain your own arrangement.
+
+```console
+pnpm python-canvas:playground --fresh
+pnpm python-canvas:playground --no-open
+pnpm python-canvas:playground --workspace /path/to/your/working-copy
+```
+
+`--fresh` starts another copy without replacing earlier work. The launcher prints the exact command
+to resume it. `--no-open` prints the local URL without opening a browser. Stop the app with Ctrl-C
+in its terminal. Use **Start here** in the left sidebar whenever you want the guide back.
+
 ## Install and open a project
 
 Complete the [source setup](../../CONTRIBUTING.md#source-setup), then create a project from the

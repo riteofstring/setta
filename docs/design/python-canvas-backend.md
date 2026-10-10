@@ -146,3 +146,12 @@ to every origin-sensitive route.
 The Windows ConPTY implementation derives in part from `UserExistsError/conpty`. Its MIT notice is
 retained in the source tree and the built wheel's license directory; this design record does not
 replace that attribution.
+
+## Rocket lab example
+
+The checked-in rocket lab is an ordinary V2 project: one Parameter Dictionary controls speed and
+angle, and a List of Objects contains Earth and Moon callables referencing those values. Its
+standard-library function returns a terminal trajectory and physical quantities; invalid numeric
+settings return a correction message. Nothing runs automatically. A local Basedpyright project
+configuration uses standard checking and permits the generated constructor's intentional `state`
+parameter name, so a valid first launch has no misleading generated-code diagnostics.

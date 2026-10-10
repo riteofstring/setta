@@ -409,3 +409,13 @@ The production performance profile uses the deterministic 256-section playground
 initial render, sustained panning, and drag behavior. Timing is machine-local evidence, never a
 portable CI threshold. Fixture drift, missing gesture work, browser errors, and host-page scrolling
 remain hard failures so a faster incomplete interaction cannot report success.
+
+## Quick-start guidance
+
+`WorkspaceQuickStart` presents host-owned steps in an ordinary shell tab. Workspace owns semantic
+buttons, scoped light and dark styling, saved-view activation, and framing a known section. The
+application owns the example identity, wording, target section and view IDs, when to show the
+guide, and any pane visibility change before framing. The guide never creates or mutates product
+content. Framing begins after the triggering event; removed targets are disabled with an
+explanation, and hidden targets leave the workspace usable with visible guidance. There is no
+tour state machine, completion tracking, storage, or modal blocking exploration.

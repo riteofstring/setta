@@ -36,7 +36,7 @@ export type MutationAnswer =
 
 export type AppState =
   | { kind: "loading" }
-  | { kind: "ready"; host: WorkspaceHost }
+  | { kind: "ready"; host: WorkspaceHost; projectId: string }
   | { kind: "error" };
 
 export type MutationState =

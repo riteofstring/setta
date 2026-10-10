@@ -259,3 +259,11 @@ is deterministic and drift-checked in repository verification.
 Fabric.js and Ajv are direct exact-pinned production dependencies only after their selected
 releases pass dependency review. Realtime retains the repository's existing React, Zustand,
 Radix, and Workspace foundations and adds no second frontend state system.
+
+## Playground guidance
+
+The `project-neon-sketch` example opens an ordinary Start here shell tab. Three short challenges
+frame the drawing, final poster, and editable entrypoint with Workspace's quick-start surface.
+They explain automatic drawing updates versus explicit source Apply, and how to recover from an
+unusable recipe. The guide has no product header, modal, separate editing mode, or runtime state.
+On narrow screens its pane closes before framing the destination so the chosen section has room.

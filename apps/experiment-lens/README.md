@@ -22,10 +22,16 @@ pnpm experiment-lens:playground
 pnpm experiment-lens:playground --no-open
 ```
 
+The **Start here** pane gives you a small investigation: filter test conditions, select observations to compare, and inspect a cell over time. Its buttons switch views and frame the relevant controls. This simulated study remains unchanged while you explore.
+
+Add `--no-open` to print the URL without opening a browser, or `--fresh` to start another example
+without deleting your previous work. The launcher prints a `--workspace` command to resume that
+exact copy. Stop the app with Ctrl-C in its terminal. Reopen the guide with **Start here** in the
+left sidebar.
+
 The launcher builds Experiment Lens, seeds `tmp/experiment-lens-playground/experiment-project`
 from the immutable fixture, and opens the app. Later launches preserve filters, focus, selections,
-ranges, and annotations in that ignored working copy. Remove that working directory to reset the
-example.
+ranges, and annotations in that ignored working copy. Use `--fresh` to start again while keeping this copy.
 
 If a selection save fails or conflicts with another writer, Lens keeps your visible draft and
 pauses saving. **Save draft** retries against the freshly loaded revision; **Use saved selection**

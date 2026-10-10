@@ -3,6 +3,7 @@ import {
   WorkspaceProvider,
   WorkspaceParameterConfigurationIcon,
   WorkspaceShell,
+  WorkspaceQuickStartIcon,
   createWorkspaceShellViewState,
   useWorkspaceDocumentSnapshot,
   type WorkspaceHost,
@@ -28,6 +29,8 @@ import {
   pruneRealtimeSelectedEdgeIds,
   projectRealtimeGraph,
 } from "./realtimeGraph";
+
+import { RealtimePlayground } from "./RealtimePlayground";
 
 const EMPTY_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 const REALTIME_RUNTIME_TAB: WorkspaceShellTabDefinition = {
@@ -330,8 +333,12 @@ export function RealtimeView(props: RealtimeViewProps) {
 function RealtimeWorkspace() {
   const { actions, project } = useRealtime();
   const workspaceDocument = useWorkspaceDocumentSnapshot();
+  const isPlayground = project.id === "project-neon-sketch";
   const [viewState, setViewState] = useState<WorkspaceShellViewState>(() =>
-    createWorkspaceShellViewState({ trailingTabId: "runtime" }),
+    createWorkspaceShellViewState({
+      trailingTabId: "runtime",
+      leadingTabId: isPlayground ? "start-here" : undefined,
+    }),
   );
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -392,7 +399,29 @@ function RealtimeWorkspace() {
       includeBuiltInInspector
       includeBuiltInSavedViews={false}
       leadingPaneShiftsCanvas={true}
-      leadingTabs={EMPTY_TABS}
+      leadingTabs={
+        isPlayground
+          ? [
+              {
+                id: "start-here",
+                label: "Start here",
+                icon: WorkspaceQuickStartIcon,
+                renderContent: () => (
+                  <RealtimePlayground
+                    onNavigate={() => {
+                      if (window.matchMedia("(max-width: 720px)").matches) {
+                        setViewState((current) => ({
+                          ...current,
+                          leading: { ...current.leading, visible: false },
+                        }));
+                      }
+                    }}
+                  />
+                ),
+              },
+            ]
+          : EMPTY_TABS
+      }
       onViewStateChange={handleViewStateChange}
       trailingTabs={REALTIME_RUNTIME_TABS}
       viewState={viewState}

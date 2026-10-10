@@ -370,7 +370,10 @@
     },
     {
       "name": "python-canvas-backend",
-      "paths": ["apps/python-canvas/backend/**"],
+      "paths": [
+        "apps/python-canvas/backend/**",
+        "apps/python-canvas/examples/**"
+      ],
       "dependsOn": ["local-backend"]
     },
     {
@@ -567,7 +570,7 @@
       "name": "setta-python-lock-sync",
       "provides": ["lock-sync"],
       "argv": ["uv", "lock", "--check"],
-      "modules": ["setta-runtime"],
+      "modules": ["setta-runtime", "python-canvas-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -617,6 +620,15 @@
       "modules": ["setta-runtime"],
       "runOn": ["build"],
       "timeoutSeconds": 1800
+    },
+    {
+      "name": "python-canvas-playground-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["uv", "lock", "--check"],
+      "cwd": "apps/python-canvas/examples/rocket-lab/fixture",
+      "modules": ["python-canvas-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
     }
   ],
   "tests": {

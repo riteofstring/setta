@@ -118,3 +118,18 @@ launcher validates the complete fixture tree as regular non-symlink content, rej
 state in the fixture, and copies it atomically into the ignored `tmp/` tree. Later launches preserve
 that working project, including Lens selection state, while packaging continues to consume only the
 application build outputs.
+
+## Playground launch behavior
+
+All four source launchers share the same small option parser: a normal launch resumes its ignored
+working project, `--fresh` selects a new sibling copy without renaming or deleting previous work,
+and `--workspace` opens or seeds an explicitly chosen copy. `--no-open` leaves browser opening to
+the caller; `--help` exits before filesystem or build work. The launcher prints the working path,
+its resume command, startup expectations, and how to stop. Checked-in fixture directories cannot
+be selected as working copies. Each application retains its own seeding and validation semantics.
+
+Python Canvas copies the rocket lab atomically before opening its project through the same local
+packaged runtime. Its Python functions use only the standard library; no example dependency
+installation is needed. The fixture contains ordinary project metadata and an empty frozen lock
+so its source is independently analyzable. Partial copies never become working projects, and
+relaunching preserves settings and authored Python.

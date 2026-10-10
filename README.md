@@ -10,6 +10,24 @@ environment stay local while Setta gives you a visual interface for building, ex
 and handing work off. The same projects are available from the command line when you want to
 automate a workflow.
 
+## Try the playgrounds
+
+Complete [source setup](CONTRIBUTING.md#source-setup), then choose an example. Each opens with a
+**Start here** guide inside the app, with short challenges and buttons that find the right controls.
+
+| App             | Launch                            | Try this                                                         |
+| --------------- | --------------------------------- | ---------------------------------------------------------------- |
+| Python Canvas   | `pnpm python-canvas:playground`   | Launch a rocket on Earth and the Moon; tune its flight.          |
+| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.   |
+| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision. |
+| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                  |
+
+The first launch builds the apps and may take a few minutes. Keep the terminal open while you play;
+Ctrl-C stops the app. Changes stay in your ignored working copy under `tmp/`.
+Add `--fresh` to any command for another untouched example without deleting earlier experiments.
+The launcher prints the exact `--workspace` command to resume a copy. `--no-open` prints the URL
+without opening a browser, and `--help` lists the options.
+
 ## Four ways to work
 
 | App                                               | What it helps you do                                                                                     |
@@ -52,13 +70,12 @@ few minutes. Later launches reuse that build until its inputs change. The browse
 study you can filter, annotate, and explore. Press Ctrl-C in the terminal to stop the app. Your
 changes stay in `tmp/experiment-lens-playground/experiment-project` for the next launch.
 
-Try the other examples or create a Python Canvas project:
+Try the other examples:
 
 ```sh
 pnpm realtime:playground
 pnpm review:playground
-python3 packages/setta-runtime/scripts/run_local_setta.py python-canvas open \
-  --project .local/python-canvas/project.json --create
+pnpm python-canvas:playground
 ```
 
 Learn how to [contribute](CONTRIBUTING.md), [get support](SUPPORT.md), or

@@ -113,3 +113,12 @@ its recovery notice. The user can explicitly save the draft against the displaye
 load the current saved selection. Further edits stay local until that choice; export waits for a
 successful save. Closing the tab warns while a write or unresolved draft remains. Initial
 connection failure offers a retry without requiring navigation.
+
+## Playground guidance
+
+The `battery-aging-study` example opens with a Start here shell tab explaining a short
+filter–compare–inspect investigation. Steps select the declared view and frame its relevant section
+through Workspace's shared quick-start surface. They never manufacture a selection or change
+experiment data. The guide distinguishes row focus from the comparison basket and explains
+selection persistence. On narrow screens it closes before framing the destination. Other manifests retain
+their normal outline and presentation behavior.

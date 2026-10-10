@@ -88,28 +88,36 @@ def _object_list(value: object) -> list[object] | None:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    supplied = tuple(sys.argv[1:] if arguments is None else arguments)
-    if supplied:
-        sys.stderr.write("Usage: run_review_playground.py\n")
-        return 2
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts import playground_options
+
+    options = playground_options.parse_options("review", WORKSPACE_ROOT, arguments)
+    if isinstance(options, int):
+        return options
     try:
-        workspace = prepare_workspace()
+        workspace = prepare_workspace(options.workspace)
         seed_workspace(workspace)
     except PlaygroundError as error:
-        sys.stderr.write(f"run_review_playground: {error}\n")
+        playground_options.report_error("review", error)
         return 1
-    return _open_workspace(workspace)
+    playground_options.announce("review", workspace)
+    return _open_workspace(workspace, no_open=options.no_open)
 
 
-def prepare_workspace() -> Path:
-    if _entry_exists(WORKSPACE_ROOT):
-        _validate_project(WORKSPACE_ROOT, "playground workspace")
-        return WORKSPACE_ROOT
+def prepare_workspace(workspace: Path | None = None) -> Path:
+    workspace = WORKSPACE_ROOT if workspace is None else workspace
+    if workspace.resolve().is_relative_to(FIXTURE_ROOT.resolve()):
+        raise PlaygroundError(
+            "choose a working directory outside the checked-in fixture"
+        )
+    if _entry_exists(workspace):
+        _validate_project(workspace, "playground workspace")
+        return workspace
     _validate_fixture(FIXTURE_ROOT)
     try:
-        WORKSPACE_ROOT.parent.mkdir(parents=True, exist_ok=True)
+        workspace.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".review-project-", dir=WORKSPACE_ROOT.parent
+            prefix=".review-project-", dir=workspace.parent
         ) as temporary_directory:
             staging = Path(temporary_directory)
             shutil.copytree(FIXTURE_ROOT, staging, symlinks=True, dirs_exist_ok=True)
@@ -119,16 +127,16 @@ def prepare_workspace() -> Path:
             shutil.rmtree(staging / "repository-base")
             shutil.rmtree(staging / "repository-current")
             _validate_project(staging, "staged playground project")
-            if _entry_exists(WORKSPACE_ROOT):
-                _validate_project(WORKSPACE_ROOT, "playground workspace")
-                return WORKSPACE_ROOT
-            staging.rename(WORKSPACE_ROOT)
+            if _entry_exists(workspace):
+                _validate_project(workspace, "playground workspace")
+                return workspace
+            staging.rename(workspace)
     except PlaygroundError:
         raise
     except OSError as error:
         raise PlaygroundError(f"cannot seed workspace: {error}") from error
-    _validate_project(WORKSPACE_ROOT, "playground workspace")
-    return WORKSPACE_ROOT
+    _validate_project(workspace, "playground workspace")
+    return workspace
 
 
 def seed_workspace(workspace: Path) -> bool:
@@ -365,12 +373,15 @@ def _apply_seed(workspace: Path) -> None:
         raise PlaygroundError("Review rejected the playground assessment seed")
 
 
-def _open_workspace(workspace: Path) -> int:
+def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:
     runtime_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(runtime_root))
     from scripts import run_local_setta
 
-    return run_local_setta.main(["review", "open", "--project-root", str(workspace)])
+    arguments = ["review", "open", "--project-root", str(workspace)]
+    if no_open:
+        arguments.append("--no-open")
+    return run_local_setta.main(arguments)
 
 
 def _validate_fixture(root: Path) -> None:

@@ -33,15 +33,22 @@ them into an editorial poster:
 pnpm realtime:playground
 ```
 
+The **Start here** pane takes you from drawing a stroke to viewing your finished poster, then into the editable Python recipe. Use its buttons to frame each part at a readable size. Drawing updates the prints automatically; source edits take effect when you press **Apply**.
+
+Add `--no-open` to print the URL without opening a browser, or `--fresh` to start another example
+without deleting your previous work. The launcher prints a `--workspace` command to resume that
+exact copy. Stop the app with Ctrl-C in its terminal. Reopen the guide with **Start here** in the
+left sidebar.
+
 After source setup, the first run builds the four apps, installs a complete wheel into the
 repository-owned local Setta environment, and opens Signal Bloom Press. Later runs compare build
 input metadata and reuse that install until an input changes. A cache miss rebuilds the complete
 wheel. Before launch it seeds
 `tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
 working project is absent. Later launches preserve drawings and applied callback edits in the
-ignored copy; remove that directory to reset it from the fixture.
-An existing copy is deliberately not migrated. Back up any callback edits and reset it once to pick
-up a newer fixture layout or callback. The launcher synchronizes the working project's exact frozen
+ignored copy; use `--fresh` to start again while keeping this copy.
+An existing copy is deliberately not migrated. Use `--fresh` to try a newer fixture layout or
+callback while retaining your earlier experiments. The launcher synchronizes the working project's exact frozen
 dependencies into its ignored `.venv` without building source distributions.
 Generated Realtime contracts are checked without being rewritten and Go module resolution is
 read-only during this build, so launching the playground does not repair or update tracked inputs.

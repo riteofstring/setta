@@ -21,10 +21,17 @@ Complete the [source setup](../../CONTRIBUTING.md#source-setup), then run it fro
 pnpm review:playground
 ```
 
+Start with the poster comparison, then investigate the checkout claims and rollout tradeoffs. The **Start here** buttons jump directly to each review, including completed ones in **Old**. These are fictional examples; responses are saved locally and never sent to a real team.
+
+Add `--no-open` to print the URL without opening a browser, or `--fresh` to start another example
+without deleting your previous work. The launcher prints a `--workspace` command to resume that
+exact copy. Stop the app with Ctrl-C in its terminal. Reopen the guide with **Start here** in the
+left sidebar.
+
 The launcher builds Review, seeds `tmp/review-playground/review-project` from the immutable fixture,
 creates its small Git worktree, imports external assessments through the public mutation contract,
 and opens the app. Later launches preserve decisions and drawings in that ignored working copy.
-Remove that working directory to reset the example.
+Use `--fresh` to start again while keeping this copy.
 
 Unsent feedback, claim notes, and drawing annotations survive a refresh in the same browser tab.
 They remain drafts until you submit them. Drafts are tied to the exact request and artifact

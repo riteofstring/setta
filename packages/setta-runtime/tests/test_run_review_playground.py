@@ -94,7 +94,8 @@ class ReviewPlaygroundRunnerTests(unittest.TestCase):
             calls.append(("seed", project))
             return True
 
-        def open_project(project: Path) -> int:
+        def open_project(project: Path, *, no_open: bool) -> int:
+            self.assertFalse(no_open)
             calls.append(("open", project))
             return 7
 
@@ -113,7 +114,7 @@ class ReviewPlaygroundRunnerTests(unittest.TestCase):
         stderr = io.StringIO()
         with mock.patch.object(run_review_playground.sys, "stderr", stderr):
             self.assertEqual(run_review_playground.main(["--reset"]), 2)
-        self.assertEqual(stderr.getvalue(), "Usage: run_review_playground.py\n")
+        self.assertIn("unrecognized arguments: --reset", stderr.getvalue())
         self.assertFalse(self.workspace.exists())
 
     def test_fixture_symlink_is_rejected(self) -> None:

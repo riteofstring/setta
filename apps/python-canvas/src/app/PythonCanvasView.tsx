@@ -4,6 +4,8 @@ import {
   WorkspaceSectionEditor,
   WorkspaceSectionSettingsIcon,
   WorkspaceShell,
+  WorkspaceQuickStartIcon,
+  createWorkspaceShellViewState,
   useWorkspaceDocumentSnapshot,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
@@ -36,6 +38,8 @@ import {
   PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
 } from "./pythonCanvasRightPane";
 
+import { PythonCanvasPlayground } from "./PythonCanvasPlayground";
+
 const EMPTY_SHELL_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 
 const PYTHON_CANVAS_SECTION_TAB: WorkspaceShellTabDefinition = {
@@ -54,7 +58,7 @@ const PYTHON_CANVAS_PARAMS_TAB: WorkspaceShellTabDefinition = {
 
 type ViewState =
   | { kind: "loading" }
-  | { kind: "ready"; host: WorkspaceHost }
+  | { kind: "ready"; host: WorkspaceHost; projectId?: string }
   | { kind: "error" };
 
 type ViewMutation =
@@ -197,12 +201,27 @@ function PythonCanvasReadyWorkspace({
   terminalContext,
 }: PythonCanvasReadyWorkspaceProps) {
   const [shellViewState, setShellViewState] = useState<WorkspaceShellViewState>(
-    loadPythonCanvasShellViewState,
+    () =>
+      state.projectId === "rocket-lab"
+        ? createWorkspaceShellViewState({
+            leadingTabId: "start-here",
+            trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
+          })
+        : loadPythonCanvasShellViewState(),
   );
   const handleShellViewStateChange = useCallback(
     (nextState: WorkspaceShellViewState): void => {
       setShellViewState(nextState);
-      persistPythonCanvasShellViewState(nextState);
+      persistPythonCanvasShellViewState({
+        ...nextState,
+        leading: {
+          ...nextState.leading,
+          selectedTabId:
+            nextState.leading.selectedTabId === "start-here"
+              ? "outline"
+              : nextState.leading.selectedTabId,
+        },
+      });
     },
     [],
   );
@@ -215,6 +234,7 @@ function PythonCanvasReadyWorkspace({
           >
             <WorkspaceProvider host={state.host}>
               <PythonCanvasWorkspaceShell
+                isPlayground={state.projectId === "rocket-lab"}
                 onViewStateChange={handleShellViewStateChange}
                 viewState={shellViewState}
               />
@@ -227,9 +247,11 @@ function PythonCanvasReadyWorkspace({
 }
 
 function PythonCanvasWorkspaceShell({
+  isPlayground,
   onViewStateChange,
   viewState,
 }: {
+  isPlayground: boolean;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
   viewState: WorkspaceShellViewState;
 }) {
@@ -248,7 +270,29 @@ function PythonCanvasWorkspaceShell({
       includeBuiltInInspector={false}
       includeBuiltInSavedViews={true}
       leadingPaneShiftsCanvas={true}
-      leadingTabs={EMPTY_SHELL_TABS}
+      leadingTabs={
+        isPlayground
+          ? [
+              {
+                id: "start-here",
+                label: "Start here",
+                icon: WorkspaceQuickStartIcon,
+                renderContent: () => (
+                  <PythonCanvasPlayground
+                    onNavigate={() => {
+                      if (window.matchMedia("(max-width: 720px)").matches) {
+                        onViewStateChange({
+                          ...viewState,
+                          leading: { ...viewState.leading, visible: false },
+                        });
+                      }
+                    }}
+                  />
+                ),
+              },
+            ]
+          : EMPTY_SHELL_TABS
+      }
       onViewStateChange={onViewStateChange}
       trailingTabs={trailingTabs}
       viewState={viewState}

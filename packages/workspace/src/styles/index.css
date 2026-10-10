@@ -3,6 +3,7 @@
 @import "./workspaceSectionAttention.css";
 @import "../graph/workspaceGraph.css";
 @import "./workspaceShell.css";
+@import "./workspaceQuickStart.css";
 @import "./workspaceNavigator.css";
 @import "./workspaceInspector.css";
 @import "./workspaceInspectorConfiguration.css";

@@ -28,41 +28,51 @@ class PlaygroundError(RuntimeError):
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    supplied = tuple(sys.argv[1:] if arguments is None else arguments)
-    if supplied not in ((), ("--no-open",)):
-        sys.stderr.write("Usage: run_experiment_lens_playground.py [--no-open]\n")
-        return 2
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts import playground_options
+
+    options = playground_options.parse_options(
+        "experiment-lens", WORKSPACE_ROOT, arguments
+    )
+    if isinstance(options, int):
+        return options
     try:
-        workspace = prepare_workspace()
+        workspace = prepare_workspace(options.workspace)
     except PlaygroundError as error:
-        sys.stderr.write(f"run_experiment_lens_playground: {error}\n")
+        playground_options.report_error("experiment-lens", error)
         return 1
-    return _open_workspace(workspace, no_open=supplied == ("--no-open",))
+    playground_options.announce("experiment-lens", workspace)
+    return _open_workspace(workspace, no_open=options.no_open)
 
 
-def prepare_workspace() -> Path:
-    if _entry_exists(WORKSPACE_ROOT):
-        _validate_project(WORKSPACE_ROOT, "playground workspace")
-        return WORKSPACE_ROOT
+def prepare_workspace(workspace: Path | None = None) -> Path:
+    workspace = WORKSPACE_ROOT if workspace is None else workspace
+    if workspace.resolve().is_relative_to(FIXTURE_ROOT.resolve()):
+        raise PlaygroundError(
+            "choose a working directory outside the checked-in fixture"
+        )
+    if _entry_exists(workspace):
+        _validate_project(workspace, "playground workspace")
+        return workspace
     _validate_fixture(FIXTURE_ROOT)
     try:
-        WORKSPACE_ROOT.parent.mkdir(parents=True, exist_ok=True)
+        workspace.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".experiment-project-", dir=WORKSPACE_ROOT.parent
+            prefix=".experiment-project-", dir=workspace.parent
         ) as temporary_directory:
             staging = Path(temporary_directory)
             shutil.copytree(FIXTURE_ROOT, staging, symlinks=True, dirs_exist_ok=True)
             _validate_project(staging, "staged playground project")
-            if _entry_exists(WORKSPACE_ROOT):
-                _validate_project(WORKSPACE_ROOT, "playground workspace")
-                return WORKSPACE_ROOT
-            staging.rename(WORKSPACE_ROOT)
+            if _entry_exists(workspace):
+                _validate_project(workspace, "playground workspace")
+                return workspace
+            staging.rename(workspace)
     except PlaygroundError:
         raise
     except OSError as error:
         raise PlaygroundError(f"cannot seed workspace: {error}") from error
-    _validate_project(WORKSPACE_ROOT, "playground workspace")
-    return WORKSPACE_ROOT
+    _validate_project(workspace, "playground workspace")
+    return workspace
 
 
 def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:

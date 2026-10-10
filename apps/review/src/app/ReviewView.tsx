@@ -3,6 +3,7 @@ import {
   createWorkspaceWindowingState,
   WorkspaceProvider,
   WorkspaceShell,
+  WorkspaceQuickStartIcon,
   type WorkspaceCanvasConfiguration,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
@@ -13,13 +14,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useReview } from "./reviewContext";
 import { projectReviewGraph } from "./reviewProjection";
 
+import { ReviewPlayground } from "./ReviewPlayground";
+
 const EMPTY_TABS: readonly WorkspaceShellTabDefinition[] = [];
 const COMPACT_VIEWPORT_QUERY = "(max-width: 720px)";
 
 function ReviewWorkspace() {
   const review = useReview();
+  const isPlayground = review.snapshot.project.id === "review-playground";
   const [viewState, setViewState] = useState(() =>
-    createWorkspaceShellViewState(),
+    createWorkspaceShellViewState({
+      leadingTabId: isPlayground ? "start-here" : undefined,
+    }),
   );
   const [windowingState, setWindowingState] = useState(() =>
     createWorkspaceWindowingState(),
@@ -27,7 +33,7 @@ function ReviewWorkspace() {
   useEffect(() => {
     const media = window.matchMedia(COMPACT_VIEWPORT_QUERY);
     const closeOutline = () => {
-      if (!media.matches) {
+      if (!media.matches || isPlayground) {
         return;
       }
       setViewState((current) =>
@@ -42,7 +48,7 @@ function ReviewWorkspace() {
     closeOutline();
     media.addEventListener("change", closeOutline);
     return () => media.removeEventListener("change", closeOutline);
-  }, []);
+  }, [isPlayground]);
   const graph = useMemo(
     () => projectReviewGraph(review.snapshot, review.selection),
     [review.selection, review.snapshot],
@@ -71,7 +77,29 @@ function ReviewWorkspace() {
         includeBuiltInSavedViews={false}
         includeSavedViewTabs
         leadingPaneShiftsCanvas
-        leadingTabs={EMPTY_TABS}
+        leadingTabs={
+          isPlayground
+            ? [
+                {
+                  id: "start-here",
+                  label: "Start here",
+                  icon: WorkspaceQuickStartIcon,
+                  renderContent: () => (
+                    <ReviewPlayground
+                      onNavigate={() => {
+                        if (window.matchMedia("(max-width: 720px)").matches) {
+                          setViewState((current) => ({
+                            ...current,
+                            leading: { ...current.leading, visible: false },
+                          }));
+                        }
+                      }}
+                    />
+                  ),
+                },
+              ]
+            : EMPTY_TABS
+        }
         navigator={{}}
         onViewStateChange={handleViewStateChange}
         trailingTabs={EMPTY_TABS}

@@ -75,3 +75,12 @@ and exact artifact digest. Storage failures retain in-memory work, show a visibl
 warn before leaving while unsaved work remains. They do not prevent review or submission. A
 successful response clears only the submitted drawing draft; strokes added during the request
 remain pending. Save conflicts retain feedback and remain visible after refreshing the snapshot.
+
+## Playground guidance
+
+The `review-playground` manifest enables a Start here shell tab with three independent challenges.
+Buttons resolve each sample request's Current or Old view from its live response before framing
+the request. Finishing a review therefore does not strand its guide action on a hidden section.
+The shared Workspace quick-start surface owns presentation and navigation mechanics; Review owns
+request identity and instructional content. The guide clearly distinguishes fictional local
+responses from external communication and collapses before framing the destination on narrow screens.

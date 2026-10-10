@@ -1,0 +1,156 @@
+{
+  "format": "python-canvas-project/v2",
+  "project": {
+    "id": "rocket-lab",
+    "name": "Rocket flight lab",
+    "revision": 1
+  },
+  "pythonTarget": {
+    "prefix": "import rocket_lab",
+    "suffix": "state = SettaState()\nfor flight in state.Flights:\n    print(flight)"
+  },
+  "callables": [
+    {
+      "id": "earth",
+      "name": "Earth",
+      "authoredExpression": "rocket_lab.trajectory",
+      "parameters": [
+        {
+          "id": "earth-world",
+          "name": "world",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "str",
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "'Earth'"
+        },
+        {
+          "id": "earth-speed",
+          "name": "speed",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "state.Launch_settings[\"speed\"]"
+        },
+        {
+          "id": "earth-angle",
+          "name": "angle",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "state.Launch_settings[\"angle\"]"
+        },
+        {
+          "id": "earth-gravity",
+          "name": "gravity",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "9.81"
+        }
+      ]
+    },
+    {
+      "id": "moon",
+      "name": "Moon",
+      "authoredExpression": "rocket_lab.trajectory",
+      "parameters": [
+        {
+          "id": "moon-world",
+          "name": "world",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "str",
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "'Moon'"
+        },
+        {
+          "id": "moon-speed",
+          "name": "speed",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "state.Launch_settings[\"speed\"]"
+        },
+        {
+          "id": "moon-angle",
+          "name": "angle",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "state.Launch_settings[\"angle\"]"
+        },
+        {
+          "id": "moon-gravity",
+          "name": "gravity",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": "float",
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "1.62"
+        }
+      ]
+    }
+  ],
+  "parameterDictionaries": [
+    {
+      "id": "launch-settings",
+      "name": "Launch settings",
+      "entries": [
+        {
+          "kind": "leaf",
+          "id": "launch-speed",
+          "name": "speed",
+          "authoredExpression": "30"
+        },
+        {
+          "kind": "leaf",
+          "id": "launch-angle",
+          "name": "angle",
+          "authoredExpression": "45"
+        }
+      ]
+    }
+  ],
+  "parameterUIOverrides": {
+    "launch-speed": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 5,
+        "max": 80,
+        "step": 1
+      }
+    },
+    "launch-angle": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 5,
+        "max": 85,
+        "step": 1
+      }
+    }
+  },
+  "lists": [
+    {
+      "id": "flights",
+      "name": "Flights",
+      "childSectionIds": ["earth", "moon"]
+    }
+  ],
+  "topLevelSectionIds": ["launch-settings", "flights"]
+}

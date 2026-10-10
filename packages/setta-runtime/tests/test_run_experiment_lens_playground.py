@@ -76,10 +76,7 @@ class ExperimentLensPlaygroundRunnerTests(unittest.TestCase):
         stderr = io.StringIO()
         with mock.patch.object(run_experiment_lens_playground.sys, "stderr", stderr):
             self.assertEqual(run_experiment_lens_playground.main(["--reset"]), 2)
-        self.assertEqual(
-            stderr.getvalue(),
-            "Usage: run_experiment_lens_playground.py [--no-open]\n",
-        )
+        self.assertIn("unrecognized arguments: --reset", stderr.getvalue())
         self.assertFalse(self.workspace.exists())
 
     def test_fixture_symlink_is_rejected(self) -> None:
