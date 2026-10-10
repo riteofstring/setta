@@ -64,6 +64,8 @@ const RUNTIME_EXPORTS = [
   "WorkspaceNormalizedStrokeSurface",
   "WorkspaceParameterConfigurationIcon",
   "WorkspaceParameterConfigurationView",
+  "WorkspaceQuickStart",
+  "WorkspaceQuickStartIcon",
   "WorkspaceShell",
   "WorkspaceSectionEditor",
   "WorkspaceSectionHeaderAction",
