@@ -15,11 +15,10 @@ The application job builds Workspace's public declarations before checking app i
 suite declarations forward their named Chrome environment variables through Code Polishy's command
 environment, so the explicit runner path reaches each browser launcher.
 
-Static checks visit every declared module. This keeps each invocation below Code Polishy 0.28.2's
-intermediate lint-result limit: the three AJV-generated validator files together exceed that limit
-before generated-code exemptions are applied. Per-module checks retain the same rules and produce
-scoped evidence. The repository-wide checkpoint still reports the upstream analyzer limitation;
-these checks do not replace its acceptance.
+Static checks use one repository-wide `./code-polishyw check --all` invocation. Code Polishy 0.28.3
+applies generated-code exemptions before its lint-result budget and pages applicable diagnostics,
+so the AJV-generated validators no longer require separate module invocations. Syntax, semantic
+lint, producer verification, and authored-source checks remain active.
 
 All workflows bootstrap the repository's pinned Code Polishy release, review dependencies before
 frozen script-disabled installation, and verify installed metadata afterward. Scheduled security

@@ -192,22 +192,17 @@ apps, their command boundaries, and Lens selection saving and export. The wheel 
 files. Windows and Linux execution still belongs to the hosted platform matrix, which has not been
 run from this local checkout.
 
-Code Polishy is pinned to 0.28.2. Its repository-wide JavaScript check still encounters an upstream
-result-limit defect: the Realtime, Review, and Lens generated validators produce 6,541 intermediate
-complexity/depth diagnostics and 21 comment records. Their generated-code exemptions are applied
-after the sealed analyzer's 5,000-result limit. Reproduce with:
+Code Polishy is pinned to the published 0.28.3 release. Its generated-code exemptions now apply
+before the lint-result budget, and applicable diagnostics are paged. The previous 5,000-result
+failure is resolved; the upgrade adds no diagnostics. Repository-wide static verification uses:
 
 ```sh
-./code-polishyw check --module realtime-frontend --module review-frontend --module experiment-lens-frontend
+./code-polishyw check --all
 ```
 
-Individual module checks fit within the limit and retain all rules. Hosted CI runs every declared
-module separately, but a complete checkpoint remains blocked until Code Polishy handles generated
-output before the aggregate limit or batches its analysis. This is an open tooling issue, not a
-passing repository-wide gate.
-The checkpoint's file-length findings are advisory warnings; they do not cause this failure.
-The upstream report is recorded in the Code Polishy checkout at
-`docs/bugs/generated-lint-result-limit.md`, commit `725db30`.
+The 2026-10-10 upgrade passes doctor, offline supply-chain verification, and the branch checkpoint,
+including all 16 focused validation suites. Hosted CI uses the same repository-wide static check.
+File-length findings remain advisory warnings.
 
 ## Completion criteria
 

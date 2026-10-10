@@ -105,11 +105,8 @@ jobs:
         run: ./code-polishyw doctor
       - name: Build shared Workspace declarations
         run: pnpm --filter @setta/workspace run build
-      - name: Check each declared module
-        run: |
-          for setta_module in $(python -c 'import json; print(" ".join(module["name"] for module in json.load(open(".code-polishy.json"))["modules"]))'); do
-            ./code-polishyw check --module "$setta_module"
-          done
+      - name: Check repository
+        run: ./code-polishyw check --all
       - name: Test runtime and frontend boundaries
         run: |
           ./code-polishyw test --suite setta-runtime-focused --suite workspace-focused --suite workspace-playground-focused --suite python-canvas-frontend-focused --suite realtime-frontend-focused --suite review-frontend-focused --suite experiment-lens-frontend-focused
