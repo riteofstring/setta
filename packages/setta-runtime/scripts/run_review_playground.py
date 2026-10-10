@@ -88,20 +88,20 @@ def _object_list(value: object) -> list[object] | None:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts import playground_options
+    runtime_root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(runtime_root), str(runtime_root / "src")]
+    from scripts import playground_options, playground_server
 
     options = playground_options.parse_options("review", WORKSPACE_ROOT, arguments)
     if isinstance(options, int):
         return options
-    try:
-        workspace = prepare_workspace(options.workspace)
-        seed_workspace(workspace)
-    except PlaygroundError as error:
-        playground_options.report_error("review", error)
-        return 1
-    playground_options.announce("review", workspace)
-    return _open_workspace(workspace, no_open=options.no_open)
+    return playground_server.run("review", options, _prepare_launch)
+
+
+def _prepare_launch(workspace: Path) -> Path:
+    workspace = prepare_workspace(workspace)
+    seed_workspace(workspace)
+    return workspace
 
 
 def prepare_workspace(workspace: Path | None = None) -> Path:
@@ -371,17 +371,6 @@ def _apply_seed(workspace: Path) -> None:
         raise PlaygroundError("cannot execute the Review seed command") from error
     if completed.returncode != 0:
         raise PlaygroundError("Review rejected the playground assessment seed")
-
-
-def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:
-    runtime_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(runtime_root))
-    from scripts import run_local_setta
-
-    arguments = ["review", "open", "--project-root", str(workspace)]
-    if no_open:
-        arguments.append("--no-open")
-    return run_local_setta.main(arguments)
 
 
 def _validate_fixture(root: Path) -> None:

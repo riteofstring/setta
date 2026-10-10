@@ -6,11 +6,19 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import run_local_setta, run_realtime_playground
+from scripts import playground_server, run_local_setta, run_realtime_playground
 
 
 class RealtimePlaygroundRunnerTests(unittest.TestCase):
     def setUp(self) -> None:
+        for target, attribute, value in (
+            (playground_server, "inspect_session", None),
+            (playground_server, "open_browser", None),
+            (run_local_setta, "prepare", Path("/installed/setta")),
+        ):
+            patcher = mock.patch.object(target, attribute, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
@@ -40,17 +48,14 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         extra = self.fixture / "assets" / "palette.txt"
         extra.parent.mkdir()
         extra.write_text("neon", encoding="utf-8")
-        with mock.patch.object(run_local_setta, "main", return_value=7) as local_main:
+        with mock.patch.object(
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
+        ) as local_main:
             status = run_realtime_playground.main([])
-        self.assertEqual(status, 7)
+        self.assertEqual(status, 0)
         self.assertEqual(_file_tree(self.workspace), _file_tree(self.fixture))
         local_main.assert_called_once_with(
-            [
-                "realtime",
-                "open",
-                "--project-root",
-                str(self.workspace),
-            ]
+            Path("/installed/setta"), "realtime", self.workspace
         )
         self.subprocess_run.assert_called_once_with(
             [
@@ -72,7 +77,9 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         sentinel = self.workspace / "local-state.txt"
         sentinel.write_text("keep", encoding="utf-8")
         before = _file_tree(self.workspace)
-        with mock.patch.object(run_local_setta, "main", return_value=0) as local_main:
+        with mock.patch.object(
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
+        ) as local_main:
             status = run_realtime_playground.main([])
         self.assertEqual(status, 0)
         self.assertEqual(_file_tree(self.workspace), before)
@@ -86,7 +93,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         stderr = io.StringIO()
         with (
             mock.patch.object(run_realtime_playground.sys, "stderr", stderr),
-            mock.patch.object(run_local_setta, "main") as local_main,
+            mock.patch.object(playground_server, "start") as local_main,
         ):
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
@@ -99,7 +106,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         stderr = io.StringIO()
         with (
             mock.patch.object(run_realtime_playground.sys, "stderr", stderr),
-            mock.patch.object(run_local_setta, "main") as local_main,
+            mock.patch.object(playground_server, "start") as local_main,
         ):
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
@@ -112,7 +119,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
         stderr = io.StringIO()
         with (
             mock.patch.object(run_realtime_playground.sys, "stderr", stderr),
-            mock.patch.object(run_local_setta, "main") as local_main,
+            mock.patch.object(playground_server, "start") as local_main,
         ):
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
@@ -149,7 +156,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
                 "copytree",
                 side_effect=fail_after_copy,
             ),
-            mock.patch.object(run_local_setta, "main") as local_main,
+            mock.patch.object(playground_server, "start") as local_main,
         ):
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
@@ -168,7 +175,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
             app.symlink_to(source)
         except OSError as error:
             self.skipTest(f"symlinks unavailable: {error}")
-        with mock.patch.object(run_local_setta, "main") as local_main:
+        with mock.patch.object(playground_server, "start") as local_main:
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
         self.assertFalse(self.workspace.exists())
@@ -185,7 +192,7 @@ class RealtimePlaygroundRunnerTests(unittest.TestCase):
             app.symlink_to(source)
         except OSError as error:
             self.skipTest(f"symlinks unavailable: {error}")
-        with mock.patch.object(run_local_setta, "main") as local_main:
+        with mock.patch.object(playground_server, "start") as local_main:
             status = run_realtime_playground.main([])
         self.assertEqual(status, 1)
         self.assertTrue(app.is_symlink())

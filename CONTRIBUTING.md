@@ -56,8 +56,10 @@ python3 packages/setta-runtime/scripts/run_local_setta.py realtime open \
   --project-root ./my-app --create
 ```
 
-The runner builds once and installs into `build/setta-wheel/local-environment`. App READMEs use
-the shorter `setta` command; substitute the runner above, or activate that local environment.
+The runner caches its current build under `build/setta-wheel/local-environments`. Each rebuild
+gets a separate installation so existing playgrounds keep working. App READMEs use the shorter
+`setta` command; substitute the runner above. After stopping all local apps, that ignored directory
+can be removed to reclaim disk space; the next launch builds again.
 Linux local wheels use a host-specific `linux_*` tag. The five-platform CI matrix separately builds
 and verifies portable release wheels, including manylinux 2.28. No workflow publishes to PyPI.
 

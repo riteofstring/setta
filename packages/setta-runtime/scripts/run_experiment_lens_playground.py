@@ -28,21 +28,16 @@ class PlaygroundError(RuntimeError):
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts import playground_options
+    runtime_root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(runtime_root), str(runtime_root / "src")]
+    from scripts import playground_options, playground_server
 
     options = playground_options.parse_options(
         "experiment-lens", WORKSPACE_ROOT, arguments
     )
     if isinstance(options, int):
         return options
-    try:
-        workspace = prepare_workspace(options.workspace)
-    except PlaygroundError as error:
-        playground_options.report_error("experiment-lens", error)
-        return 1
-    playground_options.announce("experiment-lens", workspace)
-    return _open_workspace(workspace, no_open=options.no_open)
+    return playground_server.run("experiment-lens", options, prepare_workspace)
 
 
 def prepare_workspace(workspace: Path | None = None) -> Path:
@@ -73,17 +68,6 @@ def prepare_workspace(workspace: Path | None = None) -> Path:
         raise PlaygroundError(f"cannot seed workspace: {error}") from error
     _validate_project(workspace, "playground workspace")
     return workspace
-
-
-def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:
-    runtime_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(runtime_root))
-    from scripts import run_local_setta
-
-    arguments = ["experiment-lens", "open", "--project-root", str(workspace)]
-    if no_open:
-        arguments.append("--no-open")
-    return run_local_setta.main(arguments)
 
 
 def _validate_fixture(root: Path) -> None:

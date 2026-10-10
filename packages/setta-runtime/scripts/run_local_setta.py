@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"
-LOCAL_ENVIRONMENT = ROOT / "build" / "setta-wheel" / "local-environment"
+LOCAL_ENVIRONMENTS = ROOT / "build" / "setta-wheel" / "local-environments"
 LOCAL_BUILD_STATE = ROOT / "build" / "setta-wheel" / "local-build.json"
 PACKAGED_APP_IDS = ("experiment-lens", "python-canvas", "realtime", "review")
 APPLICATION_BUILD_INPUTS = tuple(
@@ -73,24 +73,28 @@ def main(arguments: Sequence[str] | None = None) -> int:
         return 2
     try:
         return run(forwarded)
-    except LocalRunError as error:
+    except (LocalRunError, OSError) as error:
         sys.stderr.write(f"run_local_setta: {error}\n")
         return 1
 
 
 def run(arguments: Sequence[str]) -> int:
+    return _run_foreground([str(prepare()), *arguments], ROOT)
+
+
+def prepare() -> Path:
     inputs = _local_build_state()
     cached = _cached_local_executable(inputs)
     if cached is not None:
         sys.stdout.write("run_local_setta: reusing unchanged local build\n")
-        return _run_foreground([str(cached), *arguments], ROOT)
+        return cached
     uv = _required_command("uv")
     go = _pinned_go()
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
         wheel = _build_current_wheel(go, Path(wheel_directory))
         setta = _install_current_wheel(uv, wheel)
-    _record_local_build(inputs)
-    return _run_foreground([str(setta), *arguments], ROOT)
+    _record_local_build(inputs, setta)
+    return setta
 
 
 def _local_build_state() -> dict[str, object]:
@@ -146,17 +150,21 @@ def _cached_local_executable(inputs: dict[str, object]) -> Path | None:
         document = json.loads(LOCAL_BUILD_STATE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if document != inputs:
+    if not isinstance(document, dict) or document.get("inputs") != inputs:
         return None
-    _, setta = _environment_executables(LOCAL_ENVIRONMENT)
+    executable = document.get("executable")
+    if not isinstance(executable, str):
+        return None
+    setta = Path(executable)
     if not setta.is_file() or not all(
-        _installed_app_assets_valid(app_id) for app_id in PACKAGED_APP_IDS
+        _installed_app_assets_valid(app_id, setta.parent.parent)
+        for app_id in PACKAGED_APP_IDS
     ):
         return None
     return setta
 
 
-def _record_local_build(inputs: dict[str, object]) -> None:
+def _record_local_build(inputs: dict[str, object], executable: Path) -> None:
     try:
         LOCAL_BUILD_STATE.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
@@ -165,7 +173,11 @@ def _record_local_build(inputs: dict[str, object]) -> None:
         temporary = Path(temporary_name)
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-                json.dump(inputs, stream, sort_keys=True)
+                json.dump(
+                    {"inputs": inputs, "executable": str(executable)},
+                    stream,
+                    sort_keys=True,
+                )
                 stream.write("\n")
             os.replace(temporary, LOCAL_BUILD_STATE)
         finally:
@@ -201,8 +213,8 @@ def _build_current_wheel(
     return wheels[0]
 
 
-def _installed_app_assets_valid(app_id: str) -> bool:
-    python, _ = _environment_executables(LOCAL_ENVIRONMENT)
+def _installed_app_assets_valid(app_id: str, environment: Path) -> bool:
+    python, _ = _environment_executables(environment)
     if not python.is_file():
         return False
     source = (
@@ -235,12 +247,10 @@ def _installed_app_assets_valid(app_id: str) -> bool:
 
 
 def _install_current_wheel(uv: str, wheel: Path) -> Path:
-    python, setta = _environment_executables(LOCAL_ENVIRONMENT)
-    if not python.is_file():
-        _run(
-            [uv, "venv", "--python", sys.executable, str(LOCAL_ENVIRONMENT)],
-            ROOT,
-        )
+    LOCAL_ENVIRONMENTS.mkdir(parents=True, exist_ok=True)
+    environment = Path(tempfile.mkdtemp(prefix="build-", dir=LOCAL_ENVIRONMENTS))
+    python, setta = _environment_executables(environment)
+    _run([uv, "venv", "--python", sys.executable, str(environment)], ROOT)
     _run(
         [
             uv,
@@ -248,8 +258,6 @@ def _install_current_wheel(uv: str, wheel: Path) -> Path:
             "install",
             "--python",
             str(python),
-            "--reinstall-package",
-            "setta",
             "--no-cache",
             "--only-binary",
             ":all:",

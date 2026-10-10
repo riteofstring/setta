@@ -18,24 +18,16 @@ class PlaygroundError(RuntimeError):
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts import playground_options, run_local_setta
+    runtime_root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(runtime_root), str(runtime_root / "src")]
+    from scripts import playground_options, playground_server
 
     options = playground_options.parse_options(
         "python-canvas", WORKSPACE_ROOT, arguments
     )
     if isinstance(options, int):
         return options
-    try:
-        workspace = prepare_workspace(options.workspace)
-    except PlaygroundError as error:
-        playground_options.report_error("python-canvas", error)
-        return 1
-    playground_options.announce("python-canvas", workspace)
-    forwarded = ["python-canvas", "open", "--project", str(workspace / "project.json")]
-    if options.no_open:
-        forwarded.append("--no-open")
-    return run_local_setta.main(forwarded)
+    return playground_server.run("python-canvas", options, prepare_workspace)
 
 
 def prepare_workspace(workspace: Path | None = None) -> Path:

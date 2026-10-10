@@ -12,6 +12,7 @@ from pathlib import Path
 class PlaygroundOptions:
     workspace: Path
     no_open: bool
+    stop: bool
 
 
 def parse_options(
@@ -33,8 +34,13 @@ def parse_options(
     destination.add_argument(
         "--workspace", type=Path, help="open or seed an example in this directory"
     )
+    parser.add_argument(
+        "--stop", action="store_true", help="stop this playground, keeping your work"
+    )
     try:
         parsed = parser.parse_args(arguments)
+        if parsed.stop and parsed.fresh:
+            parser.error("--stop selects an existing copy; omit --fresh")
     except SystemExit as error:
         return int(error.code or 0)
     workspace = default_workspace
@@ -42,24 +48,19 @@ def parse_options(
         workspace = workspace.with_name(f"{workspace.name}-{uuid.uuid4().hex[:8]}")
     elif parsed.workspace is not None:
         workspace = parsed.workspace.expanduser().resolve()
-    return PlaygroundOptions(workspace=workspace, no_open=parsed.no_open)
+    return PlaygroundOptions(
+        workspace=workspace, no_open=parsed.no_open, stop=parsed.stop
+    )
 
 
-def announce(app: str, workspace: Path) -> None:
+def announce(app: str, workspace: Path, url: str) -> None:
     sys.stdout.write(
-        f"\nOpening {app} playground. Look for Start here in the left sidebar.\n"
+        f"\n{app} playground is ready: {url}\n"
+        "Look for Start here in the left sidebar.\n"
         f"Your working copy: {workspace}\n"
         f'Resume this copy: pnpm {app}:playground --workspace "{workspace}"\n'
         f"Start another: pnpm {app}:playground --fresh\n"
-        "The first launch may take a few minutes to build the apps.\n"
-        "Keep this terminal open; press Ctrl-C to stop.\n\n"
+        "You can close this terminal; the playground keeps running.\n"
+        f'Stop this copy: pnpm {app}:playground --workspace "{workspace}" --stop\n\n'
     )
     sys.stdout.flush()
-
-
-def report_error(app: str, error: Exception) -> None:
-    sys.stderr.write(
-        f"{app} playground: {error}\n"
-        f"To try an untouched example, run pnpm {app}:playground --fresh.\n"
-        "Your existing working copy has not been replaced.\n"
-    )

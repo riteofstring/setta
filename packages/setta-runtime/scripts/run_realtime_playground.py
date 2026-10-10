@@ -25,20 +25,20 @@ class PlaygroundError(RuntimeError):
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts import playground_options
+    runtime_root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(runtime_root), str(runtime_root / "src")]
+    from scripts import playground_options, playground_server
 
     options = playground_options.parse_options("realtime", WORKSPACE_ROOT, arguments)
     if isinstance(options, int):
         return options
-    try:
-        workspace = prepare_workspace(options.workspace)
-        _sync_environment(workspace)
-    except PlaygroundError as error:
-        playground_options.report_error("realtime", error)
-        return 1
-    playground_options.announce("realtime", workspace)
-    return _open_workspace(workspace, no_open=options.no_open)
+    return playground_server.run("realtime", options, _prepare_launch)
+
+
+def _prepare_launch(workspace: Path) -> Path:
+    workspace = prepare_workspace(workspace)
+    _sync_environment(workspace)
+    return workspace
 
 
 def prepare_workspace(workspace: Path | None = None) -> Path:
@@ -77,17 +77,6 @@ def _entry_exists(path: Path) -> bool:
     except OSError as error:
         raise PlaygroundError(f"cannot inspect {path}: {error}") from error
     return True
-
-
-def _open_workspace(workspace: Path, *, no_open: bool = False) -> int:
-    runtime_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(runtime_root))
-    from scripts import run_local_setta
-
-    arguments = ["realtime", "open", "--project-root", str(workspace)]
-    if no_open:
-        arguments.append("--no-open")
-    return run_local_setta.main(arguments)
 
 
 def _sync_environment(workspace: Path) -> None:

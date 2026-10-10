@@ -91,9 +91,14 @@ change times for the pinned toolchain, package locks, Workspace, shared local ba
 application build inputs, and packaged runtime sources. It compares those ordinary filesystem
 values without hashing mutable local state. Additions and deletions invalidate the build as well as
 edits. A matching record is reusable only while every packaged app asset and executable remains
-valid. A mismatch builds and reinstalls a fresh wheel in the repository-owned environment. Cache
+valid. A mismatch builds and installs a fresh wheel in a new repository-owned environment. Cache
 recording failure still launches that successful build and reports that the next launch will
-rebuild. Dependency setup is an explicit contributor step, never repeated on an ordinary rebuild.
+rebuild. Each build has a distinct installation path because running servers hold open asset
+directories and launch tools from their installed environment. Reinstalling in place can unlink
+those assets underneath a live playground. The cache records the current executable alongside its
+input metadata; older installations stay available to their running processes. They can be removed
+after all local apps stop. Dependency setup is an explicit contributor step, never repeated on an
+ordinary rebuild.
 
 Playground project content is not a build input, so ordinary experiment, review, drawing, and
 callback edits do not invalidate the packaged application. Installed releases continue to use the
@@ -125,7 +130,9 @@ All four source launchers share the same small option parser: a normal launch re
 working project, `--fresh` selects a new sibling copy without renaming or deleting previous work,
 and `--workspace` opens or seeds an explicitly chosen copy. `--no-open` leaves browser opening to
 the caller; `--help` exits before filesystem or build work. The launcher prints the working path,
-its resume command, startup expectations, and how to stop. Checked-in fixture directories cannot
+its resume command, startup expectations, and how to stop. `--stop` targets the default working
+copy or the explicit `--workspace`, never creates a project or builds an application, and is
+successful when that copy is already stopped. Checked-in fixture directories cannot
 be selected as working copies. Each application retains its own seeding and validation semantics.
 
 Python Canvas copies the rocket lab atomically before opening its project through the same local
@@ -133,3 +140,20 @@ packaged runtime. Its Python functions use only the standard library; no example
 installation is needed. The fixture contains ordinary project metadata and an empty frozen lock
 so its source is independently analyzable. Partial copies never become working projects, and
 relaunching preserves settings and authored Python.
+
+The shared playground launcher starts the installed `setta APP open --no-open` process in an
+independent operating-system session with detached standard streams. It waits for the public
+readiness response and verifies the live session before reporting success or opening the browser.
+The normal foreground `setta open` supervision contract remains unchanged inside that detached
+process, including native descendant cleanup. Closing the playground command's terminal therefore
+does not close the supervisor's stdin pipe or stop the application.
+
+The existing application session registry is the only session authority. A repeat launch resolves
+and verifies that session through the shared runtime store and identity probe, then reopens its URL
+without rebuilding, reseeding,
+or synchronizing a running project's dependencies. Stop signals only the verified session owner;
+the existing supervisor cleans its descendants. The same runtime store recovers stale sessions.
+Startup logs live in the repository's ignored `tmp/playground-logs` directory, so a failed launch
+can report its cause and log path without leaving a pipe attached to the caller. Browser-opening
+failure leaves a working printed URL and a successful launch. Starting a stopped playground checks
+for application source changes; restarting is explicit so a repeat launch never interrupts work.

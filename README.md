@@ -78,6 +78,10 @@ pnpm review:playground
 pnpm python-canvas:playground
 ```
 
+Each playground stays running after its command returns, so you can close the terminal. Run the
+same command to reopen it, add `--stop` to stop it, or add `--fresh` for another copy that preserves
+your previous work.
+
 Learn how to [contribute](CONTRIBUTING.md), [get support](SUPPORT.md), or
 [report a security issue](SECURITY.md). Setta is licensed under
 [Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

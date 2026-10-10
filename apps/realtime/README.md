@@ -37,12 +37,15 @@ The **Start here** pane takes you from drawing a stroke to viewing your finished
 
 Add `--no-open` to print the URL without opening a browser, or `--fresh` to start another example
 without deleting your previous work. The launcher prints a `--workspace` command to resume that
-exact copy. Stop the app with Ctrl-C in its terminal. Reopen the guide with **Start here** in the
+exact copy. The command returns when the app is ready; you can close the terminal. Running it
+again reopens the same live playground. Stop it with `pnpm realtime:playground --stop`,
+or add `--workspace PATH --stop` for another copy. Reopen the guide with **Start here** in the
 left sidebar.
 
 After source setup, the first run builds the four apps, installs a complete wheel into the
-repository-owned local Setta environment, and opens Signal Bloom Press. Later runs compare build
-input metadata and reuse that install until an input changes. A cache miss rebuilds the complete
+repository-owned local Setta environment, and opens Signal Bloom Press. When starting a stopped playground, later runs compare build
+input metadata and reuse that install until an input changes. Stop and reopen a running playground
+to pick up application source changes. A cache miss rebuilds the complete
 wheel. Before launch it seeds
 `tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
 working project is absent. Later launches preserve drawings and applied callback edits in the

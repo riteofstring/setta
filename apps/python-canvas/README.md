@@ -33,8 +33,10 @@ pnpm python-canvas:playground --workspace /path/to/your/working-copy
 ```
 
 `--fresh` starts another copy without replacing earlier work. The launcher prints the exact command
-to resume it. `--no-open` prints the local URL without opening a browser. Stop the app with Ctrl-C
-in its terminal. Use **Start here** in the left sidebar whenever you want the guide back.
+to resume it. `--no-open` prints the local URL without opening a browser. The command returns when
+the app is ready; you can close the terminal. Running it again reopens the same live playground.
+Stop it with `pnpm python-canvas:playground --stop`, or add `--workspace PATH --stop` for another
+copy. Use **Start here** in the left sidebar whenever you want the guide back.
 
 ## Install and open a project
 
@@ -52,8 +54,8 @@ python3 packages/setta-runtime/scripts/run_local_setta.py python-canvas open \
 terminal to stop it. Reopen the project later by omitting `--create`; creation is exclusive and
 never overwrites an existing file. There is no implicit project or background daemon.
 
-The commands below use `setta` as shorthand for the repository-local runner or the executable in
-`build/setta-wheel/local-environment`. If the initial browser load fails, **Try again** reconnects
+The commands below use `setta` as shorthand for the repository-local runner.
+If the initial browser load fails, **Try again** reconnects
 without a page reload. Save, completion, and terminal errors remain visible beside the workspace
 so you can recover while continuing to inspect your project.
 

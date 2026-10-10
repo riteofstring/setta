@@ -6,11 +6,19 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import run_experiment_lens_playground
+from scripts import playground_server, run_experiment_lens_playground, run_local_setta
 
 
 class ExperimentLensPlaygroundRunnerTests(unittest.TestCase):
     def setUp(self) -> None:
+        for target, attribute, value in (
+            (playground_server, "inspect_session", None),
+            (playground_server, "open_browser", None),
+            (run_local_setta, "prepare", Path("/installed/setta")),
+        ):
+            patcher = mock.patch.object(target, attribute, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
@@ -60,17 +68,21 @@ class ExperimentLensPlaygroundRunnerTests(unittest.TestCase):
 
     def test_main_prepares_and_opens_the_working_project(self) -> None:
         with mock.patch.object(
-            run_experiment_lens_playground, "_open_workspace", return_value=7
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
         ) as open_workspace:
-            self.assertEqual(run_experiment_lens_playground.main([]), 7)
-        open_workspace.assert_called_once_with(self.workspace, no_open=False)
+            self.assertEqual(run_experiment_lens_playground.main([]), 0)
+        open_workspace.assert_called_once_with(
+            Path("/installed/setta"), "experiment-lens", self.workspace
+        )
 
     def test_main_can_leave_the_browser_closed(self) -> None:
         with mock.patch.object(
-            run_experiment_lens_playground, "_open_workspace", return_value=7
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
         ) as open_workspace:
-            self.assertEqual(run_experiment_lens_playground.main(["--no-open"]), 7)
-        open_workspace.assert_called_once_with(self.workspace, no_open=True)
+            self.assertEqual(run_experiment_lens_playground.main(["--no-open"]), 0)
+        open_workspace.assert_called_once_with(
+            Path("/installed/setta"), "experiment-lens", self.workspace
+        )
 
     def test_main_rejects_arguments_without_touching_the_fixture(self) -> None:
         stderr = io.StringIO()

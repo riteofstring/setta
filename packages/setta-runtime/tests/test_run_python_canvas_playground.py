@@ -7,11 +7,19 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import run_local_setta, run_python_canvas_playground
+from scripts import playground_server, run_local_setta, run_python_canvas_playground
 
 
 class PythonCanvasPlaygroundTests(unittest.TestCase):
     def setUp(self) -> None:
+        for target, attribute, value in (
+            (playground_server, "inspect_session", None),
+            (playground_server, "open_browser", None),
+            (run_local_setta, "prepare", Path("/installed/setta")),
+        ):
+            patcher = mock.patch.object(target, attribute, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.workspace = Path(temporary.name).resolve() / "rocket-lab"
@@ -22,16 +30,12 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_launch_copies_a_complete_example_and_preserves_later_edits(self) -> None:
-        with mock.patch.object(run_local_setta, "main", return_value=0) as launch:
+        with mock.patch.object(
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
+        ) as launch:
             self.assertEqual(run_python_canvas_playground.main(["--no-open"]), 0)
             launch.assert_called_once_with(
-                [
-                    "python-canvas",
-                    "open",
-                    "--project",
-                    str(self.workspace / "project.json"),
-                    "--no-open",
-                ]
+                Path("/installed/setta"), "python-canvas", self.workspace
             )
             source = self.workspace / "rocket_lab.py"
             self.assertIn("def trajectory", source.read_text(encoding="utf-8"))
@@ -49,11 +53,13 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
         run_python_canvas_playground.prepare_workspace()
         original = self.workspace / "rocket_lab.py"
         original.write_text("my experiment", encoding="utf-8")
-        with mock.patch.object(run_local_setta, "main", return_value=0) as launch:
+        with mock.patch.object(
+            playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
+        ) as launch:
             self.assertEqual(
                 run_python_canvas_playground.main(["--fresh", "--no-open"]), 0
             )
-            fresh = Path(launch.call_args.args[0][3]).parent
+            fresh = launch.call_args.args[2]
             self.assertNotEqual(fresh, self.workspace)
             self.assertIn(
                 "def trajectory", (fresh / "rocket_lab.py").read_text(encoding="utf-8")
@@ -61,7 +67,7 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             self.assertEqual(
                 run_python_canvas_playground.main(["--workspace", str(fresh)]), 0
             )
-            self.assertEqual(launch.call_args.args[0][3], str(fresh / "project.json"))
+            self.assertEqual(launch.call_args.args[2], fresh)
         self.assertEqual(original.read_text(encoding="utf-8"), "my experiment")
 
     def test_partial_copy_is_not_published(self) -> None:
@@ -71,13 +77,13 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
                 "copytree",
                 side_effect=OSError("disk full"),
             ),
-            mock.patch.object(run_local_setta, "main") as launch,
+            mock.patch.object(playground_server, "start") as launch,
             mock.patch("sys.stderr", new_callable=io.StringIO) as errors,
         ):
             self.assertEqual(run_python_canvas_playground.main([]), 1)
         self.assertFalse(self.workspace.exists())
         self.assertIn("disk full", errors.getvalue())
-        self.assertIn("--fresh", errors.getvalue())
+        self.assertIn("saved work is preserved", errors.getvalue())
         launch.assert_not_called()
 
     def test_help_explains_recovery_without_creating_a_workspace(self) -> None:

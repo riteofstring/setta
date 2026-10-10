@@ -25,7 +25,9 @@ Start with the poster comparison, then investigate the checkout claims and rollo
 
 Add `--no-open` to print the URL without opening a browser, or `--fresh` to start another example
 without deleting your previous work. The launcher prints a `--workspace` command to resume that
-exact copy. Stop the app with Ctrl-C in its terminal. Reopen the guide with **Start here** in the
+exact copy. The command returns when the app is ready; you can close the terminal. Running it
+again reopens the same live playground. Stop it with `pnpm review:playground --stop`,
+or add `--workspace PATH --stop` for another copy. Reopen the guide with **Start here** in the
 left sidebar.
 
 The launcher builds Review, seeds `tmp/review-playground/review-project` from the immutable fixture,

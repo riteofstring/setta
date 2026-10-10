@@ -7,11 +7,19 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import run_review_playground
+from scripts import playground_server, run_local_setta, run_review_playground
 
 
 class ReviewPlaygroundRunnerTests(unittest.TestCase):
     def setUp(self) -> None:
+        for target, attribute, value in (
+            (playground_server, "inspect_session", None),
+            (playground_server, "open_browser", None),
+            (run_local_setta, "prepare", Path("/installed/setta")),
+        ):
+            patcher = mock.patch.object(target, attribute, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
@@ -94,20 +102,18 @@ class ReviewPlaygroundRunnerTests(unittest.TestCase):
             calls.append(("seed", project))
             return True
 
-        def open_project(project: Path, *, no_open: bool) -> int:
-            self.assertFalse(no_open)
+        def open_project(executable: Path, app: str, project: Path) -> dict[str, str]:
+            self.assertEqual(app, "review")
             calls.append(("open", project))
-            return 7
+            return {"url": "http://127.0.0.1:1234"}
 
         with (
             mock.patch.object(
                 run_review_playground, "seed_workspace", side_effect=seed
             ),
-            mock.patch.object(
-                run_review_playground, "_open_workspace", side_effect=open_project
-            ),
+            mock.patch.object(playground_server, "start", side_effect=open_project),
         ):
-            self.assertEqual(run_review_playground.main([]), 7)
+            self.assertEqual(run_review_playground.main([]), 0)
         self.assertEqual(calls, [("seed", self.workspace), ("open", self.workspace)])
 
     def test_main_rejects_arguments_without_touching_the_fixture(self) -> None:

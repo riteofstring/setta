@@ -61,7 +61,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
         self.assertIsInstance(build.call_args.args[1], Path)
         install.assert_called_once_with("/tools/uv", wheel)
-        record.assert_called_once_with({"files": []})
+        record.assert_called_once_with({"files": []}, executable)
         self.assertEqual(
             foreground.call_args_list,
             [
@@ -142,7 +142,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     lambda: (backend / "added.go").unlink(),
                 ):
                     run_local_setta._record_local_build(
-                        run_local_setta._local_build_state()
+                        run_local_setta._local_build_state(), executable
                     )
                     self.assertEqual(
                         run_local_setta._cached_local_executable(
@@ -166,7 +166,6 @@ class LocalSettaRunnerTests(unittest.TestCase):
             setta.parent.mkdir(parents=True)
             setta.touch()
             with (
-                mock.patch.object(run_local_setta, "LOCAL_ENVIRONMENT", environment),
                 mock.patch.object(run_local_setta, "LOCAL_BUILD_STATE", state),
                 mock.patch.object(
                     run_local_setta,
@@ -174,7 +173,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     return_value=True,
                 ) as assets_valid,
             ):
-                run_local_setta._record_local_build({"files": []})
+                run_local_setta._record_local_build({"files": []}, setta)
                 self.assertEqual(
                     run_local_setta._cached_local_executable({"files": []}), setta
                 )
@@ -183,7 +182,10 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 )
         self.assertEqual(
             assets_valid.call_args_list,
-            [mock.call(app_id) for app_id in run_local_setta.PACKAGED_APP_IDS],
+            [
+                mock.call(app_id, environment)
+                for app_id in run_local_setta.PACKAGED_APP_IDS
+            ],
         )
 
     def test_local_build_cache_rejects_a_missing_app_install(self) -> None:
@@ -194,9 +196,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
             _, setta = run_local_setta._environment_executables(environment)
             setta.parent.mkdir(parents=True)
             setta.touch()
-            state.write_text('{"files": []}\n', encoding="utf-8")
             with (
-                mock.patch.object(run_local_setta, "LOCAL_ENVIRONMENT", environment),
                 mock.patch.object(run_local_setta, "LOCAL_BUILD_STATE", state),
                 mock.patch.object(
                     run_local_setta,
@@ -204,12 +204,16 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     side_effect=(True, False),
                 ) as assets_valid,
             ):
+                run_local_setta._record_local_build({"files": []}, setta)
                 self.assertIsNone(
                     run_local_setta._cached_local_executable({"files": []})
                 )
         self.assertEqual(
             assets_valid.call_args_list,
-            [mock.call("experiment-lens"), mock.call("python-canvas")],
+            [
+                mock.call("experiment-lens", environment),
+                mock.call("python-canvas", environment),
+            ],
         )
 
     def test_wheel_build_uses_the_complete_build_path(self) -> None:
@@ -263,24 +267,44 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 run.call_args.args[0][-2:], ["--wheel-platform-tag", "linux_aarch64"]
             )
 
-    def test_install_replaces_same_version_setta_with_current_wheel(self) -> None:
+    def test_rebuilding_keeps_the_previous_installation_usable(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            environment = root / "environment"
-            uv = run_local_setta._required_command("uv")
-            subprocess.run(
-                [uv, "venv", "--python", sys.executable, str(environment)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
             old_wheel = _fixture_wheel(root / "old", "old")
             current_wheel = _fixture_wheel(root / "current", "current")
-            with mock.patch.object(run_local_setta, "LOCAL_ENVIRONMENT", environment):
-                run_local_setta._install_current_wheel(uv, old_wheel)
-                self.assertEqual(_installed_marker(environment), "old")
-                run_local_setta._install_current_wheel(uv, current_wheel)
-                self.assertEqual(_installed_marker(environment), "current")
+            with (
+                mock.patch.object(
+                    run_local_setta, "LOCAL_ENVIRONMENTS", root / "environments"
+                ),
+                mock.patch.object(
+                    run_local_setta, "LOCAL_BUILD_STATE", root / "state.json"
+                ),
+                mock.patch.object(
+                    run_local_setta, "_pinned_go", return_value=Path("/tools/go")
+                ),
+                mock.patch.object(
+                    run_local_setta,
+                    "_build_current_wheel",
+                    side_effect=[old_wheel, current_wheel],
+                ),
+                mock.patch.object(
+                    run_local_setta,
+                    "_local_build_state",
+                    side_effect=[{"files": ["old"]}, {"files": ["new"]}],
+                ),
+                mock.patch.object(
+                    run_local_setta, "_installed_app_assets_valid", return_value=True
+                ),
+            ):
+                previous = run_local_setta.prepare()
+                current = run_local_setta.prepare()
+                self.assertNotEqual(previous, current)
+                self.assertEqual(_installed_marker(previous.parent.parent), "old")
+                self.assertEqual(_installed_marker(current.parent.parent), "current")
+                self.assertEqual(
+                    run_local_setta._cached_local_executable({"files": ["new"]}),
+                    current,
+                )
 
     def test_main_reports_setup_failure_without_traceback(self) -> None:
         with (
