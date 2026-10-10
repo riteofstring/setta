@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Keep Experiment Lens selection drafts after failed saves and offer explicit conflict recovery.
 - Preserve Review feedback, claim notes, and drawing drafts across refreshes in the same tab.
 - Retry initial app loads and show recoverable Python Canvas errors in the workspace.
+- Skip suggestions for stale Python completion drafts without reporting a failed project edit.
 - Create Realtime projects with an editable code section and a working Python entrypoint.
 - Invalidate local builds after shared backend edits and support local Linux wheel builds.
 - Update native builds to Go 1.26.9 for Windows directory confinement and HTTP range fixes.

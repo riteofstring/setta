@@ -143,3 +143,7 @@ Initial loading and connection failure have a visible presentation. Retry create
 only before a workspace has loaded. Operation, completion, terminal, and storage errors render
 above the existing workspace, keeping both sighted and screen-reader users informed while their
 current work remains available. A completion failure never removes the editor or terminal.
+Automatic Python target completion can race a newer canonical generated body. A rejected
+completion draft produces no suggestions and clears stale completion feedback; it does not report
+a failed project edit. The backend still validates the protected region, and transport or provider
+failures retain their visible feedback. Later completion requests use the current draft normally.

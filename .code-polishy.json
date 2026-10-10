@@ -1009,6 +1009,7 @@
       },
       {
         "name": "python-canvas-browser",
+        "environment": ["PYTHON_CANVAS_CHROME_BINARY"],
         "kind": "browser",
         "scope": "repository",
         "cost": "standard",
@@ -1025,6 +1026,10 @@
       },
       {
         "name": "realtime-browser",
+        "environment": [
+          "REALTIME_CHROME_BINARY",
+          "PYTHON_CANVAS_CHROME_BINARY"
+        ],
         "kind": "browser",
         "scope": "repository",
         "cost": "standard",
@@ -1039,6 +1044,7 @@
       },
       {
         "name": "review-browser",
+        "environment": ["REVIEW_CHROME_BINARY", "PYTHON_CANVAS_CHROME_BINARY"],
         "kind": "browser",
         "scope": "repository",
         "cost": "standard",
@@ -1053,6 +1059,10 @@
       },
       {
         "name": "experiment-lens-browser",
+        "environment": [
+          "EXPERIMENT_LENS_CHROME_BINARY",
+          "PYTHON_CANVAS_CHROME_BINARY"
+        ],
         "kind": "browser",
         "scope": "repository",
         "cost": "standard",

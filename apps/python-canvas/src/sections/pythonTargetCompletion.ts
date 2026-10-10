@@ -30,8 +30,7 @@ export function createPythonTargetCompletionProvider({
       language !== "python" ||
       generatedRegion === null ||
       !rangeIsWithinText(generatedRegion, text.length) ||
-      !cursorIsWithinText(cursorOffsetUtf16, text.length) ||
-      cursorIsInsideGeneratedRegion(cursorOffsetUtf16, generatedRegion)
+      !cursorIsEditable(cursorOffsetUtf16, text.length, generatedRegion)
     ) {
       return null;
     }
@@ -57,12 +56,23 @@ export function createPythonTargetCompletionProvider({
       onSuccess();
       return completionResult(bounds, items);
     } catch (error) {
-      if (!signal.aborted) {
+      if (signal.aborted) return null;
+      if (isRejectedCompletionDraft(error)) {
+        onSuccess();
+      } else {
         onFailure(pythonTargetCompletionFailureMessage(error));
       }
       return null;
     }
   };
+}
+
+function isRejectedCompletionDraft(error: unknown): boolean {
+  return (
+    error instanceof ProjectClientError &&
+    error.status === 422 &&
+    error.code === "validation_failed"
+  );
 }
 
 function rangeIsWithinText(
@@ -78,15 +88,17 @@ function rangeIsWithinText(
   ].every(Boolean);
 }
 
-function cursorIsWithinText(cursor: number, textLength: number): boolean {
-  return Number.isSafeInteger(cursor) && cursor >= 0 && cursor <= textLength;
-}
-
-function cursorIsInsideGeneratedRegion(
+function cursorIsEditable(
   cursor: number,
+  textLength: number,
   range: { from: number; to: number },
 ): boolean {
-  return cursor >= range.from && cursor <= range.to;
+  return (
+    Number.isSafeInteger(cursor) &&
+    cursor >= 0 &&
+    cursor <= textLength &&
+    (cursor < range.from || cursor > range.to)
+  );
 }
 
 function completionResult(

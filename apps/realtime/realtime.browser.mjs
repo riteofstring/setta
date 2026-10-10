@@ -608,10 +608,20 @@ async function jsonRequest(origin, pathname, init = {}) {
 
 async function authorProject(origin) {
   const project = await jsonRequest(origin, "/api/v1/project");
+  const starter = Object.values(project.sections).find(
+    (item) => item.kind === "code" && item.data.source === "entrypoint",
+  );
+  assert.ok(
+    starter,
+    "A new Realtime project must expose its Python entrypoint.",
+  );
   const updated = await jsonRequest(origin, "/api/v1/project/apply", {
     body: JSON.stringify({
       expectedRevision: project.revision,
-      operations: projectOperations(),
+      operations: [
+        { op: "deleteSection", sectionId: starter.id },
+        ...projectOperations(),
+      ],
       projectId: project.id,
     }),
     headers: { "Content-Type": "application/json" },

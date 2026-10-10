@@ -388,6 +388,10 @@ function unresolvedCallableUiStateExpression(sectionSelector) {
       mutationError: (mutationError?.textContent ?? "").trim(),
       overlayPresent: overlay instanceof HTMLElement,
       visibleAlert,
+      alerts: [...document.querySelectorAll('[role="alert"]')].map((element) => ({
+        id: element.id,
+        text: element.textContent,
+      })),
     };
   })()`;
 }

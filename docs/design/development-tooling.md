@@ -11,6 +11,9 @@ and component boundaries, all four application browser flows, Workspace interact
 notice generation. Browser suites use the runner's explicit Chrome path and isolate their own
 profiles. The native wheel matrix retains platform-specific Go suites, ABI checks, and installed
 wheel smoke tests. These workflows produce artifacts without publishing them.
+The application job builds Workspace's public declarations before checking app imports. Browser
+suite declarations forward their named Chrome environment variables through Code Polishy's command
+environment, so the explicit runner path reaches each browser launcher.
 
 Static checks visit every declared module. This keeps each invocation below Code Polishy 0.28.2's
 intermediate lint-result limit: the three AJV-generated validator files together exceed that limit

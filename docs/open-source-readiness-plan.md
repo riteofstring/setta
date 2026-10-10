@@ -185,6 +185,13 @@ pass with 18 exact npm non-exposure assessments and five Go 1.26.9 release-age a
 expiring on November 7. The source quickstart, app draft recovery, Realtime starter, and local Linux
 packaging are implemented. The previous Go complexity and Python import-order findings are fixed.
 
+All 12 affected boundary suites and all four application browser suites pass. The runtime suite has
+217 tests with three platform-specific skips; the final Python Canvas run includes 143 component
+tests and 29 browser-harness tests. macOS arm64 installed-wheel acceptance covers opening all four
+apps, their command boundaries, and Lens selection saving and export. The wheel carries 22 license
+files. Windows and Linux execution still belongs to the hosted platform matrix, which has not been
+run from this local checkout.
+
 Code Polishy is pinned to 0.28.2. Its repository-wide JavaScript check still encounters an upstream
 result-limit defect: the Realtime, Review, and Lens generated validators produce 6,541 intermediate
 complexity/depth diagnostics and 21 comment records. Their generated-code exemptions are applied
@@ -198,6 +205,9 @@ Individual module checks fit within the limit and retain all rules. Hosted CI ru
 module separately, but a complete checkpoint remains blocked until Code Polishy handles generated
 output before the aggregate limit or batches its analysis. This is an open tooling issue, not a
 passing repository-wide gate.
+The checkpoint's file-length findings are advisory warnings; they do not cause this failure.
+The upstream report is recorded in the Code Polishy checkout at
+`docs/bugs/generated-lint-result-limit.md`, commit `725db30`.
 
 ## Completion criteria
 
