@@ -168,7 +168,7 @@ function buildLayouts(playground: Playground): Record<string, Layout> {
     placements[playground.control] = layout(
       460,
       callables.length * 340,
-      500,
+      340,
       230,
     );
   return placements;
