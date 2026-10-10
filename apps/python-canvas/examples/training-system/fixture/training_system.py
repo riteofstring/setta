@@ -444,8 +444,9 @@ def _resolved_settings(run: Experiment) -> list[str]:
             for loss in loop.losses
         ),
         (
-            f"  Runtime: {loop.precision.mode}, {loop.precision.loss_scale} loss scale, "
-            f"{distributed.backend} backend, gradient clip {budget.gradients.clip_norm:g}"
+            f"  Runtime: {loop.precision.mode}, "
+            f"{loop.precision.loss_scale} loss scale, {distributed.backend} backend, "
+            f"gradient clip {budget.gradients.clip_norm:g}"
         ),
         (
             f"  Cache: {loader.cache.size_gb} GiB at {loader.cache.directory}, "
@@ -453,7 +454,10 @@ def _resolved_settings(run: Experiment) -> list[str]:
         ),
         "  Evaluation: "
         + "; ".join(
-            f"{e.loader.dataset.split} ({'at end' if e.every == 0 else f'every {e.every} epochs'})"
+            (
+                f"{e.loader.dataset.split} "
+                f"({'at end' if e.every == 0 else f'every {e.every} epochs'})"
+            )
             for e in run.evaluation
         ),
         "  Callbacks: " + "; ".join(_callback_description(c) for c in run.callbacks),
