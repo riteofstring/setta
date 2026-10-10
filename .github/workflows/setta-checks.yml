@@ -103,6 +103,8 @@ jobs:
         run: python packages/setta-runtime/scripts/frontend_notices.py
       - name: Verify repository configuration
         run: ./code-polishyw doctor
+      - name: Build shared Workspace declarations
+        run: pnpm --filter @setta/workspace run build
       - name: Check each declared module
         run: |
           for setta_module in $(python -c 'import json; print(" ".join(module["name"] for module in json.load(open(".code-polishy.json"))["modules"]))'); do
