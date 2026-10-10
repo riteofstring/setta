@@ -160,11 +160,12 @@ replace that attribution.
 
 ## Python playgrounds
 
-Training system demonstrates configuration authoring with 71 canonical sections and 111 authored
+Training system demonstrates configuration authoring with 71 canonical sections and 112 authored
 Python references. Its standard-library dataclasses describe an image training system: data,
 transforms, model parts, parameter groups, schedules, losses, runtime resources, callbacks,
 evaluation, and three experiments. The graph constructs shared objects and derived update budgets;
-it performs no model training, dataset access, or output writes. Run assembles that graph through
+cache capacity derives from configured host memory. It performs no model training, dataset access,
+or output writes. Run assembles that graph through
 the ordinary renderer and terminal, then reports cross-component consistency and resolved values.
 This makes constructor discovery, reference rewriting, reusable lists, shared defaults, and Python
 export the central interactions. The handwritten recipe provides an equivalent standalone starting

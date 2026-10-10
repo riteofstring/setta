@@ -17,7 +17,7 @@ pnpm python-canvas:playground
 ```
 
 **Training system** assembles 59 callable sections, 9 Lists of Objects, and 3 Parameter
-Dictionaries through 111 references. Configure data sources, augmentation and preprocessing,
+Dictionaries through 112 references. Configure data sources, augmentation and preprocessing,
 loaders, a vision model, optimizer parameter groups, schedules, losses, callbacks, metrics,
 distributed settings, and three runs. It uses standard-library Python configuration objects and
 needs no dataset, GPU, model download, or training dependency.

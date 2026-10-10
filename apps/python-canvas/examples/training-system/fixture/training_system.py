@@ -388,16 +388,34 @@ def _resolved_settings(run: Experiment) -> list[str]:
     model, loop = run.model, run.loop
     budget = loop.budget
     loader, distributed = budget.loader, budget.distributed
+    optimizer_detail = (
+        f"betas={loop.optimizer.betas}"
+        if isinstance(loop.optimizer, AdamW)
+        else f"momentum={loop.optimizer.momentum:g}"
+    )
     return [
         (
             f"  Model: width {model.embedding.width}, {model.encoder.depth} blocks, "
             f"{model.encoder.attention.heads} heads, {model.head.classes} classes"
         ),
         (
+            f"  Embedding: {model.embedding.channels} channels, "
+            f"{model.embedding.patch_size} px patches"
+        ),
+        (
+            f"  Feed forward: {model.encoder.feed_forward.expansion}x expansion, "
+            f"{model.encoder.feed_forward.activation} activation"
+        ),
+        (
+            f"  Dropout: attention={model.encoder.attention.dropout:g}, "
+            f"head={model.head.dropout:g}"
+        ),
+        (
             f"  Data: {loader.dataset.root}/{loader.dataset.split} "
             f"({loader.dataset.samples:,} examples)"
         ),
-        "  Transforms: " + " -> ".join(type(s).__name__ for s in loader.pipeline.steps),
+        "  Transforms: "
+        + " -> ".join(_transform_description(step) for step in loader.pipeline.steps),
         (
             f"  Batch: {loader.batch_size} x {distributed.devices} devices x "
             f"{distributed.nodes} nodes x {budget.gradients.accumulation} accumulation "
@@ -406,7 +424,7 @@ def _resolved_settings(run: Experiment) -> list[str]:
         f"  Budget: {budget.epochs} epochs / {budget.updates:,} optimizer updates",
         (
             f"  Optimizer: {type(loop.optimizer).__name__} / "
-            f"lr={loop.optimizer.learning_rate:g}"
+            f"lr={loop.optimizer.learning_rate:g}, {optimizer_detail}"
         ),
         "  Parameter groups: "
         + ", ".join(
@@ -414,16 +432,59 @@ def _resolved_settings(run: Experiment) -> list[str]:
             for g in loop.optimizer.groups
         ),
         "  Schedule: "
-        + " -> ".join(f"{type(s).__name__}({s.steps:,})" for s in loop.schedule.stages),
+        + " -> ".join(
+            f"Warmup({s.steps:,}, start={s.start_factor:g})"
+            if isinstance(s, Warmup)
+            else f"Cosine({s.steps:,}, min={s.min_factor:g})"
+            for s in loop.schedule.stages
+        ),
         "  Losses: "
-        + ", ".join(f"{loss.name} x {loss.weight:g}" for loss in loop.losses),
+        + ", ".join(
+            f"{loss.name} x {loss.weight:g} (smoothing={loss.smoothing:g})"
+            for loss in loop.losses
+        ),
         (
-            f"  Runtime: {loop.precision.mode}, cache {loader.cache.size_gb} GiB, "
+            f"  Runtime: {loop.precision.mode}, {loop.precision.loss_scale} loss scale, "
+            f"{distributed.backend} backend, gradient clip {budget.gradients.clip_norm:g}"
+        ),
+        (
+            f"  Cache: {loader.cache.size_gb} GiB at {loader.cache.directory}, "
             f"{loader.workers} loader workers"
         ),
-        "  Evaluation: " + ", ".join(e.loader.dataset.split for e in run.evaluation),
-        "  Callbacks: " + ", ".join(type(c).__name__ for c in run.callbacks),
+        "  Evaluation: "
+        + "; ".join(
+            f"{e.loader.dataset.split} ({'at end' if e.every == 0 else f'every {e.every} epochs'})"
+            for e in run.evaluation
+        ),
+        "  Callbacks: " + "; ".join(_callback_description(c) for c in run.callbacks),
         f"  Output: {run.output} / seed {run.seed}",
         f"  Tracking: {run.tracker.project} / group {run.tracker.group}",
         "  Configuration is consistent.",
     ]
+
+
+def _transform_description(step: Transform) -> str:
+    if isinstance(step, Resize):
+        return f"Resize({step.size}, {step.interpolation})"
+    if isinstance(step, RandomCrop):
+        return f"RandomCrop({step.size}, padding={step.padding})"
+    if isinstance(step, RandomFlip):
+        return f"RandomFlip(p={step.probability:g})"
+    if isinstance(step, ColorJitter):
+        return (
+            f"ColorJitter(brightness={step.brightness:g}, contrast={step.contrast:g})"
+        )
+    return f"Normalize(mean={step.mean}, std={step.std})"
+
+
+def _callback_description(callback: Callback) -> str:
+    if isinstance(callback, Checkpoint):
+        return (
+            f"Checkpoint(every {callback.every} epochs, keep {callback.keep}, "
+            f"{callback.directory})"
+        )
+    if isinstance(callback, EarlyStopping):
+        return f"EarlyStopping({callback.metric}, patience={callback.patience})"
+    if isinstance(callback, Logger):
+        return f"Logger(every {callback.every} updates, {callback.directory})"
+    return f"Monitor({callback.metric}, threshold={callback.threshold:g})"

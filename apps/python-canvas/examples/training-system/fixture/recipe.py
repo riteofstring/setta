@@ -19,7 +19,7 @@ def build(width: int = 192, batch_size: int = 64) -> dict[str, ts.Experiment]:
         "cache": Path("cache/images"),
     }
     resources = ts.Resources(devices=4, workers=8, memory_gb=64)
-    cache = ts.Cache(directory=paths["cache"], size_gb=16)
+    cache = ts.Cache(directory=paths["cache"], size_gb=resources.memory_gb // 4)
     storage = ts.Storage(root=paths["output"], keep_last=3)
     tracker = ts.Tracker(
         project="orchard-classifier",

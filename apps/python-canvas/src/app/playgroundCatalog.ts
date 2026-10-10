@@ -28,7 +28,7 @@ const PLAYGROUNDS: Record<string, Playground> = {
   "training-system": {
     title: "A whole training system",
     description:
-      "71 sections. 111 references. One Python program. Explore the configuration of a vision training system, from input data to three experiments sharing the same model.",
+      "71 sections. 112 references. One Python program. Explore the configuration of a vision training system, from input data to three experiments sharing the same model.",
     briefName: "Read the blueprint",
     brief:
       "## Configuration you can explore\n\nThe starting system contains **59 callable sections, 9 lists, and 3 dictionaries**. Every reference is a Python expression; the generated program constructs ordinary Python objects.\n\n**Start:** change **width** in Shared defaults from 192 to 384. Patch embedding, attention, feed forward, and the classifier head all use that one setting. All three experiments share the resulting Model object.\n\n**Explore:** Data, Model, Train, and Evaluate frame each subsystem. System shows the complete configuration. The Outline lists every section.\n\n**Try:** replace `ts.AdamW` with `ts.SGD` in Optimizer and press Enter to discover its parameters. Rename Model from its section menu and inspect the updated references.\n\n**Check:** open Python and press Run in its header. The standard-library example validates the assembled configuration and prints each run's resolved settings. It does not train a model, read datasets, or create output files.",
