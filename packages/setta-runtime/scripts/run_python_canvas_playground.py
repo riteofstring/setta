@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_ROOT = ROOT / "apps/python-canvas/examples"
 WORKSPACE_ROOT = ROOT / "tmp/python-canvas-playground"
-EXAMPLES = ("rover-mission", "model-arena", "art-studio")
+EXAMPLES = ("training-system", "rover-mission", "model-arena", "art-studio")
 REQUIRED_FILES = (
     "project.json",
     "recipe.py",
@@ -71,7 +71,7 @@ def _prepare_launch(workspace: Path, example: str) -> Path:
 
 
 def prepare_workspace(
-    workspace: Path | None = None, example: str = "rover-mission"
+    workspace: Path | None = None, example: str = "training-system"
 ) -> Path:
     fixture = EXAMPLES_ROOT / example / "fixture"
     workspace = WORKSPACE_ROOT / example if workspace is None else workspace

@@ -440,7 +440,7 @@ func (prepared PreparedConfiguredCallable) Finalize(
 		return Candidate{}, err
 	}
 	candidate := prepared.state.Clone()
-	parameters, err := newProviderParameters(signature, nextID, candidate.targetIDs())
+	parameters, err := newProviderParameters(signature, nil, nextID, candidate.targetIDs())
 	if err != nil {
 		return Candidate{}, err
 	}
@@ -590,7 +590,7 @@ func (state State) RefreshCallableParameters(
 	}
 	candidate := state.Clone()
 	currentParameters := candidate.Callables[callableIndex].Parameters
-	parameters, err := newProviderParameters(signature, nextID, candidate.targetIDs())
+	parameters, err := newProviderParameters(signature, currentParameters, nextID, candidate.targetIDs())
 	if err != nil {
 		return Candidate{}, err
 	}

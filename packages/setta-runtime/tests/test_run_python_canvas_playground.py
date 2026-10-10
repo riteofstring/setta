@@ -21,7 +21,7 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.workspace = Path(temporary.name).resolve() / "rover-mission"
+        self.workspace = Path(temporary.name).resolve() / "training-system"
         patcher = mock.patch.object(
             run_python_canvas_playground, "WORKSPACE_ROOT", self.workspace.parent
         )
@@ -44,8 +44,8 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             launch.assert_called_once_with(
                 Path("/installed/setta"), "python-canvas", self.workspace
             )
-            source = self.workspace / "rover_mission.py"
-            self.assertIn("def show", source.read_text(encoding="utf-8"))
+            source = self.workspace / "training_system.py"
+            self.assertIn("def describe", source.read_text(encoding="utf-8"))
             self.sync.assert_called_once_with(
                 [
                     "/tools/uv",
@@ -65,16 +65,16 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             self.assertEqual(run_python_canvas_playground.main([]), 0)
         self.assertEqual(source.read_text(encoding="utf-8"), "my experiment")
         self.assertIn(
-            "def show",
+            "def describe",
             (
                 run_python_canvas_playground.EXAMPLES_ROOT
-                / "rover-mission/fixture/rover_mission.py"
+                / "training-system/fixture/training_system.py"
             ).read_text(encoding="utf-8"),
         )
 
     def test_fresh_launch_keeps_previous_work_and_can_be_resumed(self) -> None:
         run_python_canvas_playground.prepare_workspace()
-        original = self.workspace / "rover_mission.py"
+        original = self.workspace / "training_system.py"
         original.write_text("my experiment", encoding="utf-8")
         with mock.patch.object(
             playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
@@ -85,7 +85,8 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             fresh = launch.call_args.args[2]
             self.assertNotEqual(fresh, self.workspace)
             self.assertIn(
-                "def show", (fresh / "rover_mission.py").read_text(encoding="utf-8")
+                "def describe",
+                (fresh / "training_system.py").read_text(encoding="utf-8"),
             )
             self.assertEqual(
                 run_python_canvas_playground.main(["--workspace", str(fresh)]), 0

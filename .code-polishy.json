@@ -302,6 +302,12 @@
         "kind": "entry-point",
         "target": "art_studio:show",
         "reason": "The adjacent project.json suffix renders the composed Python experiment on explicit Run."
+      },
+      {
+        "project": "apps/python-canvas/examples/training-system/fixture/pyproject.toml",
+        "kind": "entry-point",
+        "target": "training_system:describe",
+        "reason": "The adjacent project.json suffix checks the assembled configuration and prints its resolved settings on explicit Run."
       }
     ],
     "entryPoints": [
@@ -667,6 +673,15 @@
       "modules": ["python-canvas-backend"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
+    },
+    {
+      "name": "python-canvas-training-system-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["uv", "lock", "--check"],
+      "cwd": "apps/python-canvas/examples/training-system/fixture",
+      "modules": ["python-canvas-backend"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
     }
   ],
   "tests": {
@@ -786,6 +801,11 @@
         "paths": ["apps/python-canvas/examples/art-studio/**/test_*.py"],
         "module": "python-canvas-backend",
         "focusedSuite": "python-canvas-art-studio"
+      },
+      {
+        "paths": ["apps/python-canvas/examples/training-system/**/test_*.py"],
+        "module": "python-canvas-backend",
+        "focusedSuite": "python-canvas-training-system"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -1225,6 +1245,27 @@
           "test_art_studio"
         ],
         "cwd": "apps/python-canvas/examples/art-studio/fixture",
+        "runOn": ["focused", "recommended", "full"],
+        "timeoutSeconds": 60
+      },
+      {
+        "name": "python-canvas-training-system",
+        "kind": "unit",
+        "scope": "module",
+        "cost": "quick",
+        "modules": ["python-canvas-backend"],
+        "paths": ["apps/python-canvas/examples/training-system/**"],
+        "argv": [
+          "uv",
+          "run",
+          "--frozen",
+          "--no-build",
+          "python",
+          "-m",
+          "unittest",
+          "test_training_system"
+        ],
+        "cwd": "apps/python-canvas/examples/training-system/fixture",
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 60
       }

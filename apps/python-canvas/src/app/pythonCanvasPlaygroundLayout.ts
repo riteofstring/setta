@@ -6,6 +6,7 @@ import {
   type WorkspaceDocumentInput,
 } from "@setta/workspace";
 import { getPlayground, type Playground } from "./playgroundCatalog";
+import { trainingSystemViews } from "./trainingSystemLayout";
 
 const briefId = "python-canvas:playground:brief";
 const generatedId = "python-canvas:generated-python";
@@ -35,7 +36,7 @@ export function addPlaygroundSections(
     {
       id: briefId,
       kind: WORKSPACE_TEXT_SECTION_KIND,
-      name: "The challenge",
+      name: playground.briefName ?? "The challenge",
       data: createWorkspaceTextSectionData({
         text: playground.brief,
         format: "markdown",
@@ -75,7 +76,10 @@ export function playgroundLayout(
 ): WorkspaceDocumentInput {
   const playground = getPlayground(projectId);
   if (!playground) return document;
-  const definitions = playgroundViews(playground, projectId);
+  const definitions =
+    projectId === "training-system"
+      ? trainingSystemViews(document)
+      : playgroundViews(playground, projectId);
   const placements = Object.assign(
     {},
     document.topLevelSections,
@@ -83,7 +87,13 @@ export function playgroundLayout(
   );
   const arranged = {
     ...document,
-    sections: sizeSections(document.sections, placements),
+    sections: sizeSections(
+      document.sections,
+      placements,
+      projectId === "training-system"
+        ? { width: 500, rowHeight: 40 }
+        : { width: 400, rowHeight: 28 },
+    ),
     topLevelSections: placements,
   };
   const views = Object.fromEntries(
@@ -177,6 +187,7 @@ function buildLayouts(playground: Playground): Record<string, Layout> {
 function sizeSections(
   input: WorkspaceDocumentInput["sections"],
   placements: Record<string, Layout>,
+  listSize: { width: number; rowHeight: number },
 ) {
   const sections = { ...input };
   for (const [id, placement] of Object.entries(placements)) {
@@ -187,11 +198,14 @@ function sizeSections(
         size: { width: placement.w ?? 400, height: placement.h ?? "auto" },
       };
   }
-  sizeObjectLists(sections);
+  sizeObjectLists(sections, listSize);
   return sections;
 }
 
-function sizeObjectLists(sections: WorkspaceDocumentInput["sections"]) {
+function sizeObjectLists(
+  sections: WorkspaceDocumentInput["sections"],
+  listSize: { width: number; rowHeight: number },
+) {
   for (const section of Object.values(sections)) {
     if (!section.kind.includes("list")) continue;
     for (const childId of section.children) {
@@ -201,7 +215,10 @@ function sizeObjectLists(sections: WorkspaceDocumentInput["sections"]) {
         child.itemTree?.items[child.itemTree.rootId]?.children.length ?? 0;
       sections[childId] = {
         ...child,
-        size: { width: 400, height: 110 + count * 28 },
+        size: {
+          width: listSize.width,
+          height: 110 + count * listSize.rowHeight,
+        },
       };
     }
   }

@@ -10,7 +10,36 @@ revision, so stale writes fail with a typed conflict instead of replacing newer 
 
 ## Playgrounds
 
-After [source setup](../../CONTRIBUTING.md#source-setup), choose an experiment:
+After [source setup](../../CONTRIBUTING.md#source-setup), open the configuration playground:
+
+```console
+pnpm python-canvas:playground
+```
+
+**Training system** assembles 59 callable sections, 9 Lists of Objects, and 3 Parameter
+Dictionaries through 111 references. Configure data sources, augmentation and preprocessing,
+loaders, a vision model, optimizer parameter groups, schedules, losses, callbacks, metrics,
+distributed settings, and three runs. It uses standard-library Python configuration objects and
+needs no dataset, GPU, model download, or training dependency.
+
+**Start here** guides you through shared defaults, nested object composition, constructor discovery,
+and reusable lists. **Start**, **Data**, **Model**, **Train**, **Evaluate**, **System**, and **Python**
+provide saved views of the same program. System shows the complete configuration; the other views
+make individual subsystems easier to inspect. Changing `width` in Shared defaults configures four
+model components. Changing `batch_size` recalculates the update budget and schedule lengths.
+The baseline, smoke, and SGD runs share the same model object while selecting different loops.
+
+In Optimizer, replace `ts.AdamW` with `ts.SGD` and press Enter to discover its parameters.
+Rename Model from its section menu to update its Python references. Duplicate or reorder a List
+of Objects, then use it in another callable. **Python → Run** constructs the complete program,
+checks cross-component consistency, and prints resolved settings in the attached terminal. It
+does not train a model, access dataset paths, or write configured outputs. Configuration mistakes
+remain editable. **Download Python** exports the current program; keep `training_system.py` beside it.
+
+The default working copy is `tmp/python-canvas-playground/training-system`. Use
+`--example training-system --fresh` for a new copy that preserves earlier work.
+
+The visual experiments are also available explicitly:
 
 ```console
 pnpm python-canvas:playground --example rover-mission
@@ -18,9 +47,9 @@ pnpm python-canvas:playground --example model-arena
 pnpm python-canvas:playground --example art-studio
 ```
 
-The default is **rover-mission**. Each experiment has a separate saved working copy and can run
-alongside the others. **Start here** explains the challenge; **Run experiment** stays available above the canvas.
-Run fills the canvas with visual results from the composed Python program:
+Each experiment has a separate saved working copy and can run alongside the others.
+**Start here** explains the challenge; **Run experiment** stays available above the canvas in
+these three visual examples. Run fills the canvas with results from the composed Python program:
 
 | Experiment            | Build and change                                                                                         | Explore the results                                                                 |
 | --------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -40,12 +69,12 @@ seed fixed for comparisons, then change it to explore stability. These are synth
 not real-world performance estimates; repeated tuning against one test set can overfit it too.
 
 Working projects live in `tmp/python-canvas-playground/<example>`. The launcher prepares each
-frozen Python environment automatically with builds disabled. Rover mission and art studio use the
+frozen Python environment automatically with builds disabled. Training system, rover mission, and art studio use the
 standard library; model arena installs pinned NumPy and scikit-learn wheels. The first launch needs
 network access for uncached packages. Later launches preserve settings, Python, and canvas layout.
 
 Each folder contains `recipe.py`, a handwritten equivalent of the starting composition. Run it with
-`uv run --frozen --no-build python recipe.py` to print the visual result payload. **Download Python**
+`uv run --frozen --no-build python recipe.py` to print the configuration check or visual result payload. **Download Python**
 in Generated Python saves your currently displayed program, including prefix and suffix drafts,
 as `canvas_recipe.py`. Run it from the working folder beside the helper module and its dependencies.
 The reference recipe does not synchronize later canvas edits. **Save image** downloads the exact

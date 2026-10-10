@@ -99,6 +99,13 @@ UI overrides are removed from that candidate as well, so controls cannot referen
 parameters. The canonical authored controls and values remain intact and participate in the normal
 signature reconciliation and durable refresh.
 
+Signature refresh matches arguments by name and compatible passing style, retaining their stable
+ids, authored expressions, and controls while replacing provider metadata. Positional-or-keyword
+and keyword-only arguments are compatible because both render as named arguments. Removed or
+incompatible arguments disappear; newly discovered arguments start empty so Python supplies their
+defaults. Positional-only values survive only as a contiguous leading prefix of the new signature,
+preventing a missing earlier argument from silently shifting a later value into its position.
+
 Every event-stream subscription starts with the current complete snapshot. Publication is
 latest-value: a slow subscriber may skip superseded intermediate snapshots while retaining the
 newest one. Reconnection therefore catches up without polling or replay bookkeeping. The shared
@@ -151,7 +158,17 @@ The Windows ConPTY implementation derives in part from `UserExistsError/conpty`.
 retained in the source tree and the built wheel's license directory; this design record does not
 replace that attribution.
 
-## Visual Python playgrounds
+## Python playgrounds
+
+Training system demonstrates configuration authoring with 71 canonical sections and 111 authored
+Python references. Its standard-library dataclasses describe an image training system: data,
+transforms, model parts, parameter groups, schedules, losses, runtime resources, callbacks,
+evaluation, and three experiments. The graph constructs shared objects and derived update budgets;
+it performs no model training, dataset access, or output writes. Run assembles that graph through
+the ordinary renderer and terminal, then reports cross-component consistency and resolved values.
+This makes constructor discovery, reference rewriting, reusable lists, shared defaults, and Python
+export the central interactions. The handwritten recipe provides an equivalent standalone starting
+composition, and tests exercise object identity, derived budgets, and correction of invalid wiring.
 
 Three independent examples exercise object composition with local, repeatable experiments. Rover
 mission constructs a terrain and a fleet, then simulates route choice, energy, payload, and cost.

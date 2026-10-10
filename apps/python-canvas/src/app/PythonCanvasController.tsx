@@ -1017,7 +1017,7 @@ export function PythonCanvasController() {
       displayContext={{
         enabled:
           state.kind === "ready" &&
-          getPlayground(state.projectId) !== undefined,
+          (getPlayground(state.projectId)?.panels.length ?? 0) > 0,
         state: displayState,
         run: () => displayRuntimeRef.current?.run(),
       }}

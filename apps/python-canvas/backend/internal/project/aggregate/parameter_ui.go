@@ -539,15 +539,15 @@ func proposedParameterUI(proposal ParameterProposal) ParameterUI {
 }
 
 func preserveRefreshedParameterUIs(state *State, previous []Parameter, next []Parameter) {
-	byName := make(map[string]ParameterUI, len(previous))
+	byID := make(map[string]ParameterUI, len(previous))
 	for _, parameter := range previous {
 		if override, exists := state.ParameterUIOverrides[parameter.ID]; exists {
-			byName[parameter.Name] = override.Clone()
+			byID[parameter.ID] = override.Clone()
 		}
 		delete(state.ParameterUIOverrides, parameter.ID)
 	}
 	for _, parameter := range next {
-		if ui, exists := byName[parameter.Name]; exists {
+		if ui, exists := byID[parameter.ID]; exists {
 			ensureParameterUIOverrides(state)
 			state.ParameterUIOverrides[parameter.ID] = ui
 		}

@@ -15,12 +15,12 @@ automate a workflow.
 Complete [source setup](CONTRIBUTING.md#source-setup), then choose an example. Each opens with a
 **Start here** guide inside the app, with short challenges and buttons that find the right controls.
 
-| App             | Launch                            | Try this                                                         |
-| --------------- | --------------------------------- | ---------------------------------------------------------------- |
-| Python Canvas   | `pnpm python-canvas:playground`   | Build rovers, compare models, or compose generative artwork.     |
-| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.   |
-| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision. |
-| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                  |
+| App             | Launch                            | Try this                                                                |
+| --------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| Python Canvas   | `pnpm python-canvas:playground`   | Configure a training system with 71 sections and shared Python objects. |
+| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.          |
+| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision.        |
+| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                         |
 
 The first launch builds the apps and may take a few minutes. Keep the terminal open while you play;
 Ctrl-C stops the app. Changes stay in your ignored working copy under `tmp/`.

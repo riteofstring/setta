@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import art from "../../examples/art-studio/fixture/project.json";
 import arena from "../../examples/model-arena/fixture/project.json";
 import rover from "../../examples/rover-mission/fixture/project.json";
+import training from "../../examples/training-system/fixture/project.json";
 import { getPlayground } from "./playgroundCatalog";
 import {
   callableSectionID,
@@ -10,12 +11,13 @@ import {
 } from "./workspaceProjection";
 
 describe("playground guide destinations", () => {
-  for (const fixture of [rover, arena, art]) {
+  for (const fixture of [rover, arena, art, training]) {
     it(`can navigate every ${fixture.project.name} step in its shipped project`, () => {
       const playground = getPlayground(fixture.project.id);
       expect(playground).toBeDefined();
       if (!playground) return;
       const ids = new Set([
+        "python-canvas:generated-python",
         ...fixture.callables.map((item) => callableSectionID(item.id)),
         ...fixture.lists.map((item) => listSectionID(item.id)),
         ...fixture.parameterDictionaries.map((item) =>

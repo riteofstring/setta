@@ -2,6 +2,8 @@ export type Playground = {
   title: string;
   description: string;
   brief: string;
+  briefName?: string;
+  tip?: string;
   control: string;
   objects: string[];
   panels: Array<{
@@ -23,6 +25,68 @@ const dictionary = (id: string) => `python-canvas:parameter-dictionary:${id}`;
 const list = (id: string) => `python-canvas:list:${id}`;
 
 const PLAYGROUNDS: Record<string, Playground> = {
+  "training-system": {
+    title: "A whole training system",
+    description:
+      "71 sections. 111 references. One Python program. Explore the configuration of a vision training system, from input data to three experiments sharing the same model.",
+    briefName: "Read the blueprint",
+    brief:
+      "## Configuration you can explore\n\nThe starting system contains **59 callable sections, 9 lists, and 3 dictionaries**. Every reference is a Python expression; the generated program constructs ordinary Python objects.\n\n**Start:** change **width** in Shared defaults from 192 to 384. Patch embedding, attention, feed forward, and the classifier head all use that one setting. All three experiments share the resulting Model object.\n\n**Explore:** Data, Model, Train, and Evaluate frame each subsystem. System shows the complete configuration. The Outline lists every section.\n\n**Try:** replace `ts.AdamW` with `ts.SGD` in Optimizer and press Enter to discover its parameters. Rename Model from its section menu and inspect the updated references.\n\n**Check:** open Python and press Run in its header. The standard-library example validates the assembled configuration and prints each run's resolved settings. It does not train a model, read datasets, or create output files.",
+    tip: "Sliders save automatically. Press Enter to commit a Python expression or constructor; Escape cancels its draft. Use the tabs to explore subsystems and the Outline to find a section. Python → Run checks the configuration. Download Python saves your current program; keep training_system.py beside it. --fresh preserves this copy and starts another.",
+    control: dictionary("defaults"),
+    objects: [],
+    panels: [],
+    steps: [
+      {
+        title: "Change one shared default",
+        description:
+          "Set width to 384 in Shared defaults. Four model components reference it, and three experiments share that model. Change batch_size too: the update budget and both schedule stages derive from it.",
+        actionLabel: "Edit shared defaults",
+        sectionId: dictionary("defaults"),
+        viewId: "explore",
+      },
+      {
+        title: "Follow the object composition",
+        description:
+          "Model receives Patch embedding, Encoder, and Classifier head. Encoder receives Attention and Feed forward. These are references to real objects, with shared widths and class counts.",
+        actionLabel: "Explore the model",
+        sectionId: "python-canvas:callable:model",
+        viewId: "model",
+      },
+      {
+        title: "Swap a constructor",
+        description:
+          "In Optimizer, replace ts.AdamW with ts.SGD and press Enter. Discover the new signature while keeping the shared parameter groups and learning rate. Try changing momentum, then switch back.",
+        actionLabel: "Change the optimizer",
+        sectionId: "python-canvas:callable:optimizer",
+        viewId: "train",
+      },
+      {
+        title: "Compose and reuse lists",
+        description:
+          "Training pipeline combines Augmentations + Preprocessing. Evaluation reuses Preprocessing alone. Reorder the augmentation children, or duplicate the list from its section menu and reference your copy in Training pipeline.",
+        actionLabel: "Open the data recipe",
+        sectionId: list("augmentations"),
+        viewId: "data",
+      },
+      {
+        title: "See the whole system",
+        description:
+          "System includes data loaders, model parts, parameter groups, schedules, losses, callbacks, metrics, runtimes, and three runs. Pan around or use the subsystem tabs to inspect each part at a readable size.",
+        actionLabel: "Inspect the run variants",
+        sectionId: "python-canvas:callable:smoke",
+        viewId: "system",
+      },
+      {
+        title: "Check the assembled program",
+        description:
+          "Press Run in the Generated Python header. The terminal shows resolved widths, batches, update counts, optimizer types, and shared model identity. Configuration mistakes get an explanation. Download Python exports the current composition.",
+        actionLabel: "Open Python & Run",
+        sectionId: "python-canvas:generated-python",
+        viewId: "python",
+      },
+    ],
+  },
   "rover-mission": {
     title: "Rover mission",
     description:

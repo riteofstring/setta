@@ -135,7 +135,8 @@ copy or the explicit `--workspace`, never creates a project or builds an applica
 successful when that copy is already stopped. Checked-in fixture directories cannot
 be selected as working copies. Each application retains its own seeding and validation semantics.
 
-Python Canvas selects rover mission, model arena, or art studio with `--example`. Each has a
+Python Canvas defaults to the training system configuration example; `--example` also selects
+rover mission, model arena, or art studio. Each has a
 distinct default working directory; printed resume and fresh-copy commands retain the selection.
 It copies the selected fixture atomically before opening its project through the same packaged runtime. It synchronizes the example's frozen Python lock with builds and project
 installation disabled, so the nearest project-local environment provides both signature discovery

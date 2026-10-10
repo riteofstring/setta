@@ -8,6 +8,7 @@ import (
 
 func newProviderParameters(
 	signature []ProviderParameter,
+	previous []Parameter,
 	nextID IDGenerator,
 	claimed map[string]struct{},
 ) ([]Parameter, error) {
@@ -17,7 +18,7 @@ func newProviderParameters(
 	if err := validateProviderSignature(signature); err != nil {
 		return nil, errors.Join(ErrProviderSignatureInvalid, err)
 	}
-	return allocateProviderParameters(signature, nextID, claimed)
+	return allocateProviderParameters(signature, previous, nextID, claimed)
 }
 
 func validateProviderSignature(signature []ProviderParameter) error {
@@ -112,29 +113,57 @@ func validateProviderDefault(defaultValue *string) error {
 
 func allocateProviderParameters(
 	signature []ProviderParameter,
+	previous []Parameter,
 	nextID IDGenerator,
 	claimed map[string]struct{},
 ) ([]Parameter, error) {
+	byName := make(map[string]Parameter, len(previous))
+	for _, parameter := range previous {
+		byName[parameter.Name] = parameter
+	}
 	parameters := make([]Parameter, 0, len(signature))
+	positionalGap := false
 	for parameterIndex, providerParameter := range signature {
-		id, err := newStableID(nextID, claimed)
-		if err != nil {
-			return nil, err
-		}
-		claimed[id] = struct{}{}
 		name, _ := canonicalParameterName(providerParameter.Name)
+		retained := byName[name]
+		if !compatiblePassingStyles(retained.PassingStyle, providerParameter.PassingStyle) {
+			retained = Parameter{}
+		}
+		if retained.ID == "" {
+			id, err := newStableID(nextID, claimed)
+			if err != nil {
+				return nil, err
+			}
+			retained.ID = id
+			claimed[id] = struct{}{}
+		}
+		if providerParameter.PassingStyle == PassingStylePositionalOnly {
+			positionalGap = positionalGap || retained.AuthoredExpression == ""
+			if positionalGap {
+				retained.AuthoredExpression = ""
+			}
+		}
 		ordinal := parameterIndex
 		parameters = append(parameters, Parameter{
-			ID:              id,
-			Name:            name,
-			NameEditable:    false,
-			PassingStyle:    providerParameter.PassingStyle,
-			TypeAnnotation:  cloneString(providerParameter.TypeAnnotation),
-			Default:         cloneString(providerParameter.Default),
-			ProviderOrdinal: &ordinal,
+			ID:                 retained.ID,
+			Name:               name,
+			AuthoredExpression: retained.AuthoredExpression,
+			NameEditable:       false,
+			PassingStyle:       providerParameter.PassingStyle,
+			TypeAnnotation:     cloneString(providerParameter.TypeAnnotation),
+			Default:            cloneString(providerParameter.Default),
+			ProviderOrdinal:    &ordinal,
 		})
 	}
 	return parameters, nil
+}
+
+func compatiblePassingStyles(previous PassingStyle, next PassingStyle) bool {
+	if previous == next {
+		return true
+	}
+	return (previous == PassingStylePositionalOrKeyword || previous == PassingStyleKeywordOnly) &&
+		(next == PassingStylePositionalOrKeyword || next == PassingStyleKeywordOnly)
 }
 
 func validatePersistedParameter(parameter Parameter) error {

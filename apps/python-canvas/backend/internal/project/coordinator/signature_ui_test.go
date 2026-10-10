@@ -29,7 +29,7 @@ func TestSignatureRefreshPreservesAuthoredControls(t *testing.T) {
 		{Name: "extra", PassingStyle: aggregate.PassingStyleKeywordOnly, Default: stringPointer("0")},
 	}
 	coordinator, err := Open(context.Background(), Options{
-		ProjectPath: path, Files: files, IDGenerator: sequenceIDs("value-refreshed", "extra-parameter"),
+		ProjectPath: path, Files: files, IDGenerator: sequenceIDs("extra-parameter"),
 		Materializer: newMaterialization(t, path), Provider: provider,
 	})
 	if err != nil {
@@ -42,12 +42,15 @@ func TestSignatureRefreshPreservesAuthoredControls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("refreshing a callable with a slider: %v", err)
 	}
-	if !reflect.DeepEqual(refreshed.State.ParameterUIOverrides["value-refreshed"], ui) {
+	if !reflect.DeepEqual(refreshed.State.ParameterUIOverrides["parameter-provider"], ui) {
 		t.Fatal("refresh discarded the authored slider")
 	}
 	parameters := refreshed.State.Callables[0].Parameters
 	if len(parameters) != 2 || parameters[0].Name != "value" || parameters[1].Name != "extra" {
 		t.Fatalf("refreshed parameters = %#v", parameters)
+	}
+	if parameters[0].ID != "parameter-provider" || parameters[0].AuthoredExpression != "1" {
+		t.Fatalf("refresh discarded the authored value or its identity: %#v", parameters[0])
 	}
 	loaded, err := files.Load(path)
 	if err != nil {

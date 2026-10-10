@@ -155,8 +155,15 @@ failures retain their visible feedback. Later completion requests use the curren
 
 ## Playground guidance and visual results
 
-The three canonical playground IDs enable a Start here tab and seed four saved views before
-bootstrap: Explore, Compare (Gallery for art), Build, and Python. Existing saved views retain
+The canonical playground IDs enable a Start here tab and seed saved views before bootstrap.
+Training system opens with shared defaults and a composed experiment, then offers Data, Model,
+Train, Evaluate, System, and Python views. Its configuration sections remain native callable,
+dictionary, and list sections. The complete System view and smaller subsystem views use the same
+section sizes because section presentation is shared across saved views. List children receive
+enough height for their reference expressions, with ordinary scrolling still available.
+Training system uses the existing Generated Python terminal Run and has no display panels.
+The three visual experiments seed Explore, Compare (Gallery for art), Build, and Python views.
+Existing saved views retain
 authority. The guide uses Workspace's public quick-start surface and switches views to the relevant
 section. This sample-only tab is not persisted as a global preference for ordinary projects.
 On narrow screens a guide jump collapses the guide pane before framing its destination.

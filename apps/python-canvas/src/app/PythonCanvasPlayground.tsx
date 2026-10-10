@@ -17,7 +17,10 @@ export function PythonCanvasPlayground({
         description={playground.description}
         onNavigate={onNavigate}
         steps={playground.steps}
-        tip="Your inputs save automatically. Running is explicit. Use Explore, Compare/Gallery, Build, and Python in Saved Views to move around. Download Python saves the current recipe; keep it beside the helper in your working folder. --fresh makes a new copy without removing your work."
+        tip={
+          playground.tip ??
+          "Your inputs save automatically. Running is explicit. Use Explore, Compare/Gallery, Build, and Python in Saved Views to move around. Download Python saves the current recipe; keep it beside the helper in your working folder. --fresh makes a new copy without removing your work."
+        }
       />
     </>
   );
