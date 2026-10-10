@@ -10,9 +10,6 @@ strictPeerDependencies: true
 minimumReleaseAge: 43200
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
-minimumReleaseAgeExclude:
-  - "@xyflow/react@12.11.5"
-  - "@xyflow/system@0.0.81"
 trustPolicy: no-downgrade
 trustLockfile: false
 blockExoticSubdeps: true

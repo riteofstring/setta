@@ -29,6 +29,10 @@ the target filesystem, synchronize complete bytes, replace atomically, and synch
 directory. Mutable local state is compared through authoritative values such as revisions, never
 through a newly computed digest.
 
+The native toolchain is pinned to Go 1.26.9 to retain these guarantees on Windows junctions and to
+bound standard-library byte-range parsing. The temporary release-age admission and its alternatives
+are recorded in [the dependency assessment](../security/dependency-assessment-2026-10-09.md).
+
 Operations that can wait accept cancellation or enforce an explicit bound. Shutdown, subscriber
 cancellation, lock release, process termination, and other cleanup operations are safe when
 repeated. A failure is returned to the owning application rather than hidden or converted into a

@@ -10,12 +10,12 @@ revision, so stale writes fail with a typed conflict instead of replacing newer 
 
 ## Install and open a project
 
-Install Setta once, then use its app command from any directory:
+Complete the [source setup](../../CONTRIBUTING.md#source-setup), then create a project from the
+repository root. PyPI publication is deferred.
 
 ```sh
-python -m pip install setta
 mkdir -p .local/python-canvas
-setta python-canvas open \
+python3 packages/setta-runtime/scripts/run_local_setta.py python-canvas open \
   --project "$PWD/.local/python-canvas/project.json" \
   --create
 ```
@@ -23,6 +23,11 @@ setta python-canvas open \
 `open` foreground-supervises the local server and opens its browser UI. Press Ctrl-C in that
 terminal to stop it. Reopen the project later by omitting `--create`; creation is exclusive and
 never overwrites an existing file. There is no implicit project or background daemon.
+
+The commands below use `setta` as shorthand for the repository-local runner or the executable in
+`build/setta-wheel/local-environment`. If the initial browser load fails, **Try again** reconnects
+without a page reload. Save, completion, and terminal errors remain visible beside the workspace
+so you can recover while continuing to inspect your project.
 
 Python selection needs no setup. Python Canvas uses the nearest `.venv` above the project file. If
 none exists, it uses the Python that launched Setta. Basedpyright diagnostics and completion,

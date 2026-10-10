@@ -4,8 +4,8 @@ Status: active
 
 This plan prepares Setta for an Apache-2.0 release at
 `github.com/riteofstring/setta` without publishing an artifact, changing repository visibility,
-changing the configured remote, or moving the repository. The first public distribution is the
-owned `setta` project on PyPI.
+changing the configured remote, or moving the repository. The public repository is a source
+preview. PyPI publication is deferred; contributor instructions build a local installation.
 
 This work introduces no compatibility aliases, migration layers, transitional paths, or duplicate
 implementations. Deferred public-identity changes happen once at the final cutover.
@@ -91,7 +91,7 @@ a real consumer.
       repository instructions.
 - [x] Document the package layout for source readers.
 - [x] Keep the Apache-2.0 `LICENSE` and include it in every wheel.
-- [ ] Audit the compiled wheel's third-party license and notice closure. Every bundled frontend and
+- [x] Audit the compiled wheel's third-party license and notice closure. Every bundled frontend and
       native dependency must have its required attribution in the wheel before publication.
 - [ ] Decide whether Setta's name and logo need a separate trademark policy before the repository
       becomes public. Do not imply a trademark grant or restriction without an owner decision.
@@ -101,37 +101,32 @@ maintainer handles, so they are part of the repository cutover rather than guess
 
 ### Local license-audit result
 
-The 2026-09-23 local audit found that the wheel's attribution closure is not ready for publication.
-The installed production dependency closures for the four browser applications contain 355 pnpm
-package records: 316 expose a top-level license file and 39 require inherited or separately sourced
-license evidence. The initial wheel license directory carried 11 third-party files and omitted
-clear runtime examples such as React, CodeMirror, dnd-kit, Radix, XTerm, and XYFlow. The exact Go
-module closure was verified with the policy-pinned toolchain, and licenses for `coder/websocket`,
-`creack/pty`, Tree-sitter, `x/sys`, and `go-pointer` are now included in the wheel. The browser
-attribution gap remains open.
-
-Before publication, generate or curate notices from the exact production browser graph and linked
-Go graph, account for packages whose installed leaf omits its monorepo license, and inspect the
-license inventory in every platform wheel. Over-inclusion is acceptable; missing required notices
-is not. The separately installed `basedpyright` and `nodejs-wheel-binaries` distributions currently
-carry their own license files. No additional runtime library is needed to complete this work.
+The 2026-10-09 inventory includes 376 exact installed production dependency releases across the
+four apps. `frontend_notices.py` collects published license and notice files and exact sourced
+supplements for the 45 releases whose archive omits a top-level license file. This deliberately
+includes optional and tree-shaken code. The wheel also includes Go's standard-library notice,
+vendored Workspace notices, and the previously collected native dependency notices. Every
+platform's build checks the generated frontend inventory, and wheel tests inspect its packaged
+license directory. The separately installed `basedpyright` and `nodejs-wheel-binaries`
+distributions carry their own notices.
 
 ## Python distribution
 
-PyPI is the initial binary distribution channel. The maintainers control the existing `setta`
-project, so no package-name migration is required.
+PyPI publishing is deferred. The maintainers control the existing `setta` project, but the
+placeholder is not an installable preview of these applications. Documentation must direct users
+to the source setup until binary distribution is explicitly selected.
 
 - [x] Use one checked-in version authority for package code, wheel names, and wheel metadata.
 - [x] Emit current core metadata with the README as the long description, Apache-2.0 as the SPDX
       license expression, author names, keywords, classifiers, and packaged license-file declarations.
 - [x] Preserve the current five-platform wheel matrix and installed-wheel smoke tests.
-- [x] Continue publishing platform wheels only. The package contains compiled native servers and
+- [x] Build platform wheels only. The package contains compiled native servers and
       built web applications; the current source tree is not an installable source distribution.
 - [ ] Add final project URLs only when `github.com/riteofstring/setta` exists.
-- [ ] Configure PyPI Trusted Publishing for the final GitHub repository and a protected `pypi`
+- [ ] Deferred: configure PyPI Trusted Publishing for the final GitHub repository and a protected `pypi`
       environment, then add a digest-pinned publish job that consumes the already-tested wheel
       artifacts without rebuilding them.
-- [ ] Test the complete wheel set against TestPyPI before the first production upload.
+- [ ] Deferred: test the complete wheel set against TestPyPI before the first production upload.
 
 The final two items require external repository and registry configuration and remain gated in this
 local phase.
@@ -184,11 +179,25 @@ Push, visibility, transfer, tag, TestPyPI, and PyPI operations require separate 
 
 ## Local execution result
 
-The 2026-09-23 changed-impact test matrix and offline supply-chain check pass. Exact static checks
-for the new and modified implementation boundaries also pass. The repository-wide changed-scope
-static scan adds no selected errors, but it remains blocked by four existing findings outside the
-task-owned edits: two complexity findings in the Experiment Lens command, one import-order finding
-in the wheel-smoke acceptance module, and the sealed JavaScript analyzer's 5,000-result limit.
+The 2026-10-09 source bootstrap passes dependency review, frozen script-disabled installation,
+offline supply-chain checks, and notice verification in a fresh checkout. Online security checks
+pass with 18 exact npm non-exposure assessments and five Go 1.26.9 release-age admissions, all
+expiring on November 7. The source quickstart, app draft recovery, Realtime starter, and local Linux
+packaging are implemented. The previous Go complexity and Python import-order findings are fixed.
+
+Code Polishy is pinned to 0.28.2. Its repository-wide JavaScript check still encounters an upstream
+result-limit defect: the Realtime, Review, and Lens generated validators produce 6,541 intermediate
+complexity/depth diagnostics and 21 comment records. Their generated-code exemptions are applied
+after the sealed analyzer's 5,000-result limit. Reproduce with:
+
+```sh
+./code-polishyw check --module realtime-frontend --module review-frontend --module experiment-lens-frontend
+```
+
+Individual module checks fit within the limit and retain all rules. Hosted CI runs every declared
+module separately, but a complete checkpoint remains blocked until Code Polishy handles generated
+output before the aggregate limit or batches its analysis. This is an open tooling issue, not a
+passing repository-wide gate.
 
 ## Completion criteria
 

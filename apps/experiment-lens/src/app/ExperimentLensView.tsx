@@ -123,11 +123,12 @@ export function ExperimentLensView({
 }) {
   const lens = useLens();
   const selectedCount = lens.selection.selectedObservationIds.length;
-  const canExport =
-    selectedCount > 0 ||
-    lens.selection.selectedArtifactIds.length > 0 ||
-    lens.selection.ranges.length > 0 ||
-    lens.selection.annotations.length > 0;
+  const canExport = [
+    selectedCount,
+    lens.selection.selectedArtifactIds.length,
+    lens.selection.ranges.length,
+    lens.selection.annotations.length,
+  ].some((count) => count > 0);
   return (
     <main className="lens-app">
       <header className="lens-app-bar">

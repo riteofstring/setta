@@ -52,10 +52,20 @@ def release_platform_tag(
 ) -> str:
 
     expected = required_platform_tag(operating_system, architecture)
+    local_linux_tag = {"amd64": "linux_x86_64", "arm64": "linux_aarch64"}.get(
+        architecture
+    )
+    if (
+        operating_system == "linux"
+        and requested_tag is not None
+        and requested_tag == local_linux_tag
+    ):
+        return requested_tag
     if operating_system == "linux" and requested_tag is None:
         raise PlatformContractError(
-            "Linux publication requires an explicit --wheel-platform-tag "
-            f"{expected} from its matching manylinux_2_28 build container."
+            "Linux builds require an explicit --wheel-platform-tag: "
+            f"{local_linux_tag} for this machine, or {expected} from its "
+            "matching manylinux_2_28 build container."
         )
     if requested_tag is not None and requested_tag != expected:
         raise PlatformContractError(
@@ -107,7 +117,8 @@ def validate_native_binary(
         return
     if operating_system == "linux":
         _validate_elf_machine(content, architecture)
-        _validate_manylinux_glibc(content)
+        if platform_tag.startswith("manylinux_"):
+            _validate_manylinux_glibc(content)
         return
     if operating_system == "windows":
         _validate_pe_machine(content, architecture)

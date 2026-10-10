@@ -10,14 +10,52 @@ permissions:
 
 jobs:
   supply-chain:
-    runs-on:
-      - self-hosted
-      - ${{ 'code-polishy-0.23.0-c28b0d8b' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install frozen dependencies without lifecycle scripts
-        run: pnpm install --frozen-lockfile --ignore-scripts --force
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.12.13
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.12.13"
+          check-latest: false
+      - name: Set up Node 25.2.1
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "25.2.1"
+          check-latest: false
+      - name: Set up pnpm 10.23.0
+        uses: pnpm/action-setup@9fd676a19091d4595eefd76e4bd31c97133911f1 # v4.2.0
+        with:
+          version: "10.23.0"
+          run_install: false
+      - name: Set up pinned Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: "apps/python-canvas/backend/.go-version"
+          check-latest: false
+      - name: Set up uv 0.8.19
+        uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04 # v6.0.0
+        with:
+          version: "0.8.19"
+          enable-cache: false
+      - name: Bootstrap pinned Code Polishy
+        run: ./code-polishyw setup
+      - name: Review dependencies before installation
+        run: |
+          ./code-polishyw dependency-review --base origin/main
+      - name: Install frozen dependencies without build scripts
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          uv sync --frozen --no-build --no-install-project
+          uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Verify installed dependency metadata
+        run: ./code-polishyw supply-chain --offline
       - name: Run online Code Polishy supply-chain checks
-        run: code-polishy supply-chain
+        run: |
+          code-polishy() { ./code-polishyw "$@"; }
+          code-polishy supply-chain

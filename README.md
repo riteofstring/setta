@@ -39,22 +39,28 @@ on its job while navigation, project access, live updates, and local execution f
 
 ## Get started
 
-Setta requires Python 3.12 or newer.
+Setta is currently a source preview. A usable PyPI release is not available yet. Start with the
+[contributor setup](CONTRIBUTING.md#source-setup), then launch one of the included examples from
+the repository root:
 
 ```sh
-python -m pip install setta
-setta apps
+pnpm experiment-lens:playground
 ```
 
-Use an app's help command to take the next step:
+The first launch builds the four apps and installs them into an ignored local environment; allow a
+few minutes. Later launches reuse that build until its inputs change. The browser opens a battery
+study you can filter, annotate, and explore. Press Ctrl-C in the terminal to stop the app. Your
+changes stay in `tmp/experiment-lens-playground/experiment-project` for the next launch.
+
+Try the other examples or create a Python Canvas project:
 
 ```sh
-setta python-canvas --help
-setta realtime --help
-setta review --help
-setta experiment-lens --help
+pnpm realtime:playground
+pnpm review:playground
+python3 packages/setta-runtime/scripts/run_local_setta.py python-canvas open \
+  --project .local/python-canvas/project.json --create
 ```
 
 Learn how to [contribute](CONTRIBUTING.md), [get support](SUPPORT.md), or
 [report a security issue](SECURITY.md). Setta is licensed under
-[Apache 2.0](LICENSE).
+[Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

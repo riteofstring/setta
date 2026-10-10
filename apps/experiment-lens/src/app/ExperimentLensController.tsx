@@ -188,6 +188,30 @@ export function ExperimentLensController() {
     };
   }, [acceptSnapshot, loadAttempt]);
 
+  const recoverSelection = useCallback(
+    async (caught: unknown) => {
+      if (!readyRef.current) return;
+      saveBlockedRef.current = true;
+      setSaveError(
+        caught instanceof LensClientError && caught.status === 409
+          ? "The saved selection changed in another window. Your draft is kept here."
+          : `Your draft is kept here, but saving could not be confirmed. ${errorMessage(caught)}`,
+      );
+      try {
+        const refreshed = await fetchLensSnapshot();
+        const current = readyRef.current;
+        if (current) {
+          acceptSnapshot(current.host, refreshed, true);
+        }
+      } catch (refreshError) {
+        setError(
+          `Could not load the saved selection. ${errorMessage(refreshError)}`,
+        );
+      }
+    },
+    [acceptSnapshot],
+  );
+
   const enqueueSelection = useCallback(
     (desired: LensSelection): void => {
       const snapshot = readyRef.current?.snapshot;
@@ -213,24 +237,7 @@ export function ExperimentLensController() {
           });
           acceptSnapshot(current.host, result.snapshot, pendingRef.current > 1);
         } catch (caught) {
-          if (!readyRef.current) return;
-          saveBlockedRef.current = true;
-          setSaveError(
-            caught instanceof LensClientError && caught.status === 409
-              ? "The saved selection changed in another window. Your draft is kept here."
-              : `Your draft is kept here, but saving could not be confirmed. ${errorMessage(caught)}`,
-          );
-          try {
-            const refreshed = await fetchLensSnapshot();
-            const current = readyRef.current;
-            if (current) {
-              acceptSnapshot(current.host, refreshed, true);
-            }
-          } catch (refreshError) {
-            setError(
-              `Could not load the saved selection. ${errorMessage(refreshError)}`,
-            );
-          }
+          await recoverSelection(caught);
         } finally {
           pendingRef.current -= 1;
           if (pendingRef.current === 0) {
@@ -246,7 +253,7 @@ export function ExperimentLensController() {
       const queued = mutationChainRef.current.then(operation, operation);
       mutationChainRef.current = queued.catch(() => {});
     },
-    [acceptSnapshot],
+    [acceptSnapshot, recoverSelection],
   );
 
   const replaceSelection = useCallback(

@@ -172,7 +172,8 @@ def _record_local_build(inputs: dict[str, object]) -> None:
             temporary.unlink(missing_ok=True)
     except OSError:
         sys.stderr.write(
-            "run_local_setta: build cache could not be saved; the next launch will rebuild\n"
+            "run_local_setta: build cache could not be saved; "
+            "the next launch will rebuild\n"
         )
 
 
@@ -188,6 +189,11 @@ def _build_current_wheel(
         "--wheel-dir",
         str(wheel_directory),
     ]
+    if platform.system() == "Linux":
+        architecture = {"x86_64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}[
+            platform.machine().lower()
+        ]
+        command.extend(("--wheel-platform-tag", f"linux_{architecture}"))
     _run(command, ROOT)
     wheels = tuple(wheel_directory.glob("*.whl"))
     if len(wheels) != 1 or not wheels[0].is_file():

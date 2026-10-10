@@ -22,6 +22,10 @@ EXPECTED_LICENSE_PATHS = frozenset(
     {
         "LICENSE",
         "packages/setta-runtime/licenses/ajv-MIT.txt",
+        "packages/setta-runtime/licenses/frontend-NOTICES.txt",
+        "packages/setta-runtime/licenses/go-BSD-3-Clause.txt",
+        "packages/setta-runtime/licenses/workspace-canvas-MIT.txt",
+        "packages/setta-runtime/licenses/workspace-dnd-MIT.txt",
         "packages/setta-runtime/licenses/coder-websocket-ISC.txt",
         "packages/setta-runtime/licenses/conpty-MIT.txt",
         "packages/setta-runtime/licenses/creack-pty-MIT.txt",
@@ -190,7 +194,7 @@ class SettaBuildBackendTests(unittest.TestCase):
                 },
             )
 
-    def test_backend_requires_manylinux_config_and_rejects_generic_linux_tags(
+    def test_backend_requires_explicit_linux_config_and_preserves_its_tag(
         self,
     ) -> None:
         target = RuntimeTarget(os="linux", arch="amd64")
@@ -212,16 +216,14 @@ class SettaBuildBackendTests(unittest.TestCase):
             mock.patch.object(backend, "_stage_root", return_value=runtime_root),
         ):
             with self.assertRaisesRegex(
-                backend.BuildBackendError, "requires an explicit"
+                backend.BuildBackendError, "require an explicit"
             ):
                 backend.build_wheel(str(self.root / "missing-config"))
-            with self.assertRaisesRegex(
-                backend.BuildBackendError, "must use wheel platform tag"
-            ):
-                backend.build_wheel(
-                    str(self.root / "generic-config"),
-                    {"setta-platform-tag": "linux_x86_64"},
-                )
+            local_wheel = backend.build_wheel(
+                str(self.root / "generic-config"),
+                {"setta-platform-tag": "linux_x86_64"},
+            )
+            self.assertEqual(local_wheel, "setta-0.1.0-py3-none-linux_x86_64.whl")
             wheel_name = backend.build_wheel(
                 str(self.root / "list-config"),
                 {"setta-platform-tag": ["manylinux_2_28_x86_64"]},

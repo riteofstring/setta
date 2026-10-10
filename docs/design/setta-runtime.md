@@ -45,6 +45,14 @@ that value directly; an installed runtime reads the version from its distributio
 custom wheel backend emits core metadata 2.4 from the same project metadata and preserves project
 and third-party license paths beneath the wheel's `.dist-info/licenses` directory.
 
+Frontend notices inventory the complete installed production graph of all four apps, conservatively
+including optional and tree-shaken packages. The offline generator reads package metadata and
+license files, supplemented by exact, sourced notices where published leaf packages omit their
+license. It never downloads or executes dependency code. Generation verification catches missing
+notices after a dependency change; wheel tests verify that the resulting notices are shipped.
+Separately installed Python distributions retain their own notices. Go's standard-library and
+vendored Workspace licenses are included alongside native dependency notices.
+
 ## Live server supervision
 
 `NativeServerSupervisor` owns one local native process per live-session record. The server emits
@@ -68,6 +76,12 @@ cover every registered app, including Experiment Lens on every published platfor
 acceptance opens each app from a clean environment; the Lens flow verifies its schema, live
 identity and snapshot, selection mutation, packet export, and offline access after shutdown.
 Runtime boundary checks reject undeclared files, missing app assets, and source-checkout fallbacks.
+
+Repository-local Linux builds explicitly use `linux_x86_64` or `linux_aarch64`, which makes no
+manylinux portability claim. They still validate executable format and architecture. CI release
+builds continue to request exact manylinux 2.28 tags and inspect every GLIBC requirement against
+that claim. This lets a Linux contributor launch locally without a publication container or a
+false compatibility label. Omitted or mismatched Linux tags still fail the packaging boundary.
 
 The repository-local runner records the platform and file paths, sizes, modification times, and
 change times for the pinned toolchain, package locks, Workspace, shared local backend, all four

@@ -15,7 +15,7 @@ cells, three chemistries, multiple charge rates and chamber temperatures, and 90
 the population and virtualized table to per-cell aging trajectories and thermal frames captured at
 five cycle checkpoints.
 
-Run it from the repository root:
+Complete the [source setup](../../CONTRIBUTING.md#source-setup), then run it from the repository root:
 
 ```console
 pnpm experiment-lens:playground
@@ -27,9 +27,15 @@ from the immutable fixture, and opens the app. Later launches preserve filters, 
 ranges, and annotations in that ignored working copy. Remove that working directory to reset the
 example.
 
+If a selection save fails or conflicts with another writer, Lens keeps your visible draft and
+pauses saving. **Save draft** retries against the freshly loaded revision; **Use saved selection**
+discards the draft and loads the saved selection. Export waits until the draft is saved, and the
+browser warns before closing an unsaved draft. An initial load failure offers **Try again**.
+
 ## Commands
 
-An installed Setta release exposes the same app without an agent-specific SDK:
+The local build exposes these commands without an agent-specific SDK. Use its `setta` executable
+or substitute the repository-local runner described in the contributor guide:
 
 ```console
 setta experiment-lens open --project-root ./my-experiment

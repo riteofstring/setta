@@ -5,6 +5,9 @@ Python handlers. Python Canvas is not part of its runtime or authoring path.
 
 ## Commands
 
+Complete the [source setup](../../CONTRIBUTING.md#source-setup) first. In the commands below,
+`setta` means the executable in the local build environment or the repository-local runner.
+
 ```console
 setta realtime open --project-root ./my-app --create
 setta realtime schema --pretty
@@ -13,6 +16,10 @@ setta realtime apply --project-root ./my-app --file mutation.json --pretty
 setta realtime reload --project-root ./my-app --pretty
 setta realtime invoke --project-root ./my-app --handler increment --file input.json --pretty
 ```
+
+Creating a project adds an editable code section and a working `app.py` with an `increment`
+handler. An existing `app.py` is preserved. You can start editing immediately, then add interface
+sections and bind them to your handlers.
 
 ## Drawing playground
 
@@ -26,12 +33,10 @@ them into an editorial poster:
 pnpm realtime:playground
 ```
 
-On its first run, this repository-local command installs the frozen workspace dependencies, builds
-Workspace and Realtime, installs a complete wheel into the repository-owned local Setta
-environment, and opens Signal Bloom Press. Later runs fingerprint the relevant source, lock,
-platform, and toolchain inputs and reuse that validated install when nothing changed. A cache miss rebuilds
-Realtime and Workspace while reusing installed Python Canvas assets after the first complete build.
-It does not use `uv tool run`'s cached same-version environment. Before launch it seeds
+After source setup, the first run builds the four apps, installs a complete wheel into the
+repository-owned local Setta environment, and opens Signal Bloom Press. Later runs compare build
+input metadata and reuse that install until an input changes. A cache miss rebuilds the complete
+wheel. Before launch it seeds
 `tmp/realtime-playground/neon-sketch` from the immutable checked-in fixture when that ignored
 working project is absent. Later launches preserve drawings and applied callback edits in the
 ignored copy; remove that directory to reset it from the fixture.

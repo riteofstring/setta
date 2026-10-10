@@ -19,13 +19,10 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
   const [pendingAction, setPendingAction] = useState<
     "confirm" | "revision" | null
   >(null);
-  const selected = review.selectedOptions[requestId] ?? null;
-  const busy = review.busyRequestId === requestId;
-  const response =
-    snapshot.response?.type === "choice" ? snapshot.response : null;
-  const confirmed =
-    selected !== null && confirmedChoiceOptionId(response) === selected;
-  const changesRequested = response?.choice.outcome === "changesRequested";
+  const disabled = review.busyRequestId === requestId || pendingAction !== null;
+  const changesRequested =
+    snapshot.response?.type === "choice" &&
+    snapshot.response.choice.outcome === "changesRequested";
 
   const requestChanges = async () => {
     try {
@@ -67,63 +64,28 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
         </p>
       ) : null}
       {showRevision ? (
-        <div className="review-revision-form">
-          <label>
-            <span>What should change?</span>
-            <textarea
-              aria-label="Requested changes"
-              autoFocus
-              disabled={busy || pendingAction !== null}
-              onChange={(event) => draft.update(event.currentTarget.value)}
-              placeholder="Describe the revision, or draw directly on an artifact."
-              rows={3}
-              value={draft.value}
-            />
-          </label>
-          <div>
-            <button
-              disabled={busy || pendingAction !== null}
-              onClick={() => void requestChanges()}
-              type="button"
-            >
-              {pendingAction === "revision" ? "Sending…" : "Send feedback"}
-            </button>
-            <button
-              disabled={busy || pendingAction !== null}
-              onClick={() => setShowRevision(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-          </div>
-          {formError ? (
-            <p className="review-form-error" role="alert">
-              {formError}
-            </p>
-          ) : null}
-        </div>
+        <RevisionForm
+          disabled={disabled}
+          onCancel={() => setShowRevision(false)}
+          onChange={draft.update}
+          onSubmit={() => void requestChanges()}
+          sending={pendingAction === "revision"}
+          value={draft.value}
+        />
       ) : (
         <div className="review-choice-action-row">
-          <button
-            aria-pressed={confirmed}
-            className={confirmed ? undefined : "review-primary-action"}
-            data-action-state={confirmed ? "confirmed" : undefined}
-            disabled={!selected || busy || pendingAction !== null || confirmed}
-            onClick={() => void confirmChoice()}
-            type="button"
-          >
-            {pendingAction === "confirm"
-              ? "Saving…"
-              : confirmed
-                ? "✓ Choice confirmed"
-                : "Confirm choice"}
-          </button>
+          <ConfirmationButton
+            disabled={disabled}
+            onConfirm={() => void confirmChoice()}
+            requestId={requestId}
+            saving={pendingAction === "confirm"}
+          />
           <button
             aria-pressed={changesRequested}
             data-action-state={
               changesRequested ? "changes-requested" : undefined
             }
-            disabled={busy || pendingAction !== null}
+            disabled={disabled}
             onClick={() => {
               setFormError(null);
               setShowRevision(true);
@@ -134,11 +96,83 @@ export function ChoiceActions({ requestId }: { requestId: string }) {
           </button>
         </div>
       )}
-      {!showRevision && formError ? (
+      {formError ? (
         <p className="review-form-error" role="alert">
           {formError}
         </p>
       ) : null}
     </div>
+  );
+}
+
+function RevisionForm({
+  disabled,
+  onCancel,
+  onChange,
+  onSubmit,
+  sending,
+  value,
+}: {
+  disabled: boolean;
+  onCancel: () => void;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  sending: boolean;
+  value: string;
+}) {
+  return (
+    <div className="review-revision-form">
+      <label>
+        <span>What should change?</span>
+        <textarea
+          aria-label="Requested changes"
+          autoFocus
+          disabled={disabled}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          placeholder="Describe the revision, or draw directly on an artifact."
+          rows={3}
+          value={value}
+        />
+      </label>
+      <div>
+        <button disabled={disabled} onClick={onSubmit} type="button">
+          {sending ? "Sending…" : "Send feedback"}
+        </button>
+        <button disabled={disabled} onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmationButton({
+  disabled,
+  onConfirm,
+  requestId,
+  saving,
+}: {
+  disabled: boolean;
+  onConfirm: () => void;
+  requestId: string;
+  saving: boolean;
+}) {
+  const review = useReview();
+  const selected = review.selectedOptions[requestId] ?? null;
+  const snapshot = findRequestSnapshot(review.snapshot.requests, requestId);
+  const confirmed =
+    selected !== null &&
+    confirmedChoiceOptionId(snapshot.response) === selected;
+  return (
+    <button
+      aria-pressed={confirmed}
+      className={confirmed ? undefined : "review-primary-action"}
+      data-action-state={confirmed ? "confirmed" : undefined}
+      disabled={!selected || disabled || confirmed}
+      onClick={onConfirm}
+      type="button"
+    >
+      {saving ? "Saving…" : confirmed ? "✓ Choice confirmed" : "Confirm choice"}
+    </button>
   );
 }

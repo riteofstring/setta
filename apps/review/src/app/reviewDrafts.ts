@@ -8,7 +8,7 @@ import {
 } from "../api/generatedContract";
 import { changesRequestedResponse } from "./reviewModel";
 
-export const DRAFT_STORAGE_FAILURE =
+const DRAFT_STORAGE_FAILURE =
   "Draft kept in memory. This browser could not save it; keep this tab open until you submit.";
 
 export function reviewDraftKey(

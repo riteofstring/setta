@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - ".github/workflows/setta-wheels.yml"
+      - ".code-polishy.json"
+      - ".code-polishy.lock.json"
+      - "code-polishyw"
+      - "code-polishyw.ps1"
       - "apps/experiment-lens/**"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
@@ -28,6 +32,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/setta-wheels.yml"
+      - ".code-polishy.json"
+      - ".code-polishy.lock.json"
+      - "code-polishyw"
+      - "code-polishyw.ps1"
       - "apps/experiment-lens/**"
       - "apps/python-canvas/**"
       - "apps/realtime/**"
@@ -77,6 +85,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
       - name: Set up Python 3.12.13
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
@@ -120,12 +130,22 @@ jobs:
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
+      - name: Review dependencies before installation
+        shell: bash
+        run: |
+          ./code-polishyw setup
+          ./code-polishyw dependency-review --base origin/main
       - name: Install frozen build dependencies
         shell: bash
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          uv sync --frozen
+          uv sync --frozen --no-build --no-install-project
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
+      - name: Verify installed dependency metadata and notices
+        shell: bash
+        run: |
+          ./code-polishyw supply-chain --offline
+          python packages/setta-runtime/scripts/frontend_notices.py
       - name: Test the native server boundaries
         shell: bash
         env:
@@ -219,6 +239,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
       - name: Set up Python 3.12.13
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
@@ -262,12 +284,22 @@ jobs:
           test "$(go version | awk '{print $3}')" = "go${expected_go_version}"
           test "$(uv --version | awk '{print $2}')" = "0.8.19"
           test "$(uname -m)" = "${{ matrix.architecture }}"
+      - name: Review dependencies before installation
+        shell: bash
+        run: |
+          ./code-polishyw setup
+          ./code-polishyw dependency-review --base origin/main
       - name: Install frozen build dependencies
         shell: bash
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          uv sync --frozen
+          uv sync --frozen --no-build --no-install-project
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
+      - name: Verify installed dependency metadata and notices
+        shell: bash
+        run: |
+          ./code-polishyw supply-chain --offline
+          python packages/setta-runtime/scripts/frontend_notices.py
       - name: Test the native server boundaries
         shell: bash
         run: |
@@ -422,10 +454,12 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        shell: pwsh
+        shell: pwsh -NoLogo -NoProfile -Command "$ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true; . '{0}'"
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
       - name: Set up Python 3.12.13
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
@@ -469,11 +503,21 @@ jobs:
           if ($actualGoVersion -ne "go${expectedGoVersion}") { throw "Wrong Go" }
           if (-not ((uv --version) -match "^uv 0\.8\.19")) { throw "Wrong uv" }
           if (-not [Environment]::Is64BitOperatingSystem) { throw "Windows amd64 runner required" }
+      - name: Review dependencies before installation
+        shell: bash
+        run: |
+          ./code-polishyw setup
+          ./code-polishyw dependency-review --base origin/main
       - name: Install frozen build dependencies
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          uv sync --frozen
+          uv sync --frozen --no-build --no-install-project
           uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
+      - name: Verify installed dependency metadata and notices
+        shell: bash
+        run: |
+          ./code-polishyw supply-chain --offline
+          python packages/setta-runtime/scripts/frontend_notices.py
       - name: Test the native server boundaries
         run: |
           go -C packages/local-backend test ./...

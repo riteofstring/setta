@@ -125,14 +125,14 @@ class WheelBuildContractTests(unittest.TestCase):
         self.assertIn("-mmacosx-version-min=13.0", environment["CGO_CFLAGS"])
         self.assertIn("-mmacosx-version-min=13.0", environment["CGO_LDFLAGS"])
 
-    def test_linux_builder_rejects_missing_and_generic_platform_tags_before_building(
+    def test_linux_builder_rejects_missing_and_wrong_architecture_tags_before_building(
         self,
     ) -> None:
         target = RuntimeTarget(os="linux", arch="amd64")
         with mock.patch.object(
             build_setta_wheel, "current_target", return_value=target
         ):
-            for platform_tag in (None, "linux_x86_64"):
+            for platform_tag in (None, "linux_aarch64"):
                 namespace = build_setta_wheel.argparse.Namespace(
                     target=None, wheel_platform_tag=platform_tag
                 )

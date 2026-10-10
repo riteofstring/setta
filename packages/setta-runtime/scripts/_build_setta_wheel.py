@@ -110,7 +110,10 @@ def main(arguments: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--wheel-platform-tag",
-        help="exact release platform tag; required for Linux manylinux publication",
+        help=(
+            "exact wheel platform tag; Linux accepts a local linux_* "
+            "or verified manylinux_2_28_* tag"
+        ),
     )
     parser.add_argument("--skip-frontend-build", action="store_true")
     parser.add_argument("--stage-only", action="store_true")

@@ -142,6 +142,19 @@ function StrokePath({
   );
 }
 
+function surfaceStyle(
+  enabled: boolean,
+  style: CSSProperties | undefined,
+): CSSProperties {
+  return {
+    ...style,
+    cursor: enabled ? (style?.cursor ?? "crosshair") : "default",
+    pointerEvents: enabled ? "auto" : "none",
+    touchAction: enabled ? "none" : style?.touchAction,
+    userSelect: "none",
+  };
+}
+
 export function WorkspaceNormalizedStrokeSurface({
   ariaLabel,
   className,
@@ -271,7 +284,7 @@ export function WorkspaceNormalizedStrokeSurface({
       }
       if (
         onClear &&
-        (event.key === "Delete" || event.key === "Backspace") &&
+        ["Delete", "Backspace"].includes(event.key) &&
         (activeStrokeRef.current || strokes.length > 0)
       ) {
         event.preventDefault();
@@ -314,13 +327,7 @@ export function WorkspaceNormalizedStrokeSurface({
       onPointerUp={handlePointerUp}
       preserveAspectRatio="none"
       role={enabled ? "application" : "img"}
-      style={{
-        ...style,
-        cursor: enabled ? (style?.cursor ?? "crosshair") : "default",
-        pointerEvents: enabled ? "auto" : "none",
-        touchAction: enabled ? "none" : style?.touchAction,
-        userSelect: "none",
-      }}
+      style={surfaceStyle(enabled, style)}
       tabIndex={enabled ? 0 : -1}
       viewBox="0 0 1 1"
       width="100%"

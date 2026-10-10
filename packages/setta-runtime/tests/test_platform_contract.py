@@ -71,12 +71,12 @@ class PlatformContractTests(unittest.TestCase):
         self,
     ) -> None:
         expected = "manylinux_2_28_x86_64"
-        with self.assertRaisesRegex(PlatformContractError, "requires an explicit"):
+        with self.assertRaisesRegex(PlatformContractError, "require an explicit"):
             release_platform_tag("linux", "amd64")
         with self.assertRaisesRegex(
             PlatformContractError, "must use wheel platform tag"
         ):
-            release_platform_tag("linux", "amd64", "linux_x86_64")
+            release_platform_tag("linux", "amd64", "linux_aarch64")
         self.assertEqual(release_platform_tag("linux", "amd64", expected), expected)
         self.binary.write_bytes(_dynamic_elf(("GLIBC_2.28",)))
         validate_native_binary(
@@ -97,6 +97,24 @@ class PlatformContractTests(unittest.TestCase):
     def test_linux_rejects_malformed_glibc_tokens(self) -> None:
         self.binary.write_bytes(_dynamic_elf(("GLIBC_2.28", "GLIBC_two.28")))
         with self.assertRaisesRegex(PlatformContractError, "malformed GLIBC"):
+            validate_native_binary(
+                self.binary,
+                operating_system="linux",
+                architecture="amd64",
+                platform_tag="manylinux_2_28_x86_64",
+            )
+
+    def test_local_linux_wheel_accepts_host_glibc_without_a_manylinux_claim(
+        self,
+    ) -> None:
+        self.binary.write_bytes(_dynamic_elf(("GLIBC_2.39",)))
+        validate_native_binary(
+            self.binary,
+            operating_system="linux",
+            architecture="amd64",
+            platform_tag="linux_x86_64",
+        )
+        with self.assertRaisesRegex(PlatformContractError, "GLIBC 2.39"):
             validate_native_binary(
                 self.binary,
                 operating_system="linux",

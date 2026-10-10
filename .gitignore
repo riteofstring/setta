@@ -16,3 +16,4 @@ tmp/
 /.code-polishy-artifacts/
 /apps/realtime/examples/neon-sketch/.local/
 /apps/realtime/examples/neon-sketch/app.py
+/.local/

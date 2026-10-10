@@ -4,6 +4,28 @@ This document owns current non-local rationale for the directly mapped workspace
 setup, and Chrome DevTools launcher files. Product runtime behavior remains in the module design
 records.
 
+## Hosted verification
+
+Application checks run on GitHub-hosted Linux for source and toolchain changes. They cover runtime
+and component boundaries, all four application browser flows, Workspace interactions, and bundled
+notice generation. Browser suites use the runner's explicit Chrome path and isolate their own
+profiles. The native wheel matrix retains platform-specific Go suites, ABI checks, and installed
+wheel smoke tests. These workflows produce artifacts without publishing them.
+
+Static checks visit every declared module. This keeps each invocation below Code Polishy 0.28.2's
+intermediate lint-result limit: the three AJV-generated validator files together exceed that limit
+before generated-code exemptions are applied. Per-module checks retain the same rules and produce
+scoped evidence. The repository-wide checkpoint still reports the upstream analyzer limitation;
+these checks do not replace its acceptance.
+
+All workflows bootstrap the repository's pinned Code Polishy release, review dependencies before
+frozen script-disabled installation, and verify installed metadata afterward. Scheduled security
+monitoring uses the same wrapper on a hosted runner; it does not depend on an obsolete private
+runner label or a global Code Polishy install. Windows wheel steps propagate native command
+failures so a later successful command cannot hide a failed test or build.
+The weekly scan's shell function routes the literal `code-polishy supply-chain` command recognized
+by monitoring policy through `./code-polishyw`; command discovery never selects a global release.
+
 ## Workspace build and CodeMirror module identity
 
 The workspace library build emits readable ESM with a source map. Package-relative modules bundle;

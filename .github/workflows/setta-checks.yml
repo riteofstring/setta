@@ -1,0 +1,128 @@
+name: Setta application checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/setta-checks.yml"
+      - ".code-polishy.json"
+      - ".code-polishy.lock.json"
+      - "code-polishyw"
+      - "code-polishyw.ps1"
+      - "apps/**"
+      - "packages/**"
+      - "examples/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "uv.toml"
+      - "tsconfig*.json"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/setta-checks.yml"
+      - ".code-polishy.json"
+      - ".code-polishy.lock.json"
+      - "code-polishyw"
+      - "code-polishyw.ps1"
+      - "apps/**"
+      - "packages/**"
+      - "examples/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "uv.toml"
+      - "tsconfig*.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: setta-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  applications:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHON_CANVAS_CHROME_BINARY: /usr/bin/google-chrome
+      REALTIME_CHROME_BINARY: /usr/bin/google-chrome
+      REVIEW_CHROME_BINARY: /usr/bin/google-chrome
+      EXPERIMENT_LENS_CHROME_BINARY: /usr/bin/google-chrome
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.12.13
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.12.13"
+          check-latest: false
+      - name: Set up Node 25.2.1
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "25.2.1"
+          check-latest: false
+      - name: Set up pnpm 10.23.0
+        uses: pnpm/action-setup@9fd676a19091d4595eefd76e4bd31c97133911f1 # v4.2.0
+        with:
+          version: "10.23.0"
+          run_install: false
+      - name: Set up pinned Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: "apps/python-canvas/backend/.go-version"
+          check-latest: false
+      - name: Set up uv 0.8.19
+        uses: astral-sh/setup-uv@c7f87aa956e4c323abf06d5dec078e358f6b4d04 # v6.0.0
+        with:
+          version: "0.8.19"
+          enable-cache: false
+      - name: Bootstrap pinned Code Polishy
+        run: ./code-polishyw setup
+      - name: Review dependencies before installation
+        run: |
+          ./code-polishyw dependency-review --base origin/main
+      - name: Install frozen dependencies without build scripts
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          uv sync --frozen --no-build --no-install-project
+          uv sync --frozen --no-build --no-install-project --project apps/realtime/examples/neon-sketch/fixture
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Verify installed dependency metadata
+        run: ./code-polishyw supply-chain --offline
+      - name: Verify bundled notices
+        run: python packages/setta-runtime/scripts/frontend_notices.py
+      - name: Verify repository configuration
+        run: ./code-polishyw doctor
+      - name: Check each declared module
+        run: |
+          for setta_module in $(python -c 'import json; print(" ".join(module["name"] for module in json.load(open(".code-polishy.json"))["modules"]))'); do
+            ./code-polishyw check --module "$setta_module"
+          done
+      - name: Test runtime and frontend boundaries
+        run: |
+          ./code-polishyw test --suite setta-runtime-focused --suite workspace-focused --suite workspace-playground-focused --suite python-canvas-frontend-focused --suite realtime-frontend-focused --suite review-frontend-focused --suite experiment-lens-frontend-focused
+      - name: Test browser workflows
+        run: |
+          test -x "$PYTHON_CANVAS_CHROME_BINARY"
+          ./code-polishyw test --suite python-canvas-browser --suite realtime-browser --suite review-browser --suite experiment-lens-browser
+          pnpm run workspace:browser:test -- --chrome-binary "$PYTHON_CANVAS_CHROME_BINARY"
+      - name: Preserve failed check reports
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: setta-check-reports
+          path: |
+            .code-polishy-reports/
+            .code-polishy-artifacts/
+          include-hidden-files: true
+          retention-days: 7

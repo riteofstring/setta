@@ -217,33 +217,38 @@ func parseOptions(arguments []string, specification map[string]optionKind) (pars
 		if _, exists := options.values[name]; exists || options.flags[name] {
 			return parsedOptions{}, usageError(fmt.Sprintf("%s may be supplied only once", name))
 		}
-		switch kind {
-		case flagOption:
+		if kind == flagOption {
 			if hasInline {
 				return parsedOptions{}, usageError(fmt.Sprintf("%s does not accept a value", name))
 			}
 			options.flags[name] = true
-		case booleanValueOption:
-			if !hasInline || inline != "true" && inline != "false" {
-				return parsedOptions{}, usageError(fmt.Sprintf("%s requires true or false", name))
-			}
-			options.values[name] = inline
-		case valueOption:
-			value := inline
-			if !hasInline {
-				if index+1 >= len(arguments) {
-					return parsedOptions{}, usageError(fmt.Sprintf("%s requires a value", name))
-				}
-				index++
-				value = arguments[index]
-			}
-			if value == "" {
-				return parsedOptions{}, usageError(fmt.Sprintf("%s requires a value", name))
-			}
-			options.values[name] = value
+			continue
 		}
+		value, consumed, err := parseOptionValue(name, inline, hasInline, kind, arguments[index+1:])
+		if err != nil {
+			return parsedOptions{}, err
+		}
+		options.values[name] = value
+		index += consumed
 	}
 	return options, nil
+}
+
+func parseOptionValue(name, inline string, hasInline bool, kind optionKind, following []string) (string, int, error) {
+	if kind == booleanValueOption {
+		if !hasInline || inline != "true" && inline != "false" {
+			return "", 0, usageError(fmt.Sprintf("%s requires true or false", name))
+		}
+		return inline, 0, nil
+	}
+	value, consumed := inline, 0
+	if !hasInline && len(following) > 0 {
+		value, consumed = following[0], 1
+	}
+	if value == "" {
+		return "", 0, usageError(fmt.Sprintf("%s requires a value", name))
+	}
+	return value, consumed, nil
 }
 
 func requireValue(options parsedOptions, name string) error {
@@ -296,12 +301,9 @@ func writeJSONFile(path string, value any) error {
 		return err
 	}
 	temporaryPath := temporary.Name()
-	installed := false
 	defer func() {
 		_ = temporary.Close()
-		if !installed {
-			_ = os.Remove(temporaryPath)
-		}
+		_ = os.Remove(temporaryPath)
 	}()
 	if err := temporary.Chmod(0o644); err != nil {
 		return err
@@ -318,7 +320,6 @@ func writeJSONFile(path string, value any) error {
 	if err := os.Rename(temporaryPath, absolute); err != nil {
 		return err
 	}
-	installed = true
 	return nil
 }
 

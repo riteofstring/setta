@@ -15,7 +15,7 @@ The checked-in playground contains three realistic requests in one project:
 - a rollout choice whose factor columns link to exact Git, source-code, and JSON evidence; and
 - a three-poster comparison with floating Workspace windows and artifact-anchored drawing.
 
-Run it from the repository root:
+Complete the [source setup](../../CONTRIBUTING.md#source-setup), then run it from the repository root:
 
 ```console
 pnpm review:playground
@@ -26,9 +26,16 @@ creates its small Git worktree, imports external assessments through the public 
 and opens the app. Later launches preserve decisions and drawings in that ignored working copy.
 Remove that working directory to reset the example.
 
+Unsent feedback, claim notes, and drawing annotations survive a refresh in the same browser tab.
+They remain drafts until you submit them. Drafts are tied to the exact request and artifact
+identities, so revised evidence cannot inherit an old drawing. If browser storage is unavailable,
+Review keeps editing available, explains that the draft is held in memory, and warns before closing
+the tab. Keep that tab open until you submit. An initial load failure offers **Try again**.
+
 ## Commands
 
-An installed Setta release exposes the same app without any agent-specific SDK:
+The local build exposes these commands without an agent-specific SDK. Use its `setta` executable
+or substitute the repository-local runner described in the contributor guide:
 
 ```console
 setta review open --project-root ./my-review

@@ -217,7 +217,12 @@ class LocalSettaRunnerTests(unittest.TestCase):
             wheel_directory = Path(temporary_directory)
             wheel = wheel_directory / "setta.whl"
             wheel.touch()
-            with mock.patch.object(run_local_setta, "_run") as run:
+            with (
+                mock.patch.object(run_local_setta, "_run") as run,
+                mock.patch.object(
+                    run_local_setta.platform, "system", return_value="Darwin"
+                ),
+            ):
                 built = run_local_setta._build_current_wheel(
                     Path("/tools/go"), wheel_directory
                 )
@@ -232,6 +237,30 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     str(wheel_directory),
                 ],
                 run_local_setta.ROOT,
+            )
+
+    def test_linux_local_build_requests_a_host_wheel(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            wheel_directory = Path(temporary_directory)
+            wheel = wheel_directory / "setta.whl"
+            wheel.touch()
+            with (
+                mock.patch.object(run_local_setta, "_run") as run,
+                mock.patch.object(
+                    run_local_setta.platform, "system", return_value="Linux"
+                ),
+                mock.patch.object(
+                    run_local_setta.platform, "machine", return_value="aarch64"
+                ),
+            ):
+                self.assertEqual(
+                    run_local_setta._build_current_wheel(
+                        Path("/tools/go"), wheel_directory
+                    ),
+                    wheel,
+                )
+            self.assertEqual(
+                run.call_args.args[0][-2:], ["--wheel-platform-tag", "linux_aarch64"]
             )
 
     def test_install_replaces_same_version_setta_with_current_wheel(self) -> None:
