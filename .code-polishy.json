@@ -824,7 +824,6 @@
           "run",
           "--frozen",
           "--no-build",
-          "--no-install-project",
           "python",
           "-m",
           "unittest",
