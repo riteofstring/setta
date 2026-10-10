@@ -32,7 +32,7 @@ describe("visual experiment execution", () => {
   it("retains good results on failure and recovers on a later run", async () => {
     let state = initialDisplayState;
     const runtime = createDisplayRuntime({
-      runAfterTargetFlush: async (operation) => operation(snapshot),
+      runAfterEditsFlush: async (operation) => operation(snapshot),
       updateState: (next) => {
         state = next;
       },
@@ -71,7 +71,7 @@ describe("visual experiment execution", () => {
     });
     const states = vi.fn();
     const runtime = createDisplayRuntime({
-      runAfterTargetFlush: async (operation) => {
+      runAfterEditsFlush: async (operation) => {
         await flush;
         await operation(snapshot);
       },

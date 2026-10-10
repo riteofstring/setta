@@ -159,7 +159,7 @@ describe("Generated Python terminal runtime", () => {
     harness.runtime.run();
     await flushMicrotasks();
 
-    expect(harness.runAfterTargetFlush).toHaveBeenCalledTimes(1);
+    expect(harness.runAfterEditsFlush).toHaveBeenCalledTimes(1);
     expect(mocks.runTerminal).toHaveBeenCalledWith({
       columns: 80,
       expectedRevision: 3,
@@ -180,13 +180,13 @@ function createRuntimeHarness({
   const snapshot = projectSnapshot(revision);
   const flushedSnapshot = projectSnapshot(flushedRevision);
   let currentState: GeneratedPythonTerminalState;
-  const runAfterTargetFlush = vi.fn(async (operation) =>
+  const runAfterEditsFlush = vi.fn(async (operation) =>
     operation(flushedSnapshot),
   );
   const runtime = createGeneratedPythonTerminalRuntime({
     currentSnapshot: () => snapshot,
     isActive: () => true,
-    runAfterTargetFlush,
+    runAfterEditsFlush,
     updateState: (next) => {
       currentState = next;
     },
@@ -203,7 +203,7 @@ function createRuntimeHarness({
     get currentState() {
       return currentState;
     },
-    runAfterTargetFlush,
+    runAfterEditsFlush,
     runtime,
     snapshot,
   };

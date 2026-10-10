@@ -46,19 +46,19 @@ export type GeneratedPythonTerminalRuntime = GeneratedPythonTerminalActions & {
   dispose: () => void;
 };
 
-type RunAfterTargetFlush = (
+type RunAfterEditsFlush = (
   operation: (snapshot: ProjectSnapshotV2) => Promise<void>,
 ) => Promise<void>;
 
 export function createGeneratedPythonTerminalRuntime({
   currentSnapshot,
   isActive,
-  runAfterTargetFlush,
+  runAfterEditsFlush,
   updateState,
 }: {
   currentSnapshot: () => ProjectSnapshotV2 | null;
   isActive: () => boolean;
-  runAfterTargetFlush: RunAfterTargetFlush;
+  runAfterEditsFlush: RunAfterEditsFlush;
   updateState: (state: GeneratedPythonTerminalState) => void;
 }): GeneratedPythonTerminalRuntime {
   let state = initialGeneratedPythonTerminalState;
@@ -158,7 +158,7 @@ export function createGeneratedPythonTerminalRuntime({
   }
 
   function run() {
-    void runAfterTargetFlush(async (snapshot) => {
+    void runAfterEditsFlush(async (snapshot) => {
       await creatingPromise;
       const sessionKey =
         state.sessionKey ?? makeSessionKey(snapshot.project.id);

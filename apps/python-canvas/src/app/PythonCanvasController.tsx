@@ -643,12 +643,12 @@ export function PythonCanvasController() {
     const terminalRuntime = createGeneratedPythonTerminalRuntime({
       currentSnapshot: () => snapshot,
       isActive: () => active,
-      runAfterTargetFlush: mutations.runWithPythonTargetFlushed,
+      runAfterEditsFlush: mutations.runWithEditsFlushed,
       updateState: setTerminalState,
     });
     terminalRuntimeRef.current = terminalRuntime;
     const displayRuntime = createDisplayRuntime({
-      runAfterTargetFlush: mutations.runWithPythonTargetFlushed,
+      runAfterEditsFlush: mutations.runWithEditsFlushed,
       updateState: setDisplayState,
     });
     displayRuntimeRef.current = displayRuntime;

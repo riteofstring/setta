@@ -93,10 +93,8 @@ def drive(world: World, rover: Rover, storm: float, daylight: float) -> dict:
         or min(rover.solar, rover.caution, rover.cargo) < 0
     ):
         raise ValueError(
-            (
-                f"{rover.name}: battery and wheels must be positive; other "
-                f"settings cannot be negative."
-            )
+            f"{rover.name}: battery and wheels must be positive; other "
+            f"settings cannot be negative."
         )
     battery = rover.battery
     charge = [[0.0, 100.0]]
@@ -163,17 +161,13 @@ def mission_map(world: World, results: list[dict], storm: float) -> str:
         '<rect width="1000" height="650" rx="20" fill="#0b1725"/>',
     ]
     parts.append(
-        (
-            f'<text x="28" y="35" fill="#e2e8f0" font-family="sans-serif" '
-            f'font-size="19" font-weight="bold">ARES SURVEY / SEED '
-            f"{world.seed:02d}</text>"
-        )
+        f'<text x="28" y="35" fill="#e2e8f0" font-family="sans-serif" '
+        f'font-size="19" font-weight="bold">ARES SURVEY / SEED '
+        f"{world.seed:02d}</text>"
     )
     parts.append(
-        (
-            f'<text x="780" y="35" fill="#cba57e" font-family="sans-serif" '
-            f'font-size="13">DUST {storm:.0%}</text>'
-        )
+        f'<text x="780" y="35" fill="#cba57e" font-family="sans-serif" '
+        f'font-size="13">DUST {storm:.0%}</text>'
     )
     for y, row in enumerate(world.heights):
         for x, height in enumerate(row):
@@ -183,76 +177,60 @@ def mission_map(world: World, results: list[dict], storm: float) -> str:
                 round(47 + 20 * height),
             )
             parts.append(
-                (
-                    f'<rect x="{28 + x * 20}" y="{60 + y * 22}" width="20.3" '
-                    f'height="22.3" fill="rgb({red},{green},{blue})"/>'
-                )
+                f'<rect x="{28 + x * 20}" y="{60 + y * 22}" width="20.3" '
+                f'height="22.3" fill="rgb({red},{green},{blue})"/>'
             )
     for index, result in enumerate(results):
         color = COLORS[index % len(COLORS)]
         points = " ".join(f"{38 + x * 20},{71 + y * 22}" for x, y in result["path"])
         offset = (index - 1) * 2
         parts.append(
-            (
-                f'<polyline points="{points}" '
-                f'transform="translate({offset},{offset})" fill="none" '
-                f'stroke="#07111f" stroke-width="6" opacity="0.65"/>'
-            )
+            f'<polyline points="{points}" '
+            f'transform="translate({offset},{offset})" fill="none" '
+            f'stroke="#07111f" stroke-width="6" opacity="0.65"/>'
         )
         parts.append(
-            (
-                f'<polyline points="{points}" '
-                f'transform="translate({offset},{offset})" fill="none" '
-                f'stroke="{color}" stroke-width="2.5" stroke-linejoin="round"/>'
-            )
+            f'<polyline points="{points}" '
+            f'transform="translate({offset},{offset})" fill="none" '
+            f'stroke="{color}" stroke-width="2.5" stroke-linejoin="round"/>'
         )
         x, y = result["path"][-1]
         if not result["returned"]:
             parts.append(
-                (
-                    f'<text x="{30 + x * 20}" y="{80 + y * 22}" fill="{color}" '
-                    f'stroke="#07111f" stroke-width="1" font-family="sans-serif" '
-                    f'font-size="29">&#215;</text>'
-                )
+                f'<text x="{30 + x * 20}" y="{80 + y * 22}" fill="{color}" '
+                f'stroke="#07111f" stroke-width="1" font-family="sans-serif" '
+                f'font-size="29">&#215;</text>'
             )
         top = 100 + index * 128
         name = html.escape(str(result["name"]))
         status = "HOME" if result["returned"] else "STRANDED"
         parts.append(
-            (
-                f'<g font-family="sans-serif"><circle cx="815" cy="{top - 5}" '
-                f'r="4" fill="{color}"/><text x="829" y="{top}" fill="{color}" '
-                f'font-size="17">{name}</text><text x="810" y="{top + 27}" '
-                f'fill="#e2e8f0" font-size="12">{status}</text><text x="810" '
-                f'y="{top + 49}" fill="#a0b1c7" font-size="12">'
-                f"{result['samples']} samples / {result['distance']} km</text>"
-                f'<text x="810" y="{top + 71}" fill="#a0b1c7" font-size="12">'
-                f"{result['battery']} Wh remaining</text></g>"
-            )
+            f'<g font-family="sans-serif"><circle cx="815" cy="{top - 5}" '
+            f'r="4" fill="{color}"/><text x="829" y="{top}" fill="{color}" '
+            f'font-size="17">{name}</text><text x="810" y="{top + 27}" '
+            f'fill="#e2e8f0" font-size="12">{status}</text><text x="810" '
+            f'y="{top + 49}" fill="#a0b1c7" font-size="12">'
+            f"{result['samples']} samples / {result['distance']} km</text>"
+            f'<text x="810" y="{top + 71}" fill="#a0b1c7" font-size="12">'
+            f"{result['battery']} Wh remaining</text></g>"
         )
     for index, (x, y) in enumerate(world.sites, 1):
         parts.append(
-            (
-                f'<circle cx="{38 + x * 20}" cy="{71 + y * 22}" r="12" '
-                f'fill="#0b1725" stroke="#f8fafc" stroke-width="2"/><text '
-                f'x="{38 + x * 20}" y="{76 + y * 22}" text-anchor="middle" '
-                f'fill="#f8fafc" font-family="sans-serif" font-size="14">'
-                f"{index}</text>"
-            )
+            f'<circle cx="{38 + x * 20}" cy="{71 + y * 22}" r="12" '
+            f'fill="#0b1725" stroke="#f8fafc" stroke-width="2"/><text '
+            f'x="{38 + x * 20}" y="{76 + y * 22}" text-anchor="middle" '
+            f'fill="#f8fafc" font-family="sans-serif" font-size="14">'
+            f"{index}</text>"
         )
     x, y = world.base
     parts.append(
-        (
-            f'<path d="M{38 + x * 20},{79 + y * 22}v-25l18,5-18,6" '
-            f'fill="#f8fafc" stroke="#0b1725" stroke-width="2"/>'
-        )
+        f'<path d="M{38 + x * 20},{79 + y * 22}v-25l18,5-18,6" '
+        f'fill="#f8fafc" stroke="#0b1725" stroke-width="2"/>'
     )
     parts.append(
-        (
-            '<text x="28" y="622" fill="#9dafc7" font-family="sans-serif" '
-            'font-size="13">FLAG = BASE     1 / 2 / 3 = SAMPLE SITES     '
-            "BRIGHT TERRAIN = HIGH GROUND</text></svg>"
-        )
+        '<text x="28" y="622" fill="#9dafc7" font-family="sans-serif" '
+        'font-size="13">FLAG = BASE     1 / 2 / 3 = SAMPLE SITES     '
+        "BRIGHT TERRAIN = HIGH GROUND</text></svg>"
     )
     return "".join(parts)
 

@@ -161,8 +161,10 @@ authority. The guide uses Workspace's public quick-start surface and switches vi
 section. This sample-only tab is not persisted as a global preference for ordinary projects.
 On narrow screens a guide jump collapses the guide pane before framing its destination.
 
-Run experiment shares the existing mutation queue and target-flush boundary, then executes the
-canonical revision through the existing run endpoint. The app context owns transient result
+Both visual and terminal Run drain pending callable and dictionary control saves through the
+existing mutation queue, then flush the Python target and execute the resulting canonical revision.
+A save failure prevents execution and permits retry, preserving the last results. This avoids
+running old values when Run follows a control change within its save debounce. The app context owns transient result
 panels, their run revision, progress, errors, and logs. Authored project snapshots remain the only
 source of Python. Editing marks older results as stale; failures preserve them and allow another
 run. A malformed individual panel does not discard valid siblings. Reloading clears result state;

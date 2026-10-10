@@ -283,6 +283,7 @@ function PythonCanvasWorkspaceShell({
       ariaLabel="Python Canvas workspace"
       includeBuiltInInspector={false}
       includeBuiltInSavedViews={true}
+      includeSavedViewTabs={playgroundId !== undefined}
       leadingPaneShiftsCanvas={true}
       leadingTabs={
         playgroundId

@@ -39,11 +39,9 @@ class FlowInk:
                 points.append(f"{'M' if step == 0 else 'L'}{x:.1f},{y:.1f}")
             opacity = 0.25 + strand / self.strands * 0.55
             paths.append(
-                (
-                    f'<path d="{" ".join(points)}" fill="none" '
-                    f'stroke="{color_value(self.color)}" stroke-width="1.25" '
-                    f'opacity="{opacity:.2f}"/>'
-                )
+                f'<path d="{" ".join(points)}" fill="none" '
+                f'stroke="{color_value(self.color)}" stroke-width="1.25" '
+                f'opacity="{opacity:.2f}"/>'
             )
         return paths
 
@@ -86,18 +84,14 @@ class StarField:
             x, y = rng.uniform(40, 760), rng.uniform(40, 760)
             radius = rng.uniform(0.4, self.size)
             stars.append(
-                (
-                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{radius:.1f}" '
-                    f'fill="{color_value(self.color)}" '
-                    f'opacity="{rng.uniform(0.3, 0.9):.2f}"/>'
-                )
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{radius:.1f}" '
+                f'fill="{color_value(self.color)}" '
+                f'opacity="{rng.uniform(0.3, 0.9):.2f}"/>'
             )
             if index % 17 == 0:
                 stars.append(
-                    (
-                        f'<path d="M{x - 5:.1f},{y:.1f}h10M{x:.1f},{y - 5:.1f}v10" '
-                        f'stroke="{self.color}" stroke-width="0.7" opacity="0.7"/>'
-                    )
+                    f'<path d="M{x - 5:.1f},{y:.1f}h10M{x:.1f},{y - 5:.1f}v10" '
+                    f'stroke="{self.color}" stroke-width="0.7" opacity="0.7"/>'
                 )
         return stars
 
@@ -127,16 +121,12 @@ def artwork(
     ]
     for index in range(symmetry):
         parts.append(
-            (
-                f'<use href="#{identity}" '
-                f'transform="rotate({index * 360 / symmetry:.1f} 400 400)"/>'
-            )
+            f'<use href="#{identity}" '
+            f'transform="rotate({index * 360 / symmetry:.1f} 400 400)"/>'
         )
     parts.append(
-        (
-            '<rect x="18" y="18" width="764" height="764" rx="12" '
-            'fill="none" stroke="#ffffff" stroke-opacity="0.12"/></svg>'
-        )
+        '<rect x="18" y="18" width="764" height="764" rx="12" '
+        'fill="none" stroke="#ffffff" stroke-opacity="0.12"/></svg>'
     )
     return "".join(parts), counts
 
@@ -169,12 +159,10 @@ def render_gallery(
         inner = variant[variant.index(">") + 1 : -6]
         x, y = 20 + index % 2 * 410, 55 + index // 2 * 422
         gallery.append(
-            (
-                f'<svg x="{x}" y="{y}" width="390" height="390" viewBox="0 0 '
-                f'800 800">{inner}</svg><text x="{x}" y="{y + 410}" '
-                f'fill="#a5b5cd" font-family="sans-serif" font-size="14">SEED '
-                f"{variant_seed}</text>"
-            )
+            f'<svg x="{x}" y="{y}" width="390" height="390" viewBox="0 0 '
+            f'800 800">{inner}</svg><text x="{x}" y="{y + 410}" '
+            f'fill="#a5b5cd" font-family="sans-serif" font-size="14">SEED '
+            f"{variant_seed}</text>"
         )
     gallery.append("</svg>")
     active = sum(layer.enabled for layer in layers)

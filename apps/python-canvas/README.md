@@ -19,7 +19,7 @@ pnpm python-canvas:playground --example art-studio
 ```
 
 The default is **rover-mission**. Each experiment has a separate saved working copy and can run
-alongside the others. **Start here** explains the challenge and has a **Run experiment** button.
+alongside the others. **Start here** explains the challenge; **Run experiment** stays available above the canvas.
 Run fills the canvas with visual results from the composed Python program:
 
 | Experiment            | Build and change                                                                                         | Explore the results                                                                 |

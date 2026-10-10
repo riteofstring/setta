@@ -22,7 +22,7 @@ const display = (id: string) => `python-canvas:display:${id}`;
 const dictionary = (id: string) => `python-canvas:parameter-dictionary:${id}`;
 const list = (id: string) => `python-canvas:list:${id}`;
 
-export const PLAYGROUNDS: Record<string, Playground> = {
+const PLAYGROUNDS: Record<string, Playground> = {
   "rover-mission": {
     title: "Rover mission",
     description:
@@ -81,7 +81,7 @@ export const PLAYGROUNDS: Record<string, Playground> = {
     description:
       "Give three classifiers the same data and see which one understands the pattern. Change the world, the features, and the learning budget.",
     brief:
-      "## Three models enter the arena\n\nLogistic regression, a kernel machine, and a random forest compete on exactly the same unseen samples.\n\n**Challenge:** reach **95% unseen accuracy with 100 training points**. Try moons, rings, and a checkerboard. Watch the learning curves before spending more data.\n\nThe maps show predictions; white rings mark mistakes. Preprocessing learns only from training data. This is a synthetic experiment, not a real-world benchmark.",
+      "## Three models enter the arena\n\nLogistic regression, a kernel machine, and a random forest compete on exactly the same unseen samples.\n\n**Challenge:** help logistic regression reach **95% unseen accuracy with 100 training points**. Try moons, rings, and a checkerboard. Watch the learning curves before spending more data.\n\nThe maps show predictions; white rings mark mistakes. Preprocessing learns only from training data. This is a synthetic experiment, not a real-world benchmark.",
     control: dictionary("arena"),
     objects: [
       list("features"),
@@ -157,7 +157,7 @@ export const PLAYGROUNDS: Record<string, Playground> = {
         description:
           "Change the background in Canvas. Open Build to pick colors for the ink, rings, and stars, then Run again.",
         actionLabel: "Mix colors and layers",
-        sectionId: list("layers"),
+        sectionId: "python-canvas:callable:ink",
         viewId: "build",
       },
       {

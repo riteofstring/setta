@@ -38,7 +38,7 @@ export function DisplayRunButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function DisplayRunStatus() {
+function DisplayRunStatus() {
   const display = useDisplay();
   if (!display?.enabled) return null;
   const { state } = display;

@@ -117,57 +117,63 @@ export function createPythonCanvasMutations(
     cancelParameterMutation(callableId);
     const timer = setTimeout(() => {
       parameterTimers.delete(callableId);
-      environment.enqueue(async () => {
-        const current = requireCurrentSnapshot(environment);
-        if (current === null) {
-          return;
-        }
-        const proposal = parameterMutationProposal(
-          environment.host.getSnapshot(),
-          current,
-          callableId,
-        );
-        if (proposal === null) {
-          return;
-        }
-        environment.updateCallableMutation(callableId, {
-          description: "Checking the parameters with Basedpyright.",
-          kind: "pending",
-        });
-        try {
-          const next = await setCallableParameters(callableId, {
-            expectedRevision: current.project.revision,
-            parameters: proposal,
-            projectId: current.project.id,
-          });
-          if (!environment.isActive()) {
-            return;
-          }
-          environment.publishSnapshot(next);
-          environment.acceptCanonicalSnapshot(next, {
-            callableId,
-            kind: "parameters",
-            sent: proposal,
-          });
-          environment.updateCallableMutation(callableId, { kind: "idle" });
-        } catch (error) {
-          if (environment.isActive()) {
-            await environment.handleMutationFailure("the parameters", error, {
-              reportFailure: (next) =>
-                environment.updateCallableMutation(callableId, next),
-              restore: () =>
-                environment.restoreCanonicalProject({
-                  callableId,
-                  kind: "parameters",
-                  sent: proposal,
-                }),
-              revisionConflictDraft: { callableId, kind: "parameters" },
-            });
-          }
-        }
+      void environment.enqueue(async () => {
+        await persistParameterList(callableId);
       });
     }, mutationDebounceMs);
     parameterTimers.set(callableId, timer);
+  }
+
+  async function persistParameterList(callableId: string): Promise<boolean> {
+    const current = requireCurrentSnapshot(environment);
+    if (current === null) {
+      return false;
+    }
+    const proposal = parameterMutationProposal(
+      environment.host.getSnapshot(),
+      current,
+      callableId,
+    );
+    if (proposal === null) {
+      return true;
+    }
+    environment.updateCallableMutation(callableId, {
+      description: "Checking the parameters with Basedpyright.",
+      kind: "pending",
+    });
+    try {
+      const next = await setCallableParameters(callableId, {
+        expectedRevision: current.project.revision,
+        parameters: proposal,
+        projectId: current.project.id,
+      });
+      if (!environment.isActive()) {
+        return false;
+      }
+      environment.publishSnapshot(next);
+      environment.acceptCanonicalSnapshot(next, {
+        callableId,
+        kind: "parameters",
+        sent: proposal,
+      });
+      environment.updateCallableMutation(callableId, { kind: "idle" });
+      return true;
+    } catch (error) {
+      if (environment.isActive()) {
+        await environment.handleMutationFailure("the parameters", error, {
+          reportFailure: (next) =>
+            environment.updateCallableMutation(callableId, next),
+          restore: () =>
+            environment.restoreCanonicalProject({
+              callableId,
+              kind: "parameters",
+              sent: proposal,
+            }),
+          revisionConflictDraft: { callableId, kind: "parameters" },
+        });
+      }
+    }
+    return false;
   }
 
   function scheduleDictionaryEntriesMutation(
@@ -176,12 +182,16 @@ export function createPythonCanvasMutations(
   ) {
     cancelDictionaryMutation(dictionaryId);
     if (immediate) {
-      environment.enqueue(() => persistDictionaryEntries(dictionaryId));
+      environment.enqueue(async () => {
+        await persistDictionaryEntries(dictionaryId);
+      });
       return;
     }
     const timer = setTimeout(() => {
       dictionaryTimers.delete(dictionaryId);
-      environment.enqueue(() => persistDictionaryEntries(dictionaryId));
+      environment.enqueue(async () => {
+        await persistDictionaryEntries(dictionaryId);
+      });
     }, mutationDebounceMs);
     dictionaryTimers.set(dictionaryId, timer);
   }
@@ -189,7 +199,7 @@ export function createPythonCanvasMutations(
   async function persistDictionaryEntries(dictionaryId: string) {
     const current = requireCurrentSnapshot(environment);
     if (current === null) {
-      return;
+      return false;
     }
     const proposal = dictionaryEntryMutationProposal(
       environment.host.getSnapshot(),
@@ -197,7 +207,7 @@ export function createPythonCanvasMutations(
       dictionaryId,
     );
     if (proposal === null) {
-      return;
+      return true;
     }
     environment.updateDictionaryMutation(dictionaryId, {
       description: "Checking the dictionary with Basedpyright.",
@@ -210,7 +220,7 @@ export function createPythonCanvasMutations(
         projectId: current.project.id,
       });
       if (!environment.isActive()) {
-        return;
+        return false;
       }
       environment.publishSnapshot(next);
       environment.acceptCanonicalSnapshot(next, {
@@ -219,6 +229,7 @@ export function createPythonCanvasMutations(
         sent: proposal,
       });
       environment.updateDictionaryMutation(dictionaryId, { kind: "idle" });
+      return true;
     } catch (error) {
       if (environment.isActive()) {
         await environment.handleMutationFailure("the dictionary", error, {
@@ -234,6 +245,30 @@ export function createPythonCanvasMutations(
         });
       }
     }
+    return false;
+  }
+
+  async function runWithEditsFlushed(
+    operation: (snapshot: ProjectSnapshotV2) => Promise<void>,
+  ): Promise<void> {
+    const callableIds = [...parameterTimers.keys()];
+    const dictionaryIds = [...dictionaryTimers.keys()];
+    cancelTimers(parameterTimers);
+    cancelTimers(dictionaryTimers);
+    let saved = true;
+    await environment.enqueue(async () => {
+      for (const id of callableIds) {
+        if (!(await persistParameterList(id))) saved = false;
+      }
+      for (const id of dictionaryIds) {
+        if (!(await persistDictionaryEntries(id))) saved = false;
+      }
+    });
+    if (!saved)
+      throw new Error(
+        "The latest inputs could not be saved. Check the highlighted input, then run again.",
+      );
+    await pythonTargetMutations.runAfterFlush(operation);
   }
 
   function queueForestMutation() {
@@ -698,7 +733,7 @@ export function createPythonCanvasMutations(
     createListFromPane,
     createParameterDictionaryFromPane,
     queueForestMutation,
-    runWithPythonTargetFlushed: pythonTargetMutations.runAfterFlush,
+    runWithEditsFlushed,
     scheduleDictionaryEntriesMutation,
     scheduleParameterListMutation,
     schedulePythonTargetMutation: pythonTargetMutations.schedule,

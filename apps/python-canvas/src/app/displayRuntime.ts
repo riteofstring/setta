@@ -21,10 +21,10 @@ export const initialDisplayState: DisplayState = {
 };
 
 export function createDisplayRuntime({
-  runAfterTargetFlush,
+  runAfterEditsFlush,
   updateState,
 }: {
-  runAfterTargetFlush: (
+  runAfterEditsFlush: (
     operation: (snapshot: ProjectSnapshotV2) => Promise<void>,
   ) => Promise<void>;
   updateState: (state: DisplayState) => void;
@@ -40,7 +40,7 @@ export function createDisplayRuntime({
   const run = () => {
     if (disposed || state.busy) return;
     update({ busy: true, error: null, warnings: [] });
-    void runAfterTargetFlush(async (snapshot) => {
+    void runAfterEditsFlush(async (snapshot) => {
       if (disposed) return;
       try {
         abort = new AbortController();

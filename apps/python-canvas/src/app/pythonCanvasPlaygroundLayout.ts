@@ -121,8 +121,8 @@ function playgroundViews(
   );
   if (!image || !second || !table || !report) return [];
   const explore = {
-    [playground.control]: layout(0, 0, 340, 320),
-    [briefId]: layout(0, 350, 340, 270),
+    [playground.control]: layout(0, 0, 340, 230),
+    [briefId]: layout(0, 264, 340, 356),
     [image]: layout(374, 0, 800, 620),
   };
   const compare =
@@ -135,13 +135,9 @@ function playgroundViews(
       : {
           [second]: layout(0, 0, 590, 410),
           [table]: layout(626, 0, 640, 410),
-          [report]: layout(0, 446, 1266, 235),
+          [report]: layout(0, 446, 1266, 320),
         };
-  const build: Record<string, Layout> = {};
-  for (const [index, id] of playground.objects.entries()) {
-    const isList = id.startsWith("python-canvas:list:");
-    build[id] = layout(index * 440, 0, isList ? 400 : 500, isList ? null : 300);
-  }
+  const build = buildLayouts(playground);
   const source = { [generatedId]: layout(0, 0, 1100, 700) };
   return [
     ["explore", "Explore", explore],
@@ -149,6 +145,33 @@ function playgroundViews(
     ["build", "Build", build],
     ["python", "Python", source],
   ];
+}
+
+function buildLayouts(playground: Playground): Record<string, Layout> {
+  const lists = playground.objects.filter((id) =>
+    id.startsWith("python-canvas:list:"),
+  );
+  const callables = playground.objects.filter((id) => !lists.includes(id));
+  const placements: Record<string, Layout> = Object.fromEntries(
+    lists.map((id, index) => [id, layout(index * 440, 0, 400, null)]),
+  );
+  const beside = lists.length === 1;
+  for (const [index, id] of callables.entries()) {
+    placements[id] = layout(
+      beside ? 460 : 0,
+      (beside ? 0 : 440) + index * 340,
+      beside ? 500 : 400,
+      300,
+    );
+  }
+  if (beside)
+    placements[playground.control] = layout(
+      460,
+      callables.length * 340,
+      500,
+      230,
+    );
+  return placements;
 }
 
 function sizeSections(
@@ -164,6 +187,11 @@ function sizeSections(
         size: { width: placement.w ?? 400, height: placement.h ?? "auto" },
       };
   }
+  sizeObjectLists(sections);
+  return sections;
+}
+
+function sizeObjectLists(sections: WorkspaceDocumentInput["sections"]) {
   for (const section of Object.values(sections)) {
     if (!section.kind.includes("list")) continue;
     for (const childId of section.children) {
@@ -177,5 +205,4 @@ function sizeSections(
       };
     }
   }
-  return sections;
 }

@@ -25,7 +25,7 @@ export type DisplayChart = PanelHeader & {
     points: Array<[number, number]>;
   }>;
 };
-export type DisplayMarkdown = PanelHeader & { kind: "markdown"; text: string };
+type DisplayMarkdown = PanelHeader & { kind: "markdown"; text: string };
 export type DisplayPanel =
   DisplayImage | DisplayTable | DisplayChart | DisplayMarkdown;
 
