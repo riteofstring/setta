@@ -39,6 +39,12 @@ import {
 } from "./pythonCanvasRightPane";
 
 import { PythonCanvasPlayground } from "./PythonCanvasPlayground";
+import {
+  DisplayContext,
+  DisplayToolbar,
+  type DisplayContextValue,
+} from "./displayContext";
+import { getPlayground } from "./playgroundCatalog";
 
 const EMPTY_SHELL_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 
@@ -73,6 +79,7 @@ type PythonCanvasViewProps = {
   pythonTargetCompletionError: string | null;
   state: ViewState;
   terminalContext: GeneratedPythonTerminalContextValue;
+  displayContext?: DisplayContextValue;
 };
 
 type PythonCanvasReadyWorkspaceProps = Omit<PythonCanvasViewProps, "state"> & {
@@ -81,25 +88,30 @@ type PythonCanvasReadyWorkspaceProps = Omit<PythonCanvasViewProps, "state"> & {
 
 export function PythonCanvasView(props: PythonCanvasViewProps) {
   return (
-    <main className="python-canvas-app">
-      <PythonCanvasStatus
-        announcement={props.announcement}
-        state={props.state}
-      />
-      <PythonCanvasLoadError state={props.state} onRetry={props.onRetry} />
-      <PythonCanvasMutationError announcement={props.announcement} />
-      <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
-      <PythonCanvasTerminalError error={props.terminalContext.state.error} />
-      {props.state.kind === "ready" ? (
-        <PythonCanvasReadyWorkspace
+    <DisplayContext.Provider value={props.displayContext ?? null}>
+      <main className="python-canvas-app">
+        <PythonCanvasStatus
           announcement={props.announcement}
-          mutationContext={props.mutationContext}
-          pythonTargetCompletionError={props.pythonTargetCompletionError}
           state={props.state}
-          terminalContext={props.terminalContext}
         />
-      ) : null}
-    </main>
+        <PythonCanvasLoadError state={props.state} onRetry={props.onRetry} />
+        <PythonCanvasMutationError announcement={props.announcement} />
+        <PythonCanvasCompletionError
+          error={props.pythonTargetCompletionError}
+        />
+        <PythonCanvasTerminalError error={props.terminalContext.state.error} />
+        <DisplayToolbar />
+        {props.state.kind === "ready" ? (
+          <PythonCanvasReadyWorkspace
+            announcement={props.announcement}
+            mutationContext={props.mutationContext}
+            pythonTargetCompletionError={props.pythonTargetCompletionError}
+            state={props.state}
+            terminalContext={props.terminalContext}
+          />
+        ) : null}
+      </main>
+    </DisplayContext.Provider>
   );
 }
 
@@ -202,7 +214,7 @@ function PythonCanvasReadyWorkspace({
 }: PythonCanvasReadyWorkspaceProps) {
   const [shellViewState, setShellViewState] = useState<WorkspaceShellViewState>(
     () =>
-      state.projectId === "model-workshop"
+      getPlayground(state.projectId) !== undefined
         ? createWorkspaceShellViewState({
             leadingTabId: "start-here",
             trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
@@ -234,7 +246,9 @@ function PythonCanvasReadyWorkspace({
           >
             <WorkspaceProvider host={state.host}>
               <PythonCanvasWorkspaceShell
-                isPlayground={state.projectId === "model-workshop"}
+                playgroundId={
+                  getPlayground(state.projectId) ? state.projectId : undefined
+                }
                 onViewStateChange={handleShellViewStateChange}
                 viewState={shellViewState}
               />
@@ -247,11 +261,11 @@ function PythonCanvasReadyWorkspace({
 }
 
 function PythonCanvasWorkspaceShell({
-  isPlayground,
+  playgroundId,
   onViewStateChange,
   viewState,
 }: {
-  isPlayground: boolean;
+  playgroundId: string | undefined;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
   viewState: WorkspaceShellViewState;
 }) {
@@ -271,7 +285,7 @@ function PythonCanvasWorkspaceShell({
       includeBuiltInSavedViews={true}
       leadingPaneShiftsCanvas={true}
       leadingTabs={
-        isPlayground
+        playgroundId
           ? [
               {
                 id: "start-here",
@@ -279,6 +293,7 @@ function PythonCanvasWorkspaceShell({
                 icon: WorkspaceQuickStartIcon,
                 renderContent: () => (
                   <PythonCanvasPlayground
+                    projectId={playgroundId}
                     onNavigate={() => {
                       if (window.matchMedia("(max-width: 720px)").matches) {
                         onViewStateChange({

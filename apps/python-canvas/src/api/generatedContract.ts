@@ -17,6 +17,7 @@ export const PROJECT_CLIPBOARD_PASTE_PATH_V2 =
   "/api/v2/project/clipboard/paste" as const;
 export const PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1 = 1 as const;
 export const PROJECT_TARGET_PATH_V2 = "/api/v2/project/target" as const;
+export const PROJECT_RUN_PATH_V2 = "/api/v2/project/run" as const;
 export const PROJECT_TERMINAL_PATH_V2 = "/api/v2/project/terminal" as const;
 export const PROJECT_TERMINAL_RUN_PATH_V2 =
   "/api/v2/project/terminal/run" as const;
@@ -533,6 +534,22 @@ export interface RunTerminalRequestV2 {
 }
 export interface CloseTerminalRequestV2 {
   projectId: string;
+}
+export interface RunGeneratedProgramRequestV2 {
+  projectId: string;
+  expectedRevision: number;
+  runTimeoutMilliseconds?: number;
+}
+export interface GeneratedProgramRunResultV2 {
+  projectId: string;
+  revision: number;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  exitCode?: number;
+  terminationReason: "exited" | "signaled" | "timed_out" | "output_limit";
+  elapsedMilliseconds: number;
 }
 export interface TerminalTicketRequestV2 {
   projectId: string;

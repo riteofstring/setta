@@ -17,9 +17,12 @@ import {
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";
 import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";
+import { DisplayRunButton, useDisplay } from "./displayContext";
+import { getPlayground } from "./playgroundCatalog";
 
 export function GeneratedPythonTerminalHeaderControls() {
   const { actions, state } = useGeneratedPythonTerminal();
+  const display = useDisplay();
   const terminalLabel =
     state.status === "absent"
       ? "Create terminal"
@@ -35,17 +38,21 @@ export function GeneratedPythonTerminalHeaderControls() {
 
   return (
     <>
-      <button
-        aria-label="Run this code block"
-        className={`${NO_DRAG_CLASS_NAME} python-canvas-generated-python-run-control`}
-        data-generated-python-run
-        onClick={actions.run}
-        title="Run this code block"
-        type="button"
-      >
-        <PlayIcon />
-        <span>Run</span>
-      </button>
+      {display?.enabled ? (
+        <DisplayRunButton compact />
+      ) : (
+        <button
+          aria-label="Run this code block"
+          className={`${NO_DRAG_CLASS_NAME} python-canvas-generated-python-run-control`}
+          data-generated-python-run
+          onClick={actions.run}
+          title="Run this code block"
+          type="button"
+        >
+          <PlayIcon />
+          <span>Run</span>
+        </button>
+      )}
       <button
         aria-label={terminalLabel}
         aria-pressed={state.status === "visible"}
@@ -131,7 +138,7 @@ function GeneratedPythonTerminalPane({
       return;
     }
     let targets: string[] = [GENERATED_PYTHON_SECTION_ID];
-    if (projectId === "model-workshop") {
+    if (getPlayground(projectId)) {
       const document = workspaceHost.getSnapshot();
       targets = Object.keys(document.topLevelSections).filter((id) =>
         isWorkspaceSavedViewSectionVisible(document.savedViews, {}, id),

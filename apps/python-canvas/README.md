@@ -8,53 +8,60 @@ The project contains callables, Parameter Dictionaries, Lists of Objects, their 
 one generated Python document. Every browser or CLI mutation is bound to the current project ID and
 revision, so stale writes fail with a typed conflict instead of replacing newer work.
 
-## Playground
+## Playgrounds
 
-After [source setup](../../CONTRIBUTING.md#source-setup), launch the model workshop:
-
-```console
-pnpm python-canvas:playground
-```
-
-The **Start here** pane walks through assembling real scikit-learn objects into a classifier.
-Press **Run** in **Generated Python**: the terminal draws its learned decision boundary, marks
-mistakes on unseen samples, and reports training and unseen accuracy. The initial recipe uses
-`StandardScaler`, `PolynomialFeatures`, and `LogisticRegression`. Change **Features → degree**
-from 1 to 3 and run again: the straight boundary becomes curved. Try beating 90% on unseen samples,
-then raise **Data → noise** or replace the classifier expression with `SVC` and press Enter.
-
-**Build & run** shows the ingredients beside the program. **Data & wiring** shows the shared
-dataset and the `make_pipeline(*steps)` composition. The guide switches views for you; both are
-also available through Saved Views. The plotted A/B samples come from the held-out 30% of the data;
-only the training split fits the pipeline, including its preprocessing. A fixed seed keeps the
-example repeatable. This small synthetic exercise illustrates composition and generalization; its
-score is not an estimate of performance on real-world data.
-
-Your working project is `tmp/python-canvas-playground/model-workshop`. The launcher prepares its
-pinned, frozen NumPy/scikit-learn environment automatically using prebuilt wheels. The first launch
-needs network access for uncached packages. Later launches preserve settings, code, and your canvas
-arrangement; the checked-in fixture stays untouched.
-
-The working folder includes `recipe.py`, a short handwritten equivalent of the starting recipe.
-Run it with `uv run --frozen --no-build python recipe.py` from that folder to compare the same
-workflow without Setta. It is a reference recipe, not a synchronized export of later canvas edits.
-**Download Python** in the Generated Python header saves the currently displayed program as
-`canvas_recipe.py`, including your prefix and suffix drafts. Place it in the working folder beside
-`model_workshop.py` and run `uv run --frozen --no-build python canvas_recipe.py` there to use your
-edited recipe independently. The download contains code; its imports still need the project's
-helper and dependencies.
+After [source setup](../../CONTRIBUTING.md#source-setup), choose an experiment:
 
 ```console
-pnpm python-canvas:playground --fresh
-pnpm python-canvas:playground --no-open
-pnpm python-canvas:playground --workspace /path/to/your/working-copy
+pnpm python-canvas:playground --example rover-mission
+pnpm python-canvas:playground --example model-arena
+pnpm python-canvas:playground --example art-studio
 ```
 
-`--fresh` starts another copy without replacing earlier work. The launcher prints the exact command
-to resume it. `--no-open` prints the local URL without opening a browser. The command returns when
-the app is ready; you can close the terminal. Running it again reopens the same live playground.
-Stop it with `pnpm python-canvas:playground --stop`, or add `--workspace PATH --stop` for another
-copy. Use **Start here** in the left sidebar whenever you want the guide back.
+The default is **rover-mission**. Each experiment has a separate saved working copy and can run
+alongside the others. **Start here** explains the challenge and has a **Run experiment** button.
+Run fills the canvas with visual results from the composed Python program:
+
+| Experiment            | Build and change                                                                                         | Explore the results                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Rover mission         | Three rover designs, terrain, dust, solar power, cargo, and route caution                                | Terrain routes, battery curves, a sortable fleet table, and a mission debrief       |
+| Model arena           | Three scikit-learn classifiers, shared feature transforms, synthetic worlds, noise, and training budgets | Decision maps, held-out mistakes, learning curves, and a sortable leaderboard       |
+| Generative art studio | Flowing ink, orbital rings, stars, colors, symmetry, and seeds                                           | Layered SVG artwork, four seed variations, a palette table, and downloadable images |
+
+Use **Explore**, **Compare** (or **Gallery**), **Build**, and **Python** to move around the experiment.
+The guide's buttons switch to the relevant view. Sliders and other controls save automatically;
+press Enter to commit a code expression. Running is explicit. Changed inputs mark older results,
+and a failed run keeps the last successful panels visible with an explanation and expandable details.
+Results belong to the current browser session; reload and Run to regenerate them from saved inputs.
+
+The model arena fits fresh pipelines on nested training subsets. Preprocessing never sees the
+400 held-out samples. The maps draw 120 of those samples for clarity; scores use all 400. Keep the
+seed fixed for comparisons, then change it to explore stability. These are synthetic experiments,
+not real-world performance estimates; repeated tuning against one test set can overfit it too.
+
+Working projects live in `tmp/python-canvas-playground/<example>`. The launcher prepares each
+frozen Python environment automatically with builds disabled. Rover mission and art studio use the
+standard library; model arena installs pinned NumPy and scikit-learn wheels. The first launch needs
+network access for uncached packages. Later launches preserve settings, Python, and canvas layout.
+
+Each folder contains `recipe.py`, a handwritten equivalent of the starting composition. Run it with
+`uv run --frozen --no-build python recipe.py` to print the visual result payload. **Download Python**
+in Generated Python saves your currently displayed program, including prefix and suffix drafts,
+as `canvas_recipe.py`. Run it from the working folder beside the helper module and its dependencies.
+The reference recipe does not synchronize later canvas edits. **Save image** downloads the exact
+rendered SVG, which opens independently and can be edited in a vector editor.
+
+```console
+pnpm python-canvas:playground --example art-studio --fresh
+pnpm python-canvas:playground --example model-arena --no-open
+pnpm python-canvas:playground --example rover-mission --workspace /path/to/working-copy
+pnpm python-canvas:playground --example art-studio --stop
+```
+
+`--fresh` starts another copy while preserving earlier work. The launcher prints the exact resume
+and stop commands. `--no-open` prints the local URL. The command returns once ready; you can close
+the terminal and the playground keeps running. Repeating it reopens the same live copy. Use
+**Start here** in the sidebar whenever you want the guide back.
 
 ## Install and open a project
 

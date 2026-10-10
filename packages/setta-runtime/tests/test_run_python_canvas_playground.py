@@ -21,9 +21,9 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.workspace = Path(temporary.name).resolve() / "model-workshop"
+        self.workspace = Path(temporary.name).resolve() / "rover-mission"
         patcher = mock.patch.object(
-            run_python_canvas_playground, "WORKSPACE_ROOT", self.workspace
+            run_python_canvas_playground, "WORKSPACE_ROOT", self.workspace.parent
         )
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -44,7 +44,7 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             launch.assert_called_once_with(
                 Path("/installed/setta"), "python-canvas", self.workspace
             )
-            source = self.workspace / "model_workshop.py"
+            source = self.workspace / "rover_mission.py"
             self.assertIn("def show", source.read_text(encoding="utf-8"))
             self.sync.assert_called_once_with(
                 [
@@ -66,14 +66,15 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
         self.assertEqual(source.read_text(encoding="utf-8"), "my experiment")
         self.assertIn(
             "def show",
-            (run_python_canvas_playground.FIXTURE_ROOT / "model_workshop.py").read_text(
-                encoding="utf-8"
-            ),
+            (
+                run_python_canvas_playground.EXAMPLES_ROOT
+                / "rover-mission/fixture/rover_mission.py"
+            ).read_text(encoding="utf-8"),
         )
 
     def test_fresh_launch_keeps_previous_work_and_can_be_resumed(self) -> None:
         run_python_canvas_playground.prepare_workspace()
-        original = self.workspace / "model_workshop.py"
+        original = self.workspace / "rover_mission.py"
         original.write_text("my experiment", encoding="utf-8")
         with mock.patch.object(
             playground_server, "start", return_value={"url": "http://127.0.0.1:1234"}
@@ -84,13 +85,40 @@ class PythonCanvasPlaygroundTests(unittest.TestCase):
             fresh = launch.call_args.args[2]
             self.assertNotEqual(fresh, self.workspace)
             self.assertIn(
-                "def show", (fresh / "model_workshop.py").read_text(encoding="utf-8")
+                "def show", (fresh / "rover_mission.py").read_text(encoding="utf-8")
             )
             self.assertEqual(
                 run_python_canvas_playground.main(["--workspace", str(fresh)]), 0
             )
             self.assertEqual(launch.call_args.args[2], fresh)
         self.assertEqual(original.read_text(encoding="utf-8"), "my experiment")
+
+    def test_all_examples_have_independent_workspaces_and_resume_commands(self) -> None:
+        for example in run_python_canvas_playground.EXAMPLES:
+            with (
+                self.subTest(example=example),
+                mock.patch.object(
+                    playground_server,
+                    "start",
+                    return_value={"url": "http://127.0.0.1:1234"},
+                ) as launch,
+                mock.patch("sys.stdout", new_callable=io.StringIO) as output,
+            ):
+                self.assertEqual(
+                    run_python_canvas_playground.main(
+                        ["--example", example, "--no-open"]
+                    ),
+                    0,
+                )
+                workspace = self.workspace.parent / example
+                self.assertEqual(launch.call_args.args[2], workspace)
+                self.assertTrue(
+                    (workspace / f"{example.replace('-', '_')}.py").is_file()
+                )
+                self.assertIn(f"--example {example} --fresh", output.getvalue())
+                self.assertIn(
+                    f'--example {example} --workspace "{workspace}"', output.getvalue()
+                )
 
     def test_partial_copy_is_not_published(self) -> None:
         with (

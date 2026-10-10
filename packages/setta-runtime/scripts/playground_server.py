@@ -42,7 +42,7 @@ def run(
             executable = run_local_setta.prepare()
             session = start(executable, app, workspace)
         url = str(session["url"])
-        playground_options.announce(app, options.workspace, url)
+        playground_options.announce(app, options.workspace, url, options.example)
         if not options.no_open:
             open_browser(url)
         return 0

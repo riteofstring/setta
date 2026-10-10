@@ -1,0 +1,356 @@
+{
+  "format": "python-canvas-project/v2",
+  "project": {
+    "id": "art-studio",
+    "name": "Generative art studio",
+    "revision": 1
+  },
+  "pythonTarget": {
+    "prefix": "from art_studio import FlowInk, OrbitRings, StarField, render_gallery, show",
+    "suffix": "try:\n    state = SettaState()\n    show(state.Artwork)\nexcept (TypeError, ValueError) as error:\n    print(f\"Try adjusting the recipe: {error}\")"
+  },
+  "callables": [
+    {
+      "id": "ink",
+      "name": "Flowing ink",
+      "authoredExpression": "FlowInk",
+      "parameters": [
+        {
+          "id": "ink-color",
+          "name": "color",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "\"#5eead4\""
+        },
+        {
+          "id": "ink-strands",
+          "name": "strands",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "42"
+        },
+        {
+          "id": "ink-bend",
+          "name": "bend",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "2.8"
+        },
+        {
+          "id": "ink-enabled",
+          "name": "enabled",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "True"
+        }
+      ]
+    },
+    {
+      "id": "rings",
+      "name": "Orbital rings",
+      "authoredExpression": "OrbitRings",
+      "parameters": [
+        {
+          "id": "rings-color",
+          "name": "color",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "\"#f9a8d4\""
+        },
+        {
+          "id": "rings-count",
+          "name": "count",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "9"
+        },
+        {
+          "id": "rings-tilt",
+          "name": "tilt",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "35"
+        },
+        {
+          "id": "rings-enabled",
+          "name": "enabled",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "True"
+        }
+      ]
+    },
+    {
+      "id": "stars",
+      "name": "Star field",
+      "authoredExpression": "StarField",
+      "parameters": [
+        {
+          "id": "stars-color",
+          "name": "color",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "\"#fbbf24\""
+        },
+        {
+          "id": "stars-count",
+          "name": "count",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "100"
+        },
+        {
+          "id": "stars-size",
+          "name": "size",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "1.8"
+        },
+        {
+          "id": "stars-enabled",
+          "name": "enabled",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "True"
+        }
+      ]
+    },
+    {
+      "id": "artwork",
+      "name": "Artwork",
+      "authoredExpression": "render_gallery",
+      "parameters": [
+        {
+          "id": "artwork-layers",
+          "name": "layers",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "state.Layers"
+        },
+        {
+          "id": "artwork-seed",
+          "name": "seed",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "state.Canvas[\"seed\"]"
+        },
+        {
+          "id": "artwork-background",
+          "name": "background",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "state.Canvas[\"background\"]"
+        },
+        {
+          "id": "artwork-symmetry",
+          "name": "symmetry",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "state.Canvas[\"symmetry\"]"
+        }
+      ]
+    }
+  ],
+  "parameterDictionaries": [
+    {
+      "id": "canvas",
+      "name": "Canvas",
+      "entries": [
+        {
+          "kind": "leaf",
+          "id": "canvas-seed",
+          "name": "seed",
+          "authoredExpression": "9"
+        },
+        {
+          "kind": "leaf",
+          "id": "canvas-background",
+          "name": "background",
+          "authoredExpression": "\"#0a1424\""
+        },
+        {
+          "kind": "leaf",
+          "id": "canvas-symmetry",
+          "name": "symmetry",
+          "authoredExpression": "3"
+        }
+      ]
+    }
+  ],
+  "parameterUIOverrides": {
+    "canvas-seed": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 100,
+        "step": 1
+      }
+    },
+    "canvas-background": {
+      "type": "ColorPickerParam",
+      "configuration": {
+        "disabled": false,
+        "choices": null
+      }
+    },
+    "canvas-symmetry": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 8,
+        "step": 1
+      }
+    },
+    "ink-color": {
+      "type": "ColorPickerParam",
+      "configuration": {
+        "disabled": false,
+        "choices": null
+      }
+    },
+    "ink-strands": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 6,
+        "max": 100,
+        "step": 2
+      }
+    },
+    "ink-bend": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0,
+        "max": 6,
+        "step": 0.1
+      }
+    },
+    "ink-enabled": {
+      "type": "SwitchParam",
+      "configuration": {
+        "disabled": false
+      }
+    },
+    "rings-color": {
+      "type": "ColorPickerParam",
+      "configuration": {
+        "disabled": false,
+        "choices": null
+      }
+    },
+    "rings-count": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 28,
+        "step": 1
+      }
+    },
+    "rings-tilt": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0,
+        "max": 180,
+        "step": 1
+      }
+    },
+    "rings-enabled": {
+      "type": "SwitchParam",
+      "configuration": {
+        "disabled": false
+      }
+    },
+    "stars-color": {
+      "type": "ColorPickerParam",
+      "configuration": {
+        "disabled": false,
+        "choices": null
+      }
+    },
+    "stars-count": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 10,
+        "max": 300,
+        "step": 10
+      }
+    },
+    "stars-size": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0.5,
+        "max": 5,
+        "step": 0.1
+      }
+    },
+    "stars-enabled": {
+      "type": "SwitchParam",
+      "configuration": {
+        "disabled": false
+      }
+    }
+  },
+  "lists": [
+    {
+      "id": "layers",
+      "name": "Layers",
+      "childSectionIds": ["ink", "rings", "stars"]
+    }
+  ],
+  "topLevelSectionIds": ["canvas", "layers", "artwork"]
+}

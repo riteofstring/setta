@@ -1,0 +1,357 @@
+{
+  "format": "python-canvas-project/v2",
+  "project": {
+    "id": "model-arena",
+    "name": "Model arena",
+    "revision": 1
+  },
+  "pythonTarget": {
+    "prefix": "from sklearn.preprocessing import StandardScaler, PolynomialFeatures\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.svm import SVC\nfrom sklearn.ensemble import RandomForestClassifier\nfrom model_arena import compare, show",
+    "suffix": "try:\n    state = SettaState()\n    show(state.Experiment)\nexcept (TypeError, ValueError) as error:\n    print(f\"Try adjusting the recipe: {error}\")"
+  },
+  "callables": [
+    {
+      "id": "scale",
+      "name": "Scale",
+      "authoredExpression": "StandardScaler",
+      "parameters": []
+    },
+    {
+      "id": "polynomial",
+      "name": "Curved features",
+      "authoredExpression": "PolynomialFeatures",
+      "parameters": [
+        {
+          "id": "polynomial-degree",
+          "name": "degree",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "1"
+        },
+        {
+          "id": "polynomial-include_bias",
+          "name": "include_bias",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "False"
+        }
+      ]
+    },
+    {
+      "id": "linear",
+      "name": "Linear classifier",
+      "authoredExpression": "LogisticRegression",
+      "parameters": [
+        {
+          "id": "linear-C",
+          "name": "C",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "1.0"
+        },
+        {
+          "id": "linear-max_iter",
+          "name": "max_iter",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "1000"
+        }
+      ]
+    },
+    {
+      "id": "kernel",
+      "name": "Kernel classifier",
+      "authoredExpression": "SVC",
+      "parameters": [
+        {
+          "id": "kernel-C",
+          "name": "C",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "2.0"
+        },
+        {
+          "id": "kernel-gamma",
+          "name": "gamma",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "\"scale\""
+        }
+      ]
+    },
+    {
+      "id": "forest",
+      "name": "Random forest",
+      "authoredExpression": "RandomForestClassifier",
+      "parameters": [
+        {
+          "id": "forest-n_estimators",
+          "name": "n_estimators",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "64"
+        },
+        {
+          "id": "forest-max_depth",
+          "name": "max_depth",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "6"
+        },
+        {
+          "id": "forest-random_state",
+          "name": "random_state",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "7"
+        }
+      ]
+    },
+    {
+      "id": "experiment",
+      "name": "Experiment",
+      "authoredExpression": "compare",
+      "parameters": [
+        {
+          "id": "experiment-models",
+          "name": "models",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 0,
+          "authoredExpression": "state.Models"
+        },
+        {
+          "id": "experiment-features",
+          "name": "features",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 1,
+          "authoredExpression": "state.Features"
+        },
+        {
+          "id": "experiment-shape",
+          "name": "shape",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 2,
+          "authoredExpression": "state.Arena[\"shape\"]"
+        },
+        {
+          "id": "experiment-noise",
+          "name": "noise",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 3,
+          "authoredExpression": "state.Arena[\"noise\"]"
+        },
+        {
+          "id": "experiment-training_points",
+          "name": "training_points",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 4,
+          "authoredExpression": "state.Arena[\"training_points\"]"
+        },
+        {
+          "id": "experiment-seed",
+          "name": "seed",
+          "nameEditable": false,
+          "passingStyle": "positional_or_keyword",
+          "typeAnnotation": null,
+          "default": null,
+          "providerOrdinal": 5,
+          "authoredExpression": "state.Arena[\"seed\"]"
+        }
+      ]
+    }
+  ],
+  "parameterDictionaries": [
+    {
+      "id": "arena",
+      "name": "Arena",
+      "entries": [
+        {
+          "kind": "leaf",
+          "id": "arena-shape",
+          "name": "shape",
+          "authoredExpression": "\"moons\""
+        },
+        {
+          "kind": "leaf",
+          "id": "arena-noise",
+          "name": "noise",
+          "authoredExpression": "0.18"
+        },
+        {
+          "kind": "leaf",
+          "id": "arena-training_points",
+          "name": "training_points",
+          "authoredExpression": "100"
+        },
+        {
+          "kind": "leaf",
+          "id": "arena-seed",
+          "name": "seed",
+          "authoredExpression": "7"
+        }
+      ]
+    }
+  ],
+  "parameterUIOverrides": {
+    "arena-shape": {
+      "type": "DropdownParam",
+      "configuration": {
+        "disabled": false,
+        "placeholder": null,
+        "flatChoices": ["moons", "rings", "checkerboard"],
+        "groupedChoices": null
+      }
+    },
+    "arena-noise": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0,
+        "max": 0.5,
+        "step": 0.01
+      }
+    },
+    "arena-training_points": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 20,
+        "max": 1200,
+        "step": 20
+      }
+    },
+    "arena-seed": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 50,
+        "step": 1
+      }
+    },
+    "polynomial-degree": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 4,
+        "step": 1
+      }
+    },
+    "polynomial-include_bias": {
+      "type": "SwitchParam",
+      "configuration": {
+        "disabled": false
+      }
+    },
+    "linear-C": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0.1,
+        "max": 20,
+        "step": 0.1
+      }
+    },
+    "kernel-C": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 0.1,
+        "max": 20,
+        "step": 0.1
+      }
+    },
+    "kernel-gamma": {
+      "type": "DropdownParam",
+      "configuration": {
+        "disabled": false,
+        "placeholder": null,
+        "flatChoices": ["scale", "auto"],
+        "groupedChoices": null
+      }
+    },
+    "forest-n_estimators": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 16,
+        "max": 128,
+        "step": 16
+      }
+    },
+    "forest-max_depth": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 12,
+        "step": 1
+      }
+    },
+    "forest-random_state": {
+      "type": "SliderParam",
+      "configuration": {
+        "disabled": false,
+        "min": 1,
+        "max": 50,
+        "step": 1
+      }
+    }
+  },
+  "lists": [
+    {
+      "id": "features",
+      "name": "Features",
+      "childSectionIds": ["scale", "polynomial"]
+    },
+    {
+      "id": "models",
+      "name": "Models",
+      "childSectionIds": ["linear", "kernel", "forest"]
+    }
+  ],
+  "topLevelSectionIds": ["arena", "features", "models", "experiment"]
+}

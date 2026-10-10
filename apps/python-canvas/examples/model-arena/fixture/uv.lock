@@ -197,7 +197,7 @@ wheels = [
 ]
 
 [[package]]
-name = "setta-python-canvas-model-workshop"
+name = "setta-python-canvas-model-arena"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

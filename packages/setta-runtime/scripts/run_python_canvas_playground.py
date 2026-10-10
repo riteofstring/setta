@@ -9,11 +9,12 @@ from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-FIXTURE_ROOT = ROOT / "apps/python-canvas/examples/model-workshop/fixture"
-WORKSPACE_ROOT = ROOT / "tmp/python-canvas-playground/model-workshop"
+EXAMPLES_ROOT = ROOT / "apps/python-canvas/examples"
+WORKSPACE_ROOT = ROOT / "tmp/python-canvas-playground"
+EXAMPLES = ("rover-mission", "model-arena", "art-studio")
 REQUIRED_FILES = (
     "project.json",
-    "model_workshop.py",
+    "recipe.py",
     "pyproject.toml",
     "uv.lock",
     "uv.toml",
@@ -30,15 +31,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
     from scripts import playground_options, playground_server
 
     options = playground_options.parse_options(
-        "python-canvas", WORKSPACE_ROOT, arguments
+        "python-canvas",
+        WORKSPACE_ROOT / EXAMPLES[0],
+        arguments,
+        examples={example: WORKSPACE_ROOT / example for example in EXAMPLES},
     )
     if isinstance(options, int):
         return options
-    return playground_server.run("python-canvas", options, _prepare_launch)
+    example = options.example or EXAMPLES[0]
+    return playground_server.run(
+        "python-canvas", options, lambda workspace: _prepare_launch(workspace, example)
+    )
 
 
-def _prepare_launch(workspace: Path) -> Path:
-    workspace = prepare_workspace(workspace)
+def _prepare_launch(workspace: Path, example: str) -> Path:
+    workspace = prepare_workspace(workspace, example)
     uv = shutil.which("uv")
     if uv is None:
         raise PlaygroundError(
@@ -63,39 +70,42 @@ def _prepare_launch(workspace: Path) -> Path:
     return workspace
 
 
-def prepare_workspace(workspace: Path | None = None) -> Path:
-    workspace = WORKSPACE_ROOT if workspace is None else workspace
-    if workspace.resolve().is_relative_to(FIXTURE_ROOT.resolve()):
+def prepare_workspace(
+    workspace: Path | None = None, example: str = "rover-mission"
+) -> Path:
+    fixture = EXAMPLES_ROOT / example / "fixture"
+    workspace = WORKSPACE_ROOT / example if workspace is None else workspace
+    if workspace.resolve().is_relative_to(EXAMPLES_ROOT.resolve()):
         raise PlaygroundError(
             "choose a working directory outside the checked-in fixture"
         )
     try:
         if workspace.exists() or workspace.is_symlink():
-            _validate_project(workspace)
+            _validate_project(workspace, example)
             return workspace
-        _validate_project(FIXTURE_ROOT)
+        _validate_project(fixture, example)
         workspace.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".model-workshop-", dir=workspace.parent
+            prefix=f".{example}-", dir=workspace.parent
         ) as staging:
             shutil.copytree(
-                FIXTURE_ROOT,
+                fixture,
                 staging,
                 dirs_exist_ok=True,
                 symlinks=True,
                 ignore=shutil.ignore_patterns(".venv", "__pycache__"),
             )
-            _validate_project(Path(staging))
+            _validate_project(Path(staging), example)
             Path(staging).rename(workspace)
     except OSError as error:
         raise PlaygroundError(f"cannot prepare the example: {error}") from error
     return workspace
 
 
-def _validate_project(root: Path) -> None:
+def _validate_project(root: Path, example: str) -> None:
     if not stat.S_ISDIR(root.lstat().st_mode):
         raise PlaygroundError(f"workspace must be a regular directory: {root}")
-    for name in REQUIRED_FILES:
+    for name in (*REQUIRED_FILES, f"{example.replace('-', '_')}.py"):
         path = root / name
         if not stat.S_ISREG(path.lstat().st_mode):
             raise PlaygroundError(f"example file must be a regular file: {path}")

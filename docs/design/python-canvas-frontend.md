@@ -153,24 +153,30 @@ completion draft produces no suggestions and clears stale completion feedback; i
 a failed project edit. The backend still validates the protected region, and transport or provider
 failures retain their visible feedback. Later completion requests use the current draft normally.
 
-## Playground guidance
+## Playground guidance and visual results
 
-The canonical `model-workshop` project enables a Start here shell tab and seeds two saved views
-before bootstrap. Build & run puts the composed ingredients beside Generated Python; Data & wiring
-shows the dataset and the callable consuming the ingredient list. Visibility changes presentation
-only; both views execute the same complete recipe. Existing saved views retain authority. Guide
-steps activate the relevant view and frame its section, explaining Run, parameter changes, and
-swapping an actual library class. The guide uses Workspace's shared quick-start surface;
-application code owns the example content.
-This sample-only tab is not persisted as a global shell preference for unrelated projects. On a
-narrow screen a guide jump collapses the guide pane before framing to make room for the destination.
-The initial code pane leaves room for the terminal opened by Run. A visible Run label makes the
-action discoverable, and the terminal's initial 400-pixel height accommodates a small report or
-traceback without requiring a resize before reading the result.
-Opening or showing the terminal immediately frames the Generated Python section with its attached
-result. The model workshop frames its current view's visible roots together so ingredients and
-results remain usable side by side. This does not animate or temporarily block canvas gestures.
-Download Python reads the public Workspace code-section data at click time, including visible
-prefix and suffix drafts, and saves a Python file through the browser. It does not mutate the
-project, run code, or bundle dependencies. Download failure leaves the editor available and the
-same control offers retry.
+The three canonical playground IDs enable a Start here tab and seed four saved views before
+bootstrap: Explore, Compare (Gallery for art), Build, and Python. Existing saved views retain
+authority. The guide uses Workspace's public quick-start surface and switches views to the relevant
+section. This sample-only tab is not persisted as a global preference for ordinary projects.
+On narrow screens a guide jump collapses the guide pane before framing its destination.
+
+Run experiment shares the existing mutation queue and target-flush boundary, then executes the
+canonical revision through the existing run endpoint. The app context owns transient result
+panels, their run revision, progress, errors, and logs. Authored project snapshots remain the only
+source of Python. Editing marks older results as stale; failures preserve them and allow another
+run. A malformed individual panel does not discard valid siblings. Reloading clears result state;
+the saved inputs regenerate it on explicit Run. Disposal aborts the browser request without updating
+an unmounted host; backend execution remains bounded by its existing timeout and containment.
+
+Public Workspace section kinds present SVG images with downloads, sortable tables, native SVG
+charts with legend toggles and point values, and rendered Markdown. The challenge itself uses the
+built-in text section. The frontend accepts only inline base64 image media, finite chart data, and
+rectangular primitive tables; Markdown retains Workspace's rendering rules. SVG is displayed as an
+image rather than injected into the page. Fixed panel slots and saved views are presentation state,
+excluded from canonical Python forest mutations, and survive snapshot reconciliation.
+
+Ordinary projects retain terminal Run. Playground Generated Python exposes visual Run and a
+separate terminal control. Download Python reads the public code-section data at click time,
+including prefix and suffix drafts, and saves a Python file. It does not run code or bundle the
+helper and dependencies. Download failure leaves the editor available for retry.

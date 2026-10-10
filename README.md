@@ -17,7 +17,7 @@ Complete [source setup](CONTRIBUTING.md#source-setup), then choose an example. E
 
 | App             | Launch                            | Try this                                                         |
 | --------------- | --------------------------------- | ---------------------------------------------------------------- |
-| Python Canvas   | `pnpm python-canvas:playground`   | Assemble a scikit-learn recipe and teach it to follow two moons. |
+| Python Canvas   | `pnpm python-canvas:playground`   | Build rovers, compare models, or compose generative artwork.     |
 | Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.   |
 | Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision. |
 | Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                  |

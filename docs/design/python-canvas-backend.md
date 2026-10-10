@@ -151,25 +151,27 @@ The Windows ConPTY implementation derives in part from `UserExistsError/conpty`.
 retained in the source tree and the built wheel's license directory; this design record does not
 replace that attribution.
 
-## Model workshop example
+## Visual Python playgrounds
 
-The checked-in model workshop exercises Python object composition: a List of Objects constructs
-scikit-learn preprocessing and estimator instances, and a separate `make_pipeline` callable consumes
-that list through its variadic positional parameter. The dataset is another ordinary callable.
-The generated suffix invokes `model_workshop.show` only on explicit Run and explains invalid recipe
-values without terminating the app or changing saved inputs. The reporting helper splits data
-before fitting a cloned pipeline, keeping both preprocessing and training separate from held-out
-evaluation. Seeded local synthetic data needs no downloaded dataset or service.
+Three independent examples exercise object composition with local, repeatable experiments. Rover
+mission constructs a terrain and a fleet, then simulates route choice, energy, payload, and cost.
+Model arena constructs shared feature transforms and three classifiers, cloning a fresh pipeline
+for each training budget. Its split precedes all fitting; 400 held-out points drive the scores and
+120 are drawn on the decision maps. Art studio constructs ordered drawing layers and renders the
+same recipe under several seeds. SVG uses escaped text, validated hex colors, and reusable vector
+shapes to stay within the existing bounded run output.
 
-The colored decision map uses the existing terminal; there is no new output protocol, scheduler,
-artifact server, or Realtime dependency. A short handwritten `recipe.py` makes the comparison with
-ordinary Python concrete. The example tests whether visual composition and signature discovery
-justify the canvas's extra navigation; a more attractive result alone does not establish that.
+Each generated suffix calls its helper's `show` on explicit Run. The helper emits one versioned
+`SETTA_DISPLAY` JSON line with image, chart, table, and Markdown panels. The frontend consumes that
+line through the existing generated-program run route, using its revision binding, interpreter,
+working directory, time limit, process containment, and output limit. There is no artifact server
+or additional execution lifecycle. Validation errors leave authored inputs intact; ordinary Python
+failures remain run results rather than application failures. `recipe.py` provides a handwritten
+starting equivalent, and the suffix entry-point contracts declare those dynamic calls.
 
-NumPy 2.5.1 and scikit-learn 1.9.0 are exact project dependencies from their official PyPI releases,
-both older than 90 days at admission. Their frozen transitive graph passed dependency review on
-2026-10-09 without new vulnerability or release-age assessments. A fixed resolver cutoff preserves
-the 30-day admission window; setup admits wheels only and executes no build hooks. These libraries
-belong to the example environment rather than the Setta runtime. The local Basedpyright configuration
-permits the generated constructor's intentional `state` parameter name. The `model_workshop:show`
-entry-point contract records the suffix invocation authored in `project.json`.
+Rover mission and art studio need only the standard library. Model arena retains NumPy 2.5.1 and
+scikit-learn 1.9.0 from the previous example: exact official releases older than 90 days at admission.
+A fixed resolver cutoff preserves the 30-day admission window. Setup admits wheels only and runs
+no build hooks. These packages belong to the example environment rather than the Setta runtime.
+Project-local Basedpyright configuration permits the generated constructor's intentional `state`
+parameter name. Each example owns a frozen lock and an observable boundary suite.

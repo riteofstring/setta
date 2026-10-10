@@ -10,7 +10,7 @@ import {
   loadPythonCanvasSavedViews,
   persistPythonCanvasSavedViews,
 } from "./pythonCanvasSavedViewsPreferences";
-import { modelWorkshopLayout } from "./pythonCanvasPlaygroundLayout";
+import { playgroundLayout } from "./pythonCanvasPlaygroundLayout";
 
 type PythonCanvasSavedViewsBootstrap = {
   document: WorkspaceDocumentInput;
@@ -75,8 +75,8 @@ export function bootstrapPythonCanvasSavedViews(
   projectId: string,
 ): PythonCanvasSavedViewsBootstrap {
   const loaded = loadPythonCanvasSavedViews(projectId);
-  if (projectId === "model-workshop" && loaded.kind !== "loaded") {
-    document = modelWorkshopLayout(document);
+  if (loaded.kind !== "loaded") {
+    document = playgroundLayout(document, projectId);
   }
   const savedViews =
     loaded.kind === "loaded"

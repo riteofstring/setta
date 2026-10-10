@@ -1,5 +1,5 @@
 [project]
-name = "setta-python-canvas-model-workshop"
+name = "setta-python-canvas-model-arena"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = ["numpy==2.5.1", "scikit-learn==1.9.0"]

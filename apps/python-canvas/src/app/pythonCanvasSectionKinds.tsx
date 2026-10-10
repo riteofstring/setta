@@ -1,6 +1,8 @@
 import {
   WORKSPACE_CODE_SECTION_KIND,
+  WORKSPACE_TEXT_SECTION_KIND,
   createWorkspaceCodeSection,
+  createWorkspaceTextSection,
   registerSectionKinds,
   type SectionKindDefinition,
   type WorkspaceCodeSectionCompletionProvider,
@@ -37,6 +39,7 @@ import {
 } from "./workspaceProjection";
 import { PythonTargetCompletionBoundary } from "./PythonTargetCompletionBoundary";
 import { DownloadPythonButton } from "./DownloadPythonButton";
+import { displaySectionKinds } from "./DisplaySection";
 import {
   GeneratedPythonTerminalAttachment,
   GeneratedPythonTerminalHeaderControls,
@@ -150,6 +153,11 @@ export function registerPythonCanvasSectionKinds(
     ),
   };
   registerSectionKinds(host, {
+    ...displaySectionKinds(),
+    [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+      formats: ["markdown"],
+      displayModes: ["render"],
+    }),
     [CALLABLE_SECTION_KIND]: {
       ...callableSectionKind,
       itemArea: {
