@@ -265,3 +265,11 @@ the only browser write path for the declared entrypoint. Dependency installation
 ordinary project-environment operation. There is no listener discovery, dependency catalog,
 autosave, implicit reload after ordinary filesystem edits, temporary ID, coverage, share-session,
 or force-refresh path.
+
+## New project starter
+
+Creating a Realtime project also creates a standard-library-only `app.py` with an `increment`
+handler when that file is absent and adds one Code section. Exclusive file creation preserves
+existing source. An existing Python project therefore opens its own code; an empty directory opens
+an editable, runnable starter without a missing-entrypoint worker failure. Other section and
+binding creation remains explicit in the workspace.

@@ -898,7 +898,7 @@ function collectBrowserIssues(client) {
 }
 
 async function drawArtifactStroke(client) {
-  const selector = `${sectionSelector(apertureEvidenceSectionId)} [data-artifact-annotation="poster-aperture"]`;
+  const selector = `${sectionSelector(apertureEvidenceSectionId)} [data-workspace-normalized-stroke-surface]`;
   await waitFor(
     client,
     "the visible aperture annotation surface",
@@ -964,7 +964,7 @@ async function drawArtifactStroke(client) {
   await waitFor(
     client,
     "the completed artifact annotation",
-    `document.querySelector(${JSON.stringify(`${selector} [data-annotation-stroke]`)}) !== null`,
+    `document.querySelector(${JSON.stringify(`${selector} [data-workspace-normalized-stroke]`)}) !== null`,
   );
 }
 
@@ -975,7 +975,7 @@ async function artifactOverlayGeometry(client, rootSelector) {
       const root = document.querySelector(${JSON.stringify(rootSelector)});
       const stage = root?.querySelector(".review-artifact-stage");
       const image = stage?.querySelector("img");
-      const overlay = stage?.querySelector('[data-artifact-annotation="poster-aperture"]');
+      const overlay = stage?.querySelector('[data-workspace-normalized-stroke-surface]');
       if (!(stage instanceof HTMLElement) || !(image instanceof HTMLImageElement) ||
         !(overlay instanceof SVGSVGElement) || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
         return null;
@@ -1032,7 +1032,7 @@ async function attemptLetterboxStroke(client) {
     client,
     `(() => {
       const stage = document.querySelector(${JSON.stringify(selector)});
-      const overlay = stage?.querySelector('[data-artifact-annotation="poster-aperture"]');
+      const overlay = stage?.querySelector('[data-workspace-normalized-stroke-surface]');
       if (!(stage instanceof HTMLElement) || !(overlay instanceof SVGSVGElement)) {
         return null;
       }
@@ -1076,7 +1076,7 @@ async function attemptLetterboxStroke(client) {
   });
   const drew = await evaluate(
     client,
-    `document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-annotation-stroke], ${sectionSelector(apertureEvidenceSectionId)} [data-annotation-draft]`)}) !== null`,
+    `document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-workspace-normalized-stroke], ${sectionSelector(apertureEvidenceSectionId)} [data-workspace-normalized-stroke-draft]`)}) !== null`,
   );
   assert.equal(drew, false, "A letterbox gesture created artifact feedback.");
 }
@@ -1485,6 +1485,14 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     'textarea[aria-label="Requested changes"]',
     revisionText,
   );
+  await reloadPage(client);
+  await clickSectionButton(client, artifactChoiceSectionId, "C · Aperture");
+  await waitFor(
+    client,
+    "the unsubmitted feedback and drawing restored after reload",
+    `document.querySelector(${JSON.stringify(`${sectionSelector(artifactChoiceSectionId)} textarea[aria-label="Requested changes"]`)})?.value === ${JSON.stringify(revisionText)} &&
+      document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-workspace-normalized-stroke]`)}) !== null`,
+  );
   await clickSectionButton(client, artifactChoiceSectionId, "Send feedback");
   const afterArtifact = await waitForSnapshot(
     origin,
@@ -1564,7 +1572,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   await waitFor(
     client,
     "the persisted artifact drawing after reload",
-    `document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-artifact-annotation="poster-aperture"] [data-annotation-stroke]`)}) !== null`,
+    `document.querySelector(${JSON.stringify(`${sectionSelector(apertureEvidenceSectionId)} [data-workspace-normalized-stroke-surface] [data-workspace-normalized-stroke]`)}) !== null`,
   );
 
   await client.send("Emulation.setDeviceMetricsOverride", {

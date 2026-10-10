@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import platform
@@ -15,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[3]
 BUILD_SCRIPT = ROOT / "packages" / "setta-runtime" / "scripts" / "build_setta_wheel.py"
 LOCAL_ENVIRONMENT = ROOT / "build" / "setta-wheel" / "local-environment"
 LOCAL_BUILD_STATE = ROOT / "build" / "setta-wheel" / "local-build.json"
-LOCAL_BUILD_STATE_FORMAT = 2
 PACKAGED_APP_IDS = ("experiment-lens", "python-canvas", "realtime", "review")
 APPLICATION_BUILD_INPUTS = tuple(
     ROOT / "apps" / app_id / relative
@@ -52,6 +50,7 @@ LOCAL_BUILD_INPUTS = (
     ROOT / "packages" / "workspace" / "tsconfig.build.json",
     ROOT / "packages" / "workspace" / "tsconfig.json",
     ROOT / "packages" / "workspace" / "vite.config.ts",
+    ROOT / "packages" / "local-backend",
     *APPLICATION_BUILD_INPUTS,
     ROOT / "packages" / "setta-runtime" / "licenses",
     ROOT / "packages" / "setta-runtime" / "platform_contract.py",
@@ -80,38 +79,43 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
 
 def run(arguments: Sequence[str]) -> int:
-    fingerprint = _local_build_fingerprint()
-    cached = _cached_local_executable(fingerprint)
+    inputs = _local_build_state()
+    cached = _cached_local_executable(inputs)
     if cached is not None:
         sys.stdout.write("run_local_setta: reusing unchanged local build\n")
         return _run_foreground([str(cached), *arguments], ROOT)
     uv = _required_command("uv")
-    pnpm = _required_command("pnpm")
     go = _pinned_go()
-    _run([pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], ROOT)
     with tempfile.TemporaryDirectory(prefix="setta-local-wheel-") as wheel_directory:
         wheel = _build_current_wheel(go, Path(wheel_directory))
         setta = _install_current_wheel(uv, wheel)
-    _record_local_build(fingerprint)
+    _record_local_build(inputs)
     return _run_foreground([str(setta), *arguments], ROOT)
 
 
-def _local_build_fingerprint() -> str:
-    digest = hashlib.sha256()
-    digest.update(
-        f"{platform.system()}\0{platform.machine()}\0{sys.implementation.cache_tag}\0".encode()
-    )
+def _local_build_state() -> dict[str, object]:
+    files: list[list[str | int]] = []
     for path in _build_input_files(LOCAL_BUILD_INPUTS):
         try:
-            relative = path.relative_to(ROOT).as_posix()
-            payload = path.read_bytes()
+            info = path.stat()
         except OSError as error:
-            raise LocalRunError(f"cannot read local build input: {path}") from error
-        digest.update(relative.encode())
-        digest.update(b"\0")
-        digest.update(payload)
-        digest.update(b"\0")
-    return digest.hexdigest()
+            raise LocalRunError(f"cannot inspect local build input: {path}") from error
+        files.append(
+            [
+                path.relative_to(ROOT).as_posix(),
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+                info.st_size,
+            ]
+        )
+    return {
+        "platform": [
+            platform.system(),
+            platform.machine(),
+            sys.implementation.cache_tag,
+        ],
+        "files": files,
+    }
 
 
 def _build_input_files(inputs: Sequence[Path]) -> tuple[Path, ...]:
@@ -137,15 +141,12 @@ def _build_input_files(inputs: Sequence[Path]) -> tuple[Path, ...]:
     return tuple(sorted(files, key=lambda candidate: candidate.as_posix()))
 
 
-def _cached_local_executable(fingerprint: str) -> Path | None:
+def _cached_local_executable(inputs: dict[str, object]) -> Path | None:
     try:
         document = json.loads(LOCAL_BUILD_STATE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if document != {
-        "fingerprint": fingerprint,
-        "format": LOCAL_BUILD_STATE_FORMAT,
-    }:
+    if document != inputs:
         return None
     _, setta = _environment_executables(LOCAL_ENVIRONMENT)
     if not setta.is_file() or not all(
@@ -155,11 +156,7 @@ def _cached_local_executable(fingerprint: str) -> Path | None:
     return setta
 
 
-def _record_local_build(fingerprint: str) -> None:
-    document = {
-        "fingerprint": fingerprint,
-        "format": LOCAL_BUILD_STATE_FORMAT,
-    }
+def _record_local_build(inputs: dict[str, object]) -> None:
     try:
         LOCAL_BUILD_STATE.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
@@ -168,13 +165,15 @@ def _record_local_build(fingerprint: str) -> None:
         temporary = Path(temporary_name)
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-                json.dump(document, stream, sort_keys=True)
+                json.dump(inputs, stream, sort_keys=True)
                 stream.write("\n")
             os.replace(temporary, LOCAL_BUILD_STATE)
         finally:
             temporary.unlink(missing_ok=True)
-    except OSError as error:
-        raise LocalRunError("cannot record the local Setta build") from error
+    except OSError:
+        sys.stderr.write(
+            "run_local_setta: build cache could not be saved; the next launch will rebuild\n"
+        )
 
 
 def _build_current_wheel(
@@ -246,6 +245,8 @@ def _install_current_wheel(uv: str, wheel: Path) -> Path:
             "--reinstall-package",
             "setta",
             "--no-cache",
+            "--only-binary",
+            ":all:",
             str(wheel),
         ],
         ROOT,

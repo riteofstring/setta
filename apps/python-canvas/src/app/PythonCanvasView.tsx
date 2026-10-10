@@ -65,6 +65,7 @@ type ViewMutation =
 type PythonCanvasViewProps = {
   announcement: ViewMutation;
   mutationContext: PythonCanvasMutationContextValue;
+  onRetry?: () => void;
   pythonTargetCompletionError: string | null;
   state: ViewState;
   terminalContext: GeneratedPythonTerminalContextValue;
@@ -81,7 +82,7 @@ export function PythonCanvasView(props: PythonCanvasViewProps) {
         announcement={props.announcement}
         state={props.state}
       />
-      <PythonCanvasLoadError state={props.state} />
+      <PythonCanvasLoadError state={props.state} onRetry={props.onRetry} />
       <PythonCanvasMutationError announcement={props.announcement} />
       <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
       <PythonCanvasTerminalError error={props.terminalContext.state.error} />
@@ -132,13 +133,22 @@ function pythonCanvasStatusMessage(
 
 function PythonCanvasLoadError({
   state,
-}: Pick<PythonCanvasViewProps, "state">) {
+  onRetry,
+}: Pick<PythonCanvasViewProps, "state" | "onRetry">) {
+  if (state.kind === "ready") return null;
   return (
-    <p className="python-canvas-announcer" role="alert">
-      {state.kind === "error"
-        ? "Unable to load Python Canvas. Check that the backend is running and reload the page."
-        : null}
-    </p>
+    <div className="python-canvas-load-state">
+      <p role={state.kind === "error" ? "alert" : "status"}>
+        {state.kind === "error"
+          ? "Unable to connect to Python Canvas. Check that the app is running, then try again."
+          : "Opening Python Canvas…"}
+      </p>
+      {state.kind === "error" ? (
+        <button type="button" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -147,7 +157,7 @@ function PythonCanvasMutationError({
 }: Pick<PythonCanvasViewProps, "announcement">) {
   return (
     <p
-      className="python-canvas-announcer"
+      className="python-canvas-error"
       id="python-canvas-mutation-error"
       role="alert"
     >
@@ -159,7 +169,7 @@ function PythonCanvasMutationError({
 function PythonCanvasCompletionError({ error }: { error: string | null }) {
   return (
     <p
-      className="python-canvas-announcer"
+      className="python-canvas-error"
       id={pythonTargetCompletionErrorId}
       role="alert"
     >
@@ -171,7 +181,7 @@ function PythonCanvasCompletionError({ error }: { error: string | null }) {
 function PythonCanvasTerminalError({ error }: { error: string | null }) {
   return (
     <p
-      className="python-canvas-announcer"
+      className="python-canvas-error"
       id="python-canvas-terminal-error"
       role="alert"
     >

@@ -65,3 +65,13 @@ artifacts. A launcher copies it into ignored working state. Component tests cove
 and revision actions; browser acceptance covers completion selection and resolution,
 Current-to-Old movement, factor-to-evidence highlighting, artifact choice, drawing, reload
 persistence, and CLI assessment ingestion at normal and constrained viewport sizes.
+
+## Unsubmitted feedback
+
+Feedback text, claim notes, and drawing overlays are tab-local drafts until the human submits a
+response. Session storage retains them across refresh and section remounts. Keys include project
+identity and the admitted request digest; drawing restoration also validates the response shape
+and exact artifact digest. Storage failures retain in-memory work, show a visible notice, and
+warn before leaving while unsaved work remains. They do not prevent review or submission. A
+successful response clears only the submitted drawing draft; strokes added during the request
+remain pending. Save conflicts retain feedback and remain visible after refreshing the snapshot.

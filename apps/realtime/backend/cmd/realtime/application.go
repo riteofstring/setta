@@ -41,6 +41,12 @@ func openLocalApplication(projectRoot string, create bool, launcherPython string
 	if err != nil {
 		return nil, err
 	}
+	if create {
+		if err := initializeEntrypoint(canonicalRoot, projects); err != nil {
+			_ = projects.Close()
+			return nil, err
+		}
+	}
 	contentStore, err := content.Open(stateRoot)
 	if err != nil {
 		_ = projects.Close()

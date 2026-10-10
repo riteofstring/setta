@@ -76,6 +76,7 @@ type CompletionProviders = Record<string, TextValueCompletionProvider>;
 type CompletionErrors = Record<string, string>;
 export function PythonCanvasController() {
   const [state, setState] = useState<AppState>({ kind: "loading" });
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [callableDrafts, setCallableDrafts] = useState<CallableDrafts>({});
   const [completionProviders, setCompletionProviders] =
     useState<CompletionProviders>({});
@@ -102,6 +103,7 @@ export function PythonCanvasController() {
   const isProjectingRef = useRef(false);
 
   useEffect(() => {
+    setState({ kind: "loading" });
     const host = createWorkspaceHost();
     setWorkspaceColorMode(host, "system");
     let active = true;
@@ -893,7 +895,7 @@ export function PythonCanvasController() {
       unsubscribe();
       disposeHost();
     };
-  }, []);
+  }, [loadAttempt]);
 
   const mutationContext = useMemo<PythonCanvasMutationContextValue>(
     () => ({
@@ -989,6 +991,7 @@ export function PythonCanvasController() {
     <PythonCanvasView
       announcement={announcement}
       mutationContext={mutationContext}
+      onRetry={() => setLoadAttempt((value) => value + 1)}
       pythonTargetCompletionError={pythonTargetCompletionError}
       state={state}
       terminalContext={terminalContext}

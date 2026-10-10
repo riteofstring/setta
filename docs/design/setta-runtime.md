@@ -69,14 +69,14 @@ acceptance opens each app from a clean environment; the Lens flow verifies its s
 identity and snapshot, selection mutation, packet export, and offline access after shutdown.
 Runtime boundary checks reject undeclared files, missing app assets, and source-checkout fallbacks.
 
-The repository-local runner fingerprints the platform, pinned toolchain, package locks, Workspace,
-all four application build inputs, and packaged runtime sources. An installed runtime is reused for
-every app only when its executable and every packaged app asset remain valid and an atomically
-written record matches that fingerprint. The first launch or any mismatch builds a fresh wheel into
-a temporary directory and reinstalls the same-version `setta` package into a repository-owned
-environment with the package cache disabled. A successful install publishes the new record before
-the application opens. This prevents an older unpacked `uv tool run` environment from becoming an
-implicit cache while ensuring one app's completed build is immediately reusable by the other apps.
+The repository-local runner records the platform and file paths, sizes, modification times, and
+change times for the pinned toolchain, package locks, Workspace, shared local backend, all four
+application build inputs, and packaged runtime sources. It compares those ordinary filesystem
+values without hashing mutable local state. Additions and deletions invalidate the build as well as
+edits. A matching record is reusable only while every packaged app asset and executable remains
+valid. A mismatch builds and reinstalls a fresh wheel in the repository-owned environment. Cache
+recording failure still launches that successful build and reports that the next launch will
+rebuild. Dependency setup is an explicit contributor step, never repeated on an ordinary rebuild.
 
 Playground project content is not a build input, so ordinary experiment, review, drawing, and
 callback edits do not invalidate the packaged application. Installed releases continue to use the

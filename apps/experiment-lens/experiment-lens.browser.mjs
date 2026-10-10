@@ -1315,16 +1315,16 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     `(() => {
       const stroke = document.querySelector(${JSON.stringify(
-        `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+        `${populationSelector} path[data-workspace-normalized-stroke="${savedChartAnnotation.id}:0"]`,
       )});
       const overlay = stroke?.closest("svg");
       const section = document.querySelector(${JSON.stringify(populationSelector)});
       const bounds = overlay?.getBoundingClientRect();
       const sectionBounds = section?.getBoundingClientRect();
-      return stroke instanceof SVGPolylineElement && bounds && sectionBounds
+      return stroke instanceof SVGPathElement && bounds && sectionBounds
         ? {
             height: bounds.height,
-            points: stroke.getAttribute("points"),
+            points: stroke.getAttribute("d"),
             sectionHeight: sectionBounds.height,
             sectionWidth: sectionBounds.width,
             width: bounds.width,
@@ -1354,11 +1354,11 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     `(() => {
       const stroke = document.querySelector(${JSON.stringify(
-        `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+        `${populationSelector} path[data-workspace-normalized-stroke="${savedChartAnnotation.id}:0"]`,
       )});
       const bounds = stroke?.closest("svg")?.getBoundingClientRect();
-      return stroke instanceof SVGPolylineElement && bounds
-        ? { height: bounds.height, points: stroke.getAttribute("points"), width: bounds.width }
+      return stroke instanceof SVGPathElement && bounds
+        ? { height: bounds.height, points: stroke.getAttribute("d"), width: bounds.width }
         : null;
     })()`,
   );
@@ -1383,7 +1383,7 @@ async function exerciseBrowser(client, origin, resultDirectory) {
     client,
     "the persisted chart annotation",
     `document.querySelector(${JSON.stringify(
-      `${populationSelector} polyline[data-annotation-id="${savedChartAnnotation.id}"]`,
+      `${populationSelector} path[data-workspace-normalized-stroke="${savedChartAnnotation.id}:0"]`,
     )}) !== null`,
   );
   await physicalClickSelector(

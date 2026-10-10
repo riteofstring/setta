@@ -693,15 +693,25 @@ describe("PythonCanvasApp", () => {
     expect(workspace.getDocument().sections[sectionId]).toBeUndefined();
   });
 
-  it("reports an initial load failure without mounting a workspace canvas", async () => {
+  it("offers a visible retry after an initial load failure and opens the recovered workspace", async () => {
     mocks.fetchProjectSnapshot.mockRejectedValueOnce(new Error("offline"));
     const view = renderApp();
     await flushEffects();
 
     expect(view.querySelector("[role='alert']")?.textContent).toContain(
-      "Unable to load Python Canvas",
+      "Unable to connect to Python Canvas",
     );
     expect(view.querySelector("[data-testid='workspace-canvas']")).toBeNull();
+    const retry = Array.from(view.querySelectorAll("button")).find(
+      (button) => button.textContent === "Try again",
+    );
+    expect(retry).toBeDefined();
+    act(() => retry?.click());
+    await flushEffects();
+    expect(mocks.fetchProjectSnapshot).toHaveBeenCalledTimes(2);
+    expect(
+      view.querySelector("[data-testid='workspace-canvas']"),
+    ).not.toBeNull();
   });
 
   it("removes a pending pane callable when its backend creation fails", async () => {

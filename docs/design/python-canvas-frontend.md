@@ -136,3 +136,10 @@ artifacts. Comparison keeps recursive public-state classification and catalog co
 geometry fields receive the fixed CSS-pixel tolerance, while all other public state and manifest
 contracts remain exact. PNG decoding and bounded pixel classification come from the shared parity
 image owner used by the Playground comparator.
+
+## Visible recovery
+
+Initial loading and connection failure have a visible presentation. Retry creates a fresh host
+only before a workspace has loaded. Operation, completion, terminal, and storage errors render
+above the existing workspace, keeping both sighted and screen-reader users informed while their
+current work remains available. A completion failure never removes the editor or terminal.

@@ -32,7 +32,49 @@ body {
 }
 
 .python-canvas-app {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.python-canvas-workspace {
+  flex: 1;
+  block-size: auto;
+}
+
+.python-canvas-load-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.python-canvas-load-state button {
+  padding: 8px 16px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.python-canvas-error {
+  flex-shrink: 0;
+  max-block-size: 20dvh;
+  margin: 0;
+  padding: 10px 16px;
+  overflow: auto;
+  background: light-dark(#fff0e8, #38251e);
+  color: light-dark(#8a2e0a, #ffbc9e);
+  font-size: 14px;
+}
+
+.python-canvas-error:empty {
+  display: none;
 }
 
 .setta-workspace [data-section-type="python-canvas.callable-pending"],

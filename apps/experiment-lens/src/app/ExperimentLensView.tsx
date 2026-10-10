@@ -110,7 +110,17 @@ function LensWorkspace() {
   );
 }
 
-export function ExperimentLensView({ host }: { host: WorkspaceHost }) {
+export function ExperimentLensView({
+  host,
+  recovery,
+}: {
+  host: WorkspaceHost;
+  recovery?: {
+    message: string;
+    saveDraft: () => void;
+    useSavedSelection: () => void;
+  } | null;
+}) {
   const lens = useLens();
   const selectedCount = lens.selection.selectedObservationIds.length;
   const canExport =
@@ -145,7 +155,7 @@ export function ExperimentLensView({ host }: { host: WorkspaceHost }) {
           </button>
           <button
             className="lens-primary-action"
-            disabled={!canExport || lens.busy}
+            disabled={!canExport || lens.busy || Boolean(recovery)}
             onClick={() => void lens.actions.exportSelection().catch(() => {})}
             type="button"
           >
@@ -153,6 +163,28 @@ export function ExperimentLensView({ host }: { host: WorkspaceHost }) {
           </button>
         </div>
       </header>
+      {recovery ? (
+        <div className="lens-save-recovery" role="alert">
+          <span>
+            {recovery.message} Saving this draft replaces the last loaded
+            selection.
+          </span>
+          <button
+            disabled={lens.busy}
+            onClick={recovery.saveDraft}
+            type="button"
+          >
+            Save this draft
+          </button>
+          <button
+            disabled={lens.busy}
+            onClick={recovery.useSavedSelection}
+            type="button"
+          >
+            Use saved selection
+          </button>
+        </div>
+      ) : null}
       <WorkspaceProvider host={host}>
         <LensWorkspace />
       </WorkspaceProvider>

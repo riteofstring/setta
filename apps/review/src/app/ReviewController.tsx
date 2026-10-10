@@ -39,6 +39,7 @@ import {
 } from "./reviewProjection";
 import { registerReviewSectionKinds } from "./reviewSectionKinds";
 import { ReviewView } from "./ReviewView";
+import { loadAnnotationDrafts, persistAnnotationDraft } from "./reviewDrafts";
 
 type ReadyReview = Readonly<{
   host: WorkspaceHost;
@@ -178,6 +179,8 @@ function frameSections(
 export function ReviewController() {
   const [ready, setReady] = useState<ReadyReview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
   const [selection, setSelection] = useState<ReviewSubjectSelection | null>(
     null,
@@ -224,13 +227,13 @@ export function ReviewController() {
       setSelectedOptions((currentOptions) =>
         selectedOptionsFor(snapshot, currentOptions),
       );
-      setError(null);
       return true;
     },
     [],
   );
 
   useEffect(() => {
+    setError(null);
     const host = createWorkspaceHost();
     registerReviewSectionKinds(host);
     setWorkspaceColorMode(host, "system");
@@ -244,6 +247,10 @@ export function ReviewController() {
           return;
         }
         acceptSnapshot(host, snapshot);
+        const restored = loadAnnotationDrafts(snapshot);
+        annotationOverridesRef.current = restored.drafts;
+        setAnnotationOverrides(restored.drafts);
+        setDraftError(restored.error);
         disconnect = subscribeReviewSnapshots({
           onError: () => {
             if (active) {
@@ -274,11 +281,41 @@ export function ReviewController() {
       readyRef.current = null;
       host.dispose();
     };
-  }, [acceptSnapshot]);
+  }, [acceptSnapshot, loadAttempt]);
 
   useEffect(() => {
     annotationOverridesRef.current = annotationOverrides;
   }, [annotationOverrides]);
+
+  useEffect(() => {
+    if (!draftError || Object.keys(annotationOverrides).length === 0) return;
+    const protect = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [annotationOverrides, draftError]);
+
+  const updateAnnotationDraft = useCallback(
+    (requestId: string, annotations: readonly ArtifactAnnotation[] | null) => {
+      const current = readyRef.current;
+      if (!current) return;
+      const next = { ...annotationOverridesRef.current };
+      if (annotations === null) delete next[requestId];
+      else next[requestId] = annotations;
+      annotationOverridesRef.current = next;
+      setAnnotationOverrides(next);
+      setDraftError(
+        persistAnnotationDraft(
+          current.snapshot,
+          findRequestSnapshot(current.snapshot.requests, requestId),
+          annotations,
+        ),
+      );
+    },
+    [],
+  );
 
   const annotationsForRequest = useCallback(
     (requestId: string): readonly ArtifactAnnotation[] => {
@@ -314,17 +351,17 @@ export function ReviewController() {
             requestId,
           );
           const response = build(request);
+          const submittedDraft = annotationOverridesRef.current[requestId];
           const result = await applyReviewMutation({
             expectedRevision: current.snapshot.revision,
             operations: [{ op: "setResponse", response }],
             projectId: current.snapshot.project.id,
           });
           acceptSnapshot(current.host, result.snapshot);
-          setAnnotationOverrides((overrides) => {
-            const next = { ...overrides };
-            delete next[requestId];
-            return next;
-          });
+          setError(null);
+          if (annotationOverridesRef.current[requestId] === submittedDraft) {
+            updateAnnotationDraft(requestId, null);
+          }
         } catch (caught) {
           setError(errorMessage(caught));
           if (caught instanceof ReviewClientError && caught.status === 409) {
@@ -347,7 +384,7 @@ export function ReviewController() {
       mutationChainRef.current = queued.catch(() => {});
       return queued;
     },
-    [acceptSnapshot],
+    [acceptSnapshot, updateAnnotationDraft],
   );
 
   const actions = useMemo<ReviewActions>(
@@ -395,21 +432,13 @@ export function ReviewController() {
             paths: [path],
           });
         }
-        annotationOverridesRef.current = {
-          ...annotationOverridesRef.current,
-          [requestId]: annotations,
-        };
-        setAnnotationOverrides(annotationOverridesRef.current);
+        updateAnnotationDraft(requestId, annotations);
       },
       clearAnnotations: (requestId, evidenceId) => {
         const annotations = annotationsForRequest(requestId).filter(
           (annotation) => annotation.artifactEvidenceId !== evidenceId,
         );
-        annotationOverridesRef.current = {
-          ...annotationOverridesRef.current,
-          [requestId]: annotations,
-        };
-        setAnnotationOverrides(annotationOverridesRef.current);
+        updateAnnotationDraft(requestId, annotations);
       },
       confirmChoice: (requestId, rationale, conditions = []) => {
         const selected = selectedOptions[requestId];
@@ -476,7 +505,12 @@ export function ReviewController() {
       setDrawing: (requestId, evidenceId) =>
         setDrawingState(evidenceId ? { evidenceId, requestId } : null),
     }),
-    [annotationsForRequest, applyResponse, selectedOptions],
+    [
+      annotationsForRequest,
+      applyResponse,
+      selectedOptions,
+      updateAnnotationDraft,
+    ],
   );
 
   const annotationsByRequest = useMemo(() => {
@@ -496,6 +530,14 @@ export function ReviewController() {
       <main className="review-loading">
         <div aria-hidden="true" className="review-loading-mark" />
         <p role={error ? "alert" : "status"}>{error ?? "Opening review…"}</p>
+        {error ? (
+          <button
+            type="button"
+            onClick={() => setLoadAttempt((value) => value + 1)}
+          >
+            Try again
+          </button>
+        ) : null}
       </main>
     );
   }
@@ -514,7 +556,15 @@ export function ReviewController() {
         snapshot: ready.snapshot,
       }}
     >
-      <ReviewView host={ready.host} />
+      <ReviewView
+        host={ready.host}
+        draftStatus={
+          draftError ??
+          (Object.keys(annotationOverrides).length > 0
+            ? "Drawing draft saved in this tab · not submitted"
+            : null)
+        }
+      />
     </ReviewContext.Provider>
   );
 }

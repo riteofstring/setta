@@ -84,10 +84,18 @@ button {
 }
 
 .review-app-actions {
-  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 60%;
+}
+
+.review-draft-status {
+  color: light-dark(#79540f, #f2c875);
+  font-size: 12px;
 }
 
 .review-choice-actions button,
+.review-loading button,
 .review-decision-actions button,
 .review-artifact-toolbar button {
   min-height: 30px;

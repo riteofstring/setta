@@ -103,3 +103,13 @@ timeline synchronization, point, histogram-bin, and heatmap-cell selection, draw
 alignment, persistence,
 annotation editing and deletion, managed comparison, exported packet content, light and dark
 rendering, and constrained viewport behavior. It records screenshots for manual visual review.
+
+## Recoverable selection saves
+
+Each queued replacement keeps the revision derived from the last local save, including when SSE
+arrives first. A conflict or uncertain response pauses the remaining queue and retains the entire
+local draft. Stream updates refresh the saved baseline without replacing that draft or clearing
+its recovery notice. The user can explicitly save the draft against the displayed baseline or
+load the current saved selection. Further edits stay local until that choice; export waits for a
+successful save. Closing the tab warns while a write or unresolved draft remains. Initial
+connection failure offers a retry without requiring navigation.

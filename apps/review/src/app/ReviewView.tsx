@@ -87,7 +87,13 @@ function ReviewWorkspace() {
   );
 }
 
-export function ReviewView({ host }: { host: WorkspaceHost }) {
+export function ReviewView({
+  host,
+  draftStatus,
+}: {
+  host: WorkspaceHost;
+  draftStatus?: string | null;
+}) {
   const review = useReview();
   const oldCount = review.snapshot.requests.filter(
     (request) => request.response?.status === "final",
@@ -103,6 +109,11 @@ export function ReviewView({ host }: { host: WorkspaceHost }) {
           </span>
         </div>
         <div className="review-app-actions">
+          {draftStatus ? (
+            <span className="review-draft-status" role="status">
+              {draftStatus}
+            </span>
+          ) : null}
           {review.error ? (
             <span role="alert">{review.error}</span>
           ) : (

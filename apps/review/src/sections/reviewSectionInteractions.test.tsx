@@ -31,6 +31,10 @@ import { ArtifactSection } from "./ArtifactSection";
 import { ChoiceMatrixSection } from "./ChoiceMatrixSection";
 import { ClaimsSection } from "./ClaimsSection";
 import { EvidenceSection } from "./EvidenceSection";
+import {
+  loadAnnotationDrafts,
+  persistAnnotationDraft,
+} from "../app/reviewDrafts";
 
 const SHA = "a".repeat(64);
 const CREATED_AT = "2026-09-19T12:00:00Z";
@@ -635,6 +639,7 @@ describe("Review section interactions", () => {
   let root: Root;
 
   beforeEach(() => {
+    window.sessionStorage.clear();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -644,11 +649,104 @@ describe("Review section interactions", () => {
     act(() => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   function render(node: ReactNode): void {
     act(() => root.render(node));
   }
+
+  it("restores feedback after remount and removes the browser draft after submission", async () => {
+    const actions = createActions();
+    const form = (
+      <ReviewContext.Provider value={contextValue(ARTIFACT_SNAPSHOT, actions)}>
+        <ArtifactChoiceSection section={ARTIFACT_CHOICE_SECTION} />
+      </ReviewContext.Provider>
+    );
+    render(form);
+    await click(buttonContaining(container, "Request changes"));
+    setControlValue(
+      container.querySelector<HTMLTextAreaElement>("textarea")!,
+      "Keep the heading readable.",
+    );
+    render(null);
+    render(form);
+    expect(container.querySelector("textarea")?.value).toBe(
+      "Keep the heading readable.",
+    );
+    expect(container.textContent).toContain("Draft saved in this tab");
+    await click(buttonContaining(container, "Send feedback"));
+    expect(actions.requestChanges).toHaveBeenCalledWith(
+      "artifact-request",
+      "Keep the heading readable.",
+    );
+    render(null);
+    render(form);
+    expect(container.querySelector("textarea")).toBeNull();
+  });
+
+  it("keeps feedback editable when browser storage is unavailable and protects it on close", async () => {
+    vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new Error("Quota exceeded");
+    });
+    render(
+      <ReviewContext.Provider
+        value={contextValue(ARTIFACT_SNAPSHOT, createActions())}
+      >
+        <ArtifactChoiceSection section={ARTIFACT_CHOICE_SECTION} />
+      </ReviewContext.Provider>,
+    );
+    await click(buttonContaining(container, "Request changes"));
+    setControlValue(
+      container.querySelector<HTMLTextAreaElement>("textarea")!,
+      "Keep this feedback.",
+    );
+    expect(container.querySelector("textarea")?.value).toBe(
+      "Keep this feedback.",
+    );
+    expect(container.textContent).toContain("Draft kept in memory");
+    const closing = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(closing);
+    expect(closing.defaultPrevented).toBe(true);
+    expect(buttonContaining(container, "Send feedback").disabled).toBe(false);
+  });
+
+  it("restores drawing drafts only for the exact admitted artifact and preserves an explicit clear", () => {
+    const annotations: ArtifactAnnotationContract[] = [
+      {
+        id: "draft",
+        artifactEvidenceId: "candidate-a",
+        artifactSha256: SHA,
+        paths: [
+          {
+            color: "#5ee693",
+            width: 0.008,
+            points: [
+              { x: 0.1, y: 0.2 },
+              { x: 0.3, y: 0.4 },
+            ],
+          },
+        ],
+      },
+    ];
+    expect(
+      persistAnnotationDraft(ARTIFACT_SNAPSHOT, ARTIFACT_REQUEST, annotations),
+    ).toBeNull();
+    expect(
+      loadAnnotationDrafts(ARTIFACT_SNAPSHOT).drafts["artifact-request"],
+    ).toEqual(annotations);
+    const changed = structuredClone(ARTIFACT_SNAPSHOT);
+    const evidence = changed.requests[0]!.evidence[0]!;
+    if (evidence.status === "resolved" && evidence.content.kind === "artifact")
+      evidence.content.sha256 = "b".repeat(64);
+    expect(loadAnnotationDrafts(changed).drafts).toEqual({});
+    expect(
+      persistAnnotationDraft(ARTIFACT_SNAPSHOT, ARTIFACT_REQUEST, []),
+    ).toBeNull();
+    expect(
+      loadAnnotationDrafts(ARTIFACT_SNAPSHOT).drafts["artifact-request"],
+    ).toEqual([]);
+  });
 
   it("keeps every completion claim visible and records a human decision", async () => {
     const decideClaim = vi.fn<ReviewActions["decideClaim"]>(async () => {});

@@ -1109,34 +1109,7 @@
         "source": "go-toolchain"
       }
     ],
-    "releaseAgeAssessments": [
-      {
-        "id": "xyflow-react-12-11-5-supported-release",
-        "ecosystem": "pnpm",
-        "package": "@xyflow/react",
-        "version": "12.11.5",
-        "scope": "pnpm-lock.yaml",
-        "category": "supported-release",
-        "evidence": "https://registry.npmjs.org/@xyflow/react/12.11.5",
-        "reason": "This exact supported upstream release is required to replace Setta's private xyflow fork while retaining the current workspace contract.",
-        "owner": "workspace",
-        "reviewed": "2026-08-30",
-        "expires": "2026-09-24"
-      },
-      {
-        "id": "xyflow-system-0-0-81-supported-release",
-        "ecosystem": "pnpm",
-        "package": "@xyflow/system",
-        "version": "0.0.81",
-        "scope": "pnpm-lock.yaml",
-        "category": "supported-release",
-        "evidence": "https://registry.npmjs.org/@xyflow/system/0.0.81",
-        "reason": "This exact supported engine release is required by @xyflow/react 12.11.5 for the private-fork replacement.",
-        "owner": "workspace",
-        "reviewed": "2026-08-30",
-        "expires": "2026-09-24"
-      }
-    ],
+    "releaseAgeAssessments": [],
     "vulnerabilityAssessments": [],
     "dependencyOverridePolicies": []
   }

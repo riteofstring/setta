@@ -4,6 +4,7 @@ import type { WorkspaceSection } from "@setta/workspace";
 import type { CompletionDecisionKind } from "../app/reviewModel";
 import { decisionForClaim, findRequestSnapshot } from "../app/reviewModel";
 import { useReview } from "../app/reviewContext";
+import { reviewDraftKey, useReviewTextDraft } from "../app/reviewDrafts";
 import type {
   CompletionClaim,
   ExternalAssessment,
@@ -106,18 +107,24 @@ function HumanDecision({
   decision,
   disabled,
   onDecide,
+  draftKey,
 }: {
   claim: CompletionClaim;
   decision: ReturnType<typeof decisionForClaim>;
   disabled: boolean;
+  draftKey: string;
   onDecide: (
     kind: CompletionDecisionKind,
     rationale: string,
     qualification: string,
   ) => Promise<void>;
 }) {
-  const [rationale, setRationale] = useState(decision?.rationale ?? "");
-  const [qualification, setQualification] = useState(
+  const rationale = useReviewTextDraft(
+    `${draftKey}:rationale`,
+    decision?.rationale ?? "",
+  );
+  const qualification = useReviewTextDraft(
+    `${draftKey}:qualification`,
     decision?.qualification ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
@@ -125,14 +132,16 @@ function HumanDecision({
     useState<CompletionDecisionKind | null>(null);
 
   const decide = async (kind: CompletionDecisionKind) => {
-    if (kind === "qualified" && qualification.trim() === "") {
+    if (kind === "qualified" && qualification.value.trim() === "") {
       setFormError("State the qualification before saving.");
       return;
     }
     try {
       setFormError(null);
       setPendingDecision(kind);
-      await onDecide(kind, rationale, qualification);
+      await onDecide(kind, rationale.value, qualification.value);
+      rationale.saved();
+      qualification.saved();
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : "Unable to save the decision.",
@@ -149,7 +158,11 @@ function HumanDecision({
       <button
         aria-pressed={current}
         data-decision-kind={kind}
-        disabled={disabled || pendingDecision !== null || current}
+        disabled={
+          disabled ||
+          pendingDecision !== null ||
+          (current && !rationale.hasDraft && !qualification.hasDraft)
+        }
         onClick={() => void decide(kind)}
         type="button"
       >
@@ -164,15 +177,20 @@ function HumanDecision({
 
   return (
     <div className="review-human-decision">
+      {rationale.status || qualification.status ? (
+        <p className="review-draft-status" role="status">
+          {rationale.status ?? qualification.status}
+        </p>
+      ) : null}
       <div className="review-human-decision-fields">
         <label>
           <span>Note</span>
           <input
             aria-label={`Note for ${claim.text}`}
             disabled={disabled}
-            onChange={(event) => setRationale(event.currentTarget.value)}
+            onChange={(event) => rationale.update(event.currentTarget.value)}
             placeholder="Optional reasoning"
-            value={rationale}
+            value={rationale.value}
           />
         </label>
         <label>
@@ -180,9 +198,11 @@ function HumanDecision({
           <input
             aria-label={`Qualification for ${claim.text}`}
             disabled={disabled}
-            onChange={(event) => setQualification(event.currentTarget.value)}
+            onChange={(event) =>
+              qualification.update(event.currentTarget.value)
+            }
             placeholder="Required only for Qualify"
-            value={qualification}
+            value={qualification.value}
           />
         </label>
       </div>
@@ -277,6 +297,11 @@ export function ClaimsSection({ section }: { section: WorkspaceSection }) {
             claim={selectedClaim}
             decision={decisionForClaim(snapshot, selectedClaim.id)}
             disabled={busy}
+            draftKey={reviewDraftKey(
+              review.snapshot.project.id,
+              snapshot,
+              `claim:${selectedClaim.id}`,
+            )}
             key={selectedClaim.id}
             onDecide={(kind, rationale, qualification) =>
               review.actions.decideClaim(requestId, {

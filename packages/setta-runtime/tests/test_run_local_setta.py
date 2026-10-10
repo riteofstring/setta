@@ -19,15 +19,15 @@ class LocalSettaRunnerTests(unittest.TestCase):
             mock.patch.object(
                 run_local_setta,
                 "_required_command",
-                side_effect=["/tools/uv", "/tools/pnpm"],
+                return_value="/tools/uv",
             ),
             mock.patch.object(
                 run_local_setta, "_pinned_go", return_value=Path("/tools/go")
             ),
             mock.patch.object(
                 run_local_setta,
-                "_local_build_fingerprint",
-                return_value="packaged-inputs",
+                "_local_build_state",
+                return_value={"files": []},
             ),
             mock.patch.object(
                 run_local_setta,
@@ -54,22 +54,14 @@ class LocalSettaRunnerTests(unittest.TestCase):
         self.assertEqual(second_status, 9)
         self.assertEqual(
             cached.call_args_list,
-            [mock.call("packaged-inputs"), mock.call("packaged-inputs")],
+            [mock.call({"files": []}), mock.call({"files": []})],
         )
-        run.assert_called_once_with(
-            [
-                "/tools/pnpm",
-                "install",
-                "--frozen-lockfile",
-                "--ignore-scripts",
-            ],
-            run_local_setta.ROOT,
-        )
+        run.assert_not_called()
         self.assertEqual(build.call_count, 1)
         self.assertEqual(build.call_args.args[0], Path("/tools/go"))
         self.assertIsInstance(build.call_args.args[1], Path)
         install.assert_called_once_with("/tools/uv", wheel)
-        record.assert_called_once_with("packaged-inputs")
+        record.assert_called_once_with({"files": []})
         self.assertEqual(
             foreground.call_args_list,
             [
@@ -92,8 +84,8 @@ class LocalSettaRunnerTests(unittest.TestCase):
         with (
             mock.patch.object(
                 run_local_setta,
-                "_local_build_fingerprint",
-                return_value="packaged-inputs",
+                "_local_build_state",
+                return_value={"files": []},
             ),
             mock.patch.object(
                 run_local_setta,
@@ -109,26 +101,61 @@ class LocalSettaRunnerTests(unittest.TestCase):
                 ("review", "open", "--project-root", "example")
             )
         self.assertEqual(status, 9)
-        cached.assert_called_once_with("packaged-inputs")
+        cached.assert_called_once_with({"files": []})
         required.assert_not_called()
         foreground.assert_called_once_with(
             [str(executable), "review", "open", "--project-root", "example"],
             run_local_setta.ROOT,
         )
 
-    def test_local_build_fingerprint_tracks_input_content(self) -> None:
+    def test_shared_backend_edits_additions_and_removals_invalidate_the_build(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            source = root / "source.ts"
-            source.write_text("first", encoding="utf-8")
+            backend = root / "packages" / "local-backend"
+            backend.mkdir(parents=True)
+            source = backend / "server.go"
+            source.write_text("package server\n", encoding="utf-8")
+            executable = root / "setta"
+            executable.touch()
             with (
                 mock.patch.object(run_local_setta, "ROOT", root),
-                mock.patch.object(run_local_setta, "LOCAL_BUILD_INPUTS", (source,)),
+                mock.patch.object(run_local_setta, "LOCAL_BUILD_INPUTS", (backend,)),
+                mock.patch.object(
+                    run_local_setta, "LOCAL_BUILD_STATE", root / "state.json"
+                ),
+                mock.patch.object(
+                    run_local_setta,
+                    "_environment_executables",
+                    return_value=(executable, executable),
+                ),
+                mock.patch.object(
+                    run_local_setta, "_installed_app_assets_valid", return_value=True
+                ),
             ):
-                first = run_local_setta._local_build_fingerprint()
-                source.write_text("second", encoding="utf-8")
-                second = run_local_setta._local_build_fingerprint()
-        self.assertNotEqual(first, second)
+                for change in (
+                    lambda: source.write_text("package changed\n", encoding="utf-8"),
+                    lambda: (backend / "added.go").write_text(
+                        "package added\n", encoding="utf-8"
+                    ),
+                    lambda: (backend / "added.go").unlink(),
+                ):
+                    run_local_setta._record_local_build(
+                        run_local_setta._local_build_state()
+                    )
+                    self.assertEqual(
+                        run_local_setta._cached_local_executable(
+                            run_local_setta._local_build_state()
+                        ),
+                        executable,
+                    )
+                    change()
+                    self.assertIsNone(
+                        run_local_setta._cached_local_executable(
+                            run_local_setta._local_build_state()
+                        )
+                    )
 
     def test_local_build_record_requires_every_current_app_install(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -147,11 +174,13 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     return_value=True,
                 ) as assets_valid,
             ):
-                run_local_setta._record_local_build("current")
+                run_local_setta._record_local_build({"files": []})
                 self.assertEqual(
-                    run_local_setta._cached_local_executable("current"), setta
+                    run_local_setta._cached_local_executable({"files": []}), setta
                 )
-                self.assertIsNone(run_local_setta._cached_local_executable("changed"))
+                self.assertIsNone(
+                    run_local_setta._cached_local_executable({"files": ["changed"]})
+                )
         self.assertEqual(
             assets_valid.call_args_list,
             [mock.call(app_id) for app_id in run_local_setta.PACKAGED_APP_IDS],
@@ -165,7 +194,7 @@ class LocalSettaRunnerTests(unittest.TestCase):
             _, setta = run_local_setta._environment_executables(environment)
             setta.parent.mkdir(parents=True)
             setta.touch()
-            state.write_text('{"fingerprint":"current","format":2}\n', encoding="utf-8")
+            state.write_text('{"files": []}\n', encoding="utf-8")
             with (
                 mock.patch.object(run_local_setta, "LOCAL_ENVIRONMENT", environment),
                 mock.patch.object(run_local_setta, "LOCAL_BUILD_STATE", state),
@@ -175,7 +204,9 @@ class LocalSettaRunnerTests(unittest.TestCase):
                     side_effect=(True, False),
                 ) as assets_valid,
             ):
-                self.assertIsNone(run_local_setta._cached_local_executable("current"))
+                self.assertIsNone(
+                    run_local_setta._cached_local_executable({"files": []})
+                )
         self.assertEqual(
             assets_valid.call_args_list,
             [mock.call("experiment-lens"), mock.call("python-canvas")],

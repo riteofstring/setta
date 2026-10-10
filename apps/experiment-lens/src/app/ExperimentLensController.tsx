@@ -1,6 +1,7 @@
 import {
   commitWorkspaceDocument,
   createWorkspaceHost,
+  isWorkspaceSavedViewSectionVisible,
   setWorkspaceCapabilities,
   setWorkspaceColorMode,
   setWorkspaceMiniMapVisibility,
@@ -69,7 +70,13 @@ function downloadPacket(snapshot: LensSnapshot, packet: SelectionPacket): void {
 }
 
 function attend(host: WorkspaceHost, sectionIds: readonly string[]): void {
-  setWorkspaceSectionAttention(host, sectionIds);
+  const document = host.getSnapshot();
+  const visible = sectionIds.filter(
+    (id) =>
+      Object.hasOwn(document.sections, id) &&
+      isWorkspaceSavedViewSectionVisible(document.savedViews, {}, id),
+  );
+  if (visible.length > 0) setWorkspaceSectionAttention(host, visible);
 }
 
 function sameSelection(left: LensSelection, right: LensSelection): boolean {
@@ -84,11 +91,15 @@ export function ExperimentLensController() {
     cursor: null,
   });
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [comparisonRequest, setComparisonRequest] = useState(0);
   const readyRef = useRef<ReadyLens | null>(null);
   const selectionRef = useRef<LensSelection | null>(null);
   const pendingRef = useRef(0);
+  const nextRevisionRef = useRef(0);
+  const saveBlockedRef = useRef(false);
   const mutationChainRef = useRef(Promise.resolve());
 
   const acceptSnapshot = useCallback(
@@ -115,13 +126,13 @@ export function ExperimentLensController() {
         selectionRef.current = snapshot.selection;
         setSelection(snapshot.selection);
       }
-      setError(null);
       return true;
     },
     [],
   );
 
   useEffect(() => {
+    setError(null);
     const host = createWorkspaceHost();
     registerLensSectionKinds(host);
     setWorkspaceCapabilities(host, {
@@ -152,7 +163,12 @@ export function ExperimentLensController() {
           },
           onSnapshot: (nextSnapshot) => {
             if (active) {
-              acceptSnapshot(host, nextSnapshot, pendingRef.current > 0);
+              acceptSnapshot(
+                host,
+                nextSnapshot,
+                pendingRef.current > 0 || saveBlockedRef.current,
+              );
+              setError(null);
             }
           },
         });
@@ -170,72 +186,120 @@ export function ExperimentLensController() {
       selectionRef.current = null;
       host.dispose();
     };
-  }, [acceptSnapshot]);
+  }, [acceptSnapshot, loadAttempt]);
+
+  const enqueueSelection = useCallback(
+    (desired: LensSelection): void => {
+      const snapshot = readyRef.current?.snapshot;
+      if (!snapshot || saveBlockedRef.current) return;
+      const expectedRevision =
+        pendingRef.current === 0 ? snapshot.revision : nextRevisionRef.current;
+      nextRevisionRef.current = expectedRevision + 1;
+      pendingRef.current += 1;
+      setBusy(true);
+      const operation = async () => {
+        try {
+          if (saveBlockedRef.current) return;
+          const current = readyRef.current;
+          if (!current) {
+            return;
+          }
+          const result = await applyLensMutation({
+            experimentId: current.snapshot.experiment.id,
+            expectedRevision,
+            manifestSha256: current.snapshot.manifestSha256,
+            observationSourceSha256: current.snapshot.observationSourceSha256,
+            selection: desired,
+          });
+          acceptSnapshot(current.host, result.snapshot, pendingRef.current > 1);
+        } catch (caught) {
+          if (!readyRef.current) return;
+          saveBlockedRef.current = true;
+          setSaveError(
+            caught instanceof LensClientError && caught.status === 409
+              ? "The saved selection changed in another window. Your draft is kept here."
+              : `Your draft is kept here, but saving could not be confirmed. ${errorMessage(caught)}`,
+          );
+          try {
+            const refreshed = await fetchLensSnapshot();
+            const current = readyRef.current;
+            if (current) {
+              acceptSnapshot(current.host, refreshed, true);
+            }
+          } catch (refreshError) {
+            setError(
+              `Could not load the saved selection. ${errorMessage(refreshError)}`,
+            );
+          }
+        } finally {
+          pendingRef.current -= 1;
+          if (pendingRef.current === 0) {
+            setBusy(false);
+            const current = readyRef.current;
+            if (current && !saveBlockedRef.current) {
+              selectionRef.current = current.snapshot.selection;
+              setSelection(current.snapshot.selection);
+            }
+          }
+        }
+      };
+      const queued = mutationChainRef.current.then(operation, operation);
+      mutationChainRef.current = queued.catch(() => {});
+    },
+    [acceptSnapshot],
+  );
 
   const replaceSelection = useCallback(
     (build: (current: LensSelection) => LensSelection): void => {
       window.setTimeout(() => {
-        const currentSelection = selectionRef.current;
-        if (!currentSelection) {
-          return;
-        }
-        const desired = build(currentSelection);
-        if (sameSelection(currentSelection, desired)) {
-          return;
-        }
+        const current = selectionRef.current;
+        if (!current) return;
+        const desired = build(current);
+        if (sameSelection(current, desired)) return;
         selectionRef.current = desired;
         setSelection(desired);
-        pendingRef.current += 1;
-        setBusy(true);
-        const operation = async () => {
-          try {
-            const current = readyRef.current;
-            if (!current) {
-              throw new Error("Experiment Lens is still loading.");
-            }
-            const result = await applyLensMutation({
-              experimentId: current.snapshot.experiment.id,
-              expectedRevision: current.snapshot.revision,
-              manifestSha256: current.snapshot.manifestSha256,
-              observationSourceSha256: current.snapshot.observationSourceSha256,
-              selection: desired,
-            });
-            acceptSnapshot(
-              current.host,
-              result.snapshot,
-              pendingRef.current > 1,
-            );
-          } catch (caught) {
-            setError(errorMessage(caught));
-            if (caught instanceof LensClientError && caught.status === 409) {
-              try {
-                const refreshed = await fetchLensSnapshot();
-                const current = readyRef.current;
-                if (current) {
-                  acceptSnapshot(current.host, refreshed, false);
-                }
-              } catch (refreshError) {
-                setError(errorMessage(refreshError));
-              }
-            }
-          } finally {
-            pendingRef.current -= 1;
-            if (pendingRef.current === 0) {
-              setBusy(false);
-              const current = readyRef.current;
-              if (current) {
-                selectionRef.current = current.snapshot.selection;
-                setSelection(current.snapshot.selection);
-              }
-            }
-          }
-        };
-        const queued = mutationChainRef.current.then(operation, operation);
-        mutationChainRef.current = queued.catch(() => {});
+        enqueueSelection(desired);
       }, 0);
     },
-    [acceptSnapshot],
+    [enqueueSelection],
   );
+
+  useEffect(() => {
+    const protectDraft = (event: BeforeUnloadEvent) => {
+      if (pendingRef.current > 0 || saveBlockedRef.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", protectDraft);
+    return () => window.removeEventListener("beforeunload", protectDraft);
+  }, []);
+
+  const saveDraft = () => {
+    const draft = selectionRef.current;
+    if (!draft || pendingRef.current > 0) return;
+    saveBlockedRef.current = false;
+    setSaveError(null);
+    enqueueSelection(draft);
+  };
+
+  const useSavedSelection = async () => {
+    if (pendingRef.current > 0) return;
+    setBusy(true);
+    try {
+      const snapshot = await fetchLensSnapshot();
+      const current = readyRef.current;
+      if (current && acceptSnapshot(current.host, snapshot)) {
+        saveBlockedRef.current = false;
+        setSaveError(null);
+        setError(null);
+      }
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const actions = useMemo<LensActions>(
     () => ({
@@ -247,6 +311,7 @@ export function ExperimentLensController() {
         ),
       exportSelection: async () => {
         await mutationChainRef.current;
+        if (saveBlockedRef.current) return;
         const current = readyRef.current;
         if (!current) {
           throw new Error("Experiment Lens is still loading.");
@@ -325,6 +390,14 @@ export function ExperimentLensController() {
         <p role={error ? "alert" : "status"}>
           {error ?? "Opening experiment…"}
         </p>
+        {error ? (
+          <button
+            type="button"
+            onClick={() => setLoadAttempt((value) => value + 1)}
+          >
+            Try again
+          </button>
+        ) : null}
       </main>
     );
   }
@@ -347,7 +420,18 @@ export function ExperimentLensController() {
         visible,
       }}
     >
-      <ExperimentLensView host={ready.host} />
+      <ExperimentLensView
+        host={ready.host}
+        recovery={
+          saveError
+            ? {
+                message: saveError,
+                saveDraft,
+                useSavedSelection: () => void useSavedSelection(),
+              }
+            : null
+        }
+      />
     </LensContext.Provider>
   );
 }
