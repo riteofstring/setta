@@ -9,5 +9,6 @@ export type {
   BrowserPipelineWorker,
   BrowserPipelineWorkerScope,
   BrowserStageContext,
+  BrowserStageProgress,
   BrowserStageStatus,
 } from "./types";

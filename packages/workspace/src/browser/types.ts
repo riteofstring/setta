@@ -3,10 +3,16 @@ export type BrowserPipelineStatus =
 
 export type BrowserStageStatus = "running" | "ready" | "error";
 
+export interface BrowserStageProgress {
+  fraction?: number;
+  message?: string;
+}
+
 export interface BrowserStageContext<Input> {
   input: Input;
   dependencies: Readonly<Record<string, unknown>>;
   signal: AbortSignal;
+  reportProgress: (progress: BrowserStageProgress) => void;
 }
 
 export interface BrowserPipelineStage<Input> {
@@ -21,6 +27,7 @@ export interface BrowserPipelineSnapshot<Output> {
   status: BrowserPipelineStatus;
   output: Output | null;
   stages: Readonly<Record<string, BrowserStageStatus>>;
+  progress: Readonly<Record<string, BrowserStageProgress>>;
   error: string | null;
 }
 
@@ -59,5 +66,11 @@ export interface BrowserPipelineWorkerScope {
 
 export type BrowserPipelineMessage =
   | { type: "stage"; revision: number; id: string; status: BrowserStageStatus }
+  | {
+      type: "progress";
+      revision: number;
+      id: string;
+      progress: BrowserStageProgress;
+    }
   | { type: "result"; revision: number; output: Record<string, unknown> }
   | { type: "error"; revision: number; error: string };

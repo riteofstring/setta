@@ -5,6 +5,7 @@ import { exposeBrowserPipeline } from "./worker";
 import type {
   BrowserPipelineWorker,
   BrowserPipelineWorkerScope,
+  BrowserStageProgress,
 } from "./types";
 
 class TestWorker extends EventTarget implements BrowserPipelineWorker {
@@ -24,6 +25,61 @@ class TestWorker extends EventTarget implements BrowserPipelineWorker {
 afterEach(() => vi.useRealTimers());
 
 describe("browser pipeline execution", () => {
+  it("delivers progress during work and ignores reports after settlement or abort", async () => {
+    const reports = vi.fn();
+    let late: ((progress: BrowserStageProgress) => void) | undefined;
+    const controller = new AbortController();
+    await expect(
+      executeBrowserPipeline(
+        [
+          {
+            id: "download",
+            run: ({ reportProgress }) => {
+              late = reportProgress;
+              reportProgress({ fraction: 0.25, message: "Downloading" });
+              return "model";
+            },
+          },
+          {
+            id: "infer",
+            dependencies: ["download"],
+            run: ({ reportProgress }) => {
+              late!({ fraction: 0.75 });
+              reportProgress({ message: "Inferring" });
+              controller.abort();
+              reportProgress({ fraction: 1 });
+            },
+          },
+        ],
+        null,
+        controller.signal,
+        undefined,
+        reports,
+      ),
+    ).rejects.toThrow();
+    late!({ fraction: 1 });
+    expect(reports.mock.calls).toEqual([
+      ["download", { fraction: 0.25, message: "Downloading" }],
+      ["infer", { message: "Inferring" }],
+    ]);
+  });
+
+  it("rejects invalid fractions as stage errors", async () => {
+    for (const fraction of [-1, 1.1, NaN, Infinity]) {
+      await expect(
+        executeBrowserPipeline(
+          [
+            {
+              id: "work",
+              run: ({ reportProgress }) => reportProgress({ fraction }),
+            },
+          ],
+          null,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow("between zero and one");
+    }
+  });
   it("runs shared ancestors once and joins results from the same input", async () => {
     const prepare = vi.fn(({ input }: { input: number }) => input * 2);
     const result = await executeBrowserPipeline(
@@ -103,7 +159,13 @@ describe("browser pipeline execution", () => {
         target.removeEventListener(type, listener as EventListener),
     };
     const stop = exposeBrowserPipeline(scope, [
-      { id: "double", run: ({ input }: { input: number }) => input * 2 },
+      {
+        id: "double",
+        run: ({ input, reportProgress }) => {
+          reportProgress({ fraction: 0.5 });
+          return Number(input) * 2;
+        },
+      },
     ]);
     target.dispatchEvent(
       new MessageEvent("message", {
@@ -117,6 +179,12 @@ describe("browser pipeline execution", () => {
         output: { double: 16 },
       }),
     );
+    expect(messages).toContainEqual({
+      type: "progress",
+      revision: 7,
+      id: "double",
+      progress: { fraction: 0.5 },
+    });
     stop();
     const count = messages.length;
     target.dispatchEvent(
@@ -130,6 +198,47 @@ describe("browser pipeline execution", () => {
 });
 
 describe("browser pipeline lifecycle", () => {
+  it("isolates progress by revision without completing work or extending its deadline", () => {
+    vi.useFakeTimers();
+    const worker = new TestWorker();
+    const pipeline = createBrowserPipeline<number>({
+      createWorker: () => worker,
+      timeoutMs: 50,
+    });
+    pipeline.run(1);
+    worker.reply({
+      type: "progress",
+      revision: 1,
+      id: "load",
+      progress: { fraction: 0.2 },
+    });
+    expect(pipeline.getSnapshot()).toMatchObject({
+      status: "running",
+      progress: { load: { fraction: 0.2 } },
+    });
+    pipeline.run(2);
+    worker.reply({
+      type: "progress",
+      revision: 1,
+      id: "load",
+      progress: { fraction: 0.5 },
+    });
+    expect(pipeline.getSnapshot().progress).toEqual({});
+    worker.reply({ type: "result", revision: 1, output: {} });
+    vi.advanceTimersByTime(30);
+    worker.reply({
+      type: "progress",
+      revision: 2,
+      id: "load",
+      progress: { fraction: 0.6 },
+    });
+    expect(pipeline.getSnapshot().progress.load).toEqual({ fraction: 0.6 });
+    vi.advanceTimersByTime(20);
+    expect(pipeline.getSnapshot().status).toBe("error");
+    pipeline.cancel();
+    expect(pipeline.getSnapshot().progress).toEqual({});
+    pipeline.dispose();
+  });
   it("coalesces changing inputs and rejects an older result", () => {
     const worker = new TestWorker();
     const pipeline = createBrowserPipeline<number>({

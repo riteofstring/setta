@@ -2,8 +2,8 @@
 
 `@riteofstring/setta/browser` runs application-owned computations in a Web Worker. It works on
 static hosting without a Go server, Python, React, or the workspace UI at runtime. The
-[Gaussian splat playground](https://setta.dev) uses it to read captures, validate Gaussian records,
-measure bounds and opacity, and pack data for GPU rendering.
+[Gaussian splat playground](https://setta.dev) uses it for local photo reconstruction, model-download
+progress, surface sampling, Gaussian validation, and GPU packing.
 
 ## A worker with dependent stages
 
@@ -70,8 +70,13 @@ render-time side effects.
   fresh instance. Handler errors retain the last successful output and are exposed in `error`.
 - `stages` reports `running`, `ready`, or `error` for the current revision. A failed stage prevents
   its dependents from running. Handlers should honor cancellation when awaiting external work.
+- A handler can call `reportProgress({ fraction: 0.5, message: "Downloaded 240 MB" })`.
+  Both fields are optional; a supplied fraction must be finite and between zero and one.
+  `snapshot.progress[stageId]` contains the latest report for the current revision. Progress resets
+  on a new request or cancellation. Late reports after the handler settles are ignored. Progress
+  does not extend the run deadline or replace the last successful output.
 
-`executeBrowserPipeline(stages, input, signal, onStage?)` also executes the graph directly, useful
+`executeBrowserPipeline(stages, input, signal, onStage?, onProgress?)` also executes the graph directly, useful
 for tests or an existing worker host. `validateBrowserPipeline(stages)` checks the graph alone.
 `exposeBrowserPipeline(scope, stages)` returns a disposer for hosts that own a longer-lived worker.
 The client factory must return a dedicated worker that the pipeline is allowed to terminate.

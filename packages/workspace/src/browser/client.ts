@@ -21,6 +21,7 @@ export function createBrowserPipeline<
     status: "idle",
     output: null,
     stages: {},
+    progress: {},
     error: null,
   };
   const listeners = new Set<() => void>();
@@ -81,17 +82,25 @@ export function createBrowserPipeline<
       });
     }
   };
+  const updateStage = (
+    message: Extract<BrowserPipelineMessage, { type: "stage" | "progress" }>,
+  ) => {
+    if (message.revision !== snapshot.revision) return;
+    if (message.type === "stage")
+      publish({ stages: { ...snapshot.stages, [message.id]: message.status } });
+    else
+      publish({
+        progress: { ...snapshot.progress, [message.id]: message.progress },
+      });
+  };
   const receive: EventListener = (event) => {
     const message = (event as MessageEvent<BrowserPipelineMessage>).data;
     if (disposed || message.revision !== active) return;
-    const current = message.revision === snapshot.revision;
-    if (message.type === "stage") {
-      if (current)
-        publish({
-          stages: { ...snapshot.stages, [message.id]: message.status },
-        });
+    if (message.type === "stage" || message.type === "progress") {
+      updateStage(message);
       return;
     }
+    const current = message.revision === snapshot.revision;
     clearTimeout(timer);
     active = null;
     if (current && message.type === "result") {
@@ -111,7 +120,13 @@ export function createBrowserPipeline<
       if (disposed) throw new Error("Browser pipeline is disposed.");
       const revision = snapshot.revision + 1;
       queued = { revision, input: structuredClone(input) };
-      publish({ revision, status: "running", stages: {}, error: null });
+      publish({
+        revision,
+        status: "running",
+        stages: {},
+        progress: {},
+        error: null,
+      });
       start();
       return revision;
     },
@@ -119,7 +134,7 @@ export function createBrowserPipeline<
       if (disposed) return;
       queued = null;
       stopWorker();
-      publish({ status: "cancelled", stages: {}, error: null });
+      publish({ status: "cancelled", stages: {}, progress: {}, error: null });
     },
     dispose() {
       disposed = true;

@@ -25,6 +25,9 @@ export function exposeBrowserPipeline<Input>(
       (id, status) => {
         send({ type: "stage", revision, id, status });
       },
+      (id, progress) => {
+        send({ type: "progress", revision, id, progress });
+      },
     )
       .then(
         (output) => send({ type: "result", revision, output }),

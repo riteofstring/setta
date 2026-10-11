@@ -9,12 +9,12 @@ Compose React workspaces with typed controls, nested sections, editors, graphs, 
 and floating windows. Run live computations in browser workers, or connect a local Go backend
 when your tool needs files, Python, or native processes.
 
-[**Explore the Gaussian splat studio →**](https://setta.dev) ·
+[**Turn a photo into 3D →**](https://setta.dev) ·
 [Frontend API](packages/workspace/README.md) ·
 [Browser pipelines](packages/workspace/BROWSER.md) ·
 [Go library](packages/local-backend/README.md)
 
-[![The Setta playground: real Gaussian captures, a 3D scene, native controls, and a splat inspector.](images/splat-playground.png)](https://setta.dev)
+[![The Setta playground: photo reconstruction, a 3D Gaussian scene, native controls, and a splat inspector.](images/splat-playground.png)](https://setta.dev)
 
 ## The libraries
 
@@ -27,10 +27,11 @@ when your tool needs files, Python, or native processes.
 Use them together or independently. Your application owns its data, computations, persistence,
 and routes. Setta supplies the workspace and execution building blocks.
 
-The [Gaussian splat playground](https://setta.dev) lets you orbit real captured objects, inspect
-individual Gaussians, cut cross-sections, and export a scene. The public browser pipeline reads,
-validates, measures, and packs scans, while native Setta controls shape the Spark/Three.js rendering.
-The independent site consumes the compiled library and runs entirely on static hosting.
+The [Gaussian splat playground](https://setta.dev) turns a photo of one object into an inferred 3D
+surface and exports it as Gaussian splats. Setta runs background removal, WebGPU reconstruction,
+surface sampling, and GPU packing in a worker with live progress and cancellation. Native controls
+let you orbit, inspect, and slice the result. The independent site owns its ML models and renderer;
+the libraries acquire no ML dependencies. Everything runs on static hosting, with no photo upload.
 
 ## Start building
 

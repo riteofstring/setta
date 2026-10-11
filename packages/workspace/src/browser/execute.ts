@@ -1,4 +1,8 @@
-import type { BrowserPipelineStage, BrowserStageStatus } from "./types";
+import type {
+  BrowserPipelineStage,
+  BrowserStageProgress,
+  BrowserStageStatus,
+} from "./types";
 
 export function validateBrowserPipeline<Input>(
   stages: readonly BrowserPipelineStage<Input>[],
@@ -31,6 +35,7 @@ export async function executeBrowserPipeline<Input>(
   input: Input,
   signal: AbortSignal,
   onStage: (id: string, status: BrowserStageStatus) => void = () => {},
+  onProgress: (id: string, progress: BrowserStageProgress) => void = () => {},
 ): Promise<Record<string, unknown>> {
   validateBrowserPipeline(stages);
   const byId = new Map(stages.map((stage) => [stage.id, stage]));
@@ -46,11 +51,25 @@ export async function executeBrowserPipeline<Input>(
     ).then(async (entries) => {
       signal.throwIfAborted();
       onStage(id, "running");
+      let running = true;
       try {
         const result = await stage.run({
           input,
           dependencies: Object.fromEntries(entries),
           signal,
+          reportProgress: (progress) => {
+            if (!running || signal.aborted) return;
+            if (
+              progress.fraction !== undefined &&
+              (!Number.isFinite(progress.fraction) ||
+                progress.fraction < 0 ||
+                progress.fraction > 1)
+            )
+              throw new RangeError(
+                "Stage progress must be between zero and one.",
+              );
+            onProgress(id, { ...progress });
+          },
         });
         signal.throwIfAborted();
         onStage(id, "ready");
@@ -58,6 +77,8 @@ export async function executeBrowserPipeline<Input>(
       } catch (error) {
         onStage(id, "error");
         throw error;
+      } finally {
+        running = false;
       }
     });
     pending.set(id, task);

@@ -447,6 +447,12 @@ cancellation, and worker recovery belong to this package. Cancellation terminate
 worker so synchronous handlers cannot prevent recovery. Worker inputs are cloned on admission so
 later caller mutation cannot alter queued work. The caller supplies a fresh worker factory for restarts.
 
+Long downloads and batched computations report optional fractional progress and application-owned
+messages through the stage context. Progress shares the run revision and lifecycle with stage status;
+it cannot replace output, extend deadlines, or revive a cancelled or superseded run. Reports after a
+handler settles are ignored. The client keeps the latest report per stage, resetting it on each new
+request or cancellation. Models, download/cache policy, and GPU resources remain application-owned.
+
 The npm artifact exports ESM, declarations, compiled scoped styles, and the independent browser
 entry under the canonical `@riteofstring/setta` name. Examples stay private; the library carries its
 own Apache license and public repository metadata. Source aliases are not a consumer API.
