@@ -29,8 +29,8 @@ and routes. Setta supplies the workspace and execution building blocks.
 
 The [print studio](https://setta.dev) turns a scribble into a poster: adjust the inks, choose a
 treatment, and take home an SVG or PNG. It uses the public frontend and browser pipeline APIs
-and runs on static hosting, entirely in your browser. Its [source](https://github.com/riteofstring/setta-site)
-is a complete consumer example.
+and runs on static hosting, entirely in your browser. It consumes the compiled library as an
+independent application.
 
 ## Start building
 

@@ -623,6 +623,18 @@ function sectionSelector(sectionId) {
 }
 
 async function focusSectionFromOutline(client, sectionId) {
+  await evaluate(
+    client,
+    `(() => {
+    const tab = document.querySelector('button[aria-label="Outline"]');
+    if (tab?.getAttribute("aria-expanded") !== "true") tab?.click();
+  })()`,
+  );
+  await waitFor(
+    client,
+    "the open Review Outline",
+    `document.querySelector(${JSON.stringify(`[data-workspace-outline-item="${sectionId}"]`)}) instanceof HTMLElement`,
+  );
   const focused = await evaluate(
     client,
     `(() => {
