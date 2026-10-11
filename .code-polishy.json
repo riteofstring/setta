@@ -313,7 +313,8 @@
       "scripts/workspace-browser-interactions.mjs",
       "scripts/xyflow-parity/capture-playground.mjs",
       "scripts/xyflow-parity/compare-playground.mjs",
-      "scripts/verify-packed-consumer.mjs"
+      "scripts/verify-packed-consumer.mjs",
+      "packages/workspace/src/browser/index.ts"
     ],
     "development": [
       "examples/workspace-playground/**",

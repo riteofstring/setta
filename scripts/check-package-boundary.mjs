@@ -26,25 +26,18 @@ function validateLegacyManifestFields() {
 }
 
 function validateCompiledExports() {
-  const rootExport = manifest.exports?.["."];
-  if (
-    rootExport?.types !== "./dist/types/index.d.ts" ||
-    rootExport?.import !== "./dist/index.js"
-  ) {
-    return [
-      `${packageRootRelative}/package.json: the root export must map types and import to compiled dist artifacts`,
-    ];
-  }
-  const browserExport = manifest.exports?.["./browser"];
-  if (
-    browserExport?.types !== "./dist/types/browser/index.d.ts" ||
-    browserExport?.import !== "./dist/browser.js"
-  ) {
-    return [
-      `${packageRootRelative}/package.json: the browser entry must map to its independent compiled artifacts`,
-    ];
-  }
-  return [];
+  const expected = [
+    [".", "./dist/types/index.d.ts", "./dist/index.js"],
+    ["./browser", "./dist/types/browser/index.d.ts", "./dist/browser.js"],
+  ];
+  return expected.flatMap(([name, types, runtime]) => {
+    const entry = manifest.exports?.[name];
+    return entry?.types === types && entry?.import === runtime
+      ? []
+      : [
+          `${packageRootRelative}/package.json: ${name} must map to its compiled types and runtime`,
+        ];
+  });
 }
 
 function validateStylesheetExport() {

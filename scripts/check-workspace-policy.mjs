@@ -15,8 +15,7 @@ function readJson(relativePath) {
   );
 }
 
-function validateManifest(relativePath) {
-  const manifest = readJson(relativePath);
+function validatePublication(relativePath, manifest) {
   const publishable = relativePath === "packages/workspace/package.json";
   return [
     ...(publishable || manifest.private === true
@@ -28,6 +27,13 @@ function validateManifest(relativePath) {
           `${relativePath}: the frontend library must declare public publication`,
         ]
       : []),
+  ];
+}
+
+function validateManifest(relativePath) {
+  const manifest = readJson(relativePath);
+  return [
+    ...validatePublication(relativePath, manifest),
     ...(manifest.packageManager &&
     manifest.packageManager !== expectedPackageManager
       ? [
