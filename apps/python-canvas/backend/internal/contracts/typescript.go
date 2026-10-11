@@ -509,22 +509,6 @@ export interface RunTerminalRequestV2 {
 export interface CloseTerminalRequestV2 {
   projectId: string;
 }
-export interface RunGeneratedProgramRequestV2 {
-  projectId: string;
-  expectedRevision: number;
-  runTimeoutMilliseconds?: number;
-}
-export interface GeneratedProgramRunResultV2 {
-  projectId: string;
-  revision: number;
-  stdout: string;
-  stderr: string;
-  stdoutTruncated: boolean;
-  stderrTruncated: boolean;
-  exitCode?: number;
-  terminationReason: "exited" | "signaled" | "timed_out" | "output_limit";
-  elapsedMilliseconds: number;
-}
 export interface TerminalTicketRequestV2 {
   projectId: string;
 }
