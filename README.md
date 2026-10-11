@@ -9,12 +9,12 @@ Compose React workspaces with typed controls, nested sections, editors, graphs, 
 and floating windows. Run live computations in browser workers, or connect a local Go backend
 when your tool needs files, Python, or native processes.
 
-[**Play with the print studio →**](https://setta.dev) ·
+[**Turn a photo into particles →**](https://setta.dev) ·
 [Frontend API](packages/workspace/README.md) ·
 [Browser pipelines](packages/workspace/BROWSER.md) ·
 [Go library](packages/local-backend/README.md)
 
-[![The Setta print studio: a drawing, live controls, three treatments, and a finished poster.](images/print-studio.png)](https://setta.dev)
+[![The Setta playground: a photo, estimated depth, an interactive 3D particle scene, and native controls.](images/photo-playground.png)](https://setta.dev)
 
 ## The libraries
 
@@ -27,10 +27,10 @@ when your tool needs files, Python, or native processes.
 Use them together or independently. Your application owns its data, computations, persistence,
 and routes. Setta supplies the workspace and execution building blocks.
 
-The [print studio](https://setta.dev) turns a scribble into a poster: adjust the inks, choose a
-treatment, and take home an SVG or PNG. It uses the public frontend and browser pipeline APIs
-and runs on static hosting, entirely in your browser. It consumes the compiled library as an
-independent application.
+The [photo playground](https://setta.dev) turns a photo into an interactive 3D particle scene:
+orbit, scatter, recolor, peel away layers, and save an image. Local depth estimation runs through
+the public browser pipeline, while native Setta controls shape the GPU rendering. The independent
+site consumes the compiled library and runs entirely on static hosting.
 
 ## Start building
 
@@ -77,8 +77,7 @@ or `--no-open` to print its URL. Edits stay in ignored `tmp/` working copies.
 ## Development
 
 The [workspace component gallery](examples/workspace-playground/) is available with
-`pnpm workspace:playground`. It is a development reference; the public playground is the print
-studio at [setta.dev](https://setta.dev).
+`pnpm workspace:playground`. It is a development reference; the public photo playground is at [setta.dev](https://setta.dev).
 
 See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), [security](SECURITY.md), and the
 [release procedure](docs/releasing.md). Setta is alpha software; APIs may change before 1.0.
