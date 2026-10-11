@@ -27,7 +27,6 @@ export const PROJECT_CLIPBOARD_PASTE_PATH_V2 =
   %q as const;
 export const PROJECT_CLIPBOARD_PAYLOAD_VERSION_V1 = %d as const;
 export const PROJECT_TARGET_PATH_V2 = %q as const;
-export const PROJECT_RUN_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_PATH_V2 = %q as const;
 export const PROJECT_TERMINAL_RUN_PATH_V2 =
   %q as const;
@@ -578,7 +577,6 @@ export interface ErrorResponseV2 {
 		ProjectClipboardPastePathV2,
 		ProjectClipboardPayloadVersionV1,
 		ProjectTargetPathV2,
-		ProjectRunPathV2,
 		ProjectTerminalPathV2,
 		ProjectTerminalRunPathV2,
 		ProjectTerminalClosePathV2,
