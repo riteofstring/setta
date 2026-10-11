@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 func TestProjectEventsPushesCurrentAndLaterCanonicalSnapshotsOnOneRequest(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/pythonenv"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/pythonenv"
 )
 
 func TestServicePTYInputResizeInterruptReconnectAndDelete(t *testing.T) {

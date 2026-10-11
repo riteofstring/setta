@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/project/coordinator"
-	"github.com/setta/python-canvas/backend/internal/project/renderer"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/coordinator"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/renderer"
 )
 
 type ProjectService interface {

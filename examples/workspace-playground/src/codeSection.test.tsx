@@ -16,7 +16,7 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   WorkspaceProvider,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

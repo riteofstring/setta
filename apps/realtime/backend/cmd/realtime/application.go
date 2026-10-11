@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/setta/realtime/backend/internal/content"
-	"github.com/setta/realtime/backend/internal/project"
-	runtimectrl "github.com/setta/realtime/backend/internal/runtime"
-	"github.com/setta/realtime/backend/internal/server"
-	"github.com/setta/realtime/backend/internal/worker"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/content"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/project"
+	runtimectrl "github.com/riteofstring/setta/apps/realtime/backend/internal/runtime"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/server"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/worker"
 )
 
 type serverCoordinator interface {

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/setta/local-backend/projectfs"
-	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/project"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/project"
+	"github.com/riteofstring/setta/packages/local-backend/projectfs"
 )
 
 const starterSource = `count = 0

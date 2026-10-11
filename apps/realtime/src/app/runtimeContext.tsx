@@ -3,7 +3,7 @@ import type {
   WorkspaceGraphConnection,
   WorkspaceGraphReconnect,
   WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   Binding,

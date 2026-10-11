@@ -15,13 +15,13 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/setta/local-backend/httpjson"
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/local-backend/sse"
-	"github.com/setta/realtime/backend/internal/content"
-	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/project"
-	"github.com/setta/realtime/backend/internal/source"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/content"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/project"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/source"
+	"github.com/riteofstring/setta/packages/local-backend/httpjson"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
+	"github.com/riteofstring/setta/packages/local-backend/sse"
 )
 
 const maximumJSONBytes = 4 << 20

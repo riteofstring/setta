@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "@setta/workspace";
+import { useWorkspaceAppearance } from "@riteofstring/setta";
 import { useCallback, useMemo } from "react";
 
 import type { HistogramBin } from "../app/aggregation";

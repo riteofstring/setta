@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/setta/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
 )
 
 type Fixture struct {

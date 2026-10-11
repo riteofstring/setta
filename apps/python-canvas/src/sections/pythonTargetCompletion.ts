@@ -1,7 +1,7 @@
 import type {
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionResult,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { ProjectClientError, completePythonTarget } from "../api/client";
 import { callableIdentifierSegmentBounds } from "./callableCompletion";

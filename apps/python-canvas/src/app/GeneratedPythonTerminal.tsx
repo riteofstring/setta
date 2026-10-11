@@ -11,7 +11,7 @@ import {
   NO_WHEEL_CLASS_NAME,
   fitWorkspaceSections,
   useWorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";

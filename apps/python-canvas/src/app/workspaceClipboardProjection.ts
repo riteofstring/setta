@@ -2,7 +2,7 @@ import type {
   TopLevelSectionLayout,
   WorkspaceDocument,
   WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 export type ProjectRootLayoutOverride = Readonly<{
   h: number | null;

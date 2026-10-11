@@ -10,7 +10,7 @@ importers:
 
   apps/experiment-lens:
     dependencies:
-      '@setta/workspace':
+      '@riteofstring/setta':
         specifier: workspace:*
         version: link:../../packages/workspace
       '@tanstack/react-table':
@@ -51,43 +51,9 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@26.1.1)(jsdom@28.1.0(canvas@3.2.3))(vite@6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0))
 
-  examples/workspace-playground:
-    dependencies:
-      '@setta/workspace':
-        specifier: workspace:*
-        version: link:../../packages/workspace
-      react:
-        specifier: 19.1.1
-        version: 19.1.1
-      react-dom:
-        specifier: 19.1.1
-        version: 19.1.1(react@19.1.1)
-    devDependencies:
-      '@types/react':
-        specifier: 19.1.12
-        version: 19.1.12
-      '@types/react-dom':
-        specifier: 19.1.8
-        version: 19.1.8(@types/react@19.1.12)
-      jsdom:
-        specifier: 28.1.0
-        version: 28.1.0(canvas@3.2.3)
-      postcss:
-        specifier: 8.5.23
-        version: 8.5.23
-      tailwindcss:
-        specifier: 3.4.1
-        version: 3.4.1
-      vite:
-        specifier: 6.4.3
-        version: 6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.11
-        version: 4.1.11(@types/node@26.1.1)(jsdom@28.1.0(canvas@3.2.3))(vite@6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0))
-
   apps/python-canvas:
     dependencies:
-      '@setta/workspace':
+      '@riteofstring/setta':
         specifier: workspace:*
         version: link:../../packages/workspace
       '@xterm/addon-fit':
@@ -127,7 +93,7 @@ importers:
 
   apps/realtime:
     dependencies:
-      '@setta/workspace':
+      '@riteofstring/setta':
         specifier: workspace:*
         version: link:../../packages/workspace
       ajv:
@@ -167,7 +133,7 @@ importers:
       '@pierre/diffs':
         specifier: 1.2.11
         version: 1.2.11(@shikijs/themes@4.4.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@setta/workspace':
+      '@riteofstring/setta':
         specifier: workspace:*
         version: link:../../packages/workspace
       ajv:
@@ -199,9 +165,43 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@26.1.1)(jsdom@28.1.0(canvas@3.2.3))(vite@6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0))
 
+  examples/workspace-playground:
+    dependencies:
+      '@riteofstring/setta':
+        specifier: workspace:*
+        version: link:../../packages/workspace
+      react:
+        specifier: 19.1.1
+        version: 19.1.1
+      react-dom:
+        specifier: 19.1.1
+        version: 19.1.1(react@19.1.1)
+    devDependencies:
+      '@types/react':
+        specifier: 19.1.12
+        version: 19.1.12
+      '@types/react-dom':
+        specifier: 19.1.8
+        version: 19.1.8(@types/react@19.1.12)
+      jsdom:
+        specifier: 28.1.0
+        version: 28.1.0(canvas@3.2.3)
+      postcss:
+        specifier: 8.5.23
+        version: 8.5.23
+      tailwindcss:
+        specifier: 3.4.1
+        version: 3.4.1
+      vite:
+        specifier: 6.4.3
+        version: 6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0)
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@26.1.1)(jsdom@28.1.0(canvas@3.2.3))(vite@6.4.3(@types/node@26.1.1)(jiti@1.21.7)(yaml@2.9.0))
+
   fixtures/packed-consumer:
     dependencies:
-      '@setta/workspace':
+      '@riteofstring/setta':
         specifier: workspace:*
         version: link:../../packages/workspace
       react:

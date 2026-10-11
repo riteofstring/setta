@@ -5,7 +5,7 @@ import {
   commitWorkspaceDocument,
   setWorkspaceSectionSize,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   Project,

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/setta/experiment-lens/backend/internal/contracts"
-	"github.com/setta/experiment-lens/backend/internal/testsupport"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/testsupport"
 )
 
 func TestSchemaPublishesCompleteContractInventory(t *testing.T) {

@@ -6,7 +6,7 @@ backend-path = ["packages/setta-runtime"]
 [project]
 name = "setta"
 version = "0.1.0"
-description = "Visual tools for local Python projects, reviews, and experiments."
+description = "Local example apps built with the Setta frontend and backend libraries."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -29,6 +29,12 @@ dependencies = [
   "basedpyright==1.39.9",
   "nodejs-wheel-binaries==24.16.0",
 ]
+
+[project.urls]
+Homepage = "https://setta.dev"
+Repository = "https://github.com/riteofstring/setta"
+Documentation = "https://github.com/riteofstring/setta#readme"
+Issues = "https://github.com/riteofstring/setta/issues"
 
 [project.scripts]
 setta = "setta.cli:main"

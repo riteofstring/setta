@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument, WorkspaceHost } from "@riteofstring/setta";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
 import { parseProjectSnapshotV2 } from "../api/runtimeContract";
@@ -124,8 +124,8 @@ vi.mock("../api/client", () => ({
   setPythonTarget: mocks.setPythonTarget,
 }));
 
-vi.mock("@setta/workspace", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@setta/workspace")>()),
+vi.mock("@riteofstring/setta", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@riteofstring/setta")>()),
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: () => <input aria-label="Item name" readOnly />,

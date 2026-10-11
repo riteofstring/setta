@@ -1,4 +1,4 @@
-import { WorkspaceQuickStart } from "@setta/workspace";
+import { WorkspaceQuickStart } from "@riteofstring/setta";
 import { useReview } from "./reviewContext";
 import { requestSectionId } from "./reviewProjection";
 

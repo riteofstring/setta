@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/setta/local-backend/strictjson"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 const (

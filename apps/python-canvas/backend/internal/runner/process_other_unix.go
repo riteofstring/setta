@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 func prepareProcessLaunch(string, string, string, []string) (processLaunch, error) {

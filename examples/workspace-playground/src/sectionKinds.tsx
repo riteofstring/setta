@@ -25,7 +25,7 @@ import {
   type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { createContext, useContext, type ReactNode } from "react";
 import {
   PlaygroundCodeSectionInspector,

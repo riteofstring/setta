@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "@setta/workspace";
+import { useWorkspaceAppearance } from "@riteofstring/setta";
 import { useMemo } from "react";
 
 import { useLens } from "../app/lensContext";

@@ -1,4 +1,7 @@
-import { NO_WHEEL_CLASS_NAME, type WorkspaceSection } from "@setta/workspace";
+import {
+  NO_WHEEL_CLASS_NAME,
+  type WorkspaceSection,
+} from "@riteofstring/setta";
 
 import { useReview, type ReviewSubjectSelection } from "../app/reviewContext";
 import {

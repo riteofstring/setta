@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/setta/local-backend/projectfs"
-	"github.com/setta/local-backend/strictjson"
-	"github.com/setta/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/projectfs"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 const (

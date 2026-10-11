@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/setta/local-backend/strictjson"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 const ContentType = "application/json; charset=utf-8"

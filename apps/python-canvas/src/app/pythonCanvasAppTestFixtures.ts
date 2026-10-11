@@ -1,4 +1,4 @@
-import type { WorkspaceDocument } from "@setta/workspace";
+import type { WorkspaceDocument } from "@riteofstring/setta";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
 import type { DictionaryEntryV2, ParameterV2 } from "../api/generatedContract";

@@ -5,7 +5,7 @@ import {
   createWorkspaceHost,
   WorkspaceProvider,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { projectWorkspaceDocument } from "../app/projectProjection";
 import { RealtimeContext, type RealtimeActions } from "../app/runtimeContext";

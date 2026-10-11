@@ -5,7 +5,7 @@ import {
   commitWorkspaceDocument,
   createWorkspaceHost,
   type WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { makeProject } from "../testProject";
 import { projectWorkspaceDocument } from "./projectProjection";

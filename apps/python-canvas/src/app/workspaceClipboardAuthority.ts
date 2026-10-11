@@ -1,7 +1,7 @@
 import {
   registerWorkspaceClipboardAuthority,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { copyProjectClipboard, pasteProjectClipboard } from "../api/client";
 import {

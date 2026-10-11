@@ -232,7 +232,7 @@ function buildSurface(binaryPath) {
   if (!process.argv.includes("--skip-build")) {
     runCommand(
       pnpm,
-      ["--filter", "@setta/workspace", "run", "build"],
+      ["--filter", "@riteofstring/setta", "run", "build"],
       repositoryRoot,
     );
     runCommand(

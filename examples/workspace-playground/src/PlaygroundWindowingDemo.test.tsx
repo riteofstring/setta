@@ -7,7 +7,7 @@ import {
   WorkspaceProvider,
   type WorkspaceHost,
   type WorkspaceShellViewState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

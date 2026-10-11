@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/setta/python-canvas/backend/internal/pythonenv"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/pythonenv"
 )
 
 func TestNewBasedpyrightProviderInjectsResolvedPythonBeforeDocumentSync(t *testing.T) {

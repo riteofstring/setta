@@ -4,7 +4,7 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocumentSnapshot,
   useWorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useEffect } from "react";
 
 type FocusedSectionAppProps = {
@@ -45,7 +45,7 @@ export function FocusedSectionApp({ sectionId }: FocusedSectionAppProps) {
       <header className="playground-header">
         <div className="playground-brand">
           <div className="playground-brand-copy">
-            <span>@setta/workspace</span>
+            <span>@riteofstring/setta</span>
             <h1>Focused section</h1>
           </div>
         </div>

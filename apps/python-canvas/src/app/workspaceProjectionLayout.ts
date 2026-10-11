@@ -1,4 +1,4 @@
-import type { WorkspaceSection } from "@setta/workspace";
+import type { WorkspaceSection } from "@riteofstring/setta";
 
 export const CALLABLE_SECTION_SIZE = { width: 250, height: 150 } as const;
 export const PARAMETER_DICTIONARY_SECTION_SIZE = {

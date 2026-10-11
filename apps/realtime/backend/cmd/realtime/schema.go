@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/setta/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
 )
 
 type schemaCommand struct {

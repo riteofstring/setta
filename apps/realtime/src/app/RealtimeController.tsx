@@ -8,7 +8,7 @@ import {
   type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   RealtimeClientError,

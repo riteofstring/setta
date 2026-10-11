@@ -3,7 +3,7 @@ import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import {
   BarChart,
   HeatmapChart,

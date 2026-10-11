@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/setta/local-backend/httpjson"
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/httpjson"
 )
 
 const maxRequestBodyBytes int64 = 32 * 1024

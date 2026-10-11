@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@setta/workspace", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@setta/workspace")>()),
+vi.mock("@riteofstring/setta", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@riteofstring/setta")>()),
   useWorkspaceDocumentSnapshot: () => ({
     savedViews: { activeViewId: "overview" },
   }),

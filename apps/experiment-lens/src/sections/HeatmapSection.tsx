@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "@setta/workspace";
+import { useWorkspaceAppearance } from "@riteofstring/setta";
 import { useCallback, useMemo, type CSSProperties } from "react";
 
 import { aggregateValues } from "../app/aggregation";

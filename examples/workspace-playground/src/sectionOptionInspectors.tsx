@@ -18,7 +18,7 @@ import {
   type WorkspaceHost,
   type WorkspaceTextSectionData,
   type WorkspaceTextSectionFormat,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 function updatePlaygroundCodeSection(
   host: WorkspaceHost,

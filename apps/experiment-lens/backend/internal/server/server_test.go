@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/setta/experiment-lens/backend/internal/contracts"
-	"github.com/setta/experiment-lens/backend/internal/coordinator"
-	"github.com/setta/experiment-lens/backend/internal/testsupport"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/coordinator"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/testsupport"
 )
 
 func TestHandlerRejectsReferentiallyInvalidSelectionAsBadRequest(t *testing.T) {

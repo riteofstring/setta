@@ -4,7 +4,7 @@ import {
   NO_PAN_CLASS_NAME,
   type WorkspaceSection,
   type WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { useRealtime } from "../app/runtimeContext";
 import { readInputSectionData } from "./sectionData";

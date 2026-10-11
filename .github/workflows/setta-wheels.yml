@@ -166,7 +166,7 @@ jobs:
       - name: Build all production frontends
         shell: bash
         run: |
-          pnpm --filter @setta/workspace run build
+          pnpm --filter @riteofstring/setta run build
           pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
@@ -316,7 +316,7 @@ jobs:
       - name: Build all production frontends
         shell: bash
         run: |
-          pnpm --filter @setta/workspace run build
+          pnpm --filter @riteofstring/setta run build
           pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build
@@ -530,7 +530,7 @@ jobs:
           go -C apps/review/backend mod verify
       - name: Build all production frontends
         run: |
-          pnpm --filter @setta/workspace run build
+          pnpm --filter @riteofstring/setta run build
           pnpm --filter @setta/experiment-lens run build
           pnpm --filter @setta/python-canvas run build
           pnpm --filter @setta/realtime run build

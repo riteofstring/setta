@@ -1,4 +1,4 @@
-import type { WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceHost } from "@riteofstring/setta";
 
 import {
   createCallable,

@@ -8,7 +8,7 @@ import {
   createWorkspaceHost,
   type WorkspaceHost,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { RealtimeContext, type RealtimeActions } from "../app/runtimeContext";
 import { initialRuntimeViewState } from "../app/runtimeState";

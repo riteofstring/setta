@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TextValueCompletionProvider } from "@setta/workspace";
+import type { TextValueCompletionProvider } from "@riteofstring/setta";
 
 const editorProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const itemListProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   TextValueEditor: (props: Record<string, unknown>) => {
     editorProps.push(props);

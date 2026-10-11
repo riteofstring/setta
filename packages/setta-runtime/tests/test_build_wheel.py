@@ -24,7 +24,7 @@ class WheelBuildContractTests(unittest.TestCase):
             run.call_args_list,
             [
                 mock.call(
-                    ["/tools/pnpm", "--filter", "@setta/workspace", "run", "build"],
+                    ["/tools/pnpm", "--filter", "@riteofstring/setta", "run", "build"],
                     build_setta_wheel.ROOT,
                 ),
                 mock.call(

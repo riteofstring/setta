@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   workspaceHost: {} as never,
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   NO_DRAG_CLASS_NAME: "nodrag",
   NO_PAN_CLASS_NAME: "nopan",
   NO_WHEEL_CLASS_NAME: "nowheel",

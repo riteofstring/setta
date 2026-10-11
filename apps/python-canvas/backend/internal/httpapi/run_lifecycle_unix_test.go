@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/runner"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/runner"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
 )
 
 func TestServeLifecycleCancellationStopsTheOwnedGeneratedRun(t *testing.T) {

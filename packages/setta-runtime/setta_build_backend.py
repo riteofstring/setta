@@ -43,6 +43,7 @@ class ProjectInfo:
     classifiers: tuple[str, ...]
     dependencies: tuple[str, ...]
     scripts: tuple[tuple[str, str], ...]
+    urls: tuple[tuple[str, str], ...]
 
     @property
     def normalized_name(self) -> str:
@@ -201,6 +202,10 @@ def _read_project_info(root: Path) -> ProjectInfo:
     readme_path = _required_string(readme, "file")
     description_content_type = _required_string(readme, "content-type")
     description = _read_project_text(root, readme_path, "readme")
+    urls_data = project.get("urls", {})
+    if not isinstance(urls_data, dict):
+        raise BuildBackendError("The Setta project URLs are invalid.")
+    urls = tuple(sorted(_string_pair(key, value) for key, value in urls_data.items()))
     scripts_data = project.get("scripts")
     if not isinstance(scripts_data, dict) or not scripts_data:
         raise BuildBackendError("The Setta console-script metadata is invalid.")
@@ -221,6 +226,7 @@ def _read_project_info(root: Path) -> ProjectInfo:
         classifiers=classifiers,
         dependencies=dependencies,
         scripts=scripts,
+        urls=urls,
     )
 
 
@@ -357,6 +363,7 @@ def _metadata_entries(context: BuildContext) -> tuple[WheelEntry, ...]:
         f"License-Expression: {context.project.license_expression}",
         f"Author: {', '.join(context.project.authors)}",
         f"Keywords: {','.join(context.project.keywords)}",
+        *(f"Project-URL: {name}, {url}" for name, url in context.project.urls),
         *(f"Classifier: {classifier}" for classifier in context.project.classifiers),
         *(f"License-File: {path}" for path in context.project.license_files),
         f"Requires-Python: {context.project.requires_python}",

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   WorkspaceGraphConnection,
   WorkspaceGraphPort,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type { Binding, Project } from "../api/generatedContract";
 import { makeProject } from "../testProject";

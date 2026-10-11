@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const itemListProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   WorkspaceItemList: (props: Record<string, unknown>) => {
     itemListProps.push(props);

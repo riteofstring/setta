@@ -7,7 +7,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
 )
 
 func (coordinator *Coordinator) CompleteCallable(

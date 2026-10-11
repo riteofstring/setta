@@ -2,7 +2,7 @@ import {
   activateWorkspaceSavedView,
   createWorkspaceHost,
   getWorkspaceSavedViewsState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { describe, expect, it } from "vitest";
 
 import { performanceProfileDocument } from "./performanceProfileDocument";

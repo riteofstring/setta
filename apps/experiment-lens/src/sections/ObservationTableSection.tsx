@@ -2,7 +2,7 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import {
   flexRender,
   getCoreRowModel,

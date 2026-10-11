@@ -5,7 +5,7 @@ import {
   type SectionKindDefinition,
   type WorkspaceCodeSectionData,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { ButtonSection } from "../sections/ButtonSection";
 import { DrawingInspector } from "../sections/DrawingInspector";

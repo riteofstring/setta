@@ -2,7 +2,7 @@ import {
   WorkspaceSectionHeaderAction,
   type WorkspaceCodeSectionData,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { useRealtime } from "../app/runtimeContext";
 import type { Project } from "../api/generatedContract";

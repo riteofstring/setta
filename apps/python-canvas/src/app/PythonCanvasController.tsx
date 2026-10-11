@@ -5,7 +5,7 @@ import {
   setWorkspaceColorMode,
   type TextValueCompletionProvider,
   type WorkspaceDocument,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   ProjectClientError,

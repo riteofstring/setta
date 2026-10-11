@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/realtime/backend/internal/content"
-	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/project"
-	"github.com/setta/realtime/backend/internal/source"
-	"github.com/setta/realtime/backend/internal/worker"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/content"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/project"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/source"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/worker"
 )
 
 type fakeWorker struct {

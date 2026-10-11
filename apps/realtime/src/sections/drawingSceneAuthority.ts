@@ -1,4 +1,4 @@
-import type { WorkspaceSectionData } from "@setta/workspace";
+import type { WorkspaceSectionData } from "@riteofstring/setta";
 
 type DrawingSceneCommit = {
   key: string;

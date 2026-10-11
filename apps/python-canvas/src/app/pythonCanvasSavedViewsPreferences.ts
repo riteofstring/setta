@@ -1,7 +1,7 @@
 import {
   parseWorkspaceSavedViewsState,
   type WorkspaceSavedViewsState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 const PYTHON_CANVAS_SAVED_VIEWS_PREFERENCE_KEY_PREFIX =
   "setta.python-canvas.saved-views:";

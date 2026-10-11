@@ -3,7 +3,7 @@ import type {
   WorkspaceGraphEdge,
   WorkspaceGraphPort,
   WorkspaceGraphReconnect,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   Binding,

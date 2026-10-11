@@ -3,7 +3,7 @@ import {
   type WorkspaceHost,
   WorkspaceInspectorSettingsGroup,
   useWorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   DrawingAlignment,

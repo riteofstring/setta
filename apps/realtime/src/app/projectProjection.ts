@@ -4,7 +4,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceSection,
   type WorkspaceSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   Project,

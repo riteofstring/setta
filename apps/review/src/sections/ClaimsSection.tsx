@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { WorkspaceSection } from "@setta/workspace";
+import type { WorkspaceSection } from "@riteofstring/setta";
 
 import type { CompletionDecisionKind } from "../app/reviewModel";
 import { decisionForClaim, findRequestSnapshot } from "../app/reviewModel";

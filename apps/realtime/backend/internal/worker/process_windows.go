@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 const (

@@ -8,7 +8,7 @@ import {
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellViewState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useReview } from "./reviewContext";

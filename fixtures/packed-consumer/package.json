@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json --pretty false && vite build"
   },
   "dependencies": {
-    "@setta/workspace": "workspace:*",
+    "@riteofstring/setta": "workspace:*",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },

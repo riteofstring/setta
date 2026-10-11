@@ -1,4 +1,4 @@
-import type { WorkspaceSectionData } from "@setta/workspace";
+import type { WorkspaceSectionData } from "@riteofstring/setta";
 
 import type { ContentReference } from "../api/generatedContract";
 

@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import "@setta/workspace/styles.css";
+import "@riteofstring/setta/styles.css";
 import "./index.css";
 
 import { ReviewController } from "./app/ReviewController";

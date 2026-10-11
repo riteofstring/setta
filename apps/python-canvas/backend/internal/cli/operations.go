@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/setta/local-backend/strictjson"
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 const cliContractVersion = "v2"

@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminal"
 )
 
 func TestTerminalRoutesRunExactCaptureAndClose(t *testing.T) {

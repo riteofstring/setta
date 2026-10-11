@@ -14,7 +14,7 @@ import {
   type TPointerEventInfo,
   util,
 } from "fabric";
-import type { WorkspaceSectionData } from "@setta/workspace";
+import type { WorkspaceSectionData } from "@riteofstring/setta";
 
 import {
   DRAWING_OBJECT_SERIALIZATION_PROPERTIES,

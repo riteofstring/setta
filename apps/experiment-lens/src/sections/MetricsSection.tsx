@@ -1,4 +1,4 @@
-import { NO_WHEEL_CLASS_NAME, useIsScrollable } from "@setta/workspace";
+import { NO_WHEEL_CLASS_NAME, useIsScrollable } from "@riteofstring/setta";
 
 import { useLens } from "../app/lensContext";
 import { aggregateValues } from "../app/aggregation";

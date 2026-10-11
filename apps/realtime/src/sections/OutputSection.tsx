@@ -1,4 +1,4 @@
-import type { WorkspaceSection } from "@setta/workspace";
+import type { WorkspaceSection } from "@riteofstring/setta";
 
 import {
   resolveRuntimeValue,

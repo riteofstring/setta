@@ -3,7 +3,7 @@ import {
   parseWorkspaceSavedViewsState,
   type WorkspaceDocument,
   type WorkspaceDocumentInput,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { forestMutationProposal } from "./pythonCanvasAppSupport";

@@ -8,10 +8,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/setta/experiment-lens/backend/internal/artifact"
-	"github.com/setta/experiment-lens/backend/internal/contracts"
-	"github.com/setta/experiment-lens/backend/internal/lensstate"
-	"github.com/setta/experiment-lens/backend/internal/project"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/artifact"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/lensstate"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/project"
 )
 
 var (

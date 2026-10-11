@@ -17,7 +17,7 @@ import {
   type WorkspaceKeyBinding,
   type WorkspaceHost,
   type WorkspaceSectionInput,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useSyncExternalStore } from "react";
 
 const INITIAL_MENU_EXTENSION_STATUS = "No host menu action invoked.";

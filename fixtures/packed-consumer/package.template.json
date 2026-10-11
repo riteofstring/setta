@@ -12,7 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@setta/workspace": "file:__SETTA_WORKSPACE_TARBALL__",
+    "@riteofstring/setta": "file:__SETTA_WORKSPACE_TARBALL__",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },

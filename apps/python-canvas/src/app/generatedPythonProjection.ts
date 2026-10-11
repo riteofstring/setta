@@ -5,7 +5,7 @@ import {
   type WorkspaceCodeSectionDiagnostic,
   type WorkspaceHost,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,

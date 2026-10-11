@@ -303,8 +303,6 @@
       "apps/experiment-lens/backend/cmd/experiment-lens/main.go",
       "apps/experiment-lens/src/main.tsx",
       "apps/experiment-lens/vitest.setup.ts",
-      "docs/setta-experiment-lens-mockup.js",
-      "docs/setta-product-mockups.js",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -335,8 +333,6 @@
       "apps/experiment-lens/vitest.config.ts",
       "apps/experiment-lens/vitest.setup.ts",
       "apps/experiment-lens/scripts/**",
-      "docs/setta-experiment-lens-mockup.js",
-      "docs/setta-product-mockups.js",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -351,13 +347,7 @@
   "modules": [
     {
       "name": "workspace",
-      "paths": [
-        "packages/workspace/**",
-        "scripts/**",
-        "fixtures/**",
-        "docs/setta-experiment-lens-mockup.js",
-        "docs/setta-product-mockups.js"
-      ]
+      "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
     },
     {
       "name": "workspace-playground",
@@ -459,7 +449,7 @@
     {
       "name": "workspace-build",
       "provides": ["build"],
-      "argv": ["pnpm", "--filter", "@setta/workspace", "run", "build"],
+      "argv": ["pnpm", "--filter", "@riteofstring/setta", "run", "build"],
       "modules": ["workspace"],
       "runOn": ["build"],
       "timeoutSeconds": 900
@@ -768,7 +758,7 @@
           "packages/workspace/src/**/*.test.ts",
           "packages/workspace/src/**/*.test.tsx"
         ],
-        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
+        "argv": ["pnpm", "--filter", "@riteofstring/setta", "test"],
         "runOn": ["focused", "recommended", "full"],
         "timeoutSeconds": 1200
       },

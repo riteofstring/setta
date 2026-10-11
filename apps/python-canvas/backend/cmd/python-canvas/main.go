@@ -19,17 +19,17 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/python-canvas/backend/internal/cli"
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/httpapi"
-	"github.com/setta/python-canvas/backend/internal/lsp"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/project/coordinator"
-	"github.com/setta/python-canvas/backend/internal/project/materializer"
-	"github.com/setta/python-canvas/backend/internal/pythonenv"
-	"github.com/setta/python-canvas/backend/internal/runner"
-	"github.com/setta/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/cli"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/httpapi"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/lsp"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/coordinator"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/materializer"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/pythonenv"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/runner"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
 )
 
 const terminalShutdownTimeout = 5 * time.Second

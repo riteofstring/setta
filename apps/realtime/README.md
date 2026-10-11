@@ -338,7 +338,7 @@ Direct invocation input has the same portable value boundary:
 
 ## Browser behavior
 
-Realtime renders one ordinary editable `@setta/workspace` host and shell. Workspace owns section
+Realtime renders one ordinary editable `@riteofstring/setta` host and shell. Workspace owns section
 selection, movement, resizing, locking, minimization, naming, the Inspector, section chrome, and
 its upstream XYFlow canvas; Realtime does not add a mode layer or alternate section renderer.
 Project snapshots arrive as complete SSE values. Runtime snapshots, events, cancellations,

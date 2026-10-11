@@ -1,4 +1,4 @@
-import workspacePreset from "@setta/workspace/tailwind-preset";
+import workspacePreset from "@riteofstring/setta/tailwind-preset";
 
 export default {
   presets: [workspacePreset],

@@ -1,4 +1,4 @@
-import type { WorkspaceDocument } from "@setta/workspace";
+import type { WorkspaceDocument } from "@riteofstring/setta";
 
 import type { ListV2 } from "../api/generatedContract";
 

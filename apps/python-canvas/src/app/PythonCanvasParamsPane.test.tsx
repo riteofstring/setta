@@ -1,5 +1,5 @@
 /* @vitest-environment jsdom */
-import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument, WorkspaceHost } from "@riteofstring/setta";
 import { act, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ const workspaceMocks = vi.hoisted(() => ({
   parameterViewSectionIds: [] as Array<string>,
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   WorkspaceParameterConfigurationView: ({
     sectionId,
   }: {

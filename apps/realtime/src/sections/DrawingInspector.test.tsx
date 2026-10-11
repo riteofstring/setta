@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, WorkspaceProvider } from "@setta/workspace";
+import { createWorkspaceHost, WorkspaceProvider } from "@riteofstring/setta";
 
 import { DrawingInspector } from "./DrawingInspector";
 import {

@@ -2,7 +2,7 @@ import {
   getWorkspaceCodeSectionData,
   useWorkspaceHost,
   NO_DRAG_CLASS_NAME,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useState } from "react";
 
 import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";

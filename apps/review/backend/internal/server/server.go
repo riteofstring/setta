@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/setta/local-backend/artifacthttp"
-	"github.com/setta/local-backend/httpjson"
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/local-backend/sse"
-	"github.com/setta/review/backend/internal/contracts"
-	"github.com/setta/review/backend/internal/coordinator"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/coordinator"
+	"github.com/riteofstring/setta/packages/local-backend/artifacthttp"
+	"github.com/riteofstring/setta/packages/local-backend/httpjson"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
+	"github.com/riteofstring/setta/packages/local-backend/sse"
 )
 
 const maximumJSONBytes = 4 << 20

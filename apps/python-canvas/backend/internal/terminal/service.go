@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/pythonenv"
-	"github.com/setta/python-canvas/backend/internal/terminalbounds"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/pythonenv"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminalbounds"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 func startContainedWorker(string, string, string, []string, *os.File, *os.File, io.Writer, io.Writer) (*exec.Cmd, ownedProcess, error) {

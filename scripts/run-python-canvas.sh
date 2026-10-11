@@ -115,7 +115,7 @@ fi
 
 cd "${repo_root}"
 pnpm install --frozen-lockfile
-pnpm --filter @setta/workspace run build
+pnpm --filter @riteofstring/setta run build
 pnpm --filter @setta/python-canvas run build
 
 launcher_python="$(python3 -c 'import sys; print(sys.executable)')"

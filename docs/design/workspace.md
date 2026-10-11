@@ -429,3 +429,21 @@ guide, and any pane visibility change before framing. The guide never creates or
 content. Framing begins after the triggering event; removed targets are disabled with an
 explanation, and hidden targets leave the workspace usable with visible guidance. There is no
 tour state machine, completion tracking, storage, or modal blocking exploration.
+
+## Browser execution boundary
+
+The public `@riteofstring/setta/browser` entry is independent of React and the workspace runtime.
+Static consumers need live computations without reproducing native server supervision. A dedicated
+worker owns a validated dependency graph; the client owns one active run, one replaceable latest
+input, a finite deadline, and disposal. Successful output carries its producing revision and stays
+visible until a newer requested input succeeds. Obsolete runs never become current output.
+
+Applications own stage implementations, result schemas, and presentation. The print studio's
+SVG effects belong to the site; queuing, dependency ordering, progress, cancellation, and worker
+recovery belong to this package. Cancellation terminates the dedicated worker so synchronous
+handlers cannot prevent recovery. Worker inputs are cloned on admission so later caller mutation
+cannot alter queued work. The caller supplies a fresh worker factory for restarts.
+
+The npm artifact exports ESM, declarations, compiled scoped styles, and the independent browser
+entry under the canonical `@riteofstring/setta` name. Examples stay private; the library carries its
+own Apache license and public repository metadata. Source aliases are not a consumer API.

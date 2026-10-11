@@ -3,7 +3,7 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceHost,
   type WorkspaceCodeSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type { Project, RuntimeSourceDocument } from "../api/generatedContract";
 import { makeProject } from "../testProject";

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/projectfile"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/projectfile"
 )
 
 func TestStructuralCardinalityMutationsPublishBeforeDiagnostics(t *testing.T) {

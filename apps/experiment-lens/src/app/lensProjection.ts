@@ -3,7 +3,7 @@ import {
   type TopLevelSectionLayout,
   type WorkspaceDocumentInput,
   type WorkspaceSectionInput,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   LensSnapshot,

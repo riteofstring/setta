@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
 )
 
 type GeneratedProgram struct {

@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/realtime/backend/internal/server"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/server"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
 )
 
 type serveOptions struct {

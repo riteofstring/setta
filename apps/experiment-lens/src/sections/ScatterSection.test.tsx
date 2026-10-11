@@ -10,7 +10,7 @@ import {
 import { lensTestSnapshot } from "../test/lensTestData";
 import { ScatterSection } from "./ScatterSection";
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   useWorkspaceAppearance: (
     selector: (state: { darkMode: boolean }) => unknown,
   ) => selector({ darkMode: true }),

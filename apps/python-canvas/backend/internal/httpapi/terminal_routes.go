@@ -12,12 +12,12 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/setta/local-backend/httpjson"
-	"github.com/setta/local-backend/strictjson"
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/runner"
-	"github.com/setta/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/runner"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/packages/local-backend/httpjson"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 var ErrTerminalRuntimeRequired = errors.New("httpapi: terminal runtime is required")

@@ -17,15 +17,15 @@ function readJson(relativePath) {
 
 function validateManifest(relativePath) {
   const manifest = readJson(relativePath);
+  const publishable = relativePath === "packages/workspace/package.json";
   return [
-    ...(manifest.private === true
+    ...(publishable || manifest.private === true
       ? []
-      : [
-          `${relativePath}: private must remain true while publishing is undecided`,
-        ]),
-    ...("publishConfig" in manifest
+      : [`${relativePath}: applications and fixtures must remain private`]),
+    ...(publishable &&
+    (manifest.private === true || manifest.publishConfig?.access !== "public")
       ? [
-          `${relativePath}: publishConfig is outside the current extraction plan`,
+          `${relativePath}: the frontend library must declare public publication`,
         ]
       : []),
     ...(manifest.packageManager &&

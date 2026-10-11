@@ -7,7 +7,7 @@ import {
   setWorkspaceMiniMapVisibility,
   setWorkspaceSectionAttention,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {

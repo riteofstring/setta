@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/setta/review/backend/internal/contracts"
-	"github.com/setta/review/backend/internal/coordinator"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/coordinator"
 )
 
 type fakeService struct {

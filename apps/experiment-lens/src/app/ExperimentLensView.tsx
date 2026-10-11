@@ -12,7 +12,7 @@ import {
   type WorkspaceShellViewState,
   type WorkspaceWindowRenderers,
   type WorkspaceWindowViewport,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SelectionComparisonWindow } from "../windows/SelectionComparisonWindow";

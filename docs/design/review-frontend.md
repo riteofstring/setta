@@ -7,7 +7,7 @@ belongs in `apps/review/README.md`.
 
 The validated backend snapshot is authoritative for request identity, imported assessments,
 evidence resolution, response drafts, and revision. React projects that value into one
-`@setta/workspace` host. Workspace owns the shell, outline, canvas, section chrome, selection,
+`@riteofstring/setta` host. Workspace owns the shell, outline, canvas, section chrome, selection,
 attention, framing, graph interaction, saved presentations, and managed windows. Review owns only
 its typed section bodies, controlled semantic graph, disposable exploration state, and response
 actions.
@@ -52,7 +52,7 @@ revision-request actions. A drawing remains a response overlay rather than modif
 
 ## Application state and dependencies
 
-`@setta/workspace` remains the only canvas and shell dependency. Existing Workspace CodeMirror and
+`@riteofstring/setta` remains the only canvas and shell dependency. Existing Workspace CodeMirror and
 Markdown surfaces render ordinary code and text. Pierre Diffs renders unified Git evidence.
 Workspace's controlled normalized-stroke surface owns annotation gesture mechanics and passive SVG
 rendering. Review still owns contained-image placement, artifact identity, path styling, response

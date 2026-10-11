@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/setta/experiment-lens/backend/internal/testsupport"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/testsupport"
 )
 
 func TestOpenAdmitsExactManifestAndObservationBytes(t *testing.T) {

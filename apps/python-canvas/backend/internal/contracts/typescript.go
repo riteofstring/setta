@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
 )
 
 func TypeScriptV2() []byte {

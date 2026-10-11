@@ -7,7 +7,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceHost,
   type WorkspaceItemSearchContext,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   CallableExpressionField,

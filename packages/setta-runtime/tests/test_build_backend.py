@@ -108,6 +108,11 @@ class SettaBuildBackendTests(unittest.TestCase):
             self.assertIn("Metadata-Version: 2.4", metadata)
             self.assertIn("Description-Content-Type: text/markdown", metadata)
             self.assertIn("License-Expression: Apache-2.0", metadata)
+            self.assertIn(
+                "Project-URL: Repository, https://github.com/riteofstring/setta",
+                metadata,
+            )
+            self.assertIn("Project-URL: Homepage, https://setta.dev", metadata)
             self.assertIn("Author: Kevin Musgrave, Jeff Musgrave", metadata)
             self.assertIn(
                 "Keywords: local-first,python,visual-tools,workspace", metadata

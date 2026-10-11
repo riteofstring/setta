@@ -7,10 +7,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/setta/review/backend/internal/contracts"
-	"github.com/setta/review/backend/internal/evidence"
-	"github.com/setta/review/backend/internal/project"
-	"github.com/setta/review/backend/internal/reviewstate"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/evidence"
+	"github.com/riteofstring/setta/apps/review/backend/internal/project"
+	"github.com/riteofstring/setta/apps/review/backend/internal/reviewstate"
 )
 
 var (

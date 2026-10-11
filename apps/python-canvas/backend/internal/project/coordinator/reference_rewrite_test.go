@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/project/renderer"
-	"github.com/setta/python-canvas/backend/internal/projectfile"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/renderer"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/projectfile"
 )
 
 func TestRenameCallableAtomicallyRewritesSurvivingStateReferences(t *testing.T) {

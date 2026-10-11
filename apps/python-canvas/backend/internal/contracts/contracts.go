@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/setta/python-canvas/backend/internal/terminalbounds"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminalbounds"
 )
 
 const (

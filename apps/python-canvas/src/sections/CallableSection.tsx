@@ -16,7 +16,7 @@ import {
   type WorkspaceItem,
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useEffect, useRef, useState } from "react";
 
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";

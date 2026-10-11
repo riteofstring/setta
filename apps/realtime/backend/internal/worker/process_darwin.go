@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 type darwinProcess struct {

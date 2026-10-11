@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/setta/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
 )
 
 func TestCoordinatorAppliesAssessmentAndResponseThenExportsContinuation(t *testing.T) {

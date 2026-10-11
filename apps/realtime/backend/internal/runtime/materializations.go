@@ -8,8 +8,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/materialization"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/materialization"
 )
 
 func computeFingerprint(sourceVersion string, handler string, arguments map[string]json.RawMessage) (string, error) {

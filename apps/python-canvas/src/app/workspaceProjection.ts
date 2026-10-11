@@ -9,7 +9,7 @@ import {
   type WorkspaceSection,
   type WorkspaceSectionInput,
   type WorkspaceSectionItemTree,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   DIAGNOSTIC_SEVERITY_INFORMATION_V2,

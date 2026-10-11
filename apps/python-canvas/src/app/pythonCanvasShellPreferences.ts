@@ -3,7 +3,7 @@ import {
   WORKSPACE_OUTLINE_TAB_ID,
   type WorkspaceShellPaneViewState,
   type WorkspaceShellViewState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import {
   PYTHON_CANVAS_PARAMS_TAB_ID,
   PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,

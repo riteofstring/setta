@@ -5,7 +5,7 @@ import {
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSectionItemTree,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   DICTIONARY_ENTRY_KIND_LEAF_V2,

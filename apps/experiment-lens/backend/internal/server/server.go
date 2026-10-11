@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/setta/experiment-lens/backend/internal/artifact"
-	"github.com/setta/experiment-lens/backend/internal/contracts"
-	"github.com/setta/experiment-lens/backend/internal/coordinator"
-	"github.com/setta/local-backend/artifacthttp"
-	"github.com/setta/local-backend/httpjson"
-	"github.com/setta/local-backend/localweb"
-	"github.com/setta/local-backend/sse"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/artifact"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/coordinator"
+	"github.com/riteofstring/setta/packages/local-backend/artifacthttp"
+	"github.com/riteofstring/setta/packages/local-backend/httpjson"
+	"github.com/riteofstring/setta/packages/local-backend/localweb"
+	"github.com/riteofstring/setta/packages/local-backend/sse"
 )
 
 const maximumJSONBytes = 4 << 20

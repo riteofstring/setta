@@ -1,4 +1,4 @@
-import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument, WorkspaceHost } from "@riteofstring/setta";
 
 import { ProjectClientError } from "../api/client";
 import type {

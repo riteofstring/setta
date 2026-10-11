@@ -5,7 +5,7 @@ import {
   WorkspaceCarousel,
   type WorkspaceCarouselItem,
   useIsScrollable,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useEffect, useRef, useState } from "react";
 
 import type {

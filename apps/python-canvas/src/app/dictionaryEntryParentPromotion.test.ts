@@ -1,5 +1,5 @@
-import type { WorkspaceDocument } from "@setta/workspace";
-import { createWorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument } from "@riteofstring/setta";
+import { createWorkspaceHost } from "@riteofstring/setta";
 import { describe, expect, it } from "vitest";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";

@@ -6,7 +6,7 @@ import {
   WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceDocument,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";
 import { parseProjectSnapshotV2 } from "../api/runtimeContract";
@@ -312,8 +312,8 @@ vi.mock("./pythonCanvasSavedViewsPreferences", () => ({
   persistPythonCanvasSavedViews: mocks.persistPythonCanvasSavedViews,
 }));
 
-vi.mock("@setta/workspace", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@setta/workspace")>()),
+vi.mock("@riteofstring/setta", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@riteofstring/setta")>()),
   WORKSPACE_CODE_SECTION_KIND: "setta.code",
   ItemDndContext: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ItemNameEditor: () => <input aria-label="Parameter name" readOnly />,

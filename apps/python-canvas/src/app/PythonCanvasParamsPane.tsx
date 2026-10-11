@@ -3,7 +3,7 @@ import {
   useWorkspaceDocumentSnapshot,
   type WorkspaceDocument,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   CALLABLE_SECTION_KIND,

@@ -1,7 +1,7 @@
 import {
   WorkspaceNormalizedStrokeSurface,
   type WorkspaceNormalizedPoint,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import type { CSSProperties } from "react";
 import type { ArtifactAnnotationStroke } from "./artifactAnnotationModel";
 

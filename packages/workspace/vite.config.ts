@@ -2,7 +2,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    lib: { entry: "src/index.ts", formats: ["es"], fileName: "index" },
+    lib: {
+      entry: { index: "src/index.ts", browser: "src/browser/index.ts" },
+      formats: ["es"],
+      fileName: (_format, entryName) => `${entryName}.js`,
+    },
 
     minify: false,
     sourcemap: true,

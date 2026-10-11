@@ -1,7 +1,7 @@
 import type {
   TextValueCompletionProvider,
   TextValueCompletionResult,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { ProjectClientError, completeCallable } from "../api/client";
 

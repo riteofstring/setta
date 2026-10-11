@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/setta/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
 )
 
 func TestStoreReadsAndAtomicallyAppliesCurrentEntrypoint(t *testing.T) {

@@ -4,7 +4,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceDocumentInput,
   type WorkspaceSavedViewsState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   loadPythonCanvasSavedViews,

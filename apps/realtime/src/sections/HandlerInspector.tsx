@@ -3,7 +3,7 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   WorkspaceInspectorSettingsGroup,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { realtimeAutomaticStartupSource } from "../app/realtimeGraph";
 import { useRealtime } from "../app/runtimeContext";

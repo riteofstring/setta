@@ -1,4 +1,4 @@
-import type { WorkspaceClipboardPasteRequest } from "@setta/workspace";
+import type { WorkspaceClipboardPasteRequest } from "@riteofstring/setta";
 import { describe, expect, it } from "vitest";
 
 import projectSnapshotFixture from "@setta/python-canvas/project-snapshot-v2.json";

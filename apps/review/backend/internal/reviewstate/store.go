@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/setta/local-backend/latestvalue"
-	"github.com/setta/local-backend/projectfs"
-	"github.com/setta/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/review/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/latestvalue"
+	"github.com/riteofstring/setta/packages/local-backend/projectfs"
 )
 
 const (

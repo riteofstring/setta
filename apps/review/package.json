@@ -8,15 +8,15 @@
   },
   "scripts": {
     "browser:test": "node review.browser.mjs",
-    "build": "pnpm --filter @setta/workspace run build && pnpm run contract:check && tsc --noEmit -p tsconfig.json && vite build",
+    "build": "pnpm --filter @riteofstring/setta run build && pnpm run contract:check && tsc --noEmit -p tsconfig.json && vite build",
     "contract:check": "go -C backend run -mod=readonly ./cmd/generate-contract -check && node scripts/compile-validators.mjs --check",
     "contract:generate": "go -C backend run -mod=readonly ./cmd/generate-contract && node scripts/compile-validators.mjs",
     "dev": "vite",
-    "test": "pnpm --filter @setta/workspace run build && vitest run"
+    "test": "pnpm --filter @riteofstring/setta run build && vitest run"
   },
   "dependencies": {
     "@pierre/diffs": "1.2.11",
-    "@setta/workspace": "workspace:*",
+    "@riteofstring/setta": "workspace:*",
     "ajv": "8.20.0",
     "react": "19.1.1",
     "react-dom": "19.1.1"

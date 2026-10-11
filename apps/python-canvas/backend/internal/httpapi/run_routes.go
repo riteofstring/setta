@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/runner"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/runner"
 )
 
 var ErrRunnerRequired = errors.New("httpapi: generated-program runner is required")

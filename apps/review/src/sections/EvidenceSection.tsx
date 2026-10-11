@@ -5,7 +5,7 @@ import {
   NO_WHEEL_CLASS_NAME,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { useReview } from "../app/reviewContext";
 import { findRequestSnapshot } from "../app/reviewModel";

@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 func main() {

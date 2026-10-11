@@ -1,4 +1,4 @@
-import { createWorkspaceShellViewState } from "@setta/workspace";
+import { createWorkspaceShellViewState } from "@riteofstring/setta";
 import { describe, expect, it, vi } from "vitest";
 
 import {

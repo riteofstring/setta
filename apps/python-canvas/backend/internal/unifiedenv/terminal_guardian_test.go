@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/setta/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminal"
 )
 
 func TestMain(m *testing.M) {

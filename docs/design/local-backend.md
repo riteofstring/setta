@@ -6,7 +6,7 @@ records and READMEs.
 
 ## Boundary and dependency direction
 
-`github.com/setta/local-backend` is a repository-local Go infrastructure module beneath Python
+`github.com/riteofstring/setta/packages/local-backend` is a standalone Go infrastructure module consumed locally by Python
 Canvas, Realtime, Review, and Experiment Lens. It imports no application package and has no
 knowledge of application IDs, route versions, project schemas, product state, revisions, or
 readiness documents. Each application imports the module through an exact local module edge and
@@ -109,3 +109,7 @@ strict transport rejection, bounded cancellation, and idempotent cleanup. Each a
 small boundary tests for its route wiring and product invariants. Native servers build from their
 ordinary module roots with read-only resolution, and wheel staging contains only compiled servers
 and admitted web assets.
+
+The canonical module path follows the public monorepo location. Go releases use the nested
+`packages/local-backend/vVERSION` tag; the example apps retain local replacements so they build
+from the same checkout. The module includes its own Apache license for independent distribution.

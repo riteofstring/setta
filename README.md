@@ -3,85 +3,83 @@
 
 # Setta
 
-**Visual tools for local Python projects, reviews, and experiments.**
+**Building blocks for interactive tools.**
 
-Setta turns work on your computer into focused browser workspaces. Your project files and Python
-environment stay local while Setta gives you a visual interface for building, exploring, reviewing,
-and handing work off. The same projects are available from the command line when you want to
-automate a workflow.
+Compose React workspaces with typed controls, nested sections, editors, graphs, saved views,
+and floating windows. Run live computations in browser workers, or connect a local Go backend
+when your tool needs files, Python, or native processes.
 
-## Try the playgrounds
+[**Play with the print studio →**](https://setta.dev) ·
+[Frontend API](packages/workspace/README.md) ·
+[Browser pipelines](packages/workspace/BROWSER.md) ·
+[Go library](packages/local-backend/README.md)
 
-Complete [source setup](CONTRIBUTING.md#source-setup), then choose an example. Each opens with a
-**Start here** guide inside the app, with short challenges and buttons that find the right controls.
+[![The Setta print studio: a drawing, live controls, three treatments, and a finished poster.](images/print-studio.png)](https://setta.dev)
 
-| App             | Launch                            | Try this                                                         |
-| --------------- | --------------------------------- | ---------------------------------------------------------------- |
-| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.   |
-| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision. |
-| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                  |
+## The libraries
 
-The first launch builds the apps and may take a few minutes. The playground keeps running after
-the command returns; add `--stop` to stop it. Changes stay in your ignored working copy under `tmp/`.
-Add `--fresh` to any command for another untouched example without deleting earlier experiments.
-The launcher prints the exact `--workspace` command to resume a copy. `--no-open` prints the URL
-without opening a browser, and `--help` lists the options.
+| Library                                                                                    | What it provides                                                                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| [`@riteofstring/setta`](packages/workspace/README.md)                                      | A composable React workspace: controls, sections, navigation, editors, graph presentation, and managed windows.                 |
+| [`@riteofstring/setta/browser`](packages/workspace/BROWSER.md)                             | Worker pipelines with dependent stages, latest-input queuing, progress, cancellation, and failure recovery. No server required. |
+| [`github.com/riteofstring/setta/packages/local-backend`](packages/local-backend/README.md) | Go packages for loopback hosting, confined project files, live updates, strict JSON, and process lifecycle.                     |
 
-For Python Canvas, [create a project and follow the getting-started example](apps/python-canvas/README.md#install-and-open-a-project).
+Use them together or independently. Your application owns its data, computations, persistence,
+and routes. Setta supplies the workspace and execution building blocks.
 
-## Four ways to work
+The [print studio](https://setta.dev) turns a scribble into a poster: adjust the inks, choose a
+treatment, and take home an SVG or PNG. It uses the public frontend and browser pipeline APIs
+and runs on static hosting, entirely in your browser. Its [source](https://github.com/riteofstring/setta-site)
+is a complete consumer example.
 
-| App                                               | What it helps you do                                                                                     |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [Python Canvas](apps/python-canvas/README.md)     | Compose and run Python visually, with generated code and diagnostics close at hand.                      |
-| [Realtime](apps/realtime/README.md)               | Build responsive local interfaces powered by ordinary Python handlers.                                   |
-| [Review](apps/review/README.md)                   | Compare claims and choices against exact evidence, then record a portable decision.                      |
-| [Experiment Lens](apps/experiment-lens/README.md) | Find patterns in recorded results, inspect the observations behind them, and export a precise selection. |
+## Start building
 
-## One shared foundation
-
-The four apps use the same visual workspace and local backend foundation. Each app can stay focused
-on its job while navigation, project access, live updates, and local execution feel consistent.
-
-![Setta architecture: Python Canvas, Realtime, Review, and Experiment Lens share a Workspace frontend and local backend, which work with projects and files on your computer.](./setta-architecture.svg)
-
-## Why Setta
-
-- **Local by design.** Work directly with your own files and Python environments; no hosted account
-  is required.
-- **Visual where it helps.** Move between canvases, code, evidence, plots, and artifacts without
-  flattening the work into a text-only flow.
-- **Ready for automation.** Use the browser for hands-on work and the command line for scripts and
-  agents.
-- **Portable handoffs.** Keep results, decisions, and selections in explicit project files that
-  another person or tool can continue from.
-
-## Get started
-
-Setta is currently a source preview. A usable PyPI release is not available yet. Start with the
-[contributor setup](CONTRIBUTING.md#source-setup), then launch one of the included examples from
-the repository root:
+The frontend requires React 19 and an ESM bundler such as Vite:
 
 ```sh
-pnpm experiment-lens:playground
+npm install @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
 ```
 
-The first launch builds the four apps and installs them into an ignored local environment; allow a
-few minutes. Later launches reuse that build until its inputs change. The browser opens a battery
-study you can filter, annotate, and explore. Use `pnpm experiment-lens:playground --stop` to stop it. Your
-changes stay in `tmp/experiment-lens-playground/experiment-project` for the next launch.
-
-Try the other examples:
-
-```sh
-pnpm realtime:playground
-pnpm review:playground
+```tsx
+import {
+  createWorkspaceHost,
+  WorkspaceProvider,
+  WorkspaceShell,
+} from "@riteofstring/setta";
+import "@riteofstring/setta/styles.css";
 ```
 
-Each playground stays running after its command returns, so you can close the terminal. Run the
-same command to reopen it, add `--stop` to stop it, or add `--fresh` for another copy that preserves
-your previous work.
+Follow the [frontend getting started guide](packages/workspace/README.md#getting-started) for a
+complete component, or start with a [browser worker pipeline](packages/workspace/BROWSER.md).
+For a checkout before registry publication, build and pack the library using the
+[contributor setup](CONTRIBUTING.md#source-setup), then install the resulting local tarball.
 
-Learn how to [contribute](CONTRIBUTING.md), [get support](SUPPORT.md), or
-[report a security issue](SECURITY.md). Setta is licensed under
-[Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.
+The [Go guide](packages/local-backend/README.md) covers local hosting and project files.
+Neither the React workspace nor the browser pipeline requires Go or Python.
+
+## Four examples to borrow from
+
+These applications demonstrate the libraries in larger local tools. The `setta` Python package
+bundles their native servers and browser interfaces.
+
+| Example                                           | Idea                                                     | Run from a checkout                                                         |
+| ------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [Python Canvas](apps/python-canvas/README.md)     | Compose and execute Python visually.                     | [Create a project](apps/python-canvas/README.md#install-and-open-a-project) |
+| [Realtime](apps/realtime/README.md)               | Connect live controls and drawings to Python handlers.   | `pnpm realtime:playground`                                                  |
+| [Review](apps/review/README.md)                   | Compare evidence and record a portable decision.         | `pnpm review:playground`                                                    |
+| [Experiment Lens](apps/experiment-lens/README.md) | Explore recorded results and export a precise selection. | `pnpm experiment-lens:playground`                                           |
+
+Complete [source setup](CONTRIBUTING.md#source-setup) first. The first playground launch builds
+the examples; later launches reuse the build. Each opens with an interactive **Start here** guide
+and keeps running after the command returns. Add `--stop` to stop it, `--fresh` for a new copy,
+or `--no-open` to print its URL. Edits stay in ignored `tmp/` working copies.
+
+## Development
+
+The [workspace component gallery](examples/workspace-playground/) is available with
+`pnpm workspace:playground`. It is a development reference; the public playground is the print
+studio at [setta.dev](https://setta.dev).
+
+See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), [security](SECURITY.md), and the
+[release procedure](docs/releasing.md). Setta is alpha software; APIs may change before 1.0.
+Licensed under [Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

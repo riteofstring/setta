@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 const maxClipboardRequestBodyBytes int64 = 4 * 1024 * 1024

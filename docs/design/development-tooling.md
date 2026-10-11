@@ -83,9 +83,9 @@ route inspection: it waits for the public standalone section root; records its c
 header, body, and descendant geometry; and requires both the root and section frame to fill their
 owners.
 
-The Playground resolves `@setta/workspace` from its built package. Start it with
+The Playground resolves `@riteofstring/setta` from its built package. Start it with
 `pnpm workspace:playground`; that initial command builds the workspace. After any workspace source
-change, run `pnpm --filter @setta/workspace run build` before inspection because the running Vite
+change, run `pnpm --filter @riteofstring/setta run build` before inspection because the running Vite
 process does not hot-reload unbuilt package source.
 
 The default target is `http://localhost:5174/`, the default viewport is 1492 by 696 CSS pixels, and

@@ -73,7 +73,7 @@ function buildProfileSurface(skipBuild) {
   if (skipBuild) {
     return;
   }
-  runPnpm(["--filter", "@setta/workspace", "run", "build"]);
+  runPnpm(["--filter", "@riteofstring/setta", "run", "build"]);
   runPnpm(["--filter", "@setta/workspace-playground", "run", "build"]);
 }
 

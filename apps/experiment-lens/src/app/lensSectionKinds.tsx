@@ -7,7 +7,7 @@ import {
   type SectionKindDefinition,
   type WorkspaceHost,
   type WorkspaceSectionSearchableText,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import type { ReactNode } from "react";
 
 import { GallerySection } from "../sections/ArtifactSection";

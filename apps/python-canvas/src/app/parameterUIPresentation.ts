@@ -2,7 +2,7 @@ import type { ParameterUIV2 } from "../api/generatedContract";
 import type {
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 export type ConfigurableParameterUIV2 = Exclude<
   ParameterUIV2,

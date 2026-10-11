@@ -2,7 +2,7 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   type WorkspaceSection,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { useRealtime } from "../app/runtimeContext";
 import type {

@@ -3,7 +3,7 @@ package coordinator
 import (
 	"sort"
 
-	"github.com/setta/python-canvas/backend/internal/project/renderer"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/renderer"
 )
 
 const compilerDependencyCycleCode = "settaDependencyCycle"

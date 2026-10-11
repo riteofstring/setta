@@ -35,6 +35,15 @@ function validateCompiledExports() {
       `${packageRootRelative}/package.json: the root export must map types and import to compiled dist artifacts`,
     ];
   }
+  const browserExport = manifest.exports?.["./browser"];
+  if (
+    browserExport?.types !== "./dist/types/browser/index.d.ts" ||
+    browserExport?.import !== "./dist/browser.js"
+  ) {
+    return [
+      `${packageRootRelative}/package.json: the browser entry must map to its independent compiled artifacts`,
+    ];
+  }
   return [];
 }
 
@@ -75,11 +84,12 @@ function validateFixtureTemplate() {
     "fixtures/packed-consumer/package.template.json",
   );
   const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8"));
-  const workspaceSpecifier = fixtureManifest.dependencies?.["@setta/workspace"];
+  const workspaceSpecifier =
+    fixtureManifest.dependencies?.["@riteofstring/setta"];
   return workspaceSpecifier === "file:__SETTA_WORKSPACE_TARBALL__"
     ? []
     : [
-        "fixtures/packed-consumer/package.template.json: @setta/workspace must use the packed-tarball placeholder",
+        "fixtures/packed-consumer/package.template.json: @riteofstring/setta must use the packed-tarball placeholder",
       ];
 }
 
@@ -130,6 +140,9 @@ function validateBuiltEntry() {
 function validateBuiltArtifacts() {
   const requiredArtifacts = [
     "dist/index.js.map",
+    "dist/browser.js",
+    "dist/browser.js.map",
+    "dist/types/browser/index.d.ts",
     "dist/types/index.d.ts",
     "dist/styles.css",
   ];
@@ -138,7 +151,19 @@ function validateBuiltArtifacts() {
       ? []
       : [`${packageRootRelative}/${relativePath}: missing build artifact`],
   );
-  return [...missing, ...validateBuiltEntry(), ...validateBuiltStylesheet()];
+  const browserPath = path.join(packageRoot, "dist/browser.js");
+  const browserImports = existsSync(browserPath)
+    ? importSpecifiers(readFileSync(browserPath, "utf8")).map(
+        (specifier) =>
+          `dist/browser.js: standalone worker runtime must not import ${specifier}`,
+      )
+    : [];
+  return [
+    ...missing,
+    ...browserImports,
+    ...validateBuiltEntry(),
+    ...validateBuiltStylesheet(),
+  ];
 }
 
 function validateBuiltStylesheet() {

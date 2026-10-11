@@ -20,8 +20,9 @@ const tarballPlaceholder = "file:__SETTA_WORKSPACE_TARBALL__";
 const allowedImportSpecifiers = new Set([
   "react",
   "react-dom/client",
-  "@setta/workspace",
-  "@setta/workspace/styles.css",
+  "@riteofstring/setta",
+  "@riteofstring/setta/styles.css",
+  "@riteofstring/setta/browser",
 ]);
 
 function assertConsumerImportSurface() {
@@ -47,9 +48,9 @@ function assertFixtureManifest() {
   const manifest = JSON.parse(
     readFileSync(path.join(fixtureRoot, fixtureManifestTemplate), "utf8"),
   );
-  if (manifest.dependencies?.["@setta/workspace"] !== tarballPlaceholder) {
+  if (manifest.dependencies?.["@riteofstring/setta"] !== tarballPlaceholder) {
     throw new Error(
-      `The fixture must depend on @setta/workspace through ${tarballPlaceholder}.`,
+      `The fixture must depend on @riteofstring/setta through ${tarballPlaceholder}.`,
     );
   }
   const linkedSpecifiers = Object.entries({
@@ -65,7 +66,7 @@ function assertFixtureManifest() {
 }
 
 function buildAndPackWorkspace(artifactDirectory) {
-  runPnpm(["--filter", "@setta/workspace", "build"]);
+  runPnpm(["--filter", "@riteofstring/setta", "build"]);
   runPnpm(["pack", "--pack-destination", artifactDirectory], {
     cwd: path.join(repositoryRoot, "packages/workspace"),
   });
@@ -83,6 +84,10 @@ function buildAndPackWorkspace(artifactDirectory) {
 const requiredTarballEntries = [
   "package/package.json",
   "package/README.md",
+  "package/BROWSER.md",
+  "package/LICENSE",
+  "package/dist/browser.js",
+  "package/dist/types/browser/index.d.ts",
   "package/dist/index.js",
   "package/dist/index.js.map",
   "package/dist/styles.css",
@@ -191,7 +196,12 @@ try {
   const tarballPath = buildAndPackWorkspace(artifactDirectory);
   assertTarballContents(tarballPath);
   materializeConsumer(consumerRoot, tarballPath);
-  runPnpm(["install", "--no-frozen-lockfile"], { cwd: consumerRoot });
+  runPnpm(["install", "--lockfile-only", "--ignore-scripts"], {
+    cwd: consumerRoot,
+  });
+  runPnpm(["install", "--frozen-lockfile", "--ignore-scripts"], {
+    cwd: consumerRoot,
+  });
   runPnpm(["run", "build"], { cwd: consumerRoot });
   assertBuiltConsumer(consumerRoot);
   console.log(

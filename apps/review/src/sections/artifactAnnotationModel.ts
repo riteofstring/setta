@@ -1,4 +1,4 @@
-import type { WorkspaceNormalizedStroke } from "@setta/workspace";
+import type { WorkspaceNormalizedStroke } from "@riteofstring/setta";
 
 export type ArtifactAnnotationStroke = WorkspaceNormalizedStroke;
 

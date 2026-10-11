@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceDocument } from "@setta/workspace";
+import type { WorkspaceDocument } from "@riteofstring/setta";
 
 import type { RequestSnapshot, ReviewSnapshot } from "../api/generatedContract";
 import { completionResponse } from "./reviewModel";

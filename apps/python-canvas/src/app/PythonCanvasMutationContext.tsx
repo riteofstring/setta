@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { TextValueCompletionProvider } from "@setta/workspace";
+import type { TextValueCompletionProvider } from "@riteofstring/setta";
 
 export type PythonCanvasMutationContextValue = {
   callableCompletionProvider: (

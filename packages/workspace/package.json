@@ -1,7 +1,6 @@
 {
-  "name": "@setta/workspace",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@riteofstring/setta",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": {
@@ -9,13 +8,19 @@
       "import": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css",
-    "./tailwind-preset": "./tailwind-preset.mjs"
+    "./tailwind-preset": "./tailwind-preset.mjs",
+    "./browser": {
+      "types": "./dist/types/browser/index.d.ts",
+      "import": "./dist/browser.js"
+    }
   },
   "files": [
     "dist",
     "src/canvas/LICENSE",
     "src/dnd/LICENSE",
-    "tailwind-preset.mjs"
+    "tailwind-preset.mjs",
+    "LICENSE",
+    "BROWSER.md"
   ],
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json && tailwindcss -c tailwind.config.js -i src/styles/index.css -o dist/styles.css && node ../../scripts/compile-katex-styles.mjs && node ../../scripts/check-package-boundary.mjs --built",
@@ -80,5 +85,27 @@
     "typescript": "6.0.3",
     "vite": "6.4.3",
     "vitest": "4.1.11"
-  }
+  },
+  "description": "Composable React workspaces and browser pipelines for interactive tools.",
+  "license": "Apache-2.0",
+  "homepage": "https://setta.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/riteofstring/setta.git",
+    "directory": "packages/workspace"
+  },
+  "bugs": {
+    "url": "https://github.com/riteofstring/setta/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "react",
+    "workspace",
+    "canvas",
+    "controls",
+    "web-worker",
+    "pipeline"
+  ]
 }

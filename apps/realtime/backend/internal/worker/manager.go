@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/setta/realtime/backend/bootstrap"
-	"github.com/setta/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/bootstrap"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
 )
 
 const (

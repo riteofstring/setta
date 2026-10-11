@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 func TestProjectClipboardPayloadV1MapsOnlyAuthoredAggregateState(t *testing.T) {

@@ -103,7 +103,7 @@ class SettaWheelsWorkflowContractTests(unittest.TestCase):
                     "go -C apps/realtime/backend mod verify",
                     "go -C apps/review/backend test ./...",
                     "go -C apps/review/backend mod verify",
-                    "pnpm --filter @setta/workspace run build",
+                    "pnpm --filter @riteofstring/setta run build",
                     "pnpm --filter @setta/experiment-lens run build",
                     "pnpm --filter @setta/python-canvas run build",
                     "pnpm --filter @setta/realtime run build",

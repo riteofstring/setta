@@ -116,7 +116,7 @@ vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 vi.mock("../api/client", () => ({
   getTerminalTicket: mocks.getTerminalTicket,
 }));
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   subscribeWorkspaceCanvasPanScrolling:
     mocks.subscribeWorkspaceCanvasPanScrolling,
 }));

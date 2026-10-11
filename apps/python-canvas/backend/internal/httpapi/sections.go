@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 type namedSectionPayload struct {

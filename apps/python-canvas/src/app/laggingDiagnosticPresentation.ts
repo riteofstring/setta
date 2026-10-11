@@ -1,4 +1,4 @@
-import { type WorkspaceSection } from "@setta/workspace";
+import { type WorkspaceSection } from "@riteofstring/setta";
 
 import {
   PROVIDER_LIFECYCLE_STATE_FAILED_V2,

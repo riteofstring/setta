@@ -1,4 +1,4 @@
-import type { WorkspaceSection } from "@setta/workspace";
+import type { WorkspaceSection } from "@riteofstring/setta";
 import { useLayoutEffect, useState, type CSSProperties } from "react";
 
 import { useReview, type ReviewContextValue } from "../app/reviewContext";

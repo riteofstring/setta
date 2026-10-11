@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/setta/experiment-lens/backend/internal/contracts"
-	"github.com/setta/local-backend/projectfs"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/projectfs"
 )
 
 const maximumManifestBytes = 4 << 20

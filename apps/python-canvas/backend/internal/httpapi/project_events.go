@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/setta/local-backend/sse"
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/packages/local-backend/sse"
 )
 
 func handleProjectEvents(response http.ResponseWriter, request *http.Request, service ProjectService) {

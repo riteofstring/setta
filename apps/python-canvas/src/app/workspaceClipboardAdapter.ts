@@ -1,7 +1,7 @@
 import type {
   JsonValue,
   WorkspaceClipboardPasteRequest,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type {
   CopyProjectClipboardRequestV2,

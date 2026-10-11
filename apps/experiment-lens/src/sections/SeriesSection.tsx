@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "@setta/workspace";
+import { useWorkspaceAppearance } from "@riteofstring/setta";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import type {

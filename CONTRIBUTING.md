@@ -8,7 +8,7 @@ are welcome.
 Use an issue to describe substantial behavior or architecture changes before investing in an
 implementation. Small, well-scoped fixes can go directly to a pull request.
 
-Setta is a monorepo with four products under `apps/`, shared code under `packages/`, and runnable
+Setta is a monorepo with four example apps under `apps/`, shared code under `packages/`, and runnable
 examples under `examples/`. Read the relevant design note in [`docs/design`](docs/design/) before
 changing an established boundary.
 
@@ -44,7 +44,8 @@ On PowerShell use `.\code-polishyw.ps1` and `python` in place of `./code-polishy
 Use the actual target branch in place of `origin/main` when contributing elsewhere. Resolve security or policy findings before proceeding.
 
 Run `pnpm experiment-lens:playground`, `pnpm realtime:playground`, or `pnpm review:playground` to
-build and open a complete app. Keep the terminal open while using it; Ctrl-C stops its processes.
+build and open an example app. The process stays running after the command returns; use the
+same command with `--stop` to stop it.
 These commands preserve their working examples beneath ignored `tmp/` directories. The Realtime
 example also installs its frozen Pillow dependency into that example's isolated environment.
 

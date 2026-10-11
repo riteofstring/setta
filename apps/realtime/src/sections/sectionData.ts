@@ -1,4 +1,4 @@
-import type { WorkspaceSectionData } from "@setta/workspace";
+import type { WorkspaceSectionData } from "@riteofstring/setta";
 
 type InputSectionData = {
   inputKind: "text" | "number" | "boolean";

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/setta/python-canvas/backend/internal/project/coordinator"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/coordinator"
 )
 
 const completionSnapshotSeparator = "\n\n"

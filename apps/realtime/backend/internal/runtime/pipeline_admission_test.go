@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/setta/realtime/backend/internal/contracts"
-	"github.com/setta/realtime/backend/internal/scheduler"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/scheduler"
 )
 
 func TestPipelineStartupClaimsJoinBeforeParentsCompleteAndRetriesUnreachedTarget(t *testing.T) {

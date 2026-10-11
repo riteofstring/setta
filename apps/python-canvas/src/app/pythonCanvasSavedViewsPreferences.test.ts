@@ -1,7 +1,7 @@
 import {
   createWorkspaceSavedViewsState,
   type WorkspaceDocumentInput,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { describe, expect, it, vi } from "vitest";
 
 import {

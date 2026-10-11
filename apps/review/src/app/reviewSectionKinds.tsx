@@ -3,7 +3,7 @@ import {
   type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionSearchableText,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { ArtifactChoiceSection } from "../sections/ArtifactChoiceSection";
 import { ArtifactSection } from "../sections/ArtifactSection";

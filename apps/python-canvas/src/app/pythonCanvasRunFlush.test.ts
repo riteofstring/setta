@@ -1,4 +1,4 @@
-import { createWorkspaceHost } from "@setta/workspace";
+import { createWorkspaceHost } from "@riteofstring/setta";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   setCallableParameters,

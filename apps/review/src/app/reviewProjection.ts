@@ -6,8 +6,8 @@ import type {
   WorkspaceGraphPort,
   WorkspaceSavedView,
   WorkspaceSectionInput,
-} from "@setta/workspace";
-import { parseWorkspaceSavedViewsState } from "@setta/workspace";
+} from "@riteofstring/setta";
+import { parseWorkspaceSavedViewsState } from "@riteofstring/setta";
 
 import type {
   EvidenceReference,

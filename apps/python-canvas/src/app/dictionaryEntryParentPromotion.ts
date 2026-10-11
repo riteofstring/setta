@@ -1,4 +1,4 @@
-import type { WorkspaceDocument, WorkspaceHost } from "@setta/workspace";
+import type { WorkspaceDocument, WorkspaceHost } from "@riteofstring/setta";
 
 import type { ProjectSnapshotV2 } from "../api/generatedContract";
 import {

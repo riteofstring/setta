@@ -1,8 +1,8 @@
 package httpapi
 
 import (
-	"github.com/setta/python-canvas/backend/internal/contracts"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
 )
 
 func callablesV2(state aggregate.State) ([]contracts.CallableV2, error) {

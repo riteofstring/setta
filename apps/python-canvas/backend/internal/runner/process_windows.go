@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"sync"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 type windowsOwnedProcess struct {

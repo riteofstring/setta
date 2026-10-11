@@ -10,7 +10,7 @@ import {
   useWorkspaceCapabilities,
   useWorkspaceHost,
   WorkspaceInspectorSettingsGroup,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import {
   DRAWING_CANVAS_MAX_SIZE,

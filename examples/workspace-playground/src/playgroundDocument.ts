@@ -16,7 +16,7 @@ import {
   type WorkspaceSavedView,
   type WorkspaceSavedViewsState,
   type WorkspaceTextSectionData,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 function makeLeafSection(
   id: string,

@@ -3,7 +3,7 @@ import {
   registerWorkspaceClipboardAuthority,
   setWorkspaceColorMode,
   WorkspaceProvider,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";

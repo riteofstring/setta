@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/terminal"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/terminal"
 )
 
 func TestProjectVenvDependencyReachesInteractiveRunAndTerminal(t *testing.T) {

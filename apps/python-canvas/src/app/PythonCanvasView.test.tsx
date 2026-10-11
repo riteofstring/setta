@@ -7,7 +7,7 @@ import type {
   WorkspaceHost,
   WorkspaceShellTabDefinition,
   WorkspaceShellViewState,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import type { PythonCanvasMutationContextValue } from "./PythonCanvasMutationContext";
 import type { GeneratedPythonTerminalContextValue } from "./generatedPythonTerminalContext";
@@ -42,7 +42,7 @@ const paramsPaneMocks = vi.hoisted(() => ({
   getModel: vi.fn<(document: unknown) => unknown>(() => null),
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   WORKSPACE_INSPECTOR_TAB_ID: "inspector",
   WORKSPACE_OUTLINE_TAB_ID: "outline",
   createWorkspaceShellViewState: ({

@@ -4,7 +4,7 @@ import "@xterm/xterm/css/xterm.css";
 import {
   subscribeWorkspaceCanvasPanScrolling,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { getTerminalTicket } from "../api/client";
 import {

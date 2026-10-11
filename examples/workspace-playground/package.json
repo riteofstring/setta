@@ -7,14 +7,14 @@
     "./styles.css": "./src/index.css"
   },
   "scripts": {
-    "dev": "pnpm --filter @setta/workspace run build && vite --port 5174 --strictPort",
+    "dev": "pnpm --filter @riteofstring/setta run build && vite --port 5174 --strictPort",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "pnpm --filter @setta/workspace run build && vitest run",
-    "test:focused": "pnpm --filter @setta/workspace run build && vitest run src/hostToolbarControls.test.tsx"
+    "test": "pnpm --filter @riteofstring/setta run build && vitest run",
+    "test:focused": "pnpm --filter @riteofstring/setta run build && vitest run src/hostToolbarControls.test.tsx"
   },
   "dependencies": {
-    "@setta/workspace": "workspace:*",
+    "@riteofstring/setta": "workspace:*",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },

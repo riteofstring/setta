@@ -8,7 +8,7 @@ behavior belongs in `apps/realtime/README.md`.
 The Go project snapshot is authoritative for project identity, revision, section records, forest,
 authored layout, bindings, runtime declaration, and durable configuration. React validates each
 external snapshot with generated Ajv standalone validators and projects one complete value into
-one `@setta/workspace` host. It does not maintain a second authored store or merge separately
+one `@riteofstring/setta` host. It does not maintain a second authored store or merge separately
 delivered section and forest fragments.
 
 The browser owns pointer-rate input, active selection, minimized presentation, focus, drafts,
@@ -247,7 +247,7 @@ mode or presentation adapter. Realtime does not wrap the Workspace in a second p
 connection and runtime actions live in the Workspace Runtime tab instead of reserving a full-width
 row. This feature changes only Realtime's use of existing graph extension points plus Workspace's
 generic replacement-aware validation callback; it adds no pipeline-specific source or persistence
-to `@setta/workspace`.
+to `@riteofstring/setta`.
 
 ## Generated validation boundary
 

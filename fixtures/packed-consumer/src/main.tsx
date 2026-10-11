@@ -27,8 +27,8 @@ import {
   type WorkspaceSectionInput,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
-} from "@setta/workspace";
-import "@setta/workspace/styles.css";
+} from "@riteofstring/setta";
+import "@riteofstring/setta/styles.css";
 import {
   StrictMode,
   useEffect,
@@ -161,7 +161,7 @@ const consumerDocument: WorkspaceDocumentInput = {
     "welcome-note": makeNoteSection(
       "welcome-note",
       "Welcome note",
-      "Rendered from the packed @setta/workspace artifact.",
+      "Rendered from the packed @riteofstring/setta artifact.",
     ),
     "notes-group": {
       id: "notes-group",
@@ -519,7 +519,7 @@ function ConsumerApp() {
   return (
     <main className="consumer-shell">
       <header className="consumer-header">
-        <h1>Packed @setta/workspace consumer</h1>
+        <h1>Packed @riteofstring/setta consumer</h1>
         <button
           type="button"
           onClick={() =>

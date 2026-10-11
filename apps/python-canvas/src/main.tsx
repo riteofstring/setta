@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import "@setta/workspace/styles.css";
+import "@riteofstring/setta/styles.css";
 
 import { PythonCanvasApp } from "./app/PythonCanvasApp";
 import "@setta/python-canvas/styles.css";

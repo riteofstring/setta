@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 )
 
 var errDarwinWorkerInjected = errors.New("injected Darwin worker failure")

@@ -7,7 +7,7 @@ browser behavior remains in `apps/python-canvas/README.md`.
 
 The backend snapshot is authoritative for project identity, revision, authored data, section forest
 placement, generated Python, provider status, and diagnostics. React projects one complete snapshot
-into `@setta/workspace` through `commitWorkspaceDocument`, so section data, structure, and selection
+into `@riteofstring/setta` through `commitWorkspaceDocument`, so section data, structure, and selection
 never cross as separate canonical publications.
 
 The browser retains only view or interaction state that the server does not own: workspace

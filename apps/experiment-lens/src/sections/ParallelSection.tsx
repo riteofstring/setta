@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "@setta/workspace";
+import { useWorkspaceAppearance } from "@riteofstring/setta";
 import { useMemo } from "react";
 
 import type { FieldDefinition, Observation } from "../api/generatedContract";

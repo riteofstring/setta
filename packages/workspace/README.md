@@ -1,8 +1,8 @@
-# @setta/workspace
+# @riteofstring/setta
 
 The Setta workspace UI is a standalone TypeScript/React package. Its public surface is the package
-root exported from `src/index.ts`; package-relative modules are implementation details.
-`@setta/workspace` is private and unpublished in this repository.
+root, the standalone [`/browser` pipeline entry](BROWSER.md), and the published style exports.
+Package-relative modules are implementation details.
 
 Canvas rendering uses the repository's exact-pinned upstream `@xyflow/react` dependency behind a
 package-private adapter. Workspace contains no vendored XYFlow fork, and consumers do not import
@@ -11,8 +11,74 @@ XYFlow or depend on its API, state, styles, or DOM structure.
 Each `createWorkspaceHost()` owns one workspace document and all of its interaction state. A host
 registers its extension catalogs, loads one controlled serializable document, configures appearance,
 and mounts the integrated shell or an intentionally standalone canvas. There is no default or
-process-global workspace. Package changes may update this unpublished API directly; no
-compatibility aliases or transition paths are provided.
+process-global workspace. This is an alpha release; APIs may change before 1.0.
+
+## Getting started
+
+Install the package with React 19, then import the compiled stylesheet once:
+
+```sh
+npm install @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
+```
+
+```tsx
+import { useState } from "react";
+import {
+  createWorkspaceHost,
+  createWorkspaceShellViewState,
+  registerSectionKinds,
+  WorkspaceProvider,
+  WorkspaceShell,
+} from "@riteofstring/setta";
+import "@riteofstring/setta/styles.css";
+
+const host = createWorkspaceHost();
+registerSectionKinds(host, {
+  hello: { renderContent: () => <p>Hello, possibility.</p> },
+});
+host.loadDocument({
+  sections: {
+    greeting: {
+      id: "greeting",
+      kind: "hello",
+      name: "Your first section",
+      children: [],
+      overflowMode: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+    },
+  },
+  topLevelSections: { greeting: { x: 40, y: 40, w: 320, h: 240, zIndex: 0 } },
+  viewport: null,
+  activeIds: [],
+  savedViews: null,
+});
+
+export function App() {
+  const [viewState, setViewState] = useState(createWorkspaceShellViewState);
+  return (
+    <div style={{ height: "100dvh" }}>
+      <WorkspaceProvider host={host}>
+        <WorkspaceShell
+          viewState={viewState}
+          onViewStateChange={setViewState}
+        />
+      </WorkspaceProvider>
+    </div>
+  );
+}
+```
+
+The application creates the host outside React rendering and calls `host.dispose()` after its
+React root unmounts. For multiple workspaces, create one host for each independent lifetime.
+Add native controls through [typed items](#typed-built-in-items), a
+[worker pipeline](BROWSER.md) for live computations, or your own backend.
+The [print studio source](https://github.com/riteofstring/setta-site) demonstrates all three
+browser building blocks. The [packed consumer fixture](../../fixtures/packed-consumer) exercises
+more of the UI API against built declarations.
 
 ## Host lifecycle
 
@@ -1379,7 +1445,7 @@ bundler configuration for either section.
 
 Consumers install the compiled package: the `exports` map serves ESM with a source map
 (`dist/index.js`), TypeScript declarations (`dist/types/`), and the compiled scoped stylesheet
-(`@setta/workspace/styles.css`). `pnpm --filter @setta/workspace build` produces `dist/` —
+(`@riteofstring/setta/styles.css`). `pnpm --filter @riteofstring/setta build` produces `dist/` —
 `vite build` bundles the runtime with every dependency external, `tsc -p tsconfig.build.json`
 emits declarations, the Tailwind CLI compiles the stylesheet from package source alone,
 `scripts/compile-katex-styles.mjs` folds KaTeX's presentation rules into that stylesheet scoped
@@ -1395,7 +1461,7 @@ The stylesheet ships without global Tailwind Preflight: every rule is class-scop
 Preflight subset the package's own elements rely on is scoped under the `setta-workspace`
 marker class (`src/styles/scopedBase.css`), which the package applies to every root it
 renders — the canvas, the toolbar and tooltip surfaces, and the drag overlays portaled to
-`document.body`. Hosts need no Tailwind setup; the optional `@setta/workspace/tailwind-preset`
+`document.body`. Hosts need no Tailwind setup; the optional `@riteofstring/setta/tailwind-preset`
 export exists for hosts that want the setta palette in their own chrome, as the playground
 does. Host page context (fonts, background) stays host-owned, as in the reference application.
 
@@ -1404,8 +1470,9 @@ The manifest is deliberately exports-only: it has no duplicate top-level `main`,
 resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
 `moduleResolution: "node"` consumption are outside this ESM package contract.
 
-The package remains private and unpublished. Publication metadata and a final package-name decision
-are intentionally absent.
+The npm package is `@riteofstring/setta`, licensed under Apache-2.0. The independent `/browser`
+entry is ESM with no React or workspace runtime imports; its inputs and outputs use structured clone.
+Run `pnpm consumer:check` from the repository root to build an unrelated consumer of the packed artifact.
 
 ## Quick-start pane
 

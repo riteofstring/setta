@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/setta/local-backend/proctree"
+	"github.com/riteofstring/setta/packages/local-backend/proctree"
 	"golang.org/x/sys/windows"
 )
 

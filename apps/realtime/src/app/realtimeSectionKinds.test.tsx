@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORKSPACE_CODE_SECTION_KIND } from "@setta/workspace";
+import { WORKSPACE_CODE_SECTION_KIND } from "@riteofstring/setta";
 
 import { createRealtimeSectionKinds } from "./realtimeSectionKinds";
 

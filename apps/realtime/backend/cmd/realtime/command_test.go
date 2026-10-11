@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
 )
 
 type fakeCoordinator struct {

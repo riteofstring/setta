@@ -8,7 +8,7 @@ import {
   type WorkspaceSection,
   type WorkspaceSectionData,
   useWorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 
 import { useRealtime } from "../app/runtimeContext";
 import {

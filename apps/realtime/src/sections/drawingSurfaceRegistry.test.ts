@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost } from "@setta/workspace";
+import { createWorkspaceHost } from "@riteofstring/setta";
 
 import type { DrawingSelectionSnapshot } from "./drawingRuntime";
 import {

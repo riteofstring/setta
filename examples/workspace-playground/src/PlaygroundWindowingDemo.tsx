@@ -19,7 +19,7 @@ import {
   type WorkspaceWindowSpace,
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useRef, useState } from "react";
 import { PlaygroundItemDiagnosticsProvider } from "./sectionKinds";
 import { PlaygroundWindowInteractionDiagnostics } from "./PlaygroundWindowInteractionDiagnostics";

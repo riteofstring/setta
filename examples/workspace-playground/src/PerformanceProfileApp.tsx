@@ -3,7 +3,7 @@ import {
   WorkspaceCanvas,
   WorkspaceControls,
   WorkspaceTooltip,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import {
   PERFORMANCE_PROFILE_DRAG_TARGET_ID,
   PERFORMANCE_PROFILE_SECTION_COUNT,
@@ -21,7 +21,7 @@ export function PerformanceProfileApp() {
     >
       <header className="playground-header mb-4 flex min-w-0 items-center gap-4">
         <h1 className="text-sm font-semibold text-setta-600 dark:text-setta-300">
-          @setta/workspace large-document profile
+          @riteofstring/setta large-document profile
         </h1>
         <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
           {PERFORMANCE_PROFILE_SECTION_COUNT} fixed-size top-level sections;

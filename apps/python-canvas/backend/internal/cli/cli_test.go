@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/setta/python-canvas/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/contracts"
 )
 
 func TestSchemaPublishesTheClosedOperationRegistry(t *testing.T) {

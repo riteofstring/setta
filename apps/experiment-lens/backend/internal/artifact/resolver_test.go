@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/setta/experiment-lens/backend/internal/project"
-	"github.com/setta/experiment-lens/backend/internal/testsupport"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/project"
+	"github.com/riteofstring/setta/apps/experiment-lens/backend/internal/testsupport"
 )
 
 func TestResolveParsesSeriesAndKeepsSVGPassive(t *testing.T) {

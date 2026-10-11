@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
-	"github.com/setta/python-canvas/backend/internal/project/coordinator"
-	"github.com/setta/python-canvas/backend/internal/pythonenv"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/coordinator"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/pythonenv"
 )
 
 const defaultDiagnosticTimeout = 8 * time.Second

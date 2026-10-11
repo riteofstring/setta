@@ -11,12 +11,12 @@
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "browser:test": "node vertical-slice.browser.mjs",
     "dev": "vite",
-    "test": "pnpm --filter @setta/workspace run build && vitest run && node --test browser-processes.test.mjs param-dict-list.browser-selectors.test.mjs",
+    "test": "pnpm --filter @riteofstring/setta run build && vitest run && node --test browser-processes.test.mjs param-dict-list.browser-selectors.test.mjs",
     "contract:generate": "go -C backend run ./cmd/generate-contract",
     "contract:check": "go -C backend run ./cmd/generate-contract -check"
   },
   "dependencies": {
-    "@setta/workspace": "workspace:*",
+    "@riteofstring/setta": "workspace:*",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "basedpyright": "1.39.9",

@@ -7,7 +7,7 @@ import {
   setItemPresentation,
   setWorkspaceCodeSectionData,
   type WorkspaceHost,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { describe, expect, it } from "vitest";
 
 import { parseProjectSnapshotV2 } from "../api/runtimeContract";

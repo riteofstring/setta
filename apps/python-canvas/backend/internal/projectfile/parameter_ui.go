@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/setta/local-backend/strictjson"
-	"github.com/setta/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/apps/python-canvas/backend/internal/project/aggregate"
+	"github.com/riteofstring/setta/packages/local-backend/strictjson"
 )
 
 func encodeDiskParameterUI(ui aggregate.ParameterUI) (diskParameterUI, error) {

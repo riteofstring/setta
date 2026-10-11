@@ -21,7 +21,7 @@ const boundary = vi.hoisted(() => ({
   view: null as ComponentProps<typeof ExperimentLensView> | null,
 }));
 
-vi.mock("@setta/workspace", () => ({
+vi.mock("@riteofstring/setta", () => ({
   commitWorkspaceDocument: vi.fn(),
   createWorkspaceHost: () => ({
     dispose: vi.fn(),

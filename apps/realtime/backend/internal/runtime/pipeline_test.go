@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/setta/realtime/backend/internal/content"
-	"github.com/setta/realtime/backend/internal/contracts"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/content"
+	"github.com/riteofstring/setta/apps/realtime/backend/internal/contracts"
 )
 
 func TestPipelineFanInIsIndependentOfBranchCompletionOrder(t *testing.T) {

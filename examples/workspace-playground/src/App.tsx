@@ -17,7 +17,7 @@ import {
   type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HostShortcutConflictAction,
@@ -825,7 +825,7 @@ export function App() {
         <div className="playground-brand" translate="no">
           <PlaygroundMark />
           <div className="playground-brand-copy">
-            <span>@setta/workspace</span>
+            <span>@riteofstring/setta</span>
             <h1>Workspace playground</h1>
           </div>
         </div>

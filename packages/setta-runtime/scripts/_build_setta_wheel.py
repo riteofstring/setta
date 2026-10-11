@@ -258,7 +258,7 @@ def _run_frontend_build(
         raise BuildError("pnpm is required to build the production web application")
     environment = _frontend_build_environment(explicit_go)
     _run_frontend_command(
-        [pnpm, "--filter", "@setta/workspace", "run", "build"], environment
+        [pnpm, "--filter", "@riteofstring/setta", "run", "build"], environment
     )
     for app in _APPS:
         if app.app_id not in web_overrides:

@@ -6,7 +6,7 @@ import {
   useWorkspaceDocumentSnapshot,
   type WorkspaceNormalizedPoint,
   type WorkspaceNormalizedStroke,
-} from "@setta/workspace";
+} from "@riteofstring/setta";
 import {
   useMemo,
   useRef,
