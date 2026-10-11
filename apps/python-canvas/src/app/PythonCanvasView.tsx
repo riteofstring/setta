@@ -4,8 +4,6 @@ import {
   WorkspaceSectionEditor,
   WorkspaceSectionSettingsIcon,
   WorkspaceShell,
-  WorkspaceQuickStartIcon,
-  createWorkspaceShellViewState,
   useWorkspaceDocumentSnapshot,
   type WorkspaceHost,
   type WorkspaceShellTabDefinition,
@@ -38,14 +36,6 @@ import {
   PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
 } from "./pythonCanvasRightPane";
 
-import { PythonCanvasPlayground } from "./PythonCanvasPlayground";
-import {
-  DisplayContext,
-  DisplayToolbar,
-  type DisplayContextValue,
-} from "./displayContext";
-import { getPlayground } from "./playgroundCatalog";
-
 const EMPTY_SHELL_TABS: ReadonlyArray<WorkspaceShellTabDefinition> = [];
 
 const PYTHON_CANVAS_SECTION_TAB: WorkspaceShellTabDefinition = {
@@ -64,7 +54,7 @@ const PYTHON_CANVAS_PARAMS_TAB: WorkspaceShellTabDefinition = {
 
 type ViewState =
   | { kind: "loading" }
-  | { kind: "ready"; host: WorkspaceHost; projectId?: string }
+  | { kind: "ready"; host: WorkspaceHost }
   | { kind: "error" };
 
 type ViewMutation =
@@ -79,7 +69,6 @@ type PythonCanvasViewProps = {
   pythonTargetCompletionError: string | null;
   state: ViewState;
   terminalContext: GeneratedPythonTerminalContextValue;
-  displayContext?: DisplayContextValue;
 };
 
 type PythonCanvasReadyWorkspaceProps = Omit<PythonCanvasViewProps, "state"> & {
@@ -88,30 +77,25 @@ type PythonCanvasReadyWorkspaceProps = Omit<PythonCanvasViewProps, "state"> & {
 
 export function PythonCanvasView(props: PythonCanvasViewProps) {
   return (
-    <DisplayContext.Provider value={props.displayContext ?? null}>
-      <main className="python-canvas-app">
-        <PythonCanvasStatus
+    <main className="python-canvas-app">
+      <PythonCanvasStatus
+        announcement={props.announcement}
+        state={props.state}
+      />
+      <PythonCanvasLoadError state={props.state} onRetry={props.onRetry} />
+      <PythonCanvasMutationError announcement={props.announcement} />
+      <PythonCanvasCompletionError error={props.pythonTargetCompletionError} />
+      <PythonCanvasTerminalError error={props.terminalContext.state.error} />
+      {props.state.kind === "ready" ? (
+        <PythonCanvasReadyWorkspace
           announcement={props.announcement}
+          mutationContext={props.mutationContext}
+          pythonTargetCompletionError={props.pythonTargetCompletionError}
           state={props.state}
+          terminalContext={props.terminalContext}
         />
-        <PythonCanvasLoadError state={props.state} onRetry={props.onRetry} />
-        <PythonCanvasMutationError announcement={props.announcement} />
-        <PythonCanvasCompletionError
-          error={props.pythonTargetCompletionError}
-        />
-        <PythonCanvasTerminalError error={props.terminalContext.state.error} />
-        <DisplayToolbar />
-        {props.state.kind === "ready" ? (
-          <PythonCanvasReadyWorkspace
-            announcement={props.announcement}
-            mutationContext={props.mutationContext}
-            pythonTargetCompletionError={props.pythonTargetCompletionError}
-            state={props.state}
-            terminalContext={props.terminalContext}
-          />
-        ) : null}
-      </main>
-    </DisplayContext.Provider>
+      ) : null}
+    </main>
   );
 }
 
@@ -213,27 +197,12 @@ function PythonCanvasReadyWorkspace({
   terminalContext,
 }: PythonCanvasReadyWorkspaceProps) {
   const [shellViewState, setShellViewState] = useState<WorkspaceShellViewState>(
-    () =>
-      getPlayground(state.projectId) !== undefined
-        ? createWorkspaceShellViewState({
-            leadingTabId: "start-here",
-            trailingTabId: PYTHON_CANVAS_SECTION_SETTINGS_TAB_ID,
-          })
-        : loadPythonCanvasShellViewState(),
+    loadPythonCanvasShellViewState,
   );
   const handleShellViewStateChange = useCallback(
     (nextState: WorkspaceShellViewState): void => {
       setShellViewState(nextState);
-      persistPythonCanvasShellViewState({
-        ...nextState,
-        leading: {
-          ...nextState.leading,
-          selectedTabId:
-            nextState.leading.selectedTabId === "start-here"
-              ? "outline"
-              : nextState.leading.selectedTabId,
-        },
-      });
+      persistPythonCanvasShellViewState(nextState);
     },
     [],
   );
@@ -246,9 +215,6 @@ function PythonCanvasReadyWorkspace({
           >
             <WorkspaceProvider host={state.host}>
               <PythonCanvasWorkspaceShell
-                playgroundId={
-                  getPlayground(state.projectId) ? state.projectId : undefined
-                }
                 onViewStateChange={handleShellViewStateChange}
                 viewState={shellViewState}
               />
@@ -261,11 +227,9 @@ function PythonCanvasReadyWorkspace({
 }
 
 function PythonCanvasWorkspaceShell({
-  playgroundId,
   onViewStateChange,
   viewState,
 }: {
-  playgroundId: string | undefined;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
   viewState: WorkspaceShellViewState;
 }) {
@@ -283,32 +247,8 @@ function PythonCanvasWorkspaceShell({
       ariaLabel="Python Canvas workspace"
       includeBuiltInInspector={false}
       includeBuiltInSavedViews={true}
-      includeSavedViewTabs={playgroundId !== undefined}
       leadingPaneShiftsCanvas={true}
-      leadingTabs={
-        playgroundId
-          ? [
-              {
-                id: "start-here",
-                label: "Start here",
-                icon: WorkspaceQuickStartIcon,
-                renderContent: () => (
-                  <PythonCanvasPlayground
-                    projectId={playgroundId}
-                    onNavigate={() => {
-                      if (window.matchMedia("(max-width: 720px)").matches) {
-                        onViewStateChange({
-                          ...viewState,
-                          leading: { ...viewState.leading, visible: false },
-                        });
-                      }
-                    }}
-                  />
-                ),
-              },
-            ]
-          : EMPTY_SHELL_TABS
-      }
+      leadingTabs={EMPTY_SHELL_TABS}
       onViewStateChange={onViewStateChange}
       trailingTabs={trailingTabs}
       viewState={viewState}

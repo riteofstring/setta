@@ -52,7 +52,6 @@ import {
   setDictionaryEntryName,
 } from "./workspaceProjectionDictionary";
 import { projectWorkspaceForestProposal } from "./workspaceForestProjection";
-import { addPlaygroundSections } from "./pythonCanvasPlaygroundLayout";
 import {
   type ConfigurableParameterUIV2,
   defaultCodeParameterUI,
@@ -220,12 +219,9 @@ export function createPendingListSection(
 export function projectWorkspaceDocument(
   snapshot: ProjectSnapshotV2,
 ): WorkspaceDocument {
-  return addPlaygroundSections(
-    projectWorkspaceDocumentWithDescriptors(
-      snapshot,
-      projectSectionDescriptors(snapshot),
-    ),
-    snapshot.project.id,
+  return projectWorkspaceDocumentWithDescriptors(
+    snapshot,
+    projectSectionDescriptors(snapshot),
   );
 }
 
@@ -346,30 +342,20 @@ export function applyProjectSnapshotToWorkspace(
   }
   retainUnresolvedPendingSections(current, sections, topLevelSections, options);
 
-  commitWorkspaceDocument(
-    host,
-    addPlaygroundSections(
-      {
-        ...current,
-        sections,
-        topLevelSections,
-        activeIds:
-          options.activeSectionIds === undefined
-            ? projectActiveSectionIds(
-                current.activeIds,
-                sections,
-                descriptors,
-                options.pendingSectionIds,
-              )
-            : projectClipboardActiveSectionIds(
-                options.activeSectionIds,
-                sections,
-              ),
-      },
-      snapshot.project.id,
-      current,
-    ),
-  );
+  commitWorkspaceDocument(host, {
+    ...current,
+    sections,
+    topLevelSections,
+    activeIds:
+      options.activeSectionIds === undefined
+        ? projectActiveSectionIds(
+            current.activeIds,
+            sections,
+            descriptors,
+            options.pendingSectionIds,
+          )
+        : projectClipboardActiveSectionIds(options.activeSectionIds, sections),
+  });
 }
 
 export function readGeneratedPythonTarget(host: WorkspaceHost): {

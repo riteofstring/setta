@@ -42,7 +42,7 @@ def run(
             executable = run_local_setta.prepare()
             session = start(executable, app, workspace)
         url = str(session["url"])
-        playground_options.announce(app, options.workspace, url, options.example)
+        playground_options.announce(app, options.workspace, url)
         if not options.no_open:
             open_browser(url)
         return 0
@@ -59,17 +59,11 @@ def run(
         return 130
 
 
-def project_arguments(app: str, workspace: Path) -> list[str]:
-    if app == "python-canvas":
-        return ["--project", str(workspace / "project.json")]
-    return ["--project-root", str(workspace)]
-
-
 def inspect_session(app: str, workspace: Path) -> dict[str, Any] | None:
     try:
         session = LiveSessionStore().resolve(
             app,
-            project_arguments(app, workspace)[1],
+            str(workspace),
             lambda candidate: validate_live_session(
                 candidate, app_id=app, schema_version=f"{app}-session/v1"
             ),
@@ -89,7 +83,8 @@ def start(executable: Path, app: str, workspace: Path) -> dict[str, Any]:
                 str(executable),
                 app,
                 "open",
-                *project_arguments(app, workspace),
+                "--project-root",
+                str(workspace),
                 "--no-open",
             ],
             stdin=subprocess.DEVNULL,

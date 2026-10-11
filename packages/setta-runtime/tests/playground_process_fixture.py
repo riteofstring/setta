@@ -11,19 +11,17 @@ from setta.sessions import LiveSession, LiveSessionStore
 
 def main() -> int:
     app, _command, *arguments = sys.argv[1:]
-    flag = "--project" if app == "python-canvas" else "--project-root"
-    target = Path(arguments[arguments.index(flag) + 1])
-    workspace = target.parent if app == "python-canvas" else target
+    workspace = Path(arguments[arguments.index("--project-root") + 1])
     record = workspace / "session.json"
     if (workspace / "fail-startup").exists():
         print("The example could not be loaded.", file=sys.stderr, flush=True)
         return 1
     store = LiveSessionStore()
-    with store.claim(app, target, lambda candidate: True) as lease:
+    with store.claim(app, workspace, lambda candidate: True) as lease:
         server = HTTPServer(("127.0.0.1", 0), _Handler)
         session = LiveSession(
             app_id=app,
-            project_path=str(target),
+            project_path=str(workspace),
             url=f"http://127.0.0.1:{server.server_port}",
             owner_pid=os.getpid(),
             instance_nonce=str(os.getpid()),

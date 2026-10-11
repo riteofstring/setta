@@ -7,7 +7,6 @@ import {
   PROJECT_LISTS_PATH_V2,
   PROJECT_PARAMETER_DICTIONARIES_PATH_V2,
   PROJECT_PATH_V2,
-  PROJECT_RUN_PATH_V2,
   PROJECT_TARGET_COMPLETIONS_PATH_V2,
   PROJECT_TARGET_PATH_V2,
   PROJECT_TERMINAL_CLOSE_PATH_V2,
@@ -51,8 +50,6 @@ import {
   type RenameListRequestV2,
   type RenameParameterDictionaryRequestV2,
   type RunTerminalRequestV2,
-  type RunGeneratedProgramRequestV2,
-  type GeneratedProgramRunResultV2,
   type ReplaceSectionForestRequestV2,
   type SetCallableParametersRequestV2,
   type SetParameterDictionaryEntriesRequestV2,
@@ -74,7 +71,6 @@ import {
   parseTerminalSessionV2,
   parseTerminalTicketV2,
 } from "./terminalRuntimeContract";
-import { parseGeneratedProgramRunResult } from "./runRuntimeContract";
 
 type ProjectClientErrorKind = "network" | "http" | "invalid_response";
 
@@ -140,30 +136,6 @@ export async function fetchProjectSnapshot(
     request.signal = options.signal;
   }
   return requestProjectSnapshot(PROJECT_PATH_V2, request, fetchImplementation);
-}
-
-export async function runGeneratedProgram(
-  runRequest: RunGeneratedProgramRequestV2,
-  signal?: AbortSignal,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<GeneratedProgramRunResultV2> {
-  const response = await request(
-    PROJECT_RUN_PATH_V2,
-    jsonPost(runRequest, signal),
-    fetchImplementation,
-  );
-  if (!response.ok) throw await responseError(response);
-  const result = parseGeneratedProgramRunResult(await responseJson(response));
-  if (
-    result.projectId !== runRequest.projectId ||
-    result.revision !== runRequest.expectedRevision
-  ) {
-    throw new ProjectClientError(
-      "invalid_response",
-      "The result belongs to a different program revision. Run again.",
-    );
-  }
-  return result;
 }
 
 export function createCallable(

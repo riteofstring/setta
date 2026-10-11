@@ -17,13 +17,11 @@ from scripts import (
     playground_server,
     run_experiment_lens_playground,
     run_local_setta,
-    run_python_canvas_playground,
     run_realtime_playground,
     run_review_playground,
 )
 
 RUNNERS = (
-    run_python_canvas_playground,
     run_realtime_playground,
     run_review_playground,
     run_experiment_lens_playground,
@@ -83,7 +81,7 @@ class PlaygroundCommandsTests(unittest.TestCase):
                 mock.patch("sys.stdout", new_callable=io.StringIO) as output,
                 mock.patch("sys.stderr", new_callable=io.StringIO) as errors,
             ):
-                self.assertEqual(run_python_canvas_playground.main([]), 0)
+                self.assertEqual(run_realtime_playground.main([]), 0)
                 self.assertIn("http://127.0.0.1:1234", output.getvalue())
                 self.assertIn("Open the URL above", errors.getvalue())
 
@@ -96,14 +94,12 @@ class PlaygroundCommandsTests(unittest.TestCase):
             ),
             mock.patch.object(playground_server, "open_browser") as browser,
         ):
-            self.assertEqual(run_python_canvas_playground.main(["--no-open"]), 0)
+            self.assertEqual(run_realtime_playground.main(["--no-open"]), 0)
         browser.assert_not_called()
 
     def test_stop_cannot_create_a_fresh_copy(self) -> None:
         with mock.patch("sys.stderr", new_callable=io.StringIO) as errors:
-            self.assertEqual(
-                run_python_canvas_playground.main(["--fresh", "--stop"]), 2
-            )
+            self.assertEqual(run_realtime_playground.main(["--fresh", "--stop"]), 2)
         self.assertIn("omit --fresh", errors.getvalue())
 
 
@@ -158,7 +154,7 @@ class PlaygroundProcessTests(unittest.TestCase):
         )
 
     def test_servers_survive_the_launcher_exit_reopen_and_stop(self) -> None:
-        for app in run_local_setta.PACKAGED_APP_IDS:
+        for app in ("realtime", "review", "experiment-lens"):
             with self.subTest(app=app):
                 workspace = self.root / app
                 workspace.mkdir()

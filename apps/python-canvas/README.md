@@ -1,96 +1,11 @@
 # Python Canvas
 
-Python Canvas is a durable local application for authoring one named Python project. Go owns the
-canonical project, generated Python, diagnostics, persistence, terminal runtime, and Basedpyright
-lifecycle. React renders that state through the public `@setta/workspace` API.
+Python Canvas is a visual editor for composing and configuring Python code. Arrange function calls,
+class constructors, Parameter Dictionaries, and Lists of Objects on a canvas, and connect them with
+ordinary Python expressions. Shared settings and objects can feed multiple parts of your program.
 
-The project contains callables, Parameter Dictionaries, Lists of Objects, their section forest, and
-one generated Python document. Every browser or CLI mutation is bound to the current project ID and
-revision, so stale writes fail with a typed conflict instead of replacing newer work.
-
-## Playgrounds
-
-After [source setup](../../CONTRIBUTING.md#source-setup), open the configuration playground:
-
-```console
-pnpm python-canvas:playground
-```
-
-**Training system** assembles 59 callable sections, 9 Lists of Objects, and 3 Parameter
-Dictionaries through 112 references. Configure data sources, augmentation and preprocessing,
-loaders, a vision model, optimizer parameter groups, schedules, losses, callbacks, metrics,
-distributed settings, and three runs. It uses standard-library Python configuration objects and
-needs no dataset, GPU, model download, or training dependency.
-
-**Start here** guides you through shared defaults, nested object composition, constructor discovery,
-and reusable lists. **Start**, **Data**, **Model**, **Train**, **Evaluate**, **System**, and **Python**
-provide saved views of the same program. System shows the complete configuration; the other views
-make individual subsystems easier to inspect. Changing `width` in Shared defaults configures four
-model components. Changing `batch_size` recalculates the update budget and schedule lengths.
-The baseline, smoke, and SGD runs share the same model object while selecting different loops.
-
-In Optimizer, replace `ts.AdamW` with `ts.SGD` and press Enter to discover its parameters.
-Rename Model from its section menu to update its Python references. Duplicate or reorder a List
-of Objects, then use it in another callable. **Python → Run** constructs the complete program,
-checks cross-component consistency, and prints resolved settings in the attached terminal. It
-does not train a model, access dataset paths, or write configured outputs. Configuration mistakes
-remain editable. **Download Python** exports the current program; keep `training_system.py` beside it.
-
-The default working copy is `tmp/python-canvas-playground/training-system`. Use
-`--example training-system --fresh` for a new copy that preserves earlier work.
-
-The visual experiments are also available explicitly:
-
-```console
-pnpm python-canvas:playground --example rover-mission
-pnpm python-canvas:playground --example model-arena
-pnpm python-canvas:playground --example art-studio
-```
-
-Each experiment has a separate saved working copy and can run alongside the others.
-**Start here** explains the challenge; **Run experiment** stays available above the canvas in
-these three visual examples. Run fills the canvas with results from the composed Python program:
-
-| Experiment            | Build and change                                                                                         | Explore the results                                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Rover mission         | Three rover designs, terrain, dust, solar power, cargo, and route caution                                | Terrain routes, battery curves, a sortable fleet table, and a mission debrief       |
-| Model arena           | Three scikit-learn classifiers, shared feature transforms, synthetic worlds, noise, and training budgets | Decision maps, held-out mistakes, learning curves, and a sortable leaderboard       |
-| Generative art studio | Flowing ink, orbital rings, stars, colors, symmetry, and seeds                                           | Layered SVG artwork, four seed variations, a palette table, and downloadable images |
-
-Use **Explore**, **Compare** (or **Gallery**), **Build**, and **Python** to move around the experiment.
-The guide's buttons switch to the relevant view. Sliders and other controls save automatically;
-press Enter to commit a code expression. Running is explicit. Changed inputs mark older results,
-and a failed run keeps the last successful panels visible with an explanation and expandable details.
-Results belong to the current browser session; reload and Run to regenerate them from saved inputs.
-
-The model arena fits fresh pipelines on nested training subsets. Preprocessing never sees the
-400 held-out samples. The maps draw 120 of those samples for clarity; scores use all 400. Keep the
-seed fixed for comparisons, then change it to explore stability. These are synthetic experiments,
-not real-world performance estimates; repeated tuning against one test set can overfit it too.
-
-Working projects live in `tmp/python-canvas-playground/<example>`. The launcher prepares each
-frozen Python environment automatically with builds disabled. Training system, rover mission, and art studio use the
-standard library; model arena installs pinned NumPy and scikit-learn wheels. The first launch needs
-network access for uncached packages. Later launches preserve settings, Python, and canvas layout.
-
-Each folder contains `recipe.py`, a handwritten equivalent of the starting composition. Run it with
-`uv run --frozen --no-build python recipe.py` to print the configuration check or visual result payload. **Download Python**
-in Generated Python saves your currently displayed program, including prefix and suffix drafts,
-as `canvas_recipe.py`. Run it from the working folder beside the helper module and its dependencies.
-The reference recipe does not synchronize later canvas edits. **Save image** downloads the exact
-rendered SVG, which opens independently and can be edited in a vector editor.
-
-```console
-pnpm python-canvas:playground --example art-studio --fresh
-pnpm python-canvas:playground --example model-arena --no-open
-pnpm python-canvas:playground --example rover-mission --workspace /path/to/working-copy
-pnpm python-canvas:playground --example art-studio --stop
-```
-
-`--fresh` starts another copy while preserving earlier work. The launcher prints the exact resume
-and stop commands. `--no-open` prints the local URL. The command returns once ready; you can close
-the terminal and the playground keeps running. Repeating it reopens the same live copy. Use
-**Start here** in the sidebar whenever you want the guide back.
+Inspect the generated Python and diagnostics as you edit, run the program explicitly, or download
+it as a Python file. Your project and Python environment stay on your computer.
 
 ## Install and open a project
 
@@ -99,6 +14,21 @@ repository root. PyPI publication is deferred.
 
 ```sh
 mkdir -p .local/python-canvas
+```
+
+Save this as `.local/python-canvas/pyrightconfig.json`. It uses standard type checking and permits
+the generated class's `state` parameter name:
+
+```json
+{
+  "typeCheckingMode": "standard",
+  "reportSelfClsParameterName": false
+}
+```
+
+Open the new project:
+
+```sh
 python3 packages/setta-runtime/scripts/run_local_setta.py python-canvas open \
   --project "$PWD/.local/python-canvas/project.json" \
   --create
@@ -117,6 +47,36 @@ Python selection needs no setup. Python Canvas uses the nearest `.venv` above th
 none exists, it uses the Python that launched Setta. Basedpyright diagnostics and completion,
 interactive Run, AI Run, and the terminal all use that same selection. An invalid nearest `.venv`
 stops startup with a clear error instead of silently choosing something else.
+
+## Your first two connected sections
+
+This example uses Python's standard library and needs no extra dependencies.
+
+1. In **Generated Python**, add `import math` in the editable area above the generated block.
+2. Right-click an empty part of the canvas, choose **Python callable**, and rename its section
+   to **Ceiling** using the section menu.
+3. Enter `math.ceil` in its callable-expression field and press Enter. The discovered `x`
+   parameter appears; set it to `7.25` and press Enter.
+4. Create another Python callable named **Root**, enter `math.sqrt`, and press Enter. Set its `x`
+   parameter to `state.Ceiling` and press Enter. The second section now uses the first section's result.
+5. Set the code in the editable area below the generated block to:
+
+   ```python
+   state = SettaState()
+   print(state.Root)
+   ```
+
+6. Press **Run** in the Generated Python header. The attached terminal prints
+   `2.8284271247461903`.
+
+Change Ceiling's `x` to `15.25` and Run again: the output becomes `4.0`. Inspect the generated
+code to follow the reference between the two sections. Rename Ceiling through its section menu to
+see the reference update automatically.
+
+Edits save to your project; execution happens only when you press Run. **Download Python** in the
+Generated Python header saves the displayed program as `canvas_recipe.py`, including your editable
+prefix and suffix. This example runs independently with `python3 canvas_recipe.py`. For your own
+projects, keep any imported modules and dependencies available alongside the exported program.
 
 ## AI-native CLI
 

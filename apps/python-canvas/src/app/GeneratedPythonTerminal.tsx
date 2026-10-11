@@ -10,19 +10,15 @@ import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
   fitWorkspaceSections,
-  isWorkspaceSavedViewSectionVisible,
   useWorkspaceHost,
 } from "@setta/workspace";
 
 import { mountGeneratedPythonTerminal } from "./generatedPythonTerminalClient";
 import { useGeneratedPythonTerminal } from "./generatedPythonTerminalContext";
 import { GENERATED_PYTHON_SECTION_ID } from "./workspaceProjection";
-import { DisplayRunButton, useDisplay } from "./displayContext";
-import { getPlayground } from "./playgroundCatalog";
 
 export function GeneratedPythonTerminalHeaderControls() {
   const { actions, state } = useGeneratedPythonTerminal();
-  const display = useDisplay();
   const terminalLabel =
     state.status === "absent"
       ? "Create terminal"
@@ -38,21 +34,17 @@ export function GeneratedPythonTerminalHeaderControls() {
 
   return (
     <>
-      {display?.enabled ? (
-        <DisplayRunButton compact />
-      ) : (
-        <button
-          aria-label="Run this code block"
-          className={`${NO_DRAG_CLASS_NAME} python-canvas-generated-python-run-control`}
-          data-generated-python-run
-          onClick={actions.run}
-          title="Run this code block"
-          type="button"
-        >
-          <PlayIcon />
-          <span>Run</span>
-        </button>
-      )}
+      <button
+        aria-label="Run this code block"
+        className={`${NO_DRAG_CLASS_NAME} python-canvas-generated-python-run-control`}
+        data-generated-python-run
+        onClick={actions.run}
+        title="Run this code block"
+        type="button"
+      >
+        <PlayIcon />
+        <span>Run</span>
+      </button>
       <button
         aria-label={terminalLabel}
         aria-pressed={state.status === "visible"}
@@ -137,14 +129,9 @@ function GeneratedPythonTerminalPane({
     if (container === null) {
       return;
     }
-    let targets: string[] = [GENERATED_PYTHON_SECTION_ID];
-    if (getPlayground(projectId)) {
-      const document = workspaceHost.getSnapshot();
-      targets = Object.keys(document.topLevelSections).filter((id) =>
-        isWorkspaceSavedViewSectionVisible(document.savedViews, {}, id),
-      );
-    }
-    void fitWorkspaceSections(workspaceHost, targets, { duration: 0 });
+    void fitWorkspaceSections(workspaceHost, [GENERATED_PYTHON_SECTION_ID], {
+      duration: 0,
+    });
     return mountGeneratedPythonTerminal({
       container,
       onError: onStreamError,

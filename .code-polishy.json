@@ -284,32 +284,6 @@
       "docs/evidence/**/*.json.gz",
       "packages/setta-runtime/licenses/frontend-NOTICES.txt"
     ],
-    "pythonContracts": [
-      {
-        "project": "apps/python-canvas/examples/rover-mission/fixture/pyproject.toml",
-        "kind": "entry-point",
-        "target": "rover_mission:show",
-        "reason": "The adjacent project.json suffix renders the composed Python experiment on explicit Run."
-      },
-      {
-        "project": "apps/python-canvas/examples/model-arena/fixture/pyproject.toml",
-        "kind": "entry-point",
-        "target": "model_arena:show",
-        "reason": "The adjacent project.json suffix renders the composed Python experiment on explicit Run."
-      },
-      {
-        "project": "apps/python-canvas/examples/art-studio/fixture/pyproject.toml",
-        "kind": "entry-point",
-        "target": "art_studio:show",
-        "reason": "The adjacent project.json suffix renders the composed Python experiment on explicit Run."
-      },
-      {
-        "project": "apps/python-canvas/examples/training-system/fixture/pyproject.toml",
-        "kind": "entry-point",
-        "target": "training_system:describe",
-        "reason": "The adjacent project.json suffix checks the assembled configuration and prints its resolved settings on explicit Run."
-      }
-    ],
     "entryPoints": [
       "examples/workspace-playground/vitest.setup.ts",
       "apps/python-canvas/backend/cmd/python-canvas/main.go",
@@ -396,10 +370,7 @@
     },
     {
       "name": "python-canvas-backend",
-      "paths": [
-        "apps/python-canvas/backend/**",
-        "apps/python-canvas/examples/**"
-      ],
+      "paths": ["apps/python-canvas/backend/**"],
       "dependsOn": ["local-backend"]
     },
     {
@@ -646,42 +617,6 @@
       "modules": ["setta-runtime"],
       "runOn": ["build"],
       "timeoutSeconds": 1800
-    },
-    {
-      "name": "python-canvas-rover-mission-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["uv", "lock", "--check"],
-      "cwd": "apps/python-canvas/examples/rover-mission/fixture",
-      "modules": ["python-canvas-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "python-canvas-model-arena-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["uv", "lock", "--check"],
-      "cwd": "apps/python-canvas/examples/model-arena/fixture",
-      "modules": ["python-canvas-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "python-canvas-art-studio-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["uv", "lock", "--check"],
-      "cwd": "apps/python-canvas/examples/art-studio/fixture",
-      "modules": ["python-canvas-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
-    },
-    {
-      "name": "python-canvas-training-system-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["uv", "lock", "--check"],
-      "cwd": "apps/python-canvas/examples/training-system/fixture",
-      "modules": ["python-canvas-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
     }
   ],
   "tests": {
@@ -689,7 +624,6 @@
       "examples/workspace-playground/src/**/*.test.ts",
       "examples/workspace-playground/src/**/*.test.tsx",
       "apps/python-canvas/backend/**/*_test.go",
-      "apps/python-canvas/examples/**/test_*.py",
       "apps/python-canvas/*.test.mjs",
       "apps/python-canvas/src/**/*.test.ts",
       "apps/python-canvas/src/**/*.test.tsx",
@@ -786,26 +720,6 @@
         ],
         "module": "experiment-lens-frontend",
         "focusedSuite": "experiment-lens-frontend-focused"
-      },
-      {
-        "paths": ["apps/python-canvas/examples/rover-mission/**/test_*.py"],
-        "module": "python-canvas-backend",
-        "focusedSuite": "python-canvas-rover-mission"
-      },
-      {
-        "paths": ["apps/python-canvas/examples/model-arena/**/test_*.py"],
-        "module": "python-canvas-backend",
-        "focusedSuite": "python-canvas-model-arena"
-      },
-      {
-        "paths": ["apps/python-canvas/examples/art-studio/**/test_*.py"],
-        "module": "python-canvas-backend",
-        "focusedSuite": "python-canvas-art-studio"
-      },
-      {
-        "paths": ["apps/python-canvas/examples/training-system/**/test_*.py"],
-        "module": "python-canvas-backend",
-        "focusedSuite": "python-canvas-training-system"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
@@ -1184,90 +1098,6 @@
         "argv": ["pnpm", "run", "performance:profile", "--", "--passes", "1"],
         "runOn": ["full"],
         "timeoutSeconds": 1800
-      },
-      {
-        "name": "python-canvas-rover-mission",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["python-canvas-backend"],
-        "paths": ["apps/python-canvas/examples/rover-mission/**"],
-        "argv": [
-          "uv",
-          "run",
-          "--frozen",
-          "--no-build",
-          "python",
-          "-m",
-          "unittest",
-          "test_rover_mission"
-        ],
-        "cwd": "apps/python-canvas/examples/rover-mission/fixture",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 60
-      },
-      {
-        "name": "python-canvas-model-arena",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["python-canvas-backend"],
-        "paths": ["apps/python-canvas/examples/model-arena/**"],
-        "argv": [
-          "uv",
-          "run",
-          "--frozen",
-          "--no-build",
-          "python",
-          "-m",
-          "unittest",
-          "test_model_arena"
-        ],
-        "cwd": "apps/python-canvas/examples/model-arena/fixture",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 60
-      },
-      {
-        "name": "python-canvas-art-studio",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["python-canvas-backend"],
-        "paths": ["apps/python-canvas/examples/art-studio/**"],
-        "argv": [
-          "uv",
-          "run",
-          "--frozen",
-          "--no-build",
-          "python",
-          "-m",
-          "unittest",
-          "test_art_studio"
-        ],
-        "cwd": "apps/python-canvas/examples/art-studio/fixture",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 60
-      },
-      {
-        "name": "python-canvas-training-system",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["python-canvas-backend"],
-        "paths": ["apps/python-canvas/examples/training-system/**"],
-        "argv": [
-          "uv",
-          "run",
-          "--frozen",
-          "--no-build",
-          "python",
-          "-m",
-          "unittest",
-          "test_training_system"
-        ],
-        "cwd": "apps/python-canvas/examples/training-system/fixture",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 60
       }
     ]
   },

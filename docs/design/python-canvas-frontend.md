@@ -153,39 +153,13 @@ completion draft produces no suggestions and clears stale completion feedback; i
 a failed project edit. The backend still validates the protected region, and transport or provider
 failures retain their visible feedback. Later completion requests use the current draft normally.
 
-## Playground guidance and visual results
+## Execution and export
 
-The canonical playground IDs enable a Start here tab and seed saved views before bootstrap.
-Training system opens with shared defaults and a composed experiment, then offers Data, Model,
-Train, Evaluate, System, and Python views. Its configuration sections remain native callable,
-dictionary, and list sections. The complete System view and smaller subsystem views use the same
-section sizes because section presentation is shared across saved views. List children receive
-enough height for their reference expressions, with ordinary scrolling still available.
-Training system uses the existing Generated Python terminal Run and has no display panels.
-The three visual experiments seed Explore, Compare (Gallery for art), Build, and Python views.
-Existing saved views retain
-authority. The guide uses Workspace's public quick-start surface and switches views to the relevant
-section. This sample-only tab is not persisted as a global preference for ordinary projects.
-On narrow screens a guide jump collapses the guide pane before framing its destination.
+Run drains pending callable and dictionary control saves through the existing mutation queue, then
+flushes the Python target and executes the resulting canonical revision in the attached terminal.
+A save failure prevents execution and permits retry. This avoids running old values when Run
+follows a control change within its save debounce.
 
-Both visual and terminal Run drain pending callable and dictionary control saves through the
-existing mutation queue, then flush the Python target and execute the resulting canonical revision.
-A save failure prevents execution and permits retry, preserving the last results. This avoids
-running old values when Run follows a control change within its save debounce. The app context owns transient result
-panels, their run revision, progress, errors, and logs. Authored project snapshots remain the only
-source of Python. Editing marks older results as stale; failures preserve them and allow another
-run. A malformed individual panel does not discard valid siblings. Reloading clears result state;
-the saved inputs regenerate it on explicit Run. Disposal aborts the browser request without updating
-an unmounted host; backend execution remains bounded by its existing timeout and containment.
-
-Public Workspace section kinds present SVG images with downloads, sortable tables, native SVG
-charts with legend toggles and point values, and rendered Markdown. The challenge itself uses the
-built-in text section. The frontend accepts only inline base64 image media, finite chart data, and
-rectangular primitive tables; Markdown retains Workspace's rendering rules. SVG is displayed as an
-image rather than injected into the page. Fixed panel slots and saved views are presentation state,
-excluded from canonical Python forest mutations, and survive snapshot reconciliation.
-
-Ordinary projects retain terminal Run. Playground Generated Python exposes visual Run and a
-separate terminal control. Download Python reads the public code-section data at click time,
-including prefix and suffix drafts, and saves a Python file. It does not run code or bundle the
-helper and dependencies. Download failure leaves the editor available for retry.
+Download Python reads the public code-section data at click time, including prefix and suffix
+drafts, and saves a Python file. It does not run code or bundle imported modules and dependencies.
+Download failure leaves the editor available for retry.

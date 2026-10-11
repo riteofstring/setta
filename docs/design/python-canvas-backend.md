@@ -157,39 +157,3 @@ to every origin-sensitive route.
 The Windows ConPTY implementation derives in part from `UserExistsError/conpty`. Its MIT notice is
 retained in the source tree and the built wheel's license directory; this design record does not
 replace that attribution.
-
-## Python playgrounds
-
-Training system demonstrates configuration authoring with 71 canonical sections and 112 authored
-Python references. Its standard-library dataclasses describe an image training system: data,
-transforms, model parts, parameter groups, schedules, losses, runtime resources, callbacks,
-evaluation, and three experiments. The graph constructs shared objects and derived update budgets;
-cache capacity derives from configured host memory. It performs no model training, dataset access,
-or output writes. Run assembles that graph through
-the ordinary renderer and terminal, then reports cross-component consistency and resolved values.
-This makes constructor discovery, reference rewriting, reusable lists, shared defaults, and Python
-export the central interactions. The handwritten recipe provides an equivalent standalone starting
-composition, and tests exercise object identity, derived budgets, and correction of invalid wiring.
-
-Three independent examples exercise object composition with local, repeatable experiments. Rover
-mission constructs a terrain and a fleet, then simulates route choice, energy, payload, and cost.
-Model arena constructs shared feature transforms and three classifiers, cloning a fresh pipeline
-for each training budget. Its split precedes all fitting; 400 held-out points drive the scores and
-120 are drawn on the decision maps. Art studio constructs ordered drawing layers and renders the
-same recipe under several seeds. SVG uses escaped text, validated hex colors, and reusable vector
-shapes to stay within the existing bounded run output.
-
-Each generated suffix calls its helper's `show` on explicit Run. The helper emits one versioned
-`SETTA_DISPLAY` JSON line with image, chart, table, and Markdown panels. The frontend consumes that
-line through the existing generated-program run route, using its revision binding, interpreter,
-working directory, time limit, process containment, and output limit. There is no artifact server
-or additional execution lifecycle. Validation errors leave authored inputs intact; ordinary Python
-failures remain run results rather than application failures. `recipe.py` provides a handwritten
-starting equivalent, and the suffix entry-point contracts declare those dynamic calls.
-
-Rover mission and art studio need only the standard library. Model arena retains NumPy 2.5.1 and
-scikit-learn 1.9.0 from the previous example: exact official releases older than 90 days at admission.
-A fixed resolver cutoff preserves the 30-day admission window. Setup admits wheels only and runs
-no build hooks. These packages belong to the example environment rather than the Setta runtime.
-Project-local Basedpyright configuration permits the generated constructor's intentional `state`
-parameter name. Each example owns a frozen lock and an observable boundary suite.

@@ -126,25 +126,15 @@ application build outputs.
 
 ## Playground launch behavior
 
-All four source launchers share the same small option parser: a normal launch resumes its ignored
-working project, `--fresh` selects a new sibling copy without renaming or deleting previous work,
+The Realtime, Review, and Experiment Lens playground launchers share the same small option parser.
+A normal launch resumes its ignored working project, `--fresh` selects a new sibling copy without
+renaming or deleting previous work,
 and `--workspace` opens or seeds an explicitly chosen copy. `--no-open` leaves browser opening to
 the caller; `--help` exits before filesystem or build work. The launcher prints the working path,
 its resume command, startup expectations, and how to stop. `--stop` targets the default working
 copy or the explicit `--workspace`, never creates a project or builds an application, and is
 successful when that copy is already stopped. Checked-in fixture directories cannot
 be selected as working copies. Each application retains its own seeding and validation semantics.
-
-Python Canvas defaults to the training system configuration example; `--example` also selects
-rover mission, model arena, or art studio. Each has a
-distinct default working directory; printed resume and fresh-copy commands retain the selection.
-It copies the selected fixture atomically before opening its project through the same packaged runtime. It synchronizes the example's frozen Python lock with builds and project
-installation disabled, so the nearest project-local environment provides both signature discovery
-and execution. Fixture virtual environments and Python caches are excluded from copying. A failed
-dependency download leaves the working project intact and can be retried with the same launch
-command. Partial fixture copies never become working projects, and relaunching preserves settings
-and authored Python. A new example uses a distinct default working directory; earlier local projects
-are never rewritten into a new example.
 
 The shared playground launcher starts the installed `setta APP open --no-open` process in an
 independent operating-system session with detached standard streams. It waits for the public

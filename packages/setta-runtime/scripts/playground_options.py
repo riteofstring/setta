@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,26 +13,17 @@ class PlaygroundOptions:
     workspace: Path
     no_open: bool
     stop: bool
-    example: str | None = None
 
 
 def parse_options(
     app: str,
     default_workspace: Path,
     arguments: Sequence[str] | None,
-    examples: Mapping[str, Path] | None = None,
 ) -> PlaygroundOptions | int:
     parser = argparse.ArgumentParser(
         prog=f"pnpm {app}:playground",
         description="Open an editable example. Previous experiments are preserved.",
     )
-    if examples:
-        parser.add_argument(
-            "--example",
-            choices=tuple(examples),
-            default=next(iter(examples)),
-            help="choose an experiment; each has its own saved working copy",
-        )
     parser.add_argument(
         "--no-open", action="store_true", help="print the URL without opening a browser"
     )
@@ -54,21 +45,18 @@ def parse_options(
             parser.error("--stop selects an existing copy; omit --fresh")
     except SystemExit as error:
         return int(error.code or 0)
-    example = parsed.example if examples else None
-    workspace = examples[example] if examples and example else default_workspace
+    workspace = default_workspace
     if parsed.fresh:
         workspace = workspace.with_name(f"{workspace.name}-{uuid.uuid4().hex[:8]}")
     elif parsed.workspace is not None:
         workspace = parsed.workspace.expanduser().resolve()
     return PlaygroundOptions(
-        workspace=workspace, no_open=parsed.no_open, stop=parsed.stop, example=example
+        workspace=workspace, no_open=parsed.no_open, stop=parsed.stop
     )
 
 
-def announce(app: str, workspace: Path, url: str, example: str | None = None) -> None:
+def announce(app: str, workspace: Path, url: str) -> None:
     command = f"pnpm {app}:playground"
-    if example:
-        command += f" --example {example}"
     sys.stdout.write(
         f"\n{app} playground is ready: {url}\n"
         "Look for Start here in the left sidebar.\n"

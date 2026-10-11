@@ -15,18 +15,19 @@ automate a workflow.
 Complete [source setup](CONTRIBUTING.md#source-setup), then choose an example. Each opens with a
 **Start here** guide inside the app, with short challenges and buttons that find the right controls.
 
-| App             | Launch                            | Try this                                                                |
-| --------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| Python Canvas   | `pnpm python-canvas:playground`   | Configure a training system with 71 sections and shared Python objects. |
-| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.          |
-| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision.        |
-| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                         |
+| App             | Launch                            | Try this                                                         |
+| --------------- | --------------------------------- | ---------------------------------------------------------------- |
+| Realtime        | `pnpm realtime:playground`        | Turn a doodle into an evolving poster with two ink treatments.   |
+| Review          | `pnpm review:playground`          | Pick a poster, investigate claims, and weigh a rollout decision. |
+| Experiment Lens | `pnpm experiment-lens:playground` | Discover which simulated batteries age fastest.                  |
 
-The first launch builds the apps and may take a few minutes. Keep the terminal open while you play;
-Ctrl-C stops the app. Changes stay in your ignored working copy under `tmp/`.
+The first launch builds the apps and may take a few minutes. The playground keeps running after
+the command returns; add `--stop` to stop it. Changes stay in your ignored working copy under `tmp/`.
 Add `--fresh` to any command for another untouched example without deleting earlier experiments.
 The launcher prints the exact `--workspace` command to resume a copy. `--no-open` prints the URL
 without opening a browser, and `--help` lists the options.
+
+For Python Canvas, [create a project and follow the getting-started example](apps/python-canvas/README.md#install-and-open-a-project).
 
 ## Four ways to work
 
@@ -67,7 +68,7 @@ pnpm experiment-lens:playground
 
 The first launch builds the four apps and installs them into an ignored local environment; allow a
 few minutes. Later launches reuse that build until its inputs change. The browser opens a battery
-study you can filter, annotate, and explore. Press Ctrl-C in the terminal to stop the app. Your
+study you can filter, annotate, and explore. Use `pnpm experiment-lens:playground --stop` to stop it. Your
 changes stay in `tmp/experiment-lens-playground/experiment-project` for the next launch.
 
 Try the other examples:
@@ -75,7 +76,6 @@ Try the other examples:
 ```sh
 pnpm realtime:playground
 pnpm review:playground
-pnpm python-canvas:playground
 ```
 
 Each playground stays running after its command returns, so you can close the terminal. Run the

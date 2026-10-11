@@ -67,8 +67,6 @@ import {
   type GeneratedPythonTerminalRuntime,
 } from "./generatedPythonTerminalController";
 import { PythonCanvasView } from "./PythonCanvasView";
-import { createDisplayRuntime, initialDisplayState } from "./displayRuntime";
-import { getPlayground } from "./playgroundCatalog";
 
 type CallableMutationStates = Record<string, MutationState>;
 type DictionaryMutationStates = Record<string, MutationState>;
@@ -98,10 +96,6 @@ export function PythonCanvasController() {
   const [terminalState, setTerminalState] = useState(
     initialGeneratedPythonTerminalState,
   );
-  const [displayState, setDisplayState] = useState(initialDisplayState);
-  const displayRuntimeRef = useRef<ReturnType<
-    typeof createDisplayRuntime
-  > | null>(null);
   const controllerRef = useRef<AppController | null>(null);
   const terminalRuntimeRef = useRef<GeneratedPythonTerminalRuntime | null>(
     null,
@@ -390,7 +384,6 @@ export function PythonCanvasController() {
         revisionConflictDraft = null,
       } = options;
       snapshot = nextSnapshot;
-      displayRuntimeRef.current?.setRevision(nextSnapshot.project.revision);
       const document = host.getSnapshot();
       applyProjection(nextSnapshot, {
         keepAuthoredPython: shouldKeepAuthoredPython(
@@ -647,11 +640,6 @@ export function PythonCanvasController() {
       updateState: setTerminalState,
     });
     terminalRuntimeRef.current = terminalRuntime;
-    const displayRuntime = createDisplayRuntime({
-      runAfterEditsFlush: mutations.runWithEditsFlushed,
-      updateState: setDisplayState,
-    });
-    displayRuntimeRef.current = displayRuntime;
 
     const currentWorkspaceSnapshot = () =>
       active && !isProjectingRef.current ? snapshot : null;
@@ -811,7 +799,6 @@ export function PythonCanvasController() {
           projectWorkspaceDocument(initialSnapshot),
           initialSnapshot.project.id,
         );
-        displayRuntime.setRevision(initialSnapshot.project.revision);
         if (initialSavedViews.storageIssue !== null) {
           updateAnnouncement({
             kind: "error",
@@ -857,7 +844,6 @@ export function PythonCanvasController() {
         setState({
           kind: "ready",
           host,
-          projectId: initialSnapshot.project.id,
         });
         disconnectProjectSnapshotStream = connectProjectSnapshotStream({
           onProtocolError: () => {
@@ -909,8 +895,6 @@ export function PythonCanvasController() {
       controllerRef.current = null;
       terminalRuntime.dispose();
       terminalRuntimeRef.current = null;
-      displayRuntime.dispose();
-      displayRuntimeRef.current = null;
       unsubscribe();
       disposeHost();
     };
@@ -1014,13 +998,6 @@ export function PythonCanvasController() {
       pythonTargetCompletionError={pythonTargetCompletionError}
       state={state}
       terminalContext={terminalContext}
-      displayContext={{
-        enabled:
-          state.kind === "ready" &&
-          (getPlayground(state.projectId)?.panels.length ?? 0) > 0,
-        state: displayState,
-        run: () => displayRuntimeRef.current?.run(),
-      }}
     />
   );
 }
