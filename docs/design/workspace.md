@@ -441,11 +441,11 @@ worker owns a validated dependency graph; the client owns one active run, one re
 input, a finite deadline, and disposal. Successful output carries its producing revision and stays
 visible until a newer requested input succeeds. Obsolete runs never become current output.
 
-Applications own stage implementations, result schemas, and presentation. The photo playground's
-ML inference and particle rendering belong to the site; queuing, dependency ordering, progress, cancellation, and worker
-recovery belong to this package. Cancellation terminates the dedicated worker so synchronous
-handlers cannot prevent recovery. Worker inputs are cloned on admission so later caller mutation
-cannot alter queued work. The caller supplies a fresh worker factory for restarts.
+Applications own stage implementations, result schemas, and presentation. The Gaussian playground's
+scan parsing, packing, and rendering belong to the site; queuing, dependency ordering, progress,
+cancellation, and worker recovery belong to this package. Cancellation terminates the dedicated
+worker so synchronous handlers cannot prevent recovery. Worker inputs are cloned on admission so
+later caller mutation cannot alter queued work. The caller supplies a fresh worker factory for restarts.
 
 The npm artifact exports ESM, declarations, compiled scoped styles, and the independent browser
 entry under the canonical `@riteofstring/setta` name. Examples stay private; the library carries its

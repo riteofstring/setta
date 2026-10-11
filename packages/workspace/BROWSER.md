@@ -2,8 +2,8 @@
 
 `@riteofstring/setta/browser` runs application-owned computations in a Web Worker. It works on
 static hosting without a Go server, Python, React, or the workspace UI at runtime. The
-[photo playground](https://setta.dev) uses it to decode images, estimate depth locally, and build
-colored particle geometry for an interactive 3D scene.
+[Gaussian splat playground](https://setta.dev) uses it to read captures, validate Gaussian records,
+measure bounds and opacity, and pack data for GPU rendering.
 
 ## A worker with dependent stages
 
@@ -80,18 +80,18 @@ This library runs trusted application code. A Web Worker is not a sandbox for un
 It does not provide Python execution, persistent projects, networking, or application-specific
 effects. Those remain application decisions; the Go library is available for local native tools.
 
-## Browser ML and GPU scenes
+## GPU scenes and other expensive computations
 
-The photo playground keeps its ONNX model session private to the worker. Stage results contain
-structured-cloneable pixel arrays, depth values, and geometry; they do not contain model sessions,
-WebGL renderers, or GPU devices. A model-loading stage can initialize the private session and return
-small metadata for dependent stages. Set a suitable finite `timeoutMs` for initial model loading
-and CPU inference rather than relying on the default 10-second deadline.
+The Gaussian splat playground sends structured-cloneable source records, measurements, and packed
+arrays through the pipeline. WebGL renderers and their GPU resources belong to the rendering view.
+Keep frame-by-frame rendering on the renderer's own loop. Sliders update shader uniforms without
+requesting another pipeline run; loading a different capture requests new worker processing.
+Use `outputRevision` and `status` to identify the last successful scene while newer work is pending.
 
-Keep frame-by-frame rendering on the renderer's own loop. Sliders can update shader uniforms
-without requesting another pipeline run. Request inference when the source photo changes, and
-use `outputRevision` and `status` to identify the last successful scene while newer work is pending.
-Cancellation terminates the worker, including its model session; restarting reconstructs it.
+The same boundary supports browser ML: keep model sessions private to the worker and return data,
+not sessions or GPU devices. A model-loading stage can initialize a private session and return small
+metadata to dependent stages. Set a suitable finite `timeoutMs` for downloads or expensive work.
+Cancellation terminates the worker, including private sessions; restarting reconstructs them.
 
-Model choice, download/cache policy, image decoding, and rendering belong to the consuming
-application. They add no ML or rendering dependencies to the Setta package.
+File formats, ML models, download/cache policy, and rendering belong to the consuming application.
+They add no ML or rendering dependencies to the Setta package.

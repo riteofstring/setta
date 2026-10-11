@@ -76,7 +76,7 @@ The application creates the host outside React rendering and calls `host.dispose
 React root unmounts. For multiple workspaces, create one host for each independent lifetime.
 Add native controls through [typed items](#typed-built-in-items), a
 [worker pipeline](BROWSER.md) for live computations, or your own backend.
-The [photo playground](https://setta.dev) demonstrates all three
+The [Gaussian splat playground](https://setta.dev) demonstrates all three
 browser building blocks. The [packed consumer fixture](../../fixtures/packed-consumer) exercises
 more of the UI API against built declarations.
 
