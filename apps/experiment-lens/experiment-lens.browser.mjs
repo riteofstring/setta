@@ -1388,6 +1388,16 @@ async function exerciseBrowser(client, origin, resultDirectory) {
   );
   await physicalClickSelector(
     client,
+    'button[aria-label="Outline"]',
+    "the Experiment Lens Outline tab",
+  );
+  await waitFor(
+    client,
+    "the open Experiment Lens Outline",
+    `document.querySelector('[data-workspace-outline-item="retention-population"]') instanceof HTMLElement`,
+  );
+  await physicalClickSelector(
+    client,
     '[data-workspace-outline-item="retention-population"]',
     "the annotated population outline item",
   );
