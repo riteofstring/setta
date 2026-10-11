@@ -30,16 +30,23 @@ by monitoring policy through `./code-polishyw`; command discovery never selects 
 
 ## Workspace build and CodeMirror module identity
 
-The workspace library build emits readable ESM with a source map. Package-relative modules bundle;
-bare specifiers remain external because each is a declared runtime dependency or peer. Consumers
-own final application minification, and the built-package boundary check verifies the emitted
-imports.
+The workspace library build emits readable ESM with a source map. Package-relative modules and
+the private CodeMirror/Lezer/UIW editor runtime bundle together. Other declared dependencies and
+React peers remain external. An unrelated installation may resolve the editor wrappers' broad
+peer ranges to a different CodeMirror state or view version; mixing their extensions crashes the
+editor even when the application builds. Bundling the locked editor graph preserves one runtime
+identity without asking consumers for resolution aliases or overrides. Consumers own final
+application minification, and the built-package boundary check verifies emitted imports.
+
+The build emits `EDITOR-NOTICES.txt` from the installed packages that contribute bundled modules.
+Exact source-linked license supplements cover UIW releases that omit license text from their npm
+archives. The supplements retain the same upstream notices used by the native distribution.
 
 The `@uiw` CodeMirror packages have no exports map. Vitest's node-style resolution otherwise lands
 on their CommonJS main files while workspace source imports the ESM CodeMirror packages. That
 creates two instances of the same `@codemirror/*` versions and breaks extension identity checks.
 The workspace and playground test configurations alias only the `@uiw` entries to ESM, matching the
-browser module graph without changing library build output.
+browser module graph used by the library build.
 
 ## Browser test shims
 

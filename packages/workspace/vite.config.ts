@@ -1,6 +1,11 @@
 import { defineConfig } from "vitest/config";
+import {
+  bundledEditorNotices,
+  externalWorkspaceDependency,
+} from "./editorBuild";
 
 export default defineConfig({
+  plugins: [bundledEditorNotices()],
   build: {
     lib: {
       entry: { index: "src/index.ts", browser: "src/browser/index.ts" },
@@ -12,7 +17,7 @@ export default defineConfig({
     sourcemap: true,
     target: "es2022",
     rollupOptions: {
-      external: (id) => !id.startsWith(".") && !id.startsWith("/"),
+      external: externalWorkspaceDependency,
     },
   },
   test: {

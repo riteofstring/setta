@@ -404,7 +404,9 @@ counter reset becomes a per-workspace reset. Font faces retain only their WOFF2 
 inlined, avoiding dependency font resolution and redundant encodings. The build resolves KaTeX
 from the workspace manifest, making that exact declared dependency the stylesheet source.
 
-The ESM artifact bundles package-relative modules and leaves declared bare dependencies external.
+The ESM artifact bundles package-relative modules and the private editor dependency graph as one
+CodeMirror runtime identity. Other declared bare dependencies remain external. The build includes
+the editor dependencies' license notices; consumers need no editor aliases or version overrides.
 The package-boundary check owns the emitted import list, exports-only manifest, scoped stylesheet
 markers, and absence of dependency CSS.
 
@@ -412,8 +414,9 @@ markers, and absence of dependency CSS.
 
 The packed-consumer harness materializes a temporary unrelated application from the freshly packed
 artifact, installs it under repository supply-chain controls, and builds it through public exports
-and the compiled stylesheet only. It is an artifact contract suite rather than a routine source
-lint.
+and the compiled stylesheet only. An isolated browser then renders editable and read-only code,
+types into the editor, and undoes the edit. This catches runtime dependency-identity failures that
+a successful bundler cannot detect. It is an artifact contract suite rather than routine source lint.
 
 The production performance profile uses the deterministic 256-section playground route and records
 initial render, sustained panning, and drag behavior. Timing is machine-local evidence, never a

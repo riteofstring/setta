@@ -1,4 +1,6 @@
 import {
+  createWorkspaceCodeSection,
+  createWorkspaceCodeSectionData,
   createWorkspaceHost,
   createWorkspaceShellViewState,
   DEFAULT_META_CONTROL_SIZE,
@@ -17,6 +19,7 @@ import {
   WorkspaceItemList,
   WorkspaceProvider,
   WorkspaceShell,
+  WORKSPACE_CODE_SECTION_KIND,
   type MetaControlDefinition,
   type WorkspaceCreationContext,
   type WorkspaceCanvasConfiguration,
@@ -158,6 +161,24 @@ function createConsumerNote(
 
 const consumerDocument: WorkspaceDocumentInput = {
   sections: {
+    "packed-code": {
+      ...makeNoteSection("packed-code", "Packed editor", ""),
+      kind: WORKSPACE_CODE_SECTION_KIND,
+      data: createWorkspaceCodeSectionData({
+        code: "const message = 'Packed editor works';",
+        language: "typescript",
+        mode: "editable",
+      }),
+    },
+    "packed-readonly-code": {
+      ...makeNoteSection("packed-readonly-code", "Packed source", ""),
+      kind: WORKSPACE_CODE_SECTION_KIND,
+      data: createWorkspaceCodeSectionData({
+        code: "const source = 'Read-only source';",
+        language: "typescript",
+        mode: "read-only",
+      }),
+    },
     "welcome-note": makeNoteSection(
       "welcome-note",
       "Welcome note",
@@ -250,6 +271,8 @@ const consumerDocument: WorkspaceDocumentInput = {
     },
   },
   topLevelSections: {
+    "packed-code": { x: 700, y: 24, w: 480, h: 230, zIndex: 4 },
+    "packed-readonly-code": { x: 700, y: 300, w: 480, h: 230, zIndex: 5 },
     "welcome-note": { x: 24, y: 24, w: 240, h: 140, zIndex: 0 },
     "notes-group": { x: 24, y: 232, w: null, h: null, zIndex: 1 },
     "packed-time": {
@@ -565,6 +588,7 @@ setWorkspaceColorMode(
   document.documentElement.classList.contains("dark") ? "dark" : "light",
 );
 registerSectionKinds(workspaceHost, {
+  [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
   note: {
     renderContent: (section) => <NoteBody section={section} />,
     renderInspector: (context) => (

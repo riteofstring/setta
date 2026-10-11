@@ -1446,7 +1446,10 @@ bundler configuration for either section.
 Consumers install the compiled package: the `exports` map serves ESM with a source map
 (`dist/index.js`), TypeScript declarations (`dist/types/`), and the compiled scoped stylesheet
 (`@riteofstring/setta/styles.css`). `pnpm --filter @riteofstring/setta build` produces `dist/` —
-`vite build` bundles the runtime with every dependency external, `tsc -p tsconfig.build.json`
+`vite build` bundles the workspace and its private editor runtime, keeping React and other declared
+dependencies external. The editor ships as one CodeMirror runtime so consumers need no aliases or
+dependency overrides; its third-party notices are included in `dist/EDITOR-NOTICES.txt`.
+`tsc -p tsconfig.build.json`
 emits declarations, the Tailwind CLI compiles the stylesheet from package source alone,
 `scripts/compile-katex-styles.mjs` folds KaTeX's presentation rules into that stylesheet scoped
 and with its faces inlined, and `scripts/check-package-boundary.mjs --built` verifies the artifact
@@ -1472,7 +1475,9 @@ resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
 
 The npm package is `@riteofstring/setta`, licensed under Apache-2.0. The independent `/browser`
 entry is ESM with no React or workspace runtime imports; its inputs and outputs use structured clone.
-Run `pnpm consumer:check` from the repository root to build an unrelated consumer of the packed artifact.
+Run `pnpm consumer:check` from the repository root to build an unrelated consumer of the packed artifact
+and verify its editors in isolated headless Chrome. On Linux, set `PYTHON_CANVAS_CHROME_BINARY` to the
+Chrome executable; macOS can use the installed Chrome or that explicit path.
 
 ## Quick-start pane
 

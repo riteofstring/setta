@@ -12,6 +12,7 @@
           "examples/workspace-playground/vitest.config.ts",
           "examples/workspace-playground/vitest.setup.ts",
           "packages/workspace/vite.config.ts",
+          "packages/workspace/editorBuild.ts",
           "packages/workspace/vitest.setup.ts",
           "scripts/cdp-port.sh",
           "scripts/chrome-devtools-mcp.sh",
@@ -337,6 +338,7 @@
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
+      "packages/workspace/editorBuild.ts",
       "packages/workspace/vitest.setup.ts",
       "scripts/**"
     ]
@@ -1078,6 +1080,7 @@
         "scope": "repository",
         "cost": "expensive",
         "argv": ["pnpm", "run", "consumer:check"],
+        "environment": ["PYTHON_CANVAS_CHROME_BINARY"],
         "runOn": ["full"],
         "timeoutSeconds": 1800
       },

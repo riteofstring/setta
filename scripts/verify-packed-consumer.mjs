@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
+import { verifyPackedConsumerBrowser } from "./lib/packed-consumer-browser.mjs";
 
 const fixtureRoot = path.join(repositoryRoot, "fixtures/packed-consumer");
 const fixtureManifestTemplate = "package.template.json";
@@ -91,6 +92,7 @@ const requiredTarballEntries = [
   "package/dist/index.js",
   "package/dist/index.js.map",
   "package/dist/styles.css",
+  "package/dist/EDITOR-NOTICES.txt",
   "package/dist/types/index.d.ts",
   "package/src/canvas/LICENSE",
   "package/src/dnd/LICENSE",
@@ -204,6 +206,7 @@ try {
   });
   runPnpm(["run", "build"], { cwd: consumerRoot });
   assertBuiltConsumer(consumerRoot);
+  await verifyPackedConsumerBrowser(consumerRoot);
   console.log(
     "Packed unrelated consumer installed and built from public exports only.",
   );
