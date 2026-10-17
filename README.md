@@ -14,7 +14,7 @@ when your tool needs files, Python, or native processes.
 [Browser pipelines](packages/workspace/BROWSER.md) ·
 [Go library](packages/local-backend/README.md)
 
-[![The Setta playground: photo reconstruction, a live Gaussian scene, linked meta controls, and parameters.](images/splat-playground.png)](https://setta.dev)
+[![The Setta playground: object selection, cutout, density field, raw and animated Gaussians, and linked controls.](images/splat-playground.png)](https://setta.dev)
 
 ## The libraries
 
@@ -28,11 +28,13 @@ Use them together or independently. Your application owns its data, computations
 and routes. Setta supplies the workspace and execution building blocks.
 
 The [Gaussian splat playground](https://setta.dev) turns a photo of one object into an inferred 3D
-surface and exports it as Gaussian splats. Setta runs background removal, WebGPU reconstruction,
-surface sampling, and GPU packing in a worker with live progress and cancellation. Native controls
-let you reshape, recolor, animate, and slice the result. Linked meta controls drive multiple
-parameters; export bakes the current appearance into a reusable .splat file. The independent site
-owns its ML models and renderer; the libraries acquire no ML dependencies. Everything runs on static hosting, with no photo upload.
+surface and exports it as Gaussian splats. Select an object with interactive segmentation, refine
+its cutout, scan through the predicted density field, and adjust the extracted surface without
+rerunning AI. Linked raw and final cameras expose what each stage changes. Setta worker pipelines
+provide live progress, cancellation, and recovery; native controls reshape, recolor, animate, and
+slice the result. Meta controls drive multiple parameters, and export bakes the appearance into a
+reusable .splat file. The independent site owns its models and renderer; the libraries acquire no
+ML dependencies. Everything runs on static hosting, with no photo upload.
 
 ## Start building
 

@@ -71,8 +71,9 @@ preparation does not execute them.
    and its trusted publisher or upload credentials. `uv publish` can upload the selected wheels;
    do not upload temporary development wheels or a source archive.
 5. Deploy `setta-site/dist/` to Cloudflare Pages for setta.dev, following that repository's README.
-   Verify photo generation on WebGPU, model download/cache behavior, cancellation, both captures,
-   linked meta controls, animation/pause, stage bypass, `.splat` import, edited export/re-import,
+   Verify object proposals and positive/negative selection prompts, cutout controls, WebGPU
+   generation, model integrity and cache behavior, cancellation, field slicing, extraction controls,
+   linked raw/final cameras, both captures, meta controls, animation/pause, stage bypass, `.splat` import, edited export/re-import,
    and PNG capture on the production origin. The site includes its tested compiled library
    artifact, so the site build does not depend on registry publication timing.
 6. Attach the promo MP4/poster to the release or social announcement. Retire the old docs hosting
