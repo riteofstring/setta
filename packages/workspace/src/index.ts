@@ -473,6 +473,17 @@ export type {
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
 } from "./shell/workspaceShellTypes";
+export {
+  loadWorkspaceSavedViews,
+  loadWorkspaceShellViewState,
+  saveWorkspaceSavedViews,
+  saveWorkspaceShellViewState,
+} from "./shell/workspaceBrowserStorage";
+export type {
+  LoadWorkspaceShellViewStateOptions,
+  WorkspaceBrowserStorage,
+  WorkspaceBrowserStorageOptions,
+} from "./shell/workspaceBrowserStorage";
 export type { WorkspaceShellWindowingConfiguration } from "./windowing/workspaceWindowingContext";
 export { WorkspaceWindowManager } from "./windowing/WorkspaceWindowManager";
 export type {

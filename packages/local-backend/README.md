@@ -1,7 +1,7 @@
 # Setta local backend
 
-Small Go packages for browser interfaces backed by local files and native processes. Used by
-Setta's four example apps, and usable independently of the React workspace or Python launcher.
+Small Go packages for browser interfaces backed by local files and native processes, usable
+independently of the React workspace.
 
 ```sh
 go get github.com/riteofstring/setta/packages/local-backend@v0.1.0
@@ -16,6 +16,7 @@ this nested module is `packages/local-backend/v0.1.0`.
 | `localweb`                | IPv4 loopback listening, exact Host/Origin checks, static SPA assets, bounded server shutdown. |
 | `projectfs`               | Confined regular-file reads, bounded writes, atomic replacement, advisory project locks.       |
 | `latestvalue`             | Initial-current subscriptions and coalesced latest-value updates, without blocking publishers. |
+| `revisionstore`           | One durable JSON state file with revision checks, cross-process locking, and live updates.     |
 | `strictjson` / `httpjson` | Strict bounded JSON decoding and HTTP response/method helpers.                                 |
 | `sse`                     | JSON server-sent event framing and request-scoped streaming.                                   |
 | `artifacthttp`            | Passive artifact responses with preview/download headers.                                      |
@@ -76,7 +77,40 @@ clone function. Subscriptions immediately receive the current detached snapshot;
 receive the newest value instead of an unbounded queue. Pass a subscription to `sse.Serve` for a
 browser EventSource endpoint. Do not use latest-value publication when every event must be retained.
 
-See the [Review backend](../../apps/review/backend/internal/server),
-[Realtime backend](../../apps/realtime/backend/internal/server), and
-[design rationale](../../docs/design/local-backend.md) for complete compositions and boundaries.
+## Revisioned state
+
+`revisionstore.Open(root, revisionstore.Options[T]{Path, Initial, Validate, MaxBytes})` keeps one
+JSON state file under a `projectfs.Root`, creating it from `Initial` at revision 0. `Replace(expected,
+value)` succeeds only when the file is still at `expected`, then writes revision `expected+1`
+atomically under an advisory lock, so two processes or tabs cannot silently overwrite each other.
+A stale writer receives `ErrRevisionConflict` and the store refreshes to the durable state.
+`Subscribe` delivers the current snapshot and later revisions through `latestvalue`. `Validate`
+runs on every load and replacement; the caller keeps the root open for the store's lifetime.
+
+```go
+type Notes struct {
+    Items []string `json:"items"`
+}
+
+store, err := revisionstore.Open(root, revisionstore.Options[Notes]{
+    Path:     ".local/notes/state.json",
+    Initial:  Notes{Items: []string{}},
+    MaxBytes: 1 << 20,
+})
+if err != nil { return err }
+defer store.Close()
+current, err := store.Snapshot()
+if err != nil { return err }
+next, err := store.Replace(current.Revision, Notes{Items: append(current.Value.Items, "milk")})
+switch {
+case errors.Is(err, revisionstore.ErrRevisionConflict):
+    // Another writer won; reload with store.Snapshot() and let the user retry.
+case err != nil:
+    return err
+default:
+    log.Printf("saved revision %d", next.Revision)
+}
+```
+
+See the [design rationale](../../docs/design/local-backend.md) for boundaries and invariants.
 Licensed under [Apache-2.0](LICENSE).

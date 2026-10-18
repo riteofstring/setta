@@ -193,6 +193,10 @@ const RUNTIME_EXPORTS = [
   "useWorkspaceOptions",
   "enableWorkspaceSavedViews",
   "isWorkspaceSavedViewSectionVisible",
+  "loadWorkspaceSavedViews",
+  "loadWorkspaceShellViewState",
+  "saveWorkspaceSavedViews",
+  "saveWorkspaceShellViewState",
 ] as const;
 
 describe("public package API", () => {

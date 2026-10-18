@@ -224,7 +224,10 @@ layout and camera into one coherent document before loading.
 The package owns constructors, validation, reconciliation, headless operations, visibility-aware
 canvas, Outline, Find, focus and selection behavior, plus the optional integrated pane. Consumers
 own enablement, persistence, revisions, sync, conflicts, routes, sharing, analytics, and
-product-specific seed views. Saved views do not overlap with shell pane state or Window Spaces,
+product-specific seed views. The package's browser-storage helpers for saved views and shell view
+state are an optional local persistence choice, not a package-owned persistence policy: they
+validate on load, treat unavailable or malformed storage as absent, and never throw, so a host can
+always fall back to its own defaults. Saved views do not overlap with shell pane state or Window Spaces,
 which arrange managed floating and docked windows.
 
 ## Top-level auto-layout authority

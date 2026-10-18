@@ -116,7 +116,11 @@ ends. A disposed host rejects later reads or writes.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
-  section selection remains in the workspace document.
+  section selection remains in the workspace document. To keep pane layout across reloads, call
+  `loadWorkspaceShellViewState(key, { fallback, leadingTabIds, trailingTabIds })` for the initial
+  value and `saveWorkspaceShellViewState(key, nextState)` from `onViewStateChange`. List every tab
+  the shell will render, including built-in ones; a stored state that names another tab, or is
+  otherwise malformed, yields `fallback`.
 - `WorkspaceCanvas`, `WorkspaceControls`, and `WorkspaceTooltip` remain public for a host that
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement. Pass `canvas` to `WorkspaceShell` or
@@ -574,7 +578,12 @@ For a persisted state entering with a fresh application projection, first valida
 `parseWorkspaceSavedViewsState`, attach it to the document, and call
 `projectWorkspaceDocumentSavedViews` before `loadDocument`; that helper reconciles section drift and
 projects the persisted active layout and camera coherently. Persist later accepted `savedViews`
-values from the ordinary host subscription.
+values from the ordinary host subscription. For browser-local persistence,
+`loadWorkspaceSavedViews(key)` returns a validated state or `null`, and
+`saveWorkspaceSavedViews(key, savedViews)` writes one.
+
+Both storage pairs use `localStorage` by default, or the `storage` option. Unavailable storage
+loads as missing and saves report `false`; neither throws.
 
 Saved views affect canvas sections. Shell pane state remains in `WorkspaceShellViewState`, and
 Window Spaces remain arrangements of managed floating and docked windows. Bookmarking changes
