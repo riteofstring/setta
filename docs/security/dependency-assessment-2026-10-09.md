@@ -107,3 +107,14 @@ and attacker-controlled inputs make these findings unreachable in the assessed c
 Undici 7.29.1 once aged, preferably through its dependency owner. Reassess immediately if adding
 Node-side rendering, remote resource fixtures, custom dispatchers, caching, retries, or npm Undici
 WebSocket usage. A clean scanner result is not a substitute for this reachability review.
+
+## Addendum, 2026-10-19: example applications removed
+
+Assessor: Claude. The four example applications, the Python runtime, and their Go modules were
+removed from the repository. No remaining caller gained a new path to any assessed API, so the
+conclusions above still hold for the published `@riteofstring/setta` package, the
+`local-backend` Go module, the Workspace Playground, and the checked-in build and test commands.
+KaTeX remains reachable only through `WorkspaceMarkdown.tsx` as described. The three `fast-uri`
+findings no longer apply because AJV and `fast-uri` left the dependency graph with the
+applications' generated validators; their assessments were retired. Only the `local-backend`
+Go toolchain admission remains.

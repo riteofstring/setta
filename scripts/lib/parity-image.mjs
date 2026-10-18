@@ -1,10 +1,4 @@
-import {
-  closeSync,
-  openSync,
-  readFileSync,
-  writeFileSync,
-  writeSync,
-} from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { deflateSync, inflateSync } from "node:zlib";
 
 export const DEFAULT_ANTIALIAS_TOLERANCE = 16;
@@ -25,7 +19,7 @@ export const EDGE_RASTER_POLICY = Object.freeze({
   maxComponents: EDGE_RASTER_MAX_COMPONENTS,
   maxPixels: EDGE_RASTER_MAX_PIXELS,
 });
-export const MAX_IMAGE_PIXELS = 20_000_000;
+const MAX_IMAGE_PIXELS = 20_000_000;
 const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 const CRC_TABLE = new Uint32Array(256);
 
@@ -361,66 +355,7 @@ function hasNearbyEdgeContrast(image, x, y) {
   return false;
 }
 
-function dimensionDiffImage() {
-  return {
-    data: Buffer.from([255, 0, 0, 220]),
-    height: 1,
-    width: 1,
-  };
-}
-
-function pixelDifferenceRecord(context, entry, classification) {
-  return {
-    baseline: [
-      ...context.baseline.data.subarray(entry.offset, entry.offset + 4),
-    ],
-    candidate: [
-      ...context.candidate.data.subarray(entry.offset, entry.offset + 4),
-    ],
-    classification,
-    difference: entry.difference,
-    x: entry.x,
-    y: entry.y,
-  };
-}
-
-export function createPixelDifferenceWriter(filePath) {
-  const descriptor = openSync(filePath, "w");
-  let buffer = "";
-  let count = 0;
-  let closed = false;
-  const flush = () => {
-    if (buffer.length > 0) {
-      writeSync(descriptor, buffer, undefined, "utf8");
-      buffer = "";
-    }
-  };
-  return {
-    append(record) {
-      if (closed) {
-        throw new Error(`Pixel diff writer is already closed: ${filePath}.`);
-      }
-      buffer += `${JSON.stringify(record)}\n`;
-      count += 1;
-      if (buffer.length >= 65_536) {
-        flush();
-      }
-    },
-    close() {
-      if (!closed) {
-        flush();
-        closeSync(descriptor);
-        closed = true;
-      }
-    },
-    get count() {
-      return count;
-    },
-  };
-}
-
-function appendPixelDifference(context, entry, classification) {
-  context.writer.append(pixelDifferenceRecord(context, entry, classification));
+function markPixelDifference(context, entry, classification) {
   context.diff[entry.offset] = 255;
   context.diff[entry.offset + 1] = classification === "meaningful" ? 0 : 183;
   context.diff[entry.offset + 2] = classification === "edge-raster" ? 64 : 0;
@@ -538,31 +473,10 @@ function selectEdgeRasterPixels(entries, baseline, candidate) {
   };
 }
 
-const NULL_DIFFERENCE_WRITER = Object.freeze({ append() {} });
-
 function hasDifferentDimensions(baseline, candidate) {
   return (
     baseline.width !== candidate.width || baseline.height !== candidate.height
   );
-}
-
-function dimensionMismatchComparison(baseline, candidate, writer) {
-  writer.append({
-    baseline: { height: baseline.height, width: baseline.width },
-    candidate: { height: candidate.height, width: candidate.width },
-    classification: "dimension-mismatch",
-  });
-  return {
-    antialiasPixels: 0,
-    changedPixels: 0,
-    diff: dimensionDiffImage(),
-    dimensionsDiffer: true,
-    edgeRasterComponents: 0,
-    edgeRasterPixels: 0,
-    maximumChannelDifference: null,
-    meaningfulPixels: 1,
-    passed: false,
-  };
 }
 
 function createPixelComparisonState(dataLength) {
@@ -608,14 +522,14 @@ function ordinaryClassification(entry) {
 
 function flushBufferedPixelDifferences(context, state) {
   for (const entry of state.bufferedEntries) {
-    appendPixelDifference(context, entry, ordinaryClassification(entry));
+    markPixelDifference(context, entry, ordinaryClassification(entry));
   }
   state.bufferedEntries = [];
 }
 
 function bufferOrAppendPixelDifference(context, state, entry) {
   if (!state.edgeRasterEligible) {
-    appendPixelDifference(context, entry, ordinaryClassification(entry));
+    markPixelDifference(context, entry, ordinaryClassification(entry));
     return;
   }
   state.bufferedEntries.push(entry);
@@ -689,7 +603,7 @@ function writeBufferedPixelDifferences(context, state, edgeRaster) {
   const counts = { antialiasPixels: 0, meaningfulPixels: 0 };
   for (const entry of state.bufferedEntries) {
     countEdgeRasterPixel(counts, entry, edgeRaster.offsets);
-    appendPixelDifference(
+    markPixelDifference(
       context,
       entry,
       edgeRasterClassification(entry, edgeRaster.offsets),
@@ -720,16 +634,12 @@ function completedPixelComparison(context, state, edgeRaster, edgeCounts) {
   };
 }
 
-export function comparePixels(baseline, candidate, options, differenceWriter) {
-  const writer = differenceWriter ?? NULL_DIFFERENCE_WRITER;
+export function comparePixels(baseline, candidate, options) {
   if (hasDifferentDimensions(baseline, candidate)) {
-    if (differenceWriter === undefined) {
-      throw new Error("Screenshot dimensions differ.");
-    }
-    return dimensionMismatchComparison(baseline, candidate, writer);
+    throw new Error("Screenshot dimensions differ.");
   }
   const state = createPixelComparisonState(baseline.data.length);
-  const context = { baseline, candidate, diff: state.diff, options, writer };
+  const context = { baseline, candidate, diff: state.diff, options };
   scanPixels(context, state);
   const edgeRaster = selectEdgeRasterForState(context, state);
   const edgeCounts = writeBufferedPixelDifferences(context, state, edgeRaster);

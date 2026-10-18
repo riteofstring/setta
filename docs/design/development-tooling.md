@@ -6,25 +6,21 @@ records.
 
 ## Hosted verification
 
-Application checks run on GitHub-hosted Linux for source and toolchain changes. They cover runtime
-and component boundaries, all four application browser flows, Workspace interactions, and bundled
-notice generation. Browser suites use the runner's explicit Chrome path and isolate their own
-profiles. The native wheel matrix retains platform-specific Go suites, ABI checks, and installed
-wheel smoke tests. These workflows produce artifacts without publishing them.
-The application job builds Workspace's public declarations before checking app imports. Browser
-suite declarations forward their named Chrome environment variables through Code Polishy's command
-environment, so the explicit runner path reaches each browser launcher.
+Package checks run on GitHub-hosted Linux for source and toolchain changes. They cover the
+Workspace, Playground, and local-backend boundary suites and the Workspace browser interactions.
+The browser script receives the runner's explicit Chrome path and isolates its own profile. The
+job builds Workspace's public declarations before checking imports. These workflows publish
+nothing.
 
 Static checks use one repository-wide `./code-polishyw check --all` invocation. Code Polishy 0.28.3
 applies generated-code exemptions before its lint-result budget and pages applicable diagnostics,
-so the AJV-generated validators no longer require separate module invocations. Syntax, semantic
-lint, producer verification, and authored-source checks remain active.
+so generated evidence does not require separate module invocations. Syntax, semantic lint, and
+authored-source checks remain active.
 
 All workflows bootstrap the repository's pinned Code Polishy release, review dependencies before
 frozen script-disabled installation, and verify installed metadata afterward. Scheduled security
 monitoring uses the same wrapper on a hosted runner; it does not depend on an obsolete private
-runner label or a global Code Polishy install. Windows wheel steps propagate native command
-failures so a later successful command cannot hide a failed test or build.
+runner label or a global Code Polishy install.
 The weekly scan's shell function routes the literal `code-polishy supply-chain` command recognized
 by monitoring policy through `./code-polishyw`; command discovery never selects a global release.
 
@@ -77,9 +73,9 @@ can corrupt the MCP transport stream; protocol stdout remains clean.
 
 ## Live Playground inspection
 
-The Workspace-only playground lives under `examples/` rather than `apps/` because it exercises the
-shared package without defining a fifth Setta product. Its private package name makes that
-ownership explicit while retaining an ordinary workspace dependency.
+The Workspace-only playground lives under `examples/` because it exercises the published package
+without being a product of its own. Its private package name makes that ownership explicit while
+retaining an ordinary workspace dependency.
 
 `pnpm workspace:playground:inspect` launches an isolated headless Chrome target against an already
 running Playground. It does not build the package, start a server, or run an application test suite. The
@@ -135,8 +131,7 @@ scenarios, so it cannot substitute for the interaction suite's live pane-to-over
 
 The XYFlow parity harnesses compare the current upstream-backed renderer against immutable captures
 from the accepted pre-cutover reference commit. Playground capture owns the Workspace and
-managed-window catalog; Python Canvas capture owns its registered section kinds, canonical
-projection states, terminal presentation, themes, and viewport variants. Both captures record
+managed-window catalog. It records
 screenshots, computed geometry, canonical documents, focus and interaction state, fixture identity,
 browser identity, source identity, and built-artifact hashes. Candidate output always goes to a new
 caller-selected directory.
@@ -149,13 +144,6 @@ node scripts/xyflow-parity/compare-playground.mjs \
   --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/playground" \
   --candidate-dir /tmp/setta-playground-candidate \
   --output-dir /tmp/setta-playground-comparison
-node apps/python-canvas/visual-parity/capture.mjs --mode candidate \
-  --reference-revision 65f8cafa94c2c4768622ae570f6051332158ddc8 \
-  --output /tmp/setta-python-canvas-candidate
-node apps/python-canvas/visual-parity/compare.mjs \
-  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/python-canvas" \
-  --candidate-dir /tmp/setta-python-canvas-candidate \
-  --output-dir /tmp/setta-python-canvas-comparison
 ```
 
 Comparison requires exact scenario and image dimensions, exact captured contracts, and no
@@ -167,9 +155,9 @@ to matching edge contrast in both images, and no channel may differ by more than
 admit isolated rasterization noise and reject coherent movement, recoloring, missing content, or a
 redesign. A human reviews the full baseline and candidate images plus every nonempty diff.
 
-The shared parity image module is the sole owner of PNG validation, RGBA diff generation, and the
-bounded pixel and edge-raster policy used by both comparators. Each comparator owns its capture
-contract and receipt shape while consuming those common image results. Playground capture keeps
+The parity image module owns PNG validation, RGBA diff generation, and the bounded pixel and
+edge-raster policy; the comparator owns its capture contract and receipt shape. Playground capture
+keeps
 browser actions, geometry collection, artifact provenance, and command orchestration in separate
 modules. Its scenario catalog has one validating public aggregate assembled from canvas,
 interface, and managed-window scenario groups; the aggregate preserves catalog order and remains

@@ -10,10 +10,7 @@
   "scripts": {
     "build": "pnpm --filter @riteofstring/setta run build",
     "consumer:check": "node scripts/verify-packed-consumer.mjs",
-    "experiment-lens:playground": "python3 packages/setta-runtime/scripts/run_experiment_lens_playground.py",
     "performance:profile": "node scripts/profile-workspace-performance.mjs",
-    "realtime:playground": "python3 packages/setta-runtime/scripts/run_realtime_playground.py",
-    "review:playground": "python3 packages/setta-runtime/scripts/run_review_playground.py",
     "workspace:browser:test": "node scripts/workspace-browser-interactions.mjs",
     "workspace:playground": "pnpm --dir examples/workspace-playground dev",
     "workspace:playground:inspect": "node scripts/inspect-playground.mjs"

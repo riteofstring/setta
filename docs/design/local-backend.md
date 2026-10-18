@@ -1,23 +1,19 @@
 # Local backend design rationale
 
 This document owns current non-local rationale for the `local-backend` module. Product routes,
-project formats, commands, and public contracts remain in the four application backend design
-records and READMEs.
+project formats, commands, and public contracts remain with the consuming application.
 
 ## Boundary and dependency direction
 
-`github.com/riteofstring/setta/packages/local-backend` is a standalone Go infrastructure module consumed locally by Python
-Canvas, Realtime, Review, and Experiment Lens. It imports no application package and has no
-knowledge of application IDs, route versions, project schemas, product state, revisions, or
-readiness documents. Each application imports the module through an exact local module edge and
-supplies values whose product semantics it has already validated. The packaged runtime continues
-to supervise compiled application servers; the shared module is never loaded from a source
-checkout at runtime.
+`github.com/riteofstring/setta/packages/local-backend` is a standalone, published Go
+infrastructure module. It imports no application package and has no knowledge of application IDs,
+route versions, project schemas, product state, or readiness documents. Applications supply values
+whose product semantics they have already validated.
 
-The module uses the standard library unless an extracted cross-platform primitive requires an
-already admitted dependency. A new package is justified only by at least two current consumers
-with one complete contract. It must reduce duplicated state and failure paths rather than collect
-similar-looking helpers.
+The module uses the standard library unless a cross-platform primitive requires an already
+admitted dependency. A new package must give local tools one complete, reusable contract that
+removes duplicated state and failure paths they would otherwise each write; it is not a collection
+of similar-looking helpers.
 
 ## Security and lifecycle invariants
 
@@ -54,32 +50,31 @@ fields in closed Go shapes. Application semantic validation always follows decod
   value publication.
 - `strictjson` owns the shared lexical JSON boundary. `httpjson` and `sse` own bounded HTTP and
   event-stream mechanics, not product statuses, errors, routes, or event names.
+- `revisionstore` owns one validated JSON state file per store: revision-checked replacement under
+  the `projectfs` advisory lock, atomic writes, refresh from durable state after a conflict, and
+  `latestvalue` publication of accepted revisions.
 - `artifacthttp` owns the closed passive-media allowlist, exact attachment query, sandboxed preview
-  headers, and file-response mechanics shared by Review and Experiment Lens. Applications retain
-  artifact identity, verified admission, routes, and structured errors.
+  headers, and file-response mechanics. Applications retain artifact identity, verified admission,
+  routes, and structured errors.
 - `proctree` owns only platform descendant containment, bounded termination, wait, and cleanup.
   It creates and assigns kill-on-close Windows Job Objects, revalidates POSIX group identity before
   signaling, adopts and reaps Linux descendants under an explicit deadline, and supplies the fixed
   macOS noninteractive guardian profile. Unsupported platforms expose a fail-closed sentinel.
 
-Application coordinators retain snapshot construction, cloning policy, revisions, persistence
-semantics, validation, commands, route classification, response documents, worker protocols, and
-terminal behavior. `setta-runtime` retains application registration, packaging, live identity
-verification, and outer native-server supervision.
+Applications retain snapshot construction, persistence semantics beyond one state file,
+validation rules, commands, route classification, response documents, worker protocols, and
+terminal behavior.
 
-Review and Experiment Lens use `projectfs` for immutable project inputs and their revisioned state
-files. Realtime uses it for its project document and for staging the declared entrypoint before the
-application-owned version recheck. Streaming content stores, retained materializations, and worker
-artifact staging keep their domain-specific byte and identity transactions. Python Canvas keeps its
-authored/generated-file transaction application-owned because provider synchronization and
-generated-file rollback span the authored commit; `projectfs` does not pretend that multi-file
-protocol is an ordinary single-file replacement.
+`revisionstore` compares revisions, never digests: a replacement names the revision it was derived
+from, and the store accepts it only when the durable file still holds that revision. The check and
+write happen under the cross-process lock, so two processes cannot both advance the same revision.
+A rejected writer refreshes from the durable file and publishes it, so subscribers converge on what
+is on disk. The caller's validator runs on every load and replacement; the stored document is the
+revision and value only. Multi-file transactions remain application-owned.
 
-`latestvalue` holds only detached complete values and subscriber lifecycle. Review and Experiment
-Lens use it below their state-to-snapshot coordinators, Realtime uses it for authored-project
-snapshots, and Python Canvas uses it for coordinator snapshots. Realtime runtime envelopes retain
-their application-owned bounded event stream because overflow deliberately discards queued events
-and sends a resynchronizing runtime snapshot, which is not latest-value publication.
+`latestvalue` holds only detached complete values and subscriber lifecycle. Event streams that must
+retain every event, or that resynchronize after overflow, are not latest-value publication and stay
+application-owned.
 
 `httpjson` recognizes the parsed `application/json` media type, applies the caller's request-byte
 bound before strict decoding, writes one newline-terminated response with the canonical
@@ -91,25 +86,19 @@ starts; `latestvalue` supplies initial-current and coalescing semantics.
 
 `artifacthttp` receives only an already opened verified file and admitted metadata. It does not
 resolve a caller-supplied path, infer a media type, admit active content, or decide whether a
-product exposes a download. Review and Experiment Lens perform those decisions before the shared
-response boundary.
+product exposes a download.
 
 `proctree` does not construct application commands or decide when work is cooperative, timed out,
-restarted, or reported. Python Canvas keeps its runner and terminal as distinct lifecycle owners;
-the terminal retains identity-aware session cleanup above the shared subreaper and Job Object
-primitives. Realtime retains its worker release barrier, protocol shutdown, and complete-worker
-replacement policy. The package uses direct standard-library operating-system calls, so this
+restarted, or reported; applications own those lifecycle policies above the shared subreaper and
+Job Object primitives. The package uses direct standard-library operating-system calls, so this
 boundary introduces no third-party process supervisor or system-binding dependency.
 
 ## Verification
 
 The module's quick suite uses temporary roots, local listeners, and deterministic helper
 processes. It covers hostile paths and headers, concurrent and partial failure, slow subscribers,
-strict transport rejection, bounded cancellation, and idempotent cleanup. Each application keeps
-small boundary tests for its route wiring and product invariants. Native servers build from their
-ordinary module roots with read-only resolution, and wheel staging contains only compiled servers
-and admitted web assets.
+strict transport rejection, revision conflicts between independent stores, bounded cancellation,
+and idempotent cleanup.
 
 The canonical module path follows the public monorepo location. Go releases use the nested
-`packages/local-backend/vVERSION` tag; the example apps retain local replacements so they build
-from the same checkout. The module includes its own Apache license for independent distribution.
+`packages/local-backend/vVERSION` tag. The module includes its own Apache license for independent distribution.

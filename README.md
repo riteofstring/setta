@@ -59,24 +59,7 @@ For a checkout before registry publication, build and pack the library using the
 [contributor setup](CONTRIBUTING.md#source-setup), then install the resulting local tarball.
 
 The [Go guide](packages/local-backend/README.md) covers local hosting and project files.
-Neither the React workspace nor the browser pipeline requires Go or Python.
-
-## Four examples to borrow from
-
-These applications demonstrate the libraries in larger local tools. The `setta` Python package
-bundles their native servers and browser interfaces.
-
-| Example                                           | Idea                                                     | Run from a checkout                                                         |
-| ------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [Python Canvas](apps/python-canvas/README.md)     | Compose and execute Python visually.                     | [Create a project](apps/python-canvas/README.md#install-and-open-a-project) |
-| [Realtime](apps/realtime/README.md)               | Connect live controls and drawings to Python handlers.   | `pnpm realtime:playground`                                                  |
-| [Review](apps/review/README.md)                   | Compare evidence and record a portable decision.         | `pnpm review:playground`                                                    |
-| [Experiment Lens](apps/experiment-lens/README.md) | Explore recorded results and export a precise selection. | `pnpm experiment-lens:playground`                                           |
-
-Complete [source setup](CONTRIBUTING.md#source-setup) first. The first playground launch builds
-the examples; later launches reuse the build. Each opens with an interactive **Start here** guide
-and keeps running after the command returns. Add `--stop` to stop it, `--fresh` for a new copy,
-or `--no-open` to print its URL. Edits stay in ignored `tmp/` working copies.
+Neither the React workspace nor the browser pipeline requires Go.
 
 ## Development
 

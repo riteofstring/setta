@@ -1,5 +1,5 @@
 import { parseWorkspaceSavedViewsState } from "../saved-views/state";
-import type { WorkspaceSavedViewsState } from "../saved-views/types";
+import type { WorkspaceSavedViewsState } from "../document/types";
 import type {
   WorkspaceShellOutlineViewState,
   WorkspaceShellPaneViewState,
