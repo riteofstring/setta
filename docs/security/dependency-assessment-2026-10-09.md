@@ -185,3 +185,9 @@ Both remain inside the 30-day minimum. The alternative fixed 5.0.3 line was publ
 while these APIs are absent. Review a coordinated Vitest 4.1.12 update after November 14 at
 14:51 UTC; the exact assessments expire at the end of that UTC day. This adds no release-age
 admission and does not suppress the original scanner identities.
+
+## Addendum, 2026-10-23: withdrawn braces advisory
+
+GitHub withdrew [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+on October 23, 2026 because it is not a practically exploitable vulnerability. The
+`braces@3.0.3` assessment is retired; the dependency version remains unchanged.

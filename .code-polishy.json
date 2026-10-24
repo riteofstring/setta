@@ -579,23 +579,6 @@
         "expires": "2026-11-07"
       },
       {
-        "id": "ghsa-vfj7-8cjw-p6xm-3-0-3",
-        "ecosystem": "pnpm",
-        "advisory": "GHSA-vfj7-8cjw-p6xm",
-        "package": "braces",
-        "affectedVersion": "3.0.3",
-        "scope": "pnpm-lock.yaml",
-        "severity": "high",
-        "status": "not-affected",
-        "basis": "unreachable",
-        "reason": "The parser receives fixed build/test glob patterns, never attacker-supplied patterns or matched filenames. Application trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md).",
-        "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
-        "evidence": "https://osv.dev/vulnerability/GHSA-vfj7-8cjw-p6xm",
-        "owner": "Codex",
-        "reviewed": "2026-10-09",
-        "expires": "2026-11-07"
-      },
-      {
         "id": "ghsa-w293-vg96-wgc3-7-29-0",
         "ecosystem": "pnpm",
         "advisory": "GHSA-w293-vg96-wgc3",
