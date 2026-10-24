@@ -647,7 +647,7 @@ async function verifyDirectHandles(client, touch = false) {
     client,
     `(() => {
     const r = document.querySelector('[data-workspace-item-id="second"]').getBoundingClientRect();
-    return { x: r.left + 8, y: r.bottom - 2 };
+    return { x: r.left + r.width * 0.65, y: r.bottom - 2 };
   })()`,
   );
   await dragHandle(

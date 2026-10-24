@@ -23,6 +23,7 @@ export function ItemDndMonitor() {
     (state) => state.canEditStructure,
   );
   const pendingReset = useItemDndState((state) => state.pendingReset);
+  const isHandleDrag = useItemDndState((state) => state.isHandleDrag);
   const isSelectingItems = useItemSelectionMode(
     (state) => state.isSelectingItems,
   );
@@ -39,10 +40,11 @@ export function ItemDndMonitor() {
     [manager],
   ).value;
 
+  const mayContinueDrag =
+    canEditStructure && (isSelectingItems || isHandleDrag);
   useEffect(() => {
     if (!manager) return;
-    if (canContinueItemDrag(manager, canEditStructure, isSelectingItems))
-      return;
+    if (mayContinueDrag) return;
     if (!isDragging && !isInitializing) {
       return;
     }
@@ -53,14 +55,7 @@ export function ItemDndMonitor() {
     }
     manager.actions.stop({ canceled: true });
     deferItemDragReset(host);
-  }, [
-    host,
-    isDragging,
-    isInitializing,
-    isSelectingItems,
-    canEditStructure,
-    manager,
-  ]);
+  }, [host, isDragging, isInitializing, mayContinueDrag, manager]);
 
   useEffect(() => {
     if (!pendingReset || !isIdle) {
@@ -78,16 +73,4 @@ export function ItemDndMonitor() {
   });
 
   return null;
-}
-
-function canContinueItemDrag(
-  manager: NonNullable<ReturnType<typeof useDragDropManager>>,
-  canEditStructure: boolean,
-  isSelectingItems: boolean,
-) {
-  const target = manager.dragOperation.activatorEvent?.target;
-  const fromHandle =
-    target instanceof Element &&
-    target.closest('[data-workspace-item-drag-handle="true"]');
-  return canEditStructure && (isSelectingItems || fromHandle);
 }

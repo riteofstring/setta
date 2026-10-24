@@ -12,6 +12,7 @@ import { getItemSelectionModeStore } from "../document/itemSelectionMode";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
 import { getDndStateStore } from "./dndState";
+import { setItemDndState } from "./itemDndState";
 import {
   getSelectionDragHandle,
   getSelectionDragPrimaryId,
@@ -38,6 +39,20 @@ function getIsTopLevel(source: DndSource): boolean {
   return Boolean(source.data?.current?.isTopLevel);
 }
 
+function startsOnHandle(
+  event: Event,
+  handle: string,
+  owner: string,
+  id: string | undefined,
+) {
+  const target = event.target;
+  return (
+    target instanceof Element &&
+    Boolean(target.closest(handle)) &&
+    target.closest(`[${owner}]`)?.getAttribute(owner) === id
+  );
+}
+
 function preventSectionActivation(
   host: WorkspaceHost,
   event: Event,
@@ -53,12 +68,11 @@ function preventSectionActivation(
     return false;
   }
 
-  const target = event.target;
-  return !(
-    target instanceof Element &&
-    target.closest('[data-meta-control-drag-handle="true"]') &&
-    target.closest("[data-section-id]")?.getAttribute("data-section-id") ===
-      String(source.id)
+  return !startsOnHandle(
+    event,
+    '[data-meta-control-drag-handle="true"]',
+    "data-section-id",
+    String(source.id),
   );
 }
 
@@ -119,15 +133,18 @@ function preventItemActivation(
   }
   if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure)
     return true;
-  if (getItemSelectionModeStore(host).getState().isSelectingItems) return false;
-  const target = event.target;
-  return !(
-    target instanceof Element &&
-    target.closest('[data-workspace-item-drag-handle="true"]') &&
-    target
-      .closest("[data-workspace-item-id]")
-      ?.getAttribute("data-workspace-item-id") === source.data?.current?.itemId
+  if (getItemSelectionModeStore(host).getState().isSelectingItems) {
+    setItemDndState(host, { isHandleDrag: false });
+    return false;
+  }
+  const fromHandle = startsOnHandle(
+    event,
+    '[data-workspace-item-drag-handle="true"]',
+    "data-workspace-item-id",
+    source.data?.current?.itemId,
   );
+  if (fromHandle) setItemDndState(host, { isHandleDrag: true });
+  return !fromHandle;
 }
 
 export function useItemDndSensors() {

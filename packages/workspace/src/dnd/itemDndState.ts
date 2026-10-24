@@ -8,6 +8,7 @@ export type ItemListKey = string;
 
 type ItemDndState = {
   activeId: string | null;
+  isHandleDrag: boolean;
   sectionId: string | null;
   listKey: ItemListKey | null;
   rootId: string | null;
@@ -31,6 +32,7 @@ function createItemDndStateStore() {
   return createStore(
     withResetFn<ItemDndState>(() => ({
       activeId: null,
+      isHandleDrag: false,
       sectionId: null,
       listKey: null,
       rootId: null,
