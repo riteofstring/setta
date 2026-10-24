@@ -1,8 +1,7 @@
 import { useCallback, useLayoutEffect, useState } from "react";
 import { createStore } from "zustand/vanilla";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+import { createHostStoreGetter } from "../state/hostStore";
 
 export const CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME =
   "setta-workspace-codemirror-tooltips";
@@ -13,21 +12,9 @@ function createCodeMirrorTooltipParentStore() {
   return createStore<CodeMirrorTooltipParentState>(() => ({ element: null }));
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createCodeMirrorTooltipParentStore>
->();
-
-function getCodeMirrorTooltipParentStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createCodeMirrorTooltipParentStore();
-  storesByHost.set(host, store);
-  return store;
-}
+const getCodeMirrorTooltipParentStore = createHostStoreGetter(
+  createCodeMirrorTooltipParentStore,
+);
 
 export function useCodeMirrorTooltipParent(): HTMLElement | null {
   return useWorkspaceStore(

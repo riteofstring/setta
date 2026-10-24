@@ -264,3 +264,28 @@ export function promoteBestCollision(
   reordered.unshift(bestCollision);
   return reordered;
 }
+
+export function getCollisionTriggerDistCondition(
+  overId: string | number | null,
+  collisions: SettaCollision[] | null,
+): boolean | null {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+
+  if (overId !== null) {
+    const matching = collisions.find(
+      (collision) => String(collision.id) === String(overId),
+    );
+    if (matching && matching.triggerDistCondition !== undefined) {
+      return Boolean(matching.triggerDistCondition);
+    }
+  }
+
+  const fallback = collisions[0]?.triggerDistCondition;
+  if (fallback === undefined) {
+    return null;
+  }
+
+  return Boolean(fallback);
+}

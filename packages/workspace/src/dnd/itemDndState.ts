@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 
 export type ItemListKey = string;
@@ -45,21 +45,9 @@ function createItemDndStateStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createItemDndStateStore>
->();
-
-export function getItemDndStateStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createItemDndStateStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getItemDndStateStore = createHostStoreGetter(
+  createItemDndStateStore,
+);
 
 export function useItemDndState<T>(
   selector: (state: ItemDndState) => T,

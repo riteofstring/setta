@@ -471,57 +471,63 @@ describe("SectionContainer", () => {
     expect(onRender).toHaveBeenCalledTimes(settledRenderCount);
   });
 
-  it("opens section menus from pointer or keyboard while retaining native control menus", async () => {
-    await mount("leaf");
-    const shell = getRequiredElement(host, '[data-section-id="leaf"]');
-
-    const pointerEvent = new MouseEvent("contextmenu", {
-      bubbles: true,
-      cancelable: true,
-      clientX: 120,
-      clientY: 80,
-    });
-    await act(async () => {
-      shell.dispatchEvent(pointerEvent);
-    });
-    expect(pointerEvent.defaultPrevented).toBe(true);
-    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
-      kind: "section",
-      context: { scope: "section", section: { id: "leaf" } },
-    });
-
-    testWorkspace.menuState.getState().reset();
-    const lockButton = getRequiredElement(
-      host,
-      '[aria-label="Lock position and size"]',
-    );
-    const nativeEvent = new MouseEvent("contextmenu", {
-      bubbles: true,
-      cancelable: true,
-    });
-    await act(async () => {
-      lockButton.dispatchEvent(nativeEvent);
-    });
-    expect(nativeEvent.defaultPrevented).toBe(false);
-    expect(testWorkspace.menuState.getState().invocation).toBeNull();
-
-    shell.getBoundingClientRect = () =>
-      ({ left: 20, right: 244, top: 40, width: 224, height: 96 }) as DOMRect;
-    await act(async () => {
-      shell.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "F10",
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
+  it.each(["leaf", "group"])(
+    "opens %s menus from pointer or keyboard while retaining native control menus",
+    async (sectionId) => {
+      await mount(sectionId);
+      const shell = getRequiredElement(
+        host,
+        `[data-section-id="${sectionId}"]`,
       );
-    });
-    expect(testWorkspace.menuState.getState().invocation).toMatchObject({
-      kind: "section",
-      clientPoint: { x: 32, y: 64 },
-    });
-  });
+
+      const pointerEvent = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 120,
+        clientY: 80,
+      });
+      await act(async () => {
+        shell.dispatchEvent(pointerEvent);
+      });
+      expect(pointerEvent.defaultPrevented).toBe(true);
+      expect(testWorkspace.menuState.getState().invocation).toMatchObject({
+        kind: "section",
+        context: { scope: "section", section: { id: sectionId } },
+      });
+
+      testWorkspace.menuState.getState().reset();
+      const lockButton = getRequiredElement(
+        host,
+        '[aria-label="Lock position and size"]',
+      );
+      const nativeEvent = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      });
+      await act(async () => {
+        lockButton.dispatchEvent(nativeEvent);
+      });
+      expect(nativeEvent.defaultPrevented).toBe(false);
+      expect(testWorkspace.menuState.getState().invocation).toBeNull();
+
+      shell.getBoundingClientRect = () =>
+        ({ left: 20, right: 244, top: 40, width: 224, height: 96 }) as DOMRect;
+      await act(async () => {
+        shell.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "F10",
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      expect(testWorkspace.menuState.getState().invocation).toMatchObject({
+        kind: "section",
+        clientPoint: { x: 32, y: 64 },
+      });
+    },
+  );
 
   it("renders package-owned meta chrome at the captured inner geometry", async () => {
     const onEdit = vi.fn();

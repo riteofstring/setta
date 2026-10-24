@@ -1,5 +1,8 @@
 import type { DragDropManager } from "@dnd-kit/dom";
-import { resolveOverCollisionId } from "../dnd/adapter/collisionCompare";
+import {
+  getCollisionTriggerDistCondition,
+  resolveOverCollisionId,
+} from "../dnd/adapter/collisionCompare";
 import { rectFromBoundingRect } from "../dnd/adapter/rect";
 import type {
   DragMoveEvent,
@@ -701,31 +704,6 @@ function resetScheduledItemDragOver(host: WorkspaceHost) {
     runtime.itemDragOverRaf = null;
   }
   runtime.pendingItemDragOver = null;
-}
-
-function getCollisionTriggerDistCondition(
-  overId: string | number | null,
-  collisions: DragOverEvent["collisions"] | null,
-): boolean | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  if (overId !== null) {
-    const matching = collisions.find(
-      (collision) => String(collision.id) === String(overId),
-    );
-    if (matching && matching.triggerDistCondition !== undefined) {
-      return Boolean(matching.triggerDistCondition);
-    }
-  }
-
-  const fallback = collisions[0]?.triggerDistCondition;
-  if (fallback === undefined) {
-    return null;
-  }
-
-  return Boolean(fallback);
 }
 
 function getPastHalfwayFromCollisions(

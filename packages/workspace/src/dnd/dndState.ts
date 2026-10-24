@@ -2,7 +2,7 @@ import _ from "lodash";
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 import type { Disabled } from "./adapter";
 import { manualDndChildrenReset } from "./dndChildren";
@@ -57,21 +57,7 @@ function createDndStateStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createDndStateStore>
->();
-
-export function getDndStateStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createDndStateStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getDndStateStore = createHostStoreGetter(createDndStateStore);
 
 export function useDndState<T>(
   selector: (state: ZustandDndState) => T,

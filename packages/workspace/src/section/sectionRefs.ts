@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 
 type SectionRefsState = {
@@ -19,21 +19,9 @@ function createSectionRefsStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createSectionRefsStore>
->();
-
-export function getSectionRefsStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createSectionRefsStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getSectionRefsStore = createHostStoreGetter(
+  createSectionRefsStore,
+);
 
 export function useSectionRefs<T>(
   selector: (state: SectionRefsState) => T,

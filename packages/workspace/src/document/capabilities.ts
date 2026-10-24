@@ -1,18 +1,13 @@
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 
 export type WorkspaceCapabilitiesState = {
   canEditLayout: boolean;
   canEditStructure: boolean;
 };
-
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createWorkspaceCapabilitiesStore>
->();
 
 function createWorkspaceCapabilitiesStore() {
   return createStore(
@@ -23,16 +18,9 @@ function createWorkspaceCapabilitiesStore() {
   );
 }
 
-export function getWorkspaceCapabilitiesStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createWorkspaceCapabilitiesStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getWorkspaceCapabilitiesStore = createHostStoreGetter(
+  createWorkspaceCapabilitiesStore,
+);
 
 export function setWorkspaceCapabilities(
   host: WorkspaceHost,

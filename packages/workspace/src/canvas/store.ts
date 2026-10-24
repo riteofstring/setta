@@ -2,7 +2,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { createStore } from "zustand/vanilla";
 import type { Position } from "../document/types";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 import { resolveActiveSectionsBounds } from "./activeSectionBounds";
 import { resolveScreenToFlowPosition } from "./flowPosition";
@@ -98,21 +98,7 @@ function createReactFlowStore(host: WorkspaceHost) {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createReactFlowStore>
->();
-
-export function getReactFlowStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createReactFlowStore(host);
-  storesByHost.set(host, store);
-  return store;
-}
+export const getReactFlowStore = createHostStoreGetter(createReactFlowStore);
 
 export function subscribeWorkspaceCanvasPanScrolling(
   host: WorkspaceHost,

@@ -1,3 +1,5 @@
+import { useIsDragActive, useItemsHaveChanged } from "./useSortingState";
+import { rectFromBoundingRect } from "./rect";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import {
   RestrictToHorizontalAxis,
@@ -14,7 +16,7 @@ import { useWorkspaceHost } from "../../workspaceHostContext";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
-import { itemsEqual, rectSortingStrategy } from "./sorting";
+import { rectSortingStrategy } from "./sorting";
 import type {
   ClientRect,
   Disabled,
@@ -27,7 +29,6 @@ import {
   DEFAULT_SORTABLE_TRANSITION,
   buildSortablePresentationState,
   normalizeLocalDisabled,
-  toClientRect,
   toTransform,
   type SortableTransition,
 } from "./useSortableModel";
@@ -184,17 +185,6 @@ function getDragModifiers(
   ];
 }
 
-function useIsDragActive(manager: ReturnType<typeof useDragDropManager>) {
-  return useComputed(() => {
-    if (!manager) {
-      return false;
-    }
-
-    const status = manager.dragOperation.status;
-    return status.dragging || status.initializing;
-  }, [manager]).value;
-}
-
 function useDragOperationState(
   manager: ReturnType<typeof useDragDropManager>,
   shouldTrackSorting: boolean,
@@ -209,7 +199,9 @@ function useDragOperationState(
     }
 
     return manager?.dragOperation.shape?.current
-      ? toClientRect(manager.dragOperation.shape.current.boundingRectangle)
+      ? rectFromBoundingRect(
+          manager.dragOperation.shape.current.boundingRectangle,
+        )
       : null;
   }, [manager, shouldTrackSorting]).value;
   const dragTransform = useComputed(() => {
@@ -232,17 +224,6 @@ function useDragOperationState(
     collisions,
     dragTransform,
   };
-}
-
-function useItemsHaveChanged(items: UniqueIdentifier[]): boolean {
-  const previousItemsRef = useRef(items);
-  const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
-
-  useEffect(() => {
-    previousItemsRef.current = items;
-  }, [items]);
-
-  return itemsHaveChanged;
 }
 
 function useWasDragActive(isDragActive: boolean): boolean {

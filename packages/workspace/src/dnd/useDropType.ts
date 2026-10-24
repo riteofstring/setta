@@ -13,7 +13,10 @@ import {
 import type { WorkspaceHost } from "../workspaceHost";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
-import { resolveOverCollisionId } from "./adapter/collisionCompare";
+import {
+  getCollisionTriggerDistCondition,
+  resolveOverCollisionId,
+} from "./adapter/collisionCompare";
 import {
   addDndChild,
   manualDndChildrenReset,
@@ -100,31 +103,6 @@ type ParentMoveContext = {
   pastHalfway: boolean;
   tempInNewParent: boolean;
 };
-
-function getCollisionTriggerDistCondition(
-  overId: string | number | null,
-  collisions: DragOverEvent["collisions"] | null,
-): boolean | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  if (overId !== null) {
-    const matching = collisions.find(
-      (collision) => String(collision.id) === String(overId),
-    );
-    if (matching && matching.triggerDistCondition !== undefined) {
-      return Boolean(matching.triggerDistCondition);
-    }
-  }
-
-  const fallback = collisions[0]?.triggerDistCondition;
-  if (fallback === undefined) {
-    return null;
-  }
-
-  return Boolean(fallback);
-}
 
 function resetLastPastHalfwayByOverId(host: WorkspaceHost) {
   getDropTypeRuntime(host).lastPastHalfwayByOverId = {};

@@ -4,7 +4,7 @@ import {
   useWorkspaceHost,
   useWorkspaceStore,
 } from "../../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../../workspaceHostInternals";
+import { createHostStoreGetter } from "../../state/hostStore";
 import type { WorkspaceHost } from "../../workspaceHost";
 
 type ResizeEventState = {
@@ -19,21 +19,9 @@ function createResizeEventStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createResizeEventStore>
->();
-
-export function getResizeEventStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createResizeEventStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getResizeEventStore = createHostStoreGetter(
+  createResizeEventStore,
+);
 
 export function useResizeEvent<T>(
   selector: (state: ResizeEventState) => T,

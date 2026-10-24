@@ -1,3 +1,5 @@
+import { useIsDragActive, useItemsHaveChanged } from "./useSortingState";
+import { rectFromBoundingRect } from "./rect";
 import type { Collision, UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
@@ -12,7 +14,6 @@ import {
 import { useDndProviderContext } from "./DndProviderContext";
 import {
   getSortedRects,
-  itemsEqual,
   mergeMissingDroppableRects,
   normalizeDisabled,
   rectSortingStrategy,
@@ -74,7 +75,7 @@ export function SortableContext({
 }: Props) {
   const manager = useDragDropManager();
   const { isSorting, isMovingFree } = useDndProviderContext();
-  const isDragActive = useDragActive(manager);
+  const isDragActive = useIsDragActive(manager);
   const sortingEnabled = isSorting;
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const emptyRects = useMemo(() => new Map<UniqueIdentifier, ClientRect>(), []);
@@ -202,19 +203,6 @@ function getActiveIndex(
   return items.indexOf(active.id);
 }
 
-function useDragActive(
-  manager: ReturnType<typeof useDragDropManager>,
-): boolean {
-  return useComputed(() => {
-    if (!manager) {
-      return false;
-    }
-
-    const status = manager.dragOperation.status;
-    return status.dragging || status.initializing;
-  }, [manager]).value;
-}
-
 function useSortableDragState(
   manager: ReturnType<typeof useDragDropManager>,
   shouldTrackSorting: boolean,
@@ -243,17 +231,6 @@ function useSortableDragState(
   }, [emptyRects, manager, shouldTrackSorting]).value;
 
   return { active, collisions, droppableRects };
-}
-
-function useItemsHaveChanged(items: UniqueIdentifier[]): boolean {
-  const previousItemsRef = useRef(items);
-  const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
-
-  useEffect(() => {
-    previousItemsRef.current = items;
-  }, [items]);
-
-  return itemsHaveChanged;
 }
 
 function useResolvedOverId(
@@ -410,15 +387,7 @@ function getDroppableRects(
       continue;
     }
 
-    const rect = shape.boundingRectangle;
-    rects.set(droppable.id, {
-      top: rect.top,
-      left: rect.left,
-      right: rect.right,
-      bottom: rect.bottom,
-      width: rect.width,
-      height: rect.height,
-    });
+    rects.set(droppable.id, rectFromBoundingRect(shape.boundingRectangle));
   }
 
   return rects;

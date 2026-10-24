@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 
 export type ItemSelectionModeState = { isSelectingItems: boolean };
@@ -15,21 +15,9 @@ function createItemSelectionModeStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createItemSelectionModeStore>
->();
-
-export function getItemSelectionModeStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createItemSelectionModeStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getItemSelectionModeStore = createHostStoreGetter(
+  createItemSelectionModeStore,
+);
 
 export function useItemSelectionMode<T>(
   selector: (state: ItemSelectionModeState) => T,

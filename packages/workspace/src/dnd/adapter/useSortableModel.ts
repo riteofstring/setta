@@ -177,17 +177,6 @@ export function getRelevantCollision(
   return collisions[0] ?? null;
 }
 
-export function toClientRect(rect: ClientRect): ClientRect {
-  return {
-    top: rect.top,
-    left: rect.left,
-    right: rect.right,
-    bottom: rect.bottom,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-
 function getTransitionValue({
   transition,
   isSorting,

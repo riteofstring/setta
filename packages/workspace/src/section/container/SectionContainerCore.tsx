@@ -1,12 +1,5 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { getSectionContainerHandlers } from "./sectionContainerEvents";
 import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
-import {
-  getOwnerKeyboardMenuPoint,
-  isWorkspaceMenuKeyboardEvent,
-  shouldRetainNativeContextMenu,
-} from "../../context-menu/workspaceMenuOwnership";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import {
   canWorkspaceSectionOwnNestedSections,
@@ -21,7 +14,6 @@ import type { WorkspaceSection } from "../../document/types";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
 import { getSectionContainerShellClassName } from "../sectionChrome";
-import { getOnSectionClick } from "../sectionClick";
 import { useSectionRefAndInit } from "../sectionRefs";
 import { deriveSectionStyleTheme } from "../sectionStyleColors";
 import { resolveSectionStyleVars } from "../sectionStyleVars";
@@ -114,56 +106,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     isActiveSection,
   );
 
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (
-      event.target === event.currentTarget &&
-      isWorkspaceMenuKeyboardEvent(event.nativeEvent)
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      openWorkspaceSectionMenu(
-        host,
-        sectionId,
-        "context-menu",
-        getOwnerKeyboardMenuPoint(event.currentTarget),
-        event.currentTarget,
-      );
-      return;
-    }
-    if (
-      event.target === event.currentTarget &&
-      (event.key === "Enter" || event.key === " ")
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      applyActiveSectionChange(host, {
-        interaction: "section-click",
-        sectionId,
-      });
-    }
-  }
-
-  function onContextMenu(event: MouseEvent<HTMLDivElement>) {
-    if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    openWorkspaceSectionMenu(
-      host,
-      sectionId,
-      "context-menu",
-      { x: event.clientX, y: event.clientY },
-      event.currentTarget,
-    );
-  }
-
   return (
     <div
       className={className}
-      onClick={getOnSectionClick(host, sectionId)}
-      onContextMenu={onContextMenu}
-      onKeyDown={onKeyDown}
+      {...getSectionContainerHandlers(host, sectionId)}
       role="group"
       aria-label={ariaLabel}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"

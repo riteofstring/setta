@@ -1,10 +1,11 @@
+import { rectFromBoundingRect } from "./rect";
 import {
   CollisionPriority,
   CollisionType,
   type CollisionDetector,
 } from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
-import { Rectangle, type Coordinates, type Shape } from "@dnd-kit/geometry";
+import type { Coordinates, Shape } from "@dnd-kit/geometry";
 import { getReactFlowStore } from "../../canvas/store";
 import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors";
 import { getWorkspaceDocumentStore } from "../../document/stores";
@@ -126,7 +127,7 @@ export function createCollisionTracker({
       active,
       droppable,
       activeRect,
-      droppableRect: toClientRect(droppableShape.boundingRectangle),
+      droppableRect: rectFromBoundingRect(droppableShape.boundingRectangle),
       pointerCoordinates: dragOperation.position?.current ?? null,
     };
   }
@@ -342,23 +343,12 @@ function getPastHalfwayReference(
     : "pointer";
 }
 
-function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
-  return {
-    top: rect.top,
-    left: rect.left,
-    right: rect.right,
-    bottom: rect.bottom,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-
 function getActiveRect(activeShape: Shape | null): ClientRect | null {
   if (!activeShape) {
     return null;
   }
 
-  return toClientRect(activeShape.boundingRectangle);
+  return rectFromBoundingRect(activeShape.boundingRectangle);
 }
 
 function getEntityData(entity: { data?: Record<string, unknown> } | null) {
@@ -618,7 +608,7 @@ function getNextHysteresisSnapshot(
 
 function getCollisionRect(collision: SettaCollision): ClientRect | null {
   const shape = collision.data?.droppable?.shape;
-  return shape ? toClientRect(shape.boundingRectangle) : null;
+  return shape ? rectFromBoundingRect(shape.boundingRectangle) : null;
 }
 
 function getPastHalfway({

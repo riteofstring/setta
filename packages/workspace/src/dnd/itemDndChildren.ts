@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 import { insertIntoArray } from "../document/arrayUtils";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 import {
   getItemDndId,
@@ -31,21 +31,9 @@ function createItemDndChildrenStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createItemDndChildrenStore>
->();
-
-export function getItemDndChildrenStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createItemDndChildrenStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getItemDndChildrenStore = createHostStoreGetter(
+  createItemDndChildrenStore,
+);
 
 export function useItemDndChildren<T>(
   selector: (state: ItemDndChildrenState) => T,

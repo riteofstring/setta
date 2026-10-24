@@ -1,19 +1,8 @@
+import { getSectionContainerHandlers } from "./sectionContainerEvents";
 import _ from "lodash";
-import React, {
-  type CSSProperties,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import React, { type CSSProperties, type ReactNode } from "react";
 import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
-import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
-import {
-  getOwnerKeyboardMenuPoint,
-  isWorkspaceMenuKeyboardEvent,
-  shouldRetainNativeContextMenu,
-} from "../../context-menu/workspaceMenuOwnership";
 import { useHasTempNested } from "../../dnd/useDndUtils";
 import {
   getSectionOrThrow,
@@ -33,7 +22,6 @@ import { DeleteOrHideButton } from "../header/DeleteOrHideButton";
 import { LockPositionButton } from "../header/LockPositionButton";
 import { MenuButton } from "../header/MenuButton";
 import { SectionTitle } from "../header/SectionTitle";
-import { getOnSectionClick } from "../sectionClick";
 import { getOutlineColor } from "../sectionColors";
 import { useSectionRefAndInit } from "../sectionRefs";
 import { deriveSectionStyleTheme } from "../sectionStyleColors";
@@ -147,57 +135,11 @@ function ContainerGroup({
   );
   const contentClassName = getContentClassName(overflowMode, isScrollable);
 
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (
-      event.target === event.currentTarget &&
-      isWorkspaceMenuKeyboardEvent(event.nativeEvent)
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      openWorkspaceSectionMenu(
-        host,
-        sectionId,
-        "context-menu",
-        getOwnerKeyboardMenuPoint(event.currentTarget),
-        event.currentTarget,
-      );
-      return;
-    }
-    if (
-      event.target === event.currentTarget &&
-      (event.key === "Enter" || event.key === " ")
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      applyActiveSectionChange(host, {
-        interaction: "section-click",
-        sectionId,
-      });
-    }
-  }
-
-  function onContextMenu(event: MouseEvent<HTMLDivElement>) {
-    if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    openWorkspaceSectionMenu(
-      host,
-      sectionId,
-      "context-menu",
-      { x: event.clientX, y: event.clientY },
-      event.currentTarget,
-    );
-  }
-
   return (
     <div
       className={getGroupRootClassName(overflowMode, className)}
       {...commonProps}
-      onClick={getOnSectionClick(host, sectionId)}
-      onContextMenu={onContextMenu}
-      onKeyDown={onKeyDown}
+      {...getSectionContainerHandlers(host, sectionId)}
       role="group"
       aria-label={`${section.name} group section${isActiveSection ? ", selected" : ""}`}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"

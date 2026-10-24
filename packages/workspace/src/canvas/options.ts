@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 import type { PanOnScrollMode, SelectionMode } from "./types";
 
@@ -61,21 +61,9 @@ function createWorkspaceOptionsStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createWorkspaceOptionsStore>
->();
-
-export function getWorkspaceOptionsStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createWorkspaceOptionsStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getWorkspaceOptionsStore = createHostStoreGetter(
+  createWorkspaceOptionsStore,
+);
 
 export function useWorkspaceOptions<T>(
   selector: (state: WorkspaceInteractionOptions) => T,

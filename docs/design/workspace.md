@@ -15,6 +15,11 @@ pointer target when it belongs to a registered Workspace surface, then fall back
 host when the pointer is outside every Workspace. Focus continues to own keyboard commands and
 editing shortcuts.
 
+Simple stores share a lazy host getter. Each store definition retains its own weak map, so store
+identity stays stable within one host and separate across hosts and store definitions. Every lookup
+checks the host's active lifetime before returning cached state. Runtimes with listener or timer
+cleanup keep that lifecycle with their owning feature.
+
 Applications set the host's structure and layout edit authority through
 `setWorkspaceCapabilities`. Read-only presentation remains a configuration of the same host,
 shell, canvas, and section projection rather than requiring an application-owned renderer.

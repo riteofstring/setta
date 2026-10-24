@@ -16,7 +16,7 @@ import {
 import { withResetFn } from "../state/storeUtils";
 import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 import { getDndSectionId, isTempSection } from "./dndIds";
 
@@ -34,21 +34,9 @@ function createDndChildrenStore() {
   );
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createDndChildrenStore>
->();
-
-export function getDndChildrenStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createDndChildrenStore();
-  storesByHost.set(host, store);
-  return store;
-}
+export const getDndChildrenStore = createHostStoreGetter(
+  createDndChildrenStore,
+);
 
 export function useDndChildren<T>(
   selector: (state: ZustandDndChildren) => T,

@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import { createHostStoreGetter } from "../state/hostStore";
 import type { WorkspaceHost } from "../workspaceHost";
 
 type WorkspaceSavedViewEditingState = {
@@ -13,21 +13,9 @@ function createWorkspaceSavedViewEditingStore() {
   }));
 }
 
-const storesByHost = new WeakMap<
-  WorkspaceHost,
-  ReturnType<typeof createWorkspaceSavedViewEditingStore>
->();
-
-function getWorkspaceSavedViewEditingStore(host: WorkspaceHost) {
-  assertWorkspaceHostActive(host);
-  const existing = storesByHost.get(host);
-  if (existing) {
-    return existing;
-  }
-  const store = createWorkspaceSavedViewEditingStore();
-  storesByHost.set(host, store);
-  return store;
-}
+const getWorkspaceSavedViewEditingStore = createHostStoreGetter(
+  createWorkspaceSavedViewEditingStore,
+);
 
 export function isWorkspaceSavedViewEditing(host: WorkspaceHost): boolean {
   return getWorkspaceSavedViewEditingStore(host).getState().editing;
