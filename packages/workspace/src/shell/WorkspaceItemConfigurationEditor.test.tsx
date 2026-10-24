@@ -149,7 +149,10 @@ describe("WorkspaceItemConfigurationEditor", () => {
     onChange.mockClear();
   }
 
-  async function renderEditor(control: ValueControl): Promise<void> {
+  async function renderEditor(
+    control: ValueControl,
+    surface: "inspector" | "parameter-config" = "inspector",
+  ): Promise<void> {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
@@ -161,6 +164,7 @@ describe("WorkspaceItemConfigurationEditor", () => {
               onEscape={onEscape}
               onStatusChange={onStatusChange}
               sectionId="leaf"
+              surface={surface}
             />
           }
         </WorkspaceTestProvider>,
@@ -287,6 +291,50 @@ describe("WorkspaceItemConfigurationEditor", () => {
 
     focusTarget.remove();
   });
+
+  it("keeps blank numeric drafts local and normalizes equivalent values", async () => {
+    const control = createWorkspaceInspectorItemControl("slider", "5");
+    loadControl(control);
+    await renderEditor(control);
+    const minimum = getLabeledControl<HTMLInputElement>(host, "min");
+    await act(async () => {
+      minimum.focus();
+      setInputValue(minimum, "");
+      minimum.blur();
+    });
+    expect(minimum.getAttribute("aria-invalid")).toBe("true");
+    expect(host.textContent).toContain("min must be a finite number.");
+    expect(onChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      minimum.focus();
+      setInputValue(minimum, "0.00");
+      minimum.blur();
+    });
+    expect(minimum.value).toBe("0");
+    expect(minimum.hasAttribute("aria-invalid")).toBe(false);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(getStoredControl().configuration).toMatchObject({ min: 0 });
+  });
+
+  it.each([
+    "code",
+    "password",
+    "rotary",
+    "switch",
+    "text",
+    "textarea",
+  ] as const)(
+    "keeps %s parameters free of Inspector-only configuration",
+    async (kind) => {
+      const control = createWorkspaceInspectorItemControl(kind, "");
+      loadControl(control);
+      await renderEditor(control, "parameter-config");
+      expect(host.textContent).toBe("");
+      expect(host.querySelector("input, button, select")).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    },
+  );
 
   it("adds a valid dropdown choice without exposing JSON", async () => {
     const control = createWorkspaceInspectorItemControl("dropdown", "");

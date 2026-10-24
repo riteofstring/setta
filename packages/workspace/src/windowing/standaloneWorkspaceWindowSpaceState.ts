@@ -1,15 +1,16 @@
 import {
   buildWorkspaceFloatingSnapResizeBounds,
-  denormalizeWorkspaceWindowBounds,
   type WorkspaceFloatingSnapResizeSeam,
 } from "./windowingSnapLayout";
-import {
-  createWorkspaceFloatingWindow,
-  type WorkspaceFloatingWindow,
-  type WorkspaceWindowBounds,
-  type WorkspaceWindowViewport,
+import type {
+  WorkspaceFloatingWindow,
+  WorkspaceWindowBounds,
+  WorkspaceWindowViewport,
 } from "./windowingTypes";
-import type { WorkspaceWindowSpace } from "./windowSpaces";
+import {
+  restoreWorkspaceWindowSpaceWindow,
+  type WorkspaceWindowSpace,
+} from "./windowSpaces";
 
 const STANDALONE_WORKSPACE_WINDOW_MIN_WIDTH_PX = 220;
 const STANDALONE_WORKSPACE_WINDOW_MIN_HEIGHT_PX = 180;
@@ -110,25 +111,7 @@ export function hydrateStandaloneWorkspaceWindowSpace(
   viewport: WorkspaceWindowViewport,
 ): readonly StandaloneWorkspaceWindow[] {
   return space.windows.map((window) =>
-    createWorkspaceFloatingWindow({
-      id: window.id,
-      contentId: window.contentId,
-      surfaceKind: window.surfaceKind,
-      title: window.title,
-      rendererData: window.rendererData,
-      sectionId: window.sectionId,
-      bounds: denormalizeWorkspaceWindowBounds(
-        window.normalizedBounds,
-        viewport,
-      ),
-      placement: "floating",
-      restoreBounds: null,
-      restorePlacement: null,
-      lastUnsnappedBounds: null,
-      isMinimized: false,
-      isClosed: false,
-      zIndex: window.zIndex,
-    }),
+    restoreWorkspaceWindowSpaceWindow(window, window.id, viewport),
   );
 }
 

@@ -8,7 +8,7 @@ import {
   ConfigurationRow,
   DraftTextConfigurationRow,
   ReadOnlyConfigurationRow,
-  createConfigurationUpdate,
+  createConfigurationCommit,
   type ConfigurationEditorProps,
   type WorkspaceItemValueControl,
 } from "./workspaceItemConfigurationFields";
@@ -71,13 +71,11 @@ function FlatDropdownChoices({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<DropdownControl> & { choices: Array<string> }) {
+  const commit = createConfigurationCommit(control, onCommit);
   const commitChoices = (nextChoices: Array<string>) =>
-    onCommit(
-      createConfigurationUpdate(control, {
-        ...control.configuration,
-        choices: nextChoices,
-      }),
-    );
+    commit({
+      choices: nextChoices,
+    });
   return (
     <>
       <ConfigurationActionButton
@@ -97,12 +95,9 @@ function FlatDropdownChoices({
           disabled={disabled}
           label="Add choice group"
           onClick={() =>
-            onCommit(
-              createConfigurationUpdate(control, {
-                ...control.configuration,
-                choices: [{ group: "Group 1", choices: [] }],
-              }),
-            )
+            commit({
+              choices: [{ group: "Group 1", choices: [] }],
+            })
           }
           onEscape={onEscape}
         >
@@ -173,13 +168,11 @@ function GroupedDropdownChoices({
 }: ConfigurationEditorProps<DropdownControl> & {
   choices: Array<WorkspaceDropdownChoiceGroup>;
 }) {
+  const commit = createConfigurationCommit(control, onCommit);
   const commitGroups = (nextChoices: Array<WorkspaceDropdownChoiceGroup>) =>
-    onCommit(
-      createConfigurationUpdate(control, {
-        ...control.configuration,
-        choices: nextChoices,
-      }),
-    );
+    commit({
+      choices: nextChoices,
+    });
   return (
     <div className="setta-workspace-inspector-config-list">
       <ConfigurationActionButton
@@ -332,6 +325,7 @@ export function DropdownConfigurationEditor(
   props: ConfigurationEditorProps<DropdownControl>,
 ) {
   const { control, disabled, onCommit, onEscape } = props;
+  const commit = createConfigurationCommit(control, onCommit);
   const { choices, placeholder } = control.configuration;
   const grouped = choices.length > 0 && typeof choices[0] !== "string";
   return (
@@ -341,12 +335,9 @@ export function DropdownConfigurationEditor(
         label="Placeholder"
         name="dropdown-placeholder"
         onCommit={(nextPlaceholder) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...control.configuration,
-              placeholder: nextPlaceholder === "" ? null : nextPlaceholder,
-            }),
-          )
+          commit({
+            placeholder: nextPlaceholder === "" ? null : nextPlaceholder,
+          })
         }
         onEscape={onEscape}
         value={placeholder ?? ""}
@@ -367,6 +358,7 @@ export function DropdownParameterConfigurationEditor(
   props: ConfigurationEditorProps<DropdownControl>,
 ) {
   const { control, disabled, onCommit, onEscape } = props;
+  const commit = createConfigurationCommit(control, onCommit);
   const choices = control.configuration.choices;
   if (choices.length > 0 && typeof choices[0] !== "string") {
     return (
@@ -378,12 +370,9 @@ export function DropdownParameterConfigurationEditor(
   }
   const flatChoices = choices as Array<string>;
   const commitChoices = (nextChoices: Array<string>) =>
-    onCommit(
-      createConfigurationUpdate(control, {
-        ...control.configuration,
-        choices: nextChoices,
-      }),
-    );
+    commit({
+      choices: nextChoices,
+    });
   return (
     <>
       <ConfigurationActionButton
@@ -513,14 +502,12 @@ export function ColorConfigurationEditor({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<ColorControl>) {
+  const commit = createConfigurationCommit(control, onCommit);
   const choices = control.configuration.choices;
   const commitChoices = (nextChoices: Array<WorkspaceColorChoice> | null) =>
-    onCommit(
-      createConfigurationUpdate(control, {
-        ...control.configuration,
-        choices: nextChoices,
-      }),
-    );
+    commit({
+      choices: nextChoices,
+    });
   return (
     <>
       <ConfigurationActionButton
@@ -613,14 +600,12 @@ export function ColorParameterConfigurationEditor({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<ColorControl>) {
+  const commit = createConfigurationCommit(control, onCommit);
   const choices = control.configuration.choices ?? [];
   const commitChoices = (nextChoices: Array<WorkspaceColorChoice>) =>
-    onCommit(
-      createConfigurationUpdate(control, {
-        ...control.configuration,
-        choices: nextChoices,
-      }),
-    );
+    commit({
+      choices: nextChoices,
+    });
   return (
     <>
       <ConfigurationActionButton

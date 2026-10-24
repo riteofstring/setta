@@ -4,7 +4,7 @@ import {
   ConfigurationRow,
   ReadOnlyConfigurationRow,
   SelectConfigurationRow,
-  createConfigurationUpdate,
+  createConfigurationCommit,
   type ConfigurationEditorProps,
   type ConfigurationOption,
   type WorkspaceItemValueControl,
@@ -65,8 +65,7 @@ export function DateConfigurationEditor({
   onEscape,
 }: ConfigurationEditorProps<DateControl> & { allowCalendarUI?: boolean }) {
   const configuration = control.configuration;
-  const commit = (nextConfiguration: DateControl["configuration"]) =>
-    onCommit(createConfigurationUpdate(control, nextConfiguration));
+  const commit = createConfigurationCommit(control, onCommit);
   return (
     <>
       <SelectConfigurationRow
@@ -75,7 +74,6 @@ export function DateConfigurationEditor({
         name="date-display-format"
         onChange={(displayFormat) =>
           commit({
-            ...configuration,
             displayFormat:
               displayFormat as DateControl["configuration"]["displayFormat"],
           })
@@ -91,7 +89,6 @@ export function DateConfigurationEditor({
           name="date-control-mode"
           onChange={(controlMode) =>
             commit({
-              ...configuration,
               controlMode:
                 controlMode as DateControl["configuration"]["controlMode"],
             })
@@ -109,7 +106,6 @@ export function DateConfigurationEditor({
         label="Include Time"
         onChange={(includeTime) =>
           commit({
-            ...configuration,
             includeTime,
             selectionMode: includeTime ? "single" : configuration.selectionMode,
           })
@@ -123,7 +119,6 @@ export function DateConfigurationEditor({
           name="date-time-format"
           onChange={(timeDisplayFormat) =>
             commit({
-              ...configuration,
               timeDisplayFormat:
                 timeDisplayFormat as DateControl["configuration"]["timeDisplayFormat"],
             })
@@ -144,7 +139,6 @@ export function DateConfigurationEditor({
               name="date-selection-mode"
               onChange={(selectionMode) =>
                 commit({
-                  ...configuration,
                   selectionMode:
                     selectionMode as DateControl["configuration"]["selectionMode"],
                 })
@@ -160,7 +154,6 @@ export function DateConfigurationEditor({
             name="date-week-start"
             onChange={(weekStart) =>
               commit({
-                ...configuration,
                 weekStart:
                   weekStart as DateControl["configuration"]["weekStart"],
               })
@@ -182,8 +175,7 @@ export function TimeConfigurationEditor({
   onEscape,
 }: ConfigurationEditorProps<TimeControl>) {
   const configuration = control.configuration;
-  const commit = (nextConfiguration: TimeControl["configuration"]) =>
-    onCommit(createConfigurationUpdate(control, nextConfiguration));
+  const commit = createConfigurationCommit(control, onCommit);
   return (
     <>
       <SelectConfigurationRow
@@ -192,7 +184,6 @@ export function TimeConfigurationEditor({
         name="time-control-mode"
         onChange={(controlMode) =>
           commit({
-            ...configuration,
             controlMode:
               controlMode as TimeControl["configuration"]["controlMode"],
           })
@@ -207,7 +198,6 @@ export function TimeConfigurationEditor({
         name="time-display-format"
         onChange={(displayFormat) =>
           commit({
-            ...configuration,
             displayFormat:
               displayFormat as TimeControl["configuration"]["displayFormat"],
           })
@@ -223,7 +213,9 @@ export function TimeConfigurationEditor({
             disabled={disabled}
             label="Transparent"
             onChange={(transparent) =>
-              commit({ ...configuration, transparent })
+              commit({
+                transparent,
+              })
             }
             onEscape={onEscape}
           />
@@ -237,7 +229,6 @@ export function TimeConfigurationEditor({
                   min="0.5"
                   onChange={(event) =>
                     commit({
-                      ...configuration,
                       scale: Number(event.currentTarget.value),
                     })
                   }
@@ -256,7 +247,6 @@ export function TimeConfigurationEditor({
             name="time-font"
             onChange={(font) =>
               commit({
-                ...configuration,
                 font: font as TimeControl["configuration"]["font"],
               })
             }

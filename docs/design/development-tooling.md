@@ -12,10 +12,8 @@ The browser script receives the runner's explicit Chrome path and isolates its o
 job builds Workspace's public declarations before checking imports. These workflows publish
 nothing.
 
-Static checks use one repository-wide `./code-polishyw check --all` invocation. Code Polishy 0.28.3
-applies generated-code exemptions before its lint-result budget and pages applicable diagnostics,
-so generated evidence does not require separate module invocations. Syntax, semantic lint, and
-authored-source checks remain active.
+Static checks use one repository-wide `./code-polishyw check --all` invocation. Syntax, semantic
+lint, and authored-source checks remain active.
 
 All workflows bootstrap the repository's pinned Code Polishy release, review dependencies before
 frozen script-disabled installation, and verify installed metadata afterward. Scheduled security
@@ -145,49 +143,17 @@ floating windows open and Shift-drags from a bare pane point through the checkli
 sampled move must retain positive marquee geometry while the viewport stays fixed; mouse-up must
 produce a multi-section selection without closing the window or reporting a browser error.
 
-This suite owns browser event routing and gesture lifecycle acceptance. The parity harness owns
-visual comparison. Its deterministic screenshot setup closes floating windows for several canvas
-scenarios, so it cannot substitute for the interaction suite's live pane-to-overlay path.
+This suite owns browser event routing and gesture lifecycle acceptance. Package tests cover nested
+section and item sorting, collision resolution, cancellation, and window state transitions. Live
+Playground inspection verifies current geometry and captures screenshots for visual review.
 
-## Upstream canvas renderer parity evidence
+## Historical renderer evidence
 
-The XYFlow parity harnesses compare the current upstream-backed renderer against immutable captures
-from the accepted pre-cutover reference commit. Playground capture owns the Workspace and
-managed-window catalog. It records
-screenshots, computed geometry, canonical documents, focus and interaction state, fixture identity,
-browser identity, source identity, and built-artifact hashes. Candidate output always goes to a new
-caller-selected directory.
+The completed upstream-renderer migration's capture tools and immutable reference comparisons are
+preserved together in the [historical evidence archive](../evidence/README.md). Current verification
+uses the package and browser interaction suites without rebuilding the retired renderer's fixtures.
 
-```sh
-node scripts/xyflow-parity/capture-playground.mjs --mode candidate \
-  --reference-commit 65f8cafa94c2c4768622ae570f6051332158ddc8 \
-  --output-dir /tmp/setta-playground-candidate
-node scripts/xyflow-parity/compare-playground.mjs \
-  --baseline-dir "$PWD/docs/evidence/xyflow-12-cutover/baseline/playground" \
-  --candidate-dir /tmp/setta-playground-candidate \
-  --output-dir /tmp/setta-playground-comparison
-```
-
-Comparison requires exact scenario and image dimensions, exact captured contracts, and no
-unexplained geometry difference above 0.25 CSS pixels. Ordinary pixel tolerance is four channel
-values. Font and raster antialiasing may consume at most 128 edge pixels at a channel difference
-of 16. A separate bounded edge-raster allowance accepts at most 36 pixels across four components;
-each component is at most 6 by 3 pixels and 12 pixels total, every accepted pixel must remain next
-to matching edge contrast in both images, and no channel may differ by more than 68. These bounds
-admit isolated rasterization noise and reject coherent movement, recoloring, missing content, or a
-redesign. A human reviews the full baseline and candidate images plus every nonempty diff.
-
-The parity image module owns PNG validation, RGBA diff generation, and the bounded pixel and
-edge-raster policy; the comparator owns its capture contract and receipt shape. Playground capture
-keeps
-browser actions, geometry collection, artifact provenance, and command orchestration in separate
-modules. Its scenario catalog has one validating public aggregate assembled from canvas,
-interface, and managed-window scenario groups; the aggregate preserves catalog order and remains
-the comparison contract.
-
-The checked-in `docs/evidence/xyflow-12-cutover` directory is the historical acceptance record for
-the completed migration. It is neither an active implementation plan nor a second renderer source;
-retaining it preserves the visual and performance proof without giving it design authority.
+## Production performance profile
 
 The production profile builds Workspace and Playground, serves the deterministic 256-section
 route, and writes one machine-local JSON record:

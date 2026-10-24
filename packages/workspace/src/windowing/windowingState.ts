@@ -282,14 +282,7 @@ export function getWorkspaceWindowStackingOrder(
 ): readonly WorkspaceFloatingWindow[] {
   const state = getValidatedState(stateInput);
   return Object.freeze(
-    state.windows
-      .map((window, index) => ({ window, index }))
-      .sort(
-        (first, second) =>
-          first.window.zIndex - second.window.zIndex ||
-          first.index - second.index,
-      )
-      .map(({ window }) => window),
+    [...state.windows].sort((first, second) => first.zIndex - second.zIndex),
   );
 }
 

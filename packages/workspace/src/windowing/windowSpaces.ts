@@ -5,6 +5,9 @@ import {
 } from "./windowingSnapLayout";
 import { getWorkspaceWindowStackingOrder } from "./windowingState";
 import {
+  assertKnownFields,
+  assertRecord,
+  assertTrimmedNonblankString,
   assertWorkspaceWindowingLayoutEditable,
   createWorkspaceFloatingWindow,
   createWorkspaceWindowingState,
@@ -72,53 +75,6 @@ const SPACE_WINDOW_FIELDS = new Set([
   "zIndex",
 ]);
 const NORMALIZED_BOUNDS_FIELDS = new Set(["x", "y", "width", "height"]);
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-function assertRecord(value: unknown, owner: string): Record<string, unknown> {
-  if (!isPlainRecord(value)) {
-    throw new WorkspaceWindowingError(
-      "invalid_input",
-      `${owner} must be a plain object.`,
-    );
-  }
-  return value;
-}
-
-function assertKnownFields(
-  value: Record<string, unknown>,
-  allowedFields: ReadonlySet<string>,
-  owner: string,
-): void {
-  for (const field of Object.keys(value)) {
-    if (!allowedFields.has(field)) {
-      throw new WorkspaceWindowingError(
-        "invalid_input",
-        `${owner} contains unknown field ${field}.`,
-      );
-    }
-  }
-}
-
-function assertTrimmedNonblankString(value: unknown, owner: string): string {
-  if (
-    typeof value !== "string" ||
-    value.trim().length === 0 ||
-    value !== value.trim()
-  ) {
-    throw new WorkspaceWindowingError(
-      "invalid_input",
-      `${owner} must be a nonblank trimmed string.`,
-    );
-  }
-  return value;
-}
 
 function assertNonnegativeInteger(value: unknown, owner: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
@@ -322,12 +278,6 @@ export function snapshotWorkspaceWindowSpace(
   return createWorkspaceWindowSpace({ ...metadata, windows });
 }
 
-function createExistingWindowByContentId(
-  state: WorkspaceWindowingState,
-): ReadonlyMap<string, WorkspaceFloatingWindow> {
-  return new Map(state.windows.map((window) => [window.contentId, window]));
-}
-
 function createExistingWindowBySectionId(
   state: WorkspaceWindowingState,
 ): ReadonlyMap<string, WorkspaceFloatingWindow> {
@@ -391,6 +341,10 @@ function allocateRestoredWindowId(
   baseId: string,
   usedIds: Set<string>,
 ): string {
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
   let suffix = 2;
   let candidate = `${baseId}-${suffix}`;
   while (usedIds.has(candidate)) {
@@ -399,29 +353,6 @@ function allocateRestoredWindowId(
   }
   usedIds.add(candidate);
   return candidate;
-}
-
-function createRestorePlanEntry(
-  snapshot: WorkspaceWindowSpaceWindow,
-  existing: WorkspaceFloatingWindow | undefined,
-  usedIds: Set<string>,
-): WindowSpaceRestorePlan {
-  if (existing) {
-    return {
-      snapshot,
-      targetId: existing.id,
-      replacesWindowId: existing.id,
-    };
-  }
-  if (!usedIds.has(snapshot.id)) {
-    usedIds.add(snapshot.id);
-    return { snapshot, targetId: snapshot.id, replacesWindowId: null };
-  }
-  return {
-    snapshot,
-    targetId: allocateRestoredWindowId(snapshot.id, usedIds),
-    replacesWindowId: null,
-  };
 }
 
 function hasUnresolvedSavedSectionIdentityConflict(
@@ -460,27 +391,6 @@ function shouldSkipWorkspaceWindowSpaceRestore(
   );
 }
 
-function createRestorePlanEntryIfRestorable(
-  snapshot: WorkspaceWindowSpaceWindow,
-  usedIds: Set<string>,
-  existingByContentId: ReadonlyMap<string, WorkspaceFloatingWindow>,
-  existingBySectionId: ReadonlyMap<string, WorkspaceFloatingWindow>,
-): WindowSpaceRestorePlan | null {
-  const existing = resolveReusableExistingWindow(
-    snapshot,
-    existingByContentId,
-    existingBySectionId,
-  );
-  return shouldSkipWorkspaceWindowSpaceRestore(
-    snapshot,
-    existing,
-    existingByContentId,
-    existingBySectionId,
-  )
-    ? null
-    : createRestorePlanEntry(snapshot, existing, usedIds);
-}
-
 function createRestorePlan(
   state: WorkspaceWindowingState,
   space: WorkspaceWindowSpace,
@@ -489,20 +399,35 @@ function createRestorePlan(
   readonly idRemaps: Readonly<Record<string, string>>;
 } {
   const usedIds = new Set(state.windows.map((window) => window.id));
-  const existingByContentId = createExistingWindowByContentId(state);
+  const existingByContentId = new Map(
+    state.windows.map((window) => [window.contentId, window]),
+  );
   const existingBySectionId = createExistingWindowBySectionId(state);
   const plans: WindowSpaceRestorePlan[] = [];
   const idRemaps: Record<string, string> = {};
   for (const snapshot of space.windows) {
-    const plan = createRestorePlanEntryIfRestorable(
+    const existing = resolveReusableExistingWindow(
       snapshot,
-      usedIds,
       existingByContentId,
       existingBySectionId,
     );
-    if (plan === null) {
+    if (
+      shouldSkipWorkspaceWindowSpaceRestore(
+        snapshot,
+        existing,
+        existingByContentId,
+        existingBySectionId,
+      )
+    ) {
       continue;
     }
+    const plan: WindowSpaceRestorePlan = existing
+      ? { snapshot, targetId: existing.id, replacesWindowId: existing.id }
+      : {
+          snapshot,
+          targetId: allocateRestoredWindowId(snapshot.id, usedIds),
+          replacesWindowId: null,
+        };
     if (plan.targetId !== snapshot.id) {
       idRemaps[snapshot.id] = plan.targetId;
     }
@@ -511,7 +436,7 @@ function createRestorePlan(
   return { plans, idRemaps: Object.freeze(idRemaps) };
 }
 
-function createRestoredWindow(
+export function restoreWorkspaceWindowSpaceWindow(
   snapshot: WorkspaceWindowSpaceWindow,
   targetId: string,
   viewport: WorkspaceWindowViewport,
@@ -545,7 +470,7 @@ function mergeRestoredWindows(
   const replacements = new Map<string, WorkspaceFloatingWindow>();
   const additions: WorkspaceFloatingWindow[] = [];
   for (const plan of plans) {
-    const restored = createRestoredWindow(
+    const restored = restoreWorkspaceWindowSpaceWindow(
       plan.snapshot,
       plan.targetId,
       viewport,

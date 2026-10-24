@@ -1,8 +1,8 @@
 # Workspace design rationale
 
 This document owns current non-local rationale for the `workspace` module. Public composition and
-API usage remain in `packages/workspace/README.md`. Accepted reference and parity records under
-`docs/evidence` are historical evidence rather than implementation authority.
+API usage remain in `packages/workspace/README.md`. Accepted reference and parity records are
+preserved in the [historical evidence archive](../evidence/README.md).
 
 ## Host and document authority
 

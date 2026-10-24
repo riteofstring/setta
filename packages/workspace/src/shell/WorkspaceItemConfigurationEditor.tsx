@@ -21,6 +21,7 @@ import {
   DraftTextConfigurationRow,
   ReadOnlyConfigurationRow,
   SelectConfigurationRow,
+  createConfigurationCommit,
   createConfigurationUpdate,
   type ConfigurationCommit,
   type ConfigurationEditorProps,
@@ -67,8 +68,7 @@ function TextConfigurationEditor({
   onEscape,
 }: ConfigurationEditorProps<TextControl>) {
   const configuration = control.configuration;
-  const commit = (nextConfiguration: TextControl["configuration"]) =>
-    onCommit(createConfigurationUpdate(control, nextConfiguration));
+  const commit = createConfigurationCommit(control, onCommit);
   return (
     <>
       <DraftTextConfigurationRow
@@ -77,7 +77,6 @@ function TextConfigurationEditor({
         name="text-placeholder"
         onCommit={(placeholder) =>
           commit({
-            ...configuration,
             placeholder: placeholder === "" ? null : placeholder,
           })
         }
@@ -90,12 +89,9 @@ function TextConfigurationEditor({
           label="Language"
           name="code-language"
           onChange={(language) =>
-            onCommit(
-              createConfigurationUpdate(control, {
-                ...control.configuration,
-                language: language as WorkspaceItemTextLanguage,
-              }),
-            )
+            commit({
+              language: language as WorkspaceItemTextLanguage,
+            })
           }
           onEscape={onEscape}
           options={LANGUAGE_OPTIONS.slice(1)}
@@ -108,15 +104,12 @@ function TextConfigurationEditor({
           label="Language"
           name="textarea-language"
           onChange={(language) =>
-            onCommit(
-              createConfigurationUpdate(control, {
-                ...control.configuration,
-                language:
-                  language === ""
-                    ? null
-                    : (language as WorkspaceItemTextLanguage),
-              }),
-            )
+            commit({
+              language:
+                language === ""
+                  ? null
+                  : (language as WorkspaceItemTextLanguage),
+            })
           }
           onEscape={onEscape}
           options={LANGUAGE_OPTIONS}
@@ -131,12 +124,9 @@ function TextConfigurationEditor({
             disabled={disabled}
             label="Single line"
             onChange={(singleLine) =>
-              onCommit(
-                createConfigurationUpdate(control, {
-                  ...control.configuration,
-                  singleLine,
-                }),
-              )
+              commit({
+                singleLine,
+              })
             }
             onEscape={onEscape}
           />
@@ -145,12 +135,9 @@ function TextConfigurationEditor({
             disabled={disabled}
             label="Wrap lines"
             onChange={(wrapLines) =>
-              onCommit(
-                createConfigurationUpdate(control, {
-                  ...control.configuration,
-                  wrapLines,
-                }),
-              )
+              commit({
+                wrapLines,
+              })
             }
             onEscape={onEscape}
           />
@@ -166,11 +153,12 @@ function NumericConfigurationEditor({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<NumericControl>) {
+  const commit = createConfigurationCommit(control, onCommit);
   const configuration = control.configuration;
   const commitField = (field: "max" | "min" | "step", value: number) =>
-    onCommit(
-      createConfigurationUpdate(control, { ...configuration, [field]: value }),
-    );
+    commit({
+      [field]: value,
+    });
   const validateField = (
     field: "max" | "min" | "step",
     value: number,
@@ -208,6 +196,7 @@ function PasswordConfigurationEditor({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<PasswordControl>) {
+  const commit = createConfigurationCommit(control, onCommit);
   return (
     <>
       <DraftTextConfigurationRow
@@ -215,12 +204,9 @@ function PasswordConfigurationEditor({
         label="Placeholder"
         name="password-placeholder"
         onCommit={(placeholder) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...control.configuration,
-              placeholder: placeholder === "" ? null : placeholder,
-            }),
-          )
+          commit({
+            placeholder: placeholder === "" ? null : placeholder,
+          })
         }
         onEscape={onEscape}
         value={control.configuration.placeholder ?? ""}
@@ -230,12 +216,9 @@ function PasswordConfigurationEditor({
         disabled={disabled}
         label="Saved value pending"
         onChange={(savedValuePending) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...control.configuration,
-              savedValuePending,
-            }),
-          )
+          commit({
+            savedValuePending,
+          })
         }
         onEscape={onEscape}
       />
@@ -274,6 +257,7 @@ function DropzoneConfigurationEditor({
   onCommit,
   onEscape,
 }: ConfigurationEditorProps<DropzoneControl>) {
+  const commit = createConfigurationCommit(control, onCommit);
   const configuration = control.configuration;
   const policy = configuration.policy;
   return (
@@ -283,12 +267,9 @@ function DropzoneConfigurationEditor({
         label="Placeholder"
         name="dropzone-placeholder"
         onCommit={(placeholder) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...configuration,
-              placeholder,
-            }),
-          )
+          commit({
+            placeholder,
+          })
         }
         onEscape={onEscape}
         placeholder="Drop a file here"
@@ -299,15 +280,12 @@ function DropzoneConfigurationEditor({
         label="Max attachments"
         name="dropzone-max-attachments"
         onCommit={(value) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...configuration,
-              policy: {
-                ...policy,
-                maxAttachments: parseOptionalPositiveInteger(value),
-              },
-            }),
-          )
+          commit({
+            policy: {
+              ...policy,
+              maxAttachments: parseOptionalPositiveInteger(value),
+            },
+          })
         }
         onEscape={onEscape}
         placeholder="No limit"
@@ -324,12 +302,9 @@ function DropzoneConfigurationEditor({
         min={1}
         name="dropzone-max-file-bytes"
         onCommit={(maxFileBytes) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...configuration,
-              policy: { ...policy, maxFileBytes },
-            }),
-          )
+          commit({
+            policy: { ...policy, maxFileBytes },
+          })
         }
         onEscape={onEscape}
         step={1}
@@ -345,15 +320,12 @@ function DropzoneConfigurationEditor({
         label="Max total bytes"
         name="dropzone-max-total-bytes"
         onCommit={(value) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...configuration,
-              policy: {
-                ...policy,
-                maxTotalBytes: parseOptionalPositiveInteger(value),
-              },
-            }),
-          )
+          commit({
+            policy: {
+              ...policy,
+              maxTotalBytes: parseOptionalPositiveInteger(value),
+            },
+          })
         }
         onEscape={onEscape}
         placeholder="No limit"
@@ -367,18 +339,15 @@ function DropzoneConfigurationEditor({
         label="Allowed MIME types"
         name="dropzone-mime-prefixes"
         onCommit={(value) =>
-          onCommit(
-            createConfigurationUpdate(control, {
-              ...configuration,
-              policy: {
-                ...policy,
-                allowedMimePrefixes: value
-                  .split(",")
-                  .map((prefix) => prefix.trim())
-                  .filter((prefix) => prefix !== ""),
-              },
-            }),
-          )
+          commit({
+            policy: {
+              ...policy,
+              allowedMimePrefixes: value
+                .split(",")
+                .map((prefix) => prefix.trim())
+                .filter((prefix) => prefix !== ""),
+            },
+          })
         }
         onEscape={onEscape}
         placeholder="image/, text/plain"
@@ -393,118 +362,6 @@ function DropzoneConfigurationEditor({
   );
 }
 
-function renderTextAndChoiceConfigurationFields(
-  control: WorkspaceItemValueControl,
-  disabled: boolean,
-  onCommit: ConfigurationCommit,
-  onEscape: () => void,
-): ReactNode | null {
-  const props = { control, disabled, onCommit, onEscape };
-  switch (control.kind) {
-    case "text":
-    case "code":
-    case "textarea":
-      return <TextConfigurationEditor {...props} control={control} />;
-    case "dropdown":
-      return <DropdownConfigurationEditor {...props} control={control} />;
-    case "color":
-      return <ColorConfigurationEditor {...props} control={control} />;
-    default:
-      return null;
-  }
-}
-
-function renderNumericAndSpecialConfigurationFields(
-  control: WorkspaceItemValueControl,
-  disabled: boolean,
-  onCommit: ConfigurationCommit,
-  onEscape: () => void,
-): ReactNode {
-  const props = { control, disabled, onCommit, onEscape };
-  switch (control.kind) {
-    case "slider":
-    case "rotary":
-      return <NumericConfigurationEditor {...props} control={control} />;
-    case "password":
-      return <PasswordConfigurationEditor {...props} control={control} />;
-    case "date":
-      return <DateConfigurationEditor {...props} control={control} />;
-    case "time":
-      return <TimeConfigurationEditor {...props} control={control} />;
-    case "dropzone":
-      return <DropzoneConfigurationEditor {...props} control={control} />;
-    case "switch":
-      return null;
-    default:
-      throw new Error(
-        `Inspector has no configuration fields for ${control.kind}.`,
-      );
-  }
-}
-
-function renderConfigurationFields(
-  control: WorkspaceItemValueControl,
-  disabled: boolean,
-  onCommit: ConfigurationCommit,
-  onEscape: () => void,
-): ReactNode {
-  return (
-    renderTextAndChoiceConfigurationFields(
-      control,
-      disabled,
-      onCommit,
-      onEscape,
-    ) ??
-    renderNumericAndSpecialConfigurationFields(
-      control,
-      disabled,
-      onCommit,
-      onEscape,
-    )
-  );
-}
-
-function renderParameterConfigurationFields(
-  control: WorkspaceItemValueControl,
-  disabled: boolean,
-  onCommit: ConfigurationCommit,
-  onEscape: () => void,
-): ReactNode {
-  if (isFieldlessParameterControl(control)) {
-    return null;
-  }
-  const props = { control, disabled, onCommit, onEscape };
-  switch (control.kind) {
-    case "slider":
-      return <NumericConfigurationEditor {...props} control={control} />;
-    case "color":
-      return <ColorParameterConfigurationEditor {...props} control={control} />;
-    case "dropdown":
-      return (
-        <DropdownParameterConfigurationEditor {...props} control={control} />
-      );
-    case "date":
-      return (
-        <DateConfigurationEditor
-          {...props}
-          allowCalendarUI={false}
-          control={control}
-        />
-      );
-    case "time":
-      return <TimeConfigurationEditor {...props} control={control} />;
-    case "dropzone":
-      return <DropzoneConfigurationEditor {...props} control={control} />;
-    default:
-      return assertNever(control);
-  }
-}
-
-type FieldlessParameterControl = Extract<
-  WorkspaceItemValueControl,
-  { kind: "code" | "password" | "rotary" | "switch" | "text" | "textarea" }
->;
-
 const FIELDLESS_PARAMETER_CONTROL_KINDS: ReadonlySet<string> = new Set([
   "code",
   "password",
@@ -514,16 +371,80 @@ const FIELDLESS_PARAMETER_CONTROL_KINDS: ReadonlySet<string> = new Set([
   "textarea",
 ]);
 
-function isFieldlessParameterControl(
+function renderValueConfigurationFields(
   control: WorkspaceItemValueControl,
-): control is FieldlessParameterControl {
-  return FIELDLESS_PARAMETER_CONTROL_KINDS.has(control.kind);
+  props: Omit<ConfigurationEditorProps<WorkspaceItemValueControl>, "control">,
+  surface: "inspector" | "parameter-config",
+): ReactNode {
+  switch (control.kind) {
+    case "text":
+    case "code":
+    case "textarea":
+      return <TextConfigurationEditor {...props} control={control} />;
+    case "slider":
+    case "rotary":
+      return <NumericConfigurationEditor {...props} control={control} />;
+    case "password":
+      return <PasswordConfigurationEditor {...props} control={control} />;
+    case "time":
+      return <TimeConfigurationEditor {...props} control={control} />;
+    case "dropzone":
+      return <DropzoneConfigurationEditor {...props} control={control} />;
+    default:
+      return unsupportedConfiguration(control, surface);
+  }
 }
 
-function assertNever(value: never): never {
+function unsupportedConfiguration(
+  control: WorkspaceItemValueControl,
+  surface: "inspector" | "parameter-config",
+): never {
   throw new Error(
-    `Parameter configuration has no fields for ${JSON.stringify(value)}.`,
+    surface === "parameter-config"
+      ? `Parameter configuration has no fields for ${JSON.stringify(control)}.`
+      : `Inspector has no configuration fields for ${control.kind}.`,
   );
+}
+
+function renderConfigurationFields(
+  control: WorkspaceItemValueControl,
+  disabled: boolean,
+  onCommit: ConfigurationCommit,
+  onEscape: () => void,
+  surface: "inspector" | "parameter-config",
+): ReactNode {
+  const parameter = surface === "parameter-config";
+  if (
+    control.kind === "switch" ||
+    (parameter && FIELDLESS_PARAMETER_CONTROL_KINDS.has(control.kind))
+  ) {
+    return null;
+  }
+  const props = { disabled, onCommit, onEscape };
+  switch (control.kind) {
+    case "dropdown":
+      return parameter ? (
+        <DropdownParameterConfigurationEditor {...props} control={control} />
+      ) : (
+        <DropdownConfigurationEditor {...props} control={control} />
+      );
+    case "color":
+      return parameter ? (
+        <ColorParameterConfigurationEditor {...props} control={control} />
+      ) : (
+        <ColorConfigurationEditor {...props} control={control} />
+      );
+    case "date":
+      return (
+        <DateConfigurationEditor
+          {...props}
+          allowCalendarUI={!parameter}
+          control={control}
+        />
+      );
+    default:
+      return renderValueConfigurationFields(control, props, surface);
+  }
 }
 
 function createDisabledUpdate(
@@ -555,15 +476,13 @@ export function WorkspaceItemConfigurationEditor({
     setItemControlConfiguration(host, sectionId, itemId, update);
     onStatusChange(`${control.kind} configuration updated.`);
   }
-  const fields =
-    surface === "parameter-config"
-      ? renderParameterConfigurationFields(
-          control,
-          disabled,
-          commitUpdate,
-          onEscape,
-        )
-      : renderConfigurationFields(control, disabled, commitUpdate, onEscape);
+  const fields = renderConfigurationFields(
+    control,
+    disabled,
+    commitUpdate,
+    onEscape,
+    surface,
+  );
   if (surface === "parameter-config" && fields === null) {
     return null;
   }

@@ -157,7 +157,10 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function assertRecord(value: unknown, owner: string): Record<string, unknown> {
+export function assertRecord(
+  value: unknown,
+  owner: string,
+): Record<string, unknown> {
   if (!isPlainRecord(value)) {
     throw new WorkspaceWindowingError(
       "invalid_input",
@@ -167,7 +170,7 @@ function assertRecord(value: unknown, owner: string): Record<string, unknown> {
   return value;
 }
 
-function assertKnownFields(
+export function assertKnownFields(
   value: Record<string, unknown>,
   allowed: ReadonlySet<string>,
   owner: string,
@@ -182,7 +185,10 @@ function assertKnownFields(
   }
 }
 
-function assertTrimmedNonblankString(value: unknown, owner: string): string {
+export function assertTrimmedNonblankString(
+  value: unknown,
+  owner: string,
+): string {
   if (
     typeof value !== "string" ||
     value.trim().length === 0 ||

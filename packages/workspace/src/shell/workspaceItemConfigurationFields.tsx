@@ -3,7 +3,6 @@ import {
   useId,
   useRef,
   useState,
-  type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -47,6 +46,18 @@ export function createConfigurationUpdate(
   const update = { kind: control.kind, configuration };
   assertWorkspaceItemControlConfiguration(update, "Inspector configuration");
   return update;
+}
+
+export function createConfigurationCommit<
+  Control extends WorkspaceItemValueControl,
+>(control: Control, onCommit: ConfigurationCommit) {
+  return (changes: Partial<Control["configuration"]>) =>
+    onCommit(
+      createConfigurationUpdate(control, {
+        ...control.configuration,
+        ...changes,
+      }),
+    );
 }
 
 export function ConfigurationRow({
@@ -181,119 +192,53 @@ export function ReadOnlyConfigurationRow({
   );
 }
 
-export function DraftTextConfigurationRow({
-  disabled,
-  label,
-  name,
-  onCommit,
-  onEscape,
-  placeholder,
-  spellCheck,
-  validate,
-  value,
-}: {
+type DraftConfigurationProps<Value> = {
   disabled: boolean;
   label: string;
   name: string;
-  onCommit: (value: string) => void;
+  onCommit: (value: Value) => void;
   onEscape: () => void;
+  validate?: (value: Value) => string | null;
+  value: Value;
+};
+
+type TextDraftProps = DraftConfigurationProps<string> & {
   placeholder?: string;
   spellCheck?: boolean;
-  validate?: (value: string) => string | null;
-  value: string;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [error, setError] = useState<string | null>(null);
-  const skipBlurRef = useRef(false);
+};
 
-  useEffect(() => {
-    setDraft(value);
-    setError(null);
-  }, [value]);
-
-  function reset(): void {
-    skipBlurRef.current = true;
-    setDraft(value);
-    setError(null);
-    queueMicrotask(() => {
-      skipBlurRef.current = false;
-    });
-  }
-
-  function commit(): void {
-    if (draft === value) {
-      setError(null);
-      return;
-    }
-    const nextError = validate?.(draft) ?? null;
-    if (nextError) {
-      setError(nextError);
-      return;
-    }
-    setError(null);
-    onCommit(draft);
-  }
-
-  return (
-    <ConfigurationRow error={error} label={label} name={name}>
-      {(props) => (
-        <input
-          {...props}
-          disabled={disabled}
-          onBlur={() => {
-            if (skipBlurRef.current) {
-              skipBlurRef.current = false;
-              return;
-            }
-            commit();
-          }}
-          onChange={(event) => {
-            setDraft(event.currentTarget.value);
-            setError(null);
-          }}
-          onKeyDown={(event) => {
-            if (handleEscape(event, onEscape, reset)) {
-              return;
-            }
-            if (event.key === "Enter") {
-              event.preventDefault();
-              event.currentTarget.blur();
-            }
-          }}
-          placeholder={placeholder}
-          spellCheck={spellCheck}
-          type="text"
-          value={draft}
-        />
-      )}
-    </ConfigurationRow>
-  );
-}
-
-export function DraftNumberConfigurationRow({
-  disabled,
-  label,
-  max,
-  min,
-  name,
-  onCommit,
-  onEscape,
-  step = "any",
-  validate,
-  value,
-}: {
-  disabled: boolean;
-  label: string;
+type NumberDraftProps = DraftConfigurationProps<number> & {
   max?: number;
   min?: number;
-  name: string;
-  onCommit: (value: number) => void;
-  onEscape: () => void;
   step?: number | "any";
-  validate?: (value: number) => string | null;
-  value: number;
-}) {
-  const committedValue = String(value);
+};
+
+export function DraftTextConfigurationRow(props: TextDraftProps) {
+  return <DraftConfigurationRow {...props} type="text" />;
+}
+
+export function DraftNumberConfigurationRow(props: NumberDraftProps) {
+  return <DraftConfigurationRow {...props} type="number" />;
+}
+
+function numberDraftError(
+  draft: string,
+  value: number,
+  label: string,
+  validate: NumberDraftProps["validate"],
+): string | null {
+  return draft.trim() === "" || !Number.isFinite(value)
+    ? `${label} must be a finite number.`
+    : (validate?.(value) ?? null);
+}
+
+function DraftConfigurationRow(
+  props:
+    | (TextDraftProps & { type: "text" })
+    | (NumberDraftProps & { type: "number" }),
+) {
+  const { disabled, label, name, onEscape } = props;
+  const committedValue = String(props.value);
   const [draft, setDraft] = useState(committedValue);
   const [error, setError] = useState<string | null>(null);
   const skipBlurRef = useRef(false);
@@ -313,33 +258,45 @@ export function DraftNumberConfigurationRow({
   }
 
   function commit(): void {
-    const nextValue = Number(draft);
-    const nextError =
-      draft.trim() === "" || !Number.isFinite(nextValue)
-        ? `${label} must be a finite number.`
-        : (validate?.(nextValue) ?? null);
-    if (nextError) {
+    if (props.type === "number") {
+      const nextValue = Number(draft);
+      const nextError = numberDraftError(
+        draft,
+        nextValue,
+        label,
+        props.validate,
+      );
       setError(nextError);
-      return;
+      if (nextError) return;
+      if (nextValue === props.value) {
+        setDraft(committedValue);
+      } else {
+        props.onCommit(nextValue);
+      }
+    } else {
+      const nextError =
+        draft === props.value ? null : (props.validate?.(draft) ?? null);
+      setError(nextError);
+      if (!nextError && draft !== props.value) props.onCommit(draft);
     }
-    if (nextValue === value) {
-      setError(null);
-      setDraft(committedValue);
-      return;
-    }
-    setError(null);
-    onCommit(nextValue);
   }
 
+  const inputProps =
+    props.type === "number"
+      ? {
+          inputMode: "decimal" as const,
+          max: props.max,
+          min: props.min,
+          step: props.step ?? "any",
+        }
+      : { placeholder: props.placeholder, spellCheck: props.spellCheck };
   return (
     <ConfigurationRow error={error} label={label} name={name}>
-      {(props) => (
+      {(fieldProps) => (
         <input
-          {...props}
+          {...fieldProps}
+          {...inputProps}
           disabled={disabled}
-          inputMode="decimal"
-          max={max}
-          min={min}
           onBlur={() => {
             if (skipBlurRef.current) {
               skipBlurRef.current = false;
@@ -347,21 +304,18 @@ export function DraftNumberConfigurationRow({
             }
             commit();
           }}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          onChange={(event) => {
             setDraft(event.currentTarget.value);
             setError(null);
           }}
           onKeyDown={(event) => {
-            if (handleEscape(event, onEscape, reset)) {
-              return;
-            }
+            if (handleEscape(event, onEscape, reset)) return;
             if (event.key === "Enter") {
               event.preventDefault();
               event.currentTarget.blur();
             }
           }}
-          step={step}
-          type="number"
+          type={props.type}
           value={draft}
         />
       )}

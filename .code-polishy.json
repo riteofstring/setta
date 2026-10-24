@@ -22,21 +22,8 @@
           "scripts/inspect-playground.mjs",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
-          "scripts/lib/parity-image.mjs",
-          "scripts/lib/playground-parity-provenance.mjs",
           "scripts/profile-workspace-performance.mjs",
-          "scripts/workspace-browser-interactions.mjs",
-          "scripts/xyflow-parity/artifact-output.mjs",
-          "scripts/xyflow-parity/capture-actions.mjs",
-          "scripts/xyflow-parity/capture-geometry.mjs",
-          "scripts/xyflow-parity/capture-playground.mjs",
-          "scripts/xyflow-parity/compare-geometry.mjs",
-          "scripts/xyflow-parity/compare-playground.mjs",
-          "scripts/xyflow-parity/scenario-catalog-canvas.mjs",
-          "scripts/xyflow-parity/scenario-catalog-interface.mjs",
-          "scripts/xyflow-parity/scenario-catalog-values.mjs",
-          "scripts/xyflow-parity/scenario-catalog-windows.mjs",
-          "scripts/xyflow-parity/scenario-catalog.mjs"
+          "scripts/workspace-browser-interactions.mjs"
         ]
       },
       {
@@ -50,7 +37,6 @@
     ]
   },
   "scope": {
-    "generated": ["docs/evidence/**/*.json", "docs/evidence/**/*.json.gz"],
     "entryPoints": [
       "examples/workspace-playground/vitest.setup.ts",
       "packages/workspace/tailwind-preset.mjs",
@@ -61,8 +47,6 @@
       "scripts/compile-katex-styles.mjs",
       "scripts/profile-workspace-performance.mjs",
       "scripts/workspace-browser-interactions.mjs",
-      "scripts/xyflow-parity/capture-playground.mjs",
-      "scripts/xyflow-parity/compare-playground.mjs",
       "scripts/verify-packed-consumer.mjs",
       "packages/workspace/src/browser/index.ts"
     ],
@@ -79,7 +63,7 @@
   "quality": {
     "allowComments": false,
     "lineBudget": {
-      "production": 95000
+      "production": 85000
     }
   },
   "portability": {},
