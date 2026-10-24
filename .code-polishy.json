@@ -9,21 +9,23 @@
       {
         "path": "docs/design/development-tooling.md",
         "sourcePaths": [
-          "examples/workspace-playground/vite.config.ts",
-          "examples/workspace-playground/src/viteSecurity.test.ts",
-          "examples/workspace-playground/vitest.config.ts",
-          "examples/workspace-playground/vitest.setup.ts",
           "packages/workspace/vite.config.ts",
           "packages/workspace/editorBuild.ts",
           "packages/workspace/vitest.setup.ts",
           "scripts/cdp-port.sh",
           "scripts/chrome-devtools-mcp.sh",
           "scripts/check-workspace-policy.mjs",
-          "scripts/inspect-playground.mjs",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
           "scripts/profile-workspace-performance.mjs",
-          "scripts/workspace-browser-interactions.mjs"
+          "scripts/workspace-browser-interactions.mjs",
+          "scripts/lib/browser-fixture.mjs",
+          "scripts/lib/packed-consumer-browser.mjs",
+          "scripts/verify-packed-consumer.mjs",
+          "fixtures/packed-consumer/src/main.tsx",
+          "fixtures/packed-consumer/src/browserFixture.tsx",
+          "fixtures/packed-consumer/src/consumer.css",
+          "fixtures/packed-consumer/index.html"
         ]
       },
       {
@@ -38,7 +40,6 @@
   },
   "scope": {
     "entryPoints": [
-      "examples/workspace-playground/vitest.setup.ts",
       "packages/workspace/tailwind-preset.mjs",
       "packages/workspace/tailwind.config.d.ts",
       "packages/workspace/vitest.setup.ts",
@@ -51,7 +52,6 @@
       "packages/workspace/src/browser/index.ts"
     ],
     "development": [
-      "examples/workspace-playground/**",
       "fixtures/**",
       "packages/workspace/tailwind.config.js",
       "packages/workspace/vite.config.ts",
@@ -63,7 +63,7 @@
   "quality": {
     "allowComments": false,
     "lineBudget": {
-      "production": 85000
+      "production": 81000
     }
   },
   "portability": {},
@@ -71,11 +71,6 @@
     {
       "name": "workspace",
       "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
-    },
-    {
-      "name": "workspace-playground",
-      "paths": ["examples/workspace-playground/**"],
-      "dependsOn": ["workspace"]
     },
     {
       "name": "local-backend",
@@ -87,7 +82,7 @@
       "name": "setta-package-contract",
       "provides": ["package-contract"],
       "argv": ["node", "scripts/check-package-boundary.mjs"],
-      "modules": ["workspace", "workspace-playground"],
+      "modules": ["workspace"],
       "runOn": ["check", "gate"],
       "timeoutSeconds": 300
     },
@@ -96,20 +91,6 @@
       "provides": ["build"],
       "argv": ["pnpm", "--filter", "@riteofstring/setta", "run", "build"],
       "modules": ["workspace"],
-      "runOn": ["build"],
-      "timeoutSeconds": 900
-    },
-    {
-      "name": "workspace-playground-build",
-      "provides": ["build"],
-      "argv": [
-        "pnpm",
-        "--filter",
-        "@setta/workspace-playground",
-        "run",
-        "build"
-      ],
-      "modules": ["workspace-playground"],
       "runOn": ["build"],
       "timeoutSeconds": 900
     },
@@ -126,7 +107,7 @@
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
-      "modules": ["workspace", "workspace-playground"],
+      "modules": ["workspace"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
     },
@@ -142,8 +123,6 @@
   ],
   "tests": {
     "paths": [
-      "examples/workspace-playground/src/**/*.test.ts",
-      "examples/workspace-playground/src/**/*.test.tsx",
       "packages/local-backend/**/*_test.go",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
@@ -156,14 +135,6 @@
         ],
         "module": "workspace",
         "focusedSuite": "workspace-focused"
-      },
-      {
-        "paths": [
-          "examples/workspace-playground/src/**/*.test.ts",
-          "examples/workspace-playground/src/**/*.test.tsx"
-        ],
-        "module": "workspace-playground",
-        "focusedSuite": "workspace-playground-focused"
       },
       {
         "paths": ["packages/local-backend/**/*_test.go"],
@@ -187,7 +158,7 @@
       },
       {
         "name": "workspace-focused",
-        "kind": "unit",
+        "kind": "component",
         "scope": "module",
         "cost": "quick",
         "modules": ["workspace"],
@@ -200,31 +171,18 @@
         "timeoutSeconds": 1200
       },
       {
-        "name": "workspace-playground-focused",
-        "kind": "component",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["workspace-playground"],
-        "paths": [
-          "examples/workspace-playground/src/**/*.test.ts",
-          "examples/workspace-playground/src/**/*.test.tsx"
-        ],
-        "argv": ["pnpm", "--filter", "@setta/workspace-playground", "test"],
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 1200
-      },
-      {
         "name": "workspace-browser-interactions",
         "kind": "browser",
         "scope": "repository",
         "cost": "standard",
         "paths": [
-          "examples/workspace-playground/**",
           "packages/workspace/src/canvas/**",
           "packages/workspace/src/windowing/**",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
-          "scripts/workspace-browser-interactions.mjs"
+          "scripts/workspace-browser-interactions.mjs",
+          "fixtures/packed-consumer/**",
+          "scripts/lib/browser-fixture.mjs"
         ],
         "argv": ["pnpm", "run", "workspace:browser:test"],
         "runOn": ["recommended", "full"],
@@ -392,7 +350,7 @@
         "severity": "high",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. No other checked-in command exposes that dev-server route; builds and static previews do not launch editors. Windows path parsing cannot reach process execution. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "reason": "Repository commands use Vite only for builds and optional static preview. Browser checks serve compiled fixture files through a fixed Node HTTP file map. No Vite development server, editor-launch middleware, SSR transformIndexHtml request, or dev import-analysis route is exposed. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
         "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
         "evidence": "https://osv.dev/vulnerability/GHSA-587h-7wmj-h5pm",
         "owner": "Codex",
@@ -426,7 +384,7 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. The Windows shell-command sink cannot receive request filenames, including percent expansion or alternate-stream payloads. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "reason": "Repository commands use Vite only for builds and optional static preview. Browser checks serve compiled fixture files through a fixed Node HTTP file map. No Vite development server, editor-launch middleware, SSR transformIndexHtml request, or dev import-analysis route is exposed. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
         "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
         "evidence": "https://osv.dev/vulnerability/GHSA-698v-4r3x-3vcv",
         "owner": "Codex",
@@ -460,7 +418,7 @@
         "severity": "low",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The Playground uses Vite default SPA handling and an external module entry. Setta supplies no request URL to transformIndexHtml and configures neither custom app mode nor an SSR middleware integration. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "reason": "Repository commands use Vite only for builds and optional static preview. Browser checks serve compiled fixture files through a fixed Node HTTP file map. No Vite development server, editor-launch middleware, SSR transformIndexHtml request, or dev import-analysis route is exposed. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
         "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
         "evidence": "https://osv.dev/vulnerability/GHSA-9jrq-w75r-8gcw",
         "owner": "Codex",
@@ -528,7 +486,7 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. No checked-in caller invokes launch-editor directly, so attacker filenames cannot reach editor CLI parsing on Windows, WSL, or other supported hosts. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "reason": "Repository commands use Vite only for builds and optional static preview. Browser checks serve compiled fixture files through a fixed Node HTTP file map. No Vite development server, editor-launch middleware, SSR transformIndexHtml request, or dev import-analysis route is exposed. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
         "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
         "evidence": "https://osv.dev/vulnerability/GHSA-r825-w8mm-5pxw",
         "owner": "Codex",
@@ -596,7 +554,7 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The only authored dev command uses the default loopback listener and repository-owned /src imports. Explicit --host arguments occur only in static preview harnesses, which do not execute dev-server import analysis or populate safeModulePaths. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "reason": "Repository commands use Vite only for builds and optional static preview. Browser checks serve compiled fixture files through a fixed Node HTTP file map. No Vite development server, editor-launch middleware, SSR transformIndexHtml request, or dev import-analysis route is exposed. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
         "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
         "evidence": "https://osv.dev/vulnerability/GHSA-rq7h-c2jc-7f22",
         "owner": "Codex",

@@ -421,7 +421,7 @@ and the compiled stylesheet only. An isolated browser then renders editable and 
 types into the editor, and undoes the edit. This catches runtime dependency-identity failures that
 a successful bundler cannot detect. It is an artifact contract suite rather than routine source lint.
 
-The production performance profile uses the deterministic 256-section playground route and records
+The production performance profile uses the deterministic 256-section browser fixture route and records
 initial render, sustained panning, and drag behavior. Timing is machine-local evidence, never a
 portable CI threshold. Fixture drift, missing gesture work, browser errors, and host-page scrolling
 remain hard failures so a faster incomplete interaction cannot report success.
@@ -457,5 +457,5 @@ handler settles are ignored. The client keeps the latest report per stage, reset
 request or cancellation. Models, download/cache policy, and GPU resources remain application-owned.
 
 The npm artifact exports ESM, declarations, compiled scoped styles, and the independent browser
-entry under the canonical `@riteofstring/setta` name. Examples stay private; the library carries its
+entry under the canonical `@riteofstring/setta` name. Browser fixtures stay private; the library carries its
 own Apache license and public repository metadata. Source aliases are not a consumer API.

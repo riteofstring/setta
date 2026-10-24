@@ -1,6 +1,5 @@
 packages:
   - "packages/*"
-  - "examples/*"
   - "fixtures/packed-consumer"
 
 saveExact: true

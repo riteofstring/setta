@@ -10,6 +10,6 @@ Setta publishes two packages:
 Applications depend on these packages; the packages import no product code, and product-specific
 schemas, routes, projections, and workflows stay with the application.
 
-The browser-only Workspace example lives in
-[`examples/workspace-playground`](../examples/workspace-playground/). `local-backend` has no visual
-playground; its behavior is exercised through package tests.
+The public browser demo lives in the separate `setta-site` repository. Private package regression
+fixtures live in [`fixtures/packed-consumer`](../fixtures/packed-consumer/); `local-backend` is
+exercised through package tests.

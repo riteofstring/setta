@@ -8,8 +8,8 @@ are welcome.
 Use an issue to describe substantial behavior or architecture changes before investing in an
 implementation. Small, well-scoped fixes can go directly to a pull request.
 
-Setta is a monorepo with its published packages under `packages/` and runnable examples under
-`examples/`. Read the relevant design note in [`docs/design`](docs/design/) before
+Setta is a monorepo with its published packages under `packages/` and private browser fixtures under
+`fixtures/`. Read the relevant design note in [`docs/design`](docs/design/) before
 changing an established boundary.
 
 ## Source setup
@@ -39,7 +39,8 @@ pnpm install --frozen-lockfile --ignore-scripts
 On PowerShell use `.\code-polishyw.ps1` in place of `./code-polishyw`.
 Use the actual target branch in place of `origin/main` when contributing elsewhere. Resolve security or policy findings before proceeding.
 
-Run `pnpm workspace:playground` to open the Workspace component gallery.
+Run `pnpm workspace:browser:test` for browser regressions and `pnpm consumer:check` for the packed
+artifact contract. The public demo is maintained separately in `setta-site`.
 
 ## Development workflow
 

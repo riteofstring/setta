@@ -63,8 +63,9 @@ Neither the React workspace nor the browser pipeline requires Go.
 
 ## Development
 
-The [workspace component gallery](examples/workspace-playground/) is available with
-`pnpm workspace:playground`. It is a development reference; the public Gaussian splat playground is at [setta.dev](https://setta.dev).
+The public Gaussian splat playground is at [setta.dev](https://setta.dev), maintained in the separate
+`setta-site` repository. Private [browser fixtures](fixtures/packed-consumer/) exercise the package
+with `pnpm workspace:browser:test` and `pnpm consumer:check`.
 
 See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), [security](SECURITY.md), and the
 [release procedure](docs/releasing.md). Setta is alpha software; APIs may change before 1.0.

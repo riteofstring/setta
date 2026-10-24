@@ -528,11 +528,6 @@ rename, reorder, and delete controls. Section inclusion remains on the canvas in
 duplicated as a hierarchy in the pane. Inline name drafts validate as the user types; blur or Enter
 restores the last valid name when a draft is invalid, while Escape cancels the draft.
 
-The Playground provides three bookmarked examples: Overview shows the whole fixture, Content shows
-only the item, code, and rendered/source text sections in a focused arrangement, and Controls shows
-only the meta-control sections in a compact grid. Switching among them changes what is visible,
-where the visible roots sit, and the camera without cloning any section data.
-
 Set `WorkspaceDocument.savedViews` to `null` to disable the capability. An enabled state has one
 active view and at least one validated `WorkspaceSavedView`. `createWorkspaceSavedViewsState`
 creates the first all-visible view from a document, and `includeBuiltInSavedViews` exposes the
@@ -924,7 +919,7 @@ not need to add touch padding to package chrome.
 accepted 4:3 size until the canvas is too narrow, then clamps inside the pane. The canvas is a
 genuine two-dimensional surface and pans internally, but surrounding host chrome must reflow rather
 than creating page-level horizontal scrolling. Do not restrict browser zoom in the viewport meta
-tag. The playground and packed-consumer fixture demonstrate wrapping chrome at the 200% browser-zoom
+tag. The packed-consumer fixture demonstrates wrapping chrome at the 200% browser-zoom
 content breakpoint and a compact 320 px shell.
 
 ## Controlled document and subscriptions
@@ -1462,7 +1457,7 @@ dependency overrides; its third-party notices are included in `dist/EDITOR-NOTIC
 emits declarations, the Tailwind CLI compiles the stylesheet from package source alone,
 `scripts/compile-katex-styles.mjs` folds KaTeX's presentation rules into that stylesheet scoped
 and with its faces inlined, and `scripts/check-package-boundary.mjs --built` verifies the artifact
-imports and stylesheet scoping. The quality gate typechecks the playground against the built
+imports and stylesheet scoping. The quality gate typechecks the private browser fixture against the built
 declarations, so build before running it on a fresh tree.
 
 The compiled stylesheet is the package's only stylesheet: the built entry imports no dependency
@@ -1474,8 +1469,7 @@ Preflight subset the package's own elements rely on is scoped under the `setta-w
 marker class (`src/styles/scopedBase.css`), which the package applies to every root it
 renders — the canvas, the toolbar and tooltip surfaces, and the drag overlays portaled to
 `document.body`. Hosts need no Tailwind setup; the optional `@riteofstring/setta/tailwind-preset`
-export exists for hosts that want the setta palette in their own chrome, as the playground
-does. Host page context (fonts, background) stays host-owned, as in the reference application.
+export exists for hosts that want the setta palette in their own chrome. Host page context (fonts, background) stays host-owned, as in the reference application.
 
 The manifest is deliberately exports-only: it has no duplicate top-level `main`, `module`,
 `types`, `typings`, or `typesVersions` path. TypeScript consumers use a package-exports-aware

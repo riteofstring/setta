@@ -1,6 +1,4 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { once } from "node:events";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,15 +16,18 @@ import {
   INTERACTION_PROBE_INIT_SCRIPT,
   selectCdpMetrics,
 } from "./lib/interaction-profile.mjs";
-import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
+import { repositoryRoot, run } from "./lib/process.mjs";
+import {
+  browserFixtureRoot,
+  buildBrowserFixture,
+  serveBrowserFixture,
+} from "./lib/browser-fixture.mjs";
 
 const EXPECTED_SECTION_COUNT = 256;
 const EXPECTED_VISIBLE_SECTION_COUNT = 24;
 
 const EXPECTED_CANVAS_SIZE = { height: 602, width: 1446 };
 const DRAG_TARGET_ID = "performance-drag-target";
-const PREVIEW_PORT = 4174;
-const PREVIEW_ORIGIN = `http://127.0.0.1:${String(PREVIEW_PORT)}`;
 const VIEWPORT = {
   deviceScaleFactor: 1,
   height: 696,
@@ -39,9 +40,10 @@ const GESTURE_SETTLE_MS = 250;
 const GESTURE_VECTOR = { x: 150, y: 75 };
 const PAN_VECTOR = { x: 180, y: 90 };
 const PROFILE_INPUT_PATHS = [
-  "examples/workspace-playground/src/main.tsx",
-  "examples/workspace-playground/src/PerformanceProfileApp.tsx",
-  "examples/workspace-playground/src/performanceProfileDocument.ts",
+  "fixtures/packed-consumer/src/browserFixture.tsx",
+  "fixtures/packed-consumer/src/main.tsx",
+  "fixtures/packed-consumer/src/consumer.css",
+  "scripts/lib/browser-fixture.mjs",
   "packages/workspace/src/canvas/nodeInternalsActions.ts",
   "scripts/lib/cdp-client.mjs",
   "scripts/lib/interaction-profile.mjs",
@@ -67,14 +69,6 @@ function positiveIntegerArgument(name, fallback) {
     throw new Error(`--${name} must be a positive integer.`);
   }
   return value;
-}
-
-function buildProfileSurface(skipBuild) {
-  if (skipBuild) {
-    return;
-  }
-  runPnpm(["--filter", "@riteofstring/setta", "run", "build"]);
-  runPnpm(["--filter", "@setta/workspace-playground", "run", "build"]);
 }
 
 function profileInputSha256() {
@@ -111,92 +105,6 @@ function directorySha256(relativeDirectory) {
     hash.update("\0");
   }
   return hash.digest("hex");
-}
-
-function startPreview() {
-  const playgroundRoot = path.join(
-    repositoryRoot,
-    "examples/workspace-playground",
-  );
-  const viteEntry = path.join(playgroundRoot, "node_modules/vite/bin/vite.js");
-  const child = spawn(
-    process.execPath,
-    [
-      viteEntry,
-      "preview",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(PREVIEW_PORT),
-      "--strictPort",
-    ],
-    {
-      cwd: playgroundRoot,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  const output = { stderr: "", stdout: "" };
-  child.stderr.on("data", (chunk) => {
-    output.stderr = `${output.stderr}${String(chunk)}`.slice(-8_000);
-  });
-  child.stdout.on("data", (chunk) => {
-    output.stdout = `${output.stdout}${String(chunk)}`.slice(-8_000);
-  });
-  return { child, output };
-}
-
-async function waitForPreview(preview) {
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (preview.child.exitCode !== null) {
-      throw new Error(
-        `Playground preview exited with ${String(preview.child.exitCode)}.\n` +
-          `${preview.output.stderr || preview.output.stdout}`,
-      );
-    }
-    let response = null;
-    try {
-      response = await fetch(PREVIEW_ORIGIN);
-    } catch (error) {
-      if (!(error instanceof TypeError)) {
-        throw error;
-      }
-    }
-    if (response?.ok) {
-      return;
-    }
-    await delay(100);
-  }
-  throw new Error(
-    "Playground production preview did not become ready within 15 seconds.",
-  );
-}
-
-async function stopPreview(preview) {
-  if (preview.child.exitCode !== null) {
-    return;
-  }
-  const gracefulExit = once(preview.child, "exit");
-  preview.child.kill("SIGTERM");
-  const exitedGracefully = await Promise.race([
-    gracefulExit.then(() => true),
-    delay(2_000).then(() => false),
-  ]);
-  if (exitedGracefully) {
-    return;
-  }
-  const forcedExit = once(preview.child, "exit");
-  preview.child.kill("SIGKILL");
-  const exitedForcibly = await Promise.race([
-    forcedExit.then(() => true),
-    delay(2_000).then(() => false),
-  ]);
-  if (!exitedForcibly) {
-    throw new Error(
-      `Playground preview process ${String(preview.child.pid)} did not terminate.`,
-    );
-  }
 }
 
 async function evaluate(client, expression) {
@@ -271,9 +179,9 @@ function loadProbeScript() {
   })();`;
 }
 
-function profileUrl(scenario, pass) {
-  const url = new URL(PREVIEW_ORIGIN);
-  url.searchParams.set("performance-profile", "");
+function profileUrl(origin, scenario, pass) {
+  const url = new URL(origin);
+  url.searchParams.set("fixture", "performance");
   url.searchParams.set("pass", String(pass));
   url.searchParams.set("scenario", scenario);
   return url.toString();
@@ -393,9 +301,9 @@ const RENDER_COUNTS_EXPRESSION = `(() => {
   };
 })()`;
 
-async function prepareProfilePage(client, issues, scenario, pass) {
+async function prepareProfilePage(client, issues, origin, scenario, pass) {
   issues.clear();
-  await navigate(client, profileUrl(scenario, pass));
+  await navigate(client, profileUrl(origin, scenario, pass));
   const load = await waitForProfileReady(
     client,
     issues,
@@ -415,7 +323,7 @@ function assertMountedProfileCounts(counts) {
   }
   if (counts.mountedTopLevelNodes !== EXPECTED_SECTION_COUNT) {
     throw new Error(
-      `Frozen-main parity requires all ${String(EXPECTED_SECTION_COUNT)} baseline nodes mounted; saw ${String(counts.mountedTopLevelNodes)}.`,
+      `The performance fixture requires all ${String(EXPECTED_SECTION_COUNT)} nodes mounted; saw ${String(counts.mountedTopLevelNodes)}.`,
     );
   }
 }
@@ -709,7 +617,7 @@ async function configureCdpClient(client) {
   });
 }
 
-async function collectProfile(client, passes) {
+async function collectProfile(client, origin, passes) {
   const issues = pageIssueCollector(client);
   const render = [];
   const pan = [];
@@ -720,7 +628,13 @@ async function collectProfile(client, passes) {
       console.error(
         `[performance] render pass ${String(pass)}/${String(passes)}`,
       );
-      const prepared = await prepareProfilePage(client, issues, "render", pass);
+      const prepared = await prepareProfilePage(
+        client,
+        issues,
+        origin,
+        "render",
+        pass,
+      );
       const { metrics } = await client.send("Performance.getMetrics");
       render.push({ ...prepared, cdp: selectCdpMetrics(metrics), pass });
       pan.push(
@@ -737,7 +651,7 @@ async function collectProfile(client, passes) {
       console.error(
         `[performance] drag pass ${String(pass)}/${String(passes)}`,
       );
-      await prepareProfilePage(client, issues, "drag", pass);
+      await prepareProfilePage(client, issues, origin, "drag", pass);
       drag.push(
         await measureGesture(client, issues, {
           pass,
@@ -756,13 +670,12 @@ async function collectProfile(client, passes) {
 
 async function main() {
   const passes = positiveIntegerArgument("passes", 3);
-  buildProfileSurface(process.argv.includes("--skip-build"));
-  const preview = startPreview();
+  buildBrowserFixture(process.argv.includes("--skip-build"));
+  const { server, url } = await serveBrowserFixture(browserFixtureRoot);
   let browser = null;
   let client = null;
   try {
-    await waitForPreview(preview);
-    console.error(`[performance] preview ready on ${PREVIEW_ORIGIN}`);
+    console.error(`[performance] fixture ready on ${url}`);
     browser = startHeadlessChrome(argumentValue("chrome-binary"));
     const cdpPort = await waitForHeadlessChrome(browser);
     const page = await createCdpPage(cdpPort);
@@ -772,12 +685,12 @@ async function main() {
       `[performance] isolated headless CDP target ready on port ${String(cdpPort)}`,
     );
     const { product, userAgent } = await client.send("Browser.getVersion");
-    const observations = await collectProfile(client, passes);
+    const observations = await collectProfile(client, url, passes);
     const result = {
       context: {
         artifactSha256: {
           packageDist: directorySha256("packages/workspace/dist"),
-          playgroundDist: directorySha256("examples/workspace-playground/dist"),
+          fixtureDist: directorySha256("fixtures/packed-consumer/dist"),
         },
         baseCommit: run("git", ["rev-parse", "HEAD"], {
           capture: true,
@@ -829,7 +742,7 @@ async function main() {
         await stopHeadlessChrome(browser);
       }
     } finally {
-      await stopPreview(preview);
+      await new Promise((resolve) => server.close(resolve));
     }
   }
 }

@@ -41,6 +41,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
+import { mountBrowserFixture } from "./browserFixture";
 
 function getNoteText(section: WorkspaceSection): string {
   const data = section.data;
@@ -582,127 +583,136 @@ function ConsumerApp() {
   );
 }
 
-const workspaceHost = createWorkspaceHost();
-setWorkspaceColorMode(
-  workspaceHost,
-  document.documentElement.classList.contains("dark") ? "dark" : "light",
-);
-registerSectionKinds(workspaceHost, {
-  [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
-  note: {
-    renderContent: (section) => <NoteBody section={section} />,
-    renderInspector: (context) => (
-      <p className="consumer-host-pane">
-        Packed host Inspector contribution for {context.type}.
-      </p>
-    ),
-    icon: NoteIcon,
-    defaultSize: { width: 240, height: 140 },
-  },
-  "packed-time": {
-    renderContent: (section) => <PackedTimeBody section={section} />,
-    renderInspector: (context) => (
-      <p className="consumer-host-pane">
-        Packed host Inspector contribution for {context.type}.
-      </p>
-    ),
-    presentation: {
-      type: "meta-control",
-      resolveControlKind: () => "time",
-      onEdit: () => {},
-    },
-  },
-  "packed-items": {
-    renderContent: (section) => <PackedItemsBody section={section} />,
-    renderInspector: (context) => (
-      <p className="consumer-host-pane">
-        Packed host Inspector contribution for {context.type}.
-      </p>
-    ),
-    itemArea: { toolbar: "authoring-and-filter" },
-    contentClassName: "consumer-packed-items",
-    defaultSize: { width: 320, height: 160 },
-  },
-});
-registerWorkspaceCreationCommands(workspaceHost, [
-  {
-    id: "consumer-note",
-    label: "Packed note",
-    group: "Consumer",
-    chord: "N",
-    icon: NoteIcon,
-    createSection: createConsumerNote,
-  },
-]);
-registerWorkspaceCommands(workspaceHost, [
-  {
-    id: "consumer-pane-position",
-    scope: "pane",
-    surfaces: ["context-menu"],
-    label: "Report packed position",
-    run: (context) => {
-      const position = context.workspacePosition;
-      publishConsumerMenuStatus(
-        position
-          ? `Packed pane action at ${Math.round(position.x)}, ${Math.round(position.y)}.`
-          : "Packed pane action with no pointer position.",
-      );
-    },
-  },
-  {
-    id: "consumer-section-selection",
-    scope: "section",
-    surfaces: ["context-menu", "header", "inspector"],
-    label: "Report packed selection",
-    run: (context) =>
-      publishConsumerMenuStatus(
-        `Packed section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
+function mountConsumer(rootElement: HTMLElement): void {
+  const workspaceHost = createWorkspaceHost();
+  setWorkspaceColorMode(
+    workspaceHost,
+    document.documentElement.classList.contains("dark") ? "dark" : "light",
+  );
+  registerSectionKinds(workspaceHost, {
+    [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
+    note: {
+      renderContent: (section) => <NoteBody section={section} />,
+      renderInspector: (context) => (
+        <p className="consumer-host-pane">
+          Packed host Inspector contribution for {context.type}.
+        </p>
       ),
-  },
-  {
-    id: "consumer-item-identity",
-    scope: "item",
-    surfaces: ["context-menu"],
-    label: "Report packed item",
-    run: (context) =>
-      publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
-  },
-  {
-    id: "consumer-outline-selection",
-    scope: "section",
-    surfaces: ["outline"],
-    label: "Report packed Outline row",
-    run: (context) =>
-      publishConsumerMenuStatus(
-        `Packed Outline action for ${context.section.name}.`,
+      icon: NoteIcon,
+      defaultSize: { width: 240, height: 140 },
+    },
+    "packed-time": {
+      renderContent: (section) => <PackedTimeBody section={section} />,
+      renderInspector: (context) => (
+        <p className="consumer-host-pane">
+          Packed host Inspector contribution for {context.type}.
+        </p>
       ),
-  },
-]);
+      presentation: {
+        type: "meta-control",
+        resolveControlKind: () => "time",
+        onEdit: () => {},
+      },
+    },
+    "packed-items": {
+      renderContent: (section) => <PackedItemsBody section={section} />,
+      renderInspector: (context) => (
+        <p className="consumer-host-pane">
+          Packed host Inspector contribution for {context.type}.
+        </p>
+      ),
+      itemArea: { toolbar: "authoring-and-filter" },
+      contentClassName: "consumer-packed-items",
+      defaultSize: { width: 320, height: 160 },
+    },
+  });
+  registerWorkspaceCreationCommands(workspaceHost, [
+    {
+      id: "consumer-note",
+      label: "Packed note",
+      group: "Consumer",
+      chord: "N",
+      icon: NoteIcon,
+      createSection: createConsumerNote,
+    },
+  ]);
+  registerWorkspaceCommands(workspaceHost, [
+    {
+      id: "consumer-pane-position",
+      scope: "pane",
+      surfaces: ["context-menu"],
+      label: "Report packed position",
+      run: (context) => {
+        const position = context.workspacePosition;
+        publishConsumerMenuStatus(
+          position
+            ? `Packed pane action at ${Math.round(position.x)}, ${Math.round(position.y)}.`
+            : "Packed pane action with no pointer position.",
+        );
+      },
+    },
+    {
+      id: "consumer-section-selection",
+      scope: "section",
+      surfaces: ["context-menu", "header", "inspector"],
+      label: "Report packed selection",
+      run: (context) =>
+        publishConsumerMenuStatus(
+          `Packed section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
+        ),
+    },
+    {
+      id: "consumer-item-identity",
+      scope: "item",
+      surfaces: ["context-menu"],
+      label: "Report packed item",
+      run: (context) =>
+        publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
+    },
+    {
+      id: "consumer-outline-selection",
+      scope: "section",
+      surfaces: ["outline"],
+      label: "Report packed Outline row",
+      run: (context) =>
+        publishConsumerMenuStatus(
+          `Packed Outline action for ${context.section.name}.`,
+        ),
+    },
+  ]);
 
-registerWorkspaceKeyBindings(workspaceHost, [
-  { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
-]);
+  registerWorkspaceKeyBindings(workspaceHost, [
+    { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
+  ]);
 
-registerWorkspaceToolbarContributions(workspaceHost, [
-  {
-    kind: "creation",
-    commandId: "consumer-note",
-    icon: NoteIcon,
-    placement: "before-viewport",
-    description: "Add a packed note in empty space",
-  },
-]);
-workspaceHost.loadDocument(consumerDocument);
+  registerWorkspaceToolbarContributions(workspaceHost, [
+    {
+      kind: "creation",
+      commandId: "consumer-note",
+      icon: NoteIcon,
+      placement: "before-viewport",
+      description: "Add a packed note in empty space",
+    },
+  ]);
+  workspaceHost.loadDocument(consumerDocument);
+
+  createRoot(rootElement).render(
+    <StrictMode>
+      <WorkspaceProvider host={workspaceHost}>
+        <ConsumerApp />
+      </WorkspaceProvider>
+    </StrictMode>,
+  );
+}
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("Packed consumer root element missing.");
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <WorkspaceProvider host={workspaceHost}>
-      <ConsumerApp />
-    </WorkspaceProvider>
-  </StrictMode>,
-);
+const mode = new URLSearchParams(location.search).get("fixture");
+if (mode === null) {
+  mountConsumer(rootElement);
+} else {
+  mountBrowserFixture(rootElement, mode);
+}

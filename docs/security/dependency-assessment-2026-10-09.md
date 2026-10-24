@@ -113,7 +113,7 @@ WebSocket usage. A clean scanner result is not a substitute for this reachabilit
 Assessor: Claude. The four example applications, the Python runtime, and their Go modules were
 removed from the repository. No remaining caller gained a new path to any assessed API, so the
 conclusions above still hold for the published `@riteofstring/setta` package, the
-`local-backend` Go module, the Workspace Playground, and the checked-in build and test commands.
+`local-backend` Go module, the private browser fixture, and the checked-in build and test commands.
 KaTeX remains reachable only through `WorkspaceMarkdown.tsx` as described. The three `fast-uri`
 findings no longer apply because AJV and `fast-uri` left the dependency graph with the
 applications' generated validators; their assessments were retired. Only the `local-backend`
@@ -130,45 +130,35 @@ owns the pin used by CI; the root engine declaration and packed-consumer templat
 
 ### Vite 6.4.3
 
-The supported interactive development entry is `pnpm workspace:playground`, which invokes Vite
-in `examples/workspace-playground`. Workspace and packed-consumer commands use Vite for builds;
-browser interaction and performance harnesses use `vite preview` bound to `127.0.0.1`. Those
-static previews do not install Vite's development editor middleware or import-analysis pipeline.
+The repository uses Vite for library and fixture builds and the packed-consumer template's
+optional static preview. The browser interaction, performance, and packed-consumer checks share
+`scripts/lib/browser-fixture.mjs`: a loopback Node HTTP server over a fixed map of compiled files.
+There is no authored Vite development-server command, source-transform request path, or direct
+editor launcher.
 
-The resolved Vite 6.4.3 bundle installs `launchEditorMiddleware` at `/__open-in-editor` and passes
-the request's `file` parameter through `path.resolve` to `launchEditor`. On Windows the latter
-constructs a shell command; on WSL it can turn an absolute path into a relative editor argument.
-Loopback binding alone is not a sufficient claim of non-exposure for this process-launch route.
-The Playground's Vite configuration now registers an HTTP 403 handler at that path before Vite
-registers its own handler, using Vite's configured URL base. Requests cannot reach filename
-parsing, editor discovery, or process
-creation on any supported host. The executable boundary test loads that configuration, serves
-temporary HTML successfully, and verifies editor requests are rejected at both root and nested
-URL bases.
+The resolved Vite 6.4.3 development server installs `launchEditorMiddleware` at
+`/__open-in-editor` and passes a request's `file` parameter through `path.resolve` to
+`launchEditor`. On Windows that can reach shell construction; on WSL it can become a relative
+editor argument. The checked-in build commands and fixture server do not install that middleware.
 
-| Advisory                                                                 | Reachability decision                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [GHSA-587h-7wmj-h5pm](https://osv.dev/vulnerability/GHSA-587h-7wmj-h5pm) | The Windows `existsSync` bypass cannot reach the shell sink because the HTTP editor route is rejected first.                                                                                                                                                            |
-| [GHSA-698v-4r3x-3vcv](https://osv.dev/vulnerability/GHSA-698v-4r3x-3vcv) | Request filenames cannot reach Windows command construction or percent-variable expansion.                                                                                                                                                                              |
-| [GHSA-r825-w8mm-5pxw](https://osv.dev/vulnerability/GHSA-r825-w8mm-5pxw) | Neither the rejected route nor any direct repository caller passes attacker filenames to an editor's CLI argument parser. This includes the WSL relative-path case.                                                                                                     |
-| [GHSA-9jrq-w75r-8gcw](https://osv.dev/vulnerability/GHSA-9jrq-w75r-8gcw) | The Playground uses default SPA handling and an external `/src/main.tsx` entry. There is no SSR/custom middleware caller passing an unchanged request URL to `transformIndexHtml`.                                                                                      |
-| [GHSA-rq7h-c2jc-7f22](https://osv.dev/vulnerability/GHSA-rq7h-c2jc-7f22) | The authored dev command keeps Vite's default loopback listener and repository-owned `/src` imports. Explicit `--host` options belong to static previews, not dev import analysis. Setta does not admit attacker-created import paths through this development command. |
+| Advisory                                                                 | Reachability decision                                                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| [GHSA-587h-7wmj-h5pm](https://osv.dev/vulnerability/GHSA-587h-7wmj-h5pm) | No HTTP editor route reaches the Windows shell sink.                                                            |
+| [GHSA-698v-4r3x-3vcv](https://osv.dev/vulnerability/GHSA-698v-4r3x-3vcv) | Request filenames cannot reach editor command construction or percent-variable expansion.                       |
+| [GHSA-r825-w8mm-5pxw](https://osv.dev/vulnerability/GHSA-r825-w8mm-5pxw) | Neither a development route nor a direct repository caller passes filenames to an editor's CLI argument parser. |
+| [GHSA-9jrq-w75r-8gcw](https://osv.dev/vulnerability/GHSA-9jrq-w75r-8gcw) | No SSR/custom middleware caller passes a request URL to `transformIndexHtml`.                                   |
+| [GHSA-rq7h-c2jc-7f22](https://osv.dev/vulnerability/GHSA-rq7h-c2jc-7f22) | No development-server import analysis runs on browser requests.                                                 |
 
-All five findings retain exact `not-affected/unreachable` assessments, including the high-severity
-Windows finding. This is not acceptance of a reachable high-severity issue. It relies on the
-checked-in development commands and their configuration, not the assessor's current operating
-system. Reassess immediately if adding another Vite dev entry, direct editor invocation, SSR
-middleware, remote dev-server exposure, or untrusted source imports.
+All five findings retain exact `not-affected/unreachable` assessments based on checked-in
+commands and API paths across supported operating systems. Reassess before introducing a Vite
+development server, direct editor invocation, SSR middleware, or untrusted source imports.
 
 The [npm release metadata](https://registry.npmjs.org/vite) dates Vite 6.4.4, the same-line fix for
-these findings, to October 6, 2026 at 05:49 UTC. It is only 17 days old at this review. The small
-route restriction removes the demonstrated editor exposure while preserving page serving,
-reloads, and direct use of a desktop editor. No exception for a fresh release is justified when
-that mitigation suffices and the other advisory prerequisites are absent. Review the 6.4.4 source
-delta and frozen lock on November 5 after its exact publication timestamp plus 30 days, updating
-all three direct Vite pins and the packed-consumer template together. These assessments expire
-at the end of November 5 UTC; the expiry requires that follow-up rather than silently retaining
-the old release. Registry versions remain unchanged in this assessment.
+these findings, to October 6, 2026 at 05:49 UTC. It was 17 days old at the October 23 review. The
+advisory prerequisites remain absent, so no early-release exception is justified. Review its source
+delta and frozen lock on November 5 after the publication timestamp plus 30 days, updating both
+direct Vite pins and the packed-consumer template together. These assessments expire at the end
+of November 5 UTC. Registry versions remain unchanged.
 
 ### Vitest and @vitest/mocker 4.1.11
 

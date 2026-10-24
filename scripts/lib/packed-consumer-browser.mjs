@@ -1,44 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { createServer } from "node:http";
-import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCdpPage } from "./cdp-client.mjs";
+import { serveBrowserFixture } from "./browser-fixture.mjs";
 import {
   startHeadlessChrome,
   stopHeadlessChrome,
   waitForHeadlessChrome,
 } from "./headless-chrome.mjs";
-
-async function serveConsumer(root) {
-  const dist = path.join(root, "dist");
-  const files = new Map([
-    [
-      "/",
-      { body: readFileSync(path.join(dist, "index.html")), type: "text/html" },
-    ],
-  ]);
-  const types = {
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".svg": "image/svg+xml",
-  };
-  for (const name of readdirSync(path.join(dist, "assets"))) {
-    files.set(`/assets/${name}`, {
-      body: readFileSync(path.join(dist, "assets", name)),
-      type: types[path.extname(name)] ?? "application/octet-stream",
-    });
-  }
-  const server = createServer((request, response) => {
-    const file = files.get(request.url);
-    response.writeHead(file ? 200 : 404, {
-      "Content-Type": file?.type ?? "text/plain",
-    });
-    response.end(file?.body ?? "Not found");
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
 
 async function evaluate(client, expression) {
   const result = await client.send("Runtime.evaluate", {
@@ -59,7 +27,7 @@ async function waitFor(client, expression) {
 }
 
 export async function verifyPackedConsumerBrowser(root) {
-  const { server, url } = await serveConsumer(root);
+  const { server, url } = await serveBrowserFixture(root);
   let browser;
   let client;
   const errors = [];

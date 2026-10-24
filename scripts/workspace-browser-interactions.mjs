@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { once } from "node:events";
-import path from "node:path";
+import { writeFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { createCdpPage } from "./lib/cdp-client.mjs";
@@ -10,10 +9,12 @@ import {
   stopHeadlessChrome,
   waitForHeadlessChrome,
 } from "./lib/headless-chrome.mjs";
-import { repositoryRoot, runPnpm } from "./lib/process.mjs";
+import {
+  browserFixtureRoot,
+  buildBrowserFixture,
+  serveBrowserFixture,
+} from "./lib/browser-fixture.mjs";
 
-const PREVIEW_PORT = 4_175;
-const PREVIEW_ORIGIN = `http://127.0.0.1:${String(PREVIEW_PORT)}`;
 const READY_TIMEOUT_MS = 15_000;
 const CONTROL_MODIFIER = 2;
 const META_MODIFIER = 4;
@@ -36,96 +37,6 @@ function argumentValue(name) {
     throw new Error(`--${name} requires a value.`);
   }
   return value;
-}
-
-function buildBrowserSurface() {
-  if (process.argv.includes("--skip-build")) {
-    return;
-  }
-  runPnpm(["--filter", "@riteofstring/setta", "run", "build"]);
-  runPnpm(["--filter", "@setta/workspace-playground", "run", "build"]);
-}
-
-function startPreview() {
-  const playgroundRoot = path.join(
-    repositoryRoot,
-    "examples/workspace-playground",
-  );
-  const viteEntry = path.join(playgroundRoot, "node_modules/vite/bin/vite.js");
-  const child = spawn(
-    process.execPath,
-    [
-      viteEntry,
-      "preview",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(PREVIEW_PORT),
-      "--strictPort",
-    ],
-    {
-      cwd: playgroundRoot,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  const output = { stderr: "", stdout: "" };
-  child.stderr.on("data", (chunk) => {
-    output.stderr = `${output.stderr}${String(chunk)}`.slice(-8_000);
-  });
-  child.stdout.on("data", (chunk) => {
-    output.stdout = `${output.stdout}${String(chunk)}`.slice(-8_000);
-  });
-  return { child, output };
-}
-
-async function waitForPreview(preview) {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (preview.child.exitCode !== null) {
-      throw new Error(
-        `Playground preview exited with ${String(preview.child.exitCode)}.\n${preview.output.stderr || preview.output.stdout}`,
-      );
-    }
-    try {
-      const response = await fetch(PREVIEW_ORIGIN);
-      if (response.ok) {
-        return;
-      }
-    } catch (error) {
-      if (!(error instanceof TypeError)) {
-        throw error;
-      }
-    }
-    await delay(100);
-  }
-  throw new Error("Playground preview did not become ready within 15 seconds.");
-}
-
-async function stopPreview(preview) {
-  if (preview.child.exitCode !== null) {
-    return;
-  }
-  const gracefulExit = once(preview.child, "exit");
-  preview.child.kill("SIGTERM");
-  const exitedGracefully = await Promise.race([
-    gracefulExit.then(() => true),
-    delay(2_000).then(() => false),
-  ]);
-  if (exitedGracefully) {
-    return;
-  }
-  const forcedExit = once(preview.child, "exit");
-  preview.child.kill("SIGKILL");
-  const exitedForcibly = await Promise.race([
-    forcedExit.then(() => true),
-    delay(2_000).then(() => false),
-  ]);
-  if (!exitedForcibly) {
-    throw new Error(
-      `Playground preview process ${String(preview.child.pid)} did not terminate.`,
-    );
-  }
 }
 
 async function evaluate(client, expression) {
@@ -177,7 +88,7 @@ async function waitForWorkspace(client) {
       `document.readyState === "complete" &&
         document.querySelector(".react-flow__pane") !== null &&
         document.querySelector(".react-flow__viewport") !== null &&
-        document.querySelector('[data-workspace-window-id="playground-checklist-window"]') !== null`,
+        document.querySelector('[data-workspace-window-id="fixture-checklist-window"]') !== null`,
     );
     if (ready === true) {
       await evaluate(
@@ -188,7 +99,7 @@ async function waitForWorkspace(client) {
     }
     await delay(50);
   }
-  throw new Error("The Playground did not reach an interactive state.");
+  throw new Error("The browser fixture did not reach an interactive state.");
 }
 
 async function inspectCodeGutterHorizontalScroll(client) {
@@ -377,7 +288,7 @@ async function prepareMarqueePath(client) {
     client,
     `(() => {
       const pane = document.querySelector(".react-flow__pane");
-      const floatingWindow = document.querySelector('[data-workspace-window-id="playground-checklist-window"]');
+      const floatingWindow = document.querySelector('[data-workspace-window-id="fixture-checklist-window"]');
       const viewport = document.querySelector(".react-flow__viewport");
       if (!(pane instanceof HTMLElement) || !(floatingWindow instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
         throw new Error("The marquee integration surface is incomplete.");
@@ -387,25 +298,9 @@ async function prepareMarqueePath(client) {
         x: bounds.left + bounds.width / 2,
         y: bounds.top + bounds.height / 2,
       };
-      const candidates = [];
-      for (const radius of [40, 80, 120, 160, 200, 240, 300]) {
-        for (let index = 0; index < 32; index += 1) {
-          const angle = Math.PI * 2 * index / 32;
-          candidates.push({
-            x: end.x + Math.cos(angle) * radius,
-            y: end.y + Math.sin(angle) * radius,
-          });
-        }
-      }
-      const start = candidates.find(({ x, y }) =>
-        x >= 0 &&
-        y >= 0 &&
-        x < innerWidth &&
-        y < innerHeight &&
-        document.elementFromPoint(x, y) === pane,
-      );
-      if (!start) {
-        throw new Error("No bare pane point surrounds the checklist window.");
+      const start = { x: bounds.right + 100, y: bounds.bottom + 100 };
+      if (start.x >= innerWidth || start.y >= innerHeight || document.elementFromPoint(start.x, start.y) !== pane) {
+        throw new Error("The marquee fixture start must be bare pane outside the checklist window: " + JSON.stringify({ start, hit: document.elementFromPoint(start.x, start.y)?.outerHTML.slice(0, 300) }));
       }
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -469,7 +364,7 @@ async function dispatchShiftMarquee(client, path) {
             const selection = document.querySelector(".react-flow__selection");
             const selectionBounds = selection?.getBoundingClientRect();
             return {
-              hitChecklist: Boolean(hit?.closest('[data-workspace-window-id="playground-checklist-window"]')),
+              hitChecklist: Boolean(hit?.closest('[data-workspace-window-id="fixture-checklist-window"]')),
               selection: selectionBounds
                 ? { height: selectionBounds.height, width: selectionBounds.width }
                 : null,
@@ -510,7 +405,7 @@ async function readCompletedSelection(client) {
         completedSelectionLabel: completedSelection?.getAttribute("aria-label") ?? null,
         liveSelectionPresent: document.querySelector(".react-flow__selection") !== null,
         viewportTransform: document.querySelector(".react-flow__viewport")?.style.transform ?? null,
-        windowPresent: document.querySelector('[data-workspace-window-id="playground-checklist-window"]') !== null,
+        windowPresent: document.querySelector('[data-workspace-window-id="fixture-checklist-window"]') !== null,
       };
     })()`,
   );
@@ -526,23 +421,38 @@ async function configureClient(client) {
 }
 
 async function main() {
-  buildBrowserSurface();
-  const preview = startPreview();
+  buildBrowserFixture(process.argv.includes("--skip-build"));
+  const { server, url } = await serveBrowserFixture(browserFixtureRoot);
   let browser = null;
   let client = null;
   try {
-    await waitForPreview(preview);
     browser = startHeadlessChrome(argumentValue("chrome-binary"));
     const port = await waitForHeadlessChrome(browser);
     ({ client } = await createCdpPage(port));
     await configureClient(client);
     const issues = collectPageIssues(client);
-    await navigateToWorkspace(client, `${PREVIEW_ORIGIN}?color-mode=light`);
+    await navigateToWorkspace(
+      client,
+      `${url}?fixture=interactions&color-mode=light`,
+    );
     const lightCodeGutter = await inspectCodeGutterHorizontalScroll(client);
     assertCodeGutter(lightCodeGutter, "rgb(239, 241, 246)");
-    await navigateToWorkspace(client, `${PREVIEW_ORIGIN}?color-mode=dark`);
+    await navigateToWorkspace(
+      client,
+      `${url}?fixture=interactions&color-mode=dark`,
+    );
     const darkCodeGutter = await inspectCodeGutterHorizontalScroll(client);
     assertCodeGutter(darkCodeGutter, "rgb(16, 20, 27)");
+    const screenshot = argumentValue("screenshot");
+    if (screenshot !== null) {
+      if (!isAbsolute(screenshot)) {
+        throw new Error("--screenshot must be an absolute path.");
+      }
+      const { data } = await client.send("Page.captureScreenshot", {
+        format: "png",
+      });
+      writeFileSync(screenshot, Buffer.from(data, "base64"));
+    }
     const sectionDragPath = await preparePointerOwnedSectionDrag(client);
     assert.equal(
       sectionDragPath.activeElement,
@@ -621,7 +531,11 @@ async function main() {
       true,
       "The floating checklist window closed during the gesture.",
     );
-    assert.deepEqual(issues, [], "The Playground reported browser errors.");
+    assert.deepEqual(
+      issues,
+      [],
+      "The browser fixture reported browser errors.",
+    );
     console.log(
       JSON.stringify(
         {
@@ -649,7 +563,7 @@ async function main() {
         await stopHeadlessChrome(browser);
       }
     } finally {
-      await stopPreview(preview);
+      await new Promise((resolve) => server.close(resolve));
     }
   }
 }

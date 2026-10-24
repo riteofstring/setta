@@ -10,7 +10,7 @@ on:
       - "code-polishyw"
       - "code-polishyw.ps1"
       - "packages/**"
-      - "examples/**"
+      - "fixtures/**"
       - "scripts/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -26,7 +26,7 @@ on:
       - "code-polishyw"
       - "code-polishyw.ps1"
       - "packages/**"
-      - "examples/**"
+      - "fixtures/**"
       - "scripts/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -85,7 +85,7 @@ jobs:
         run: ./code-polishyw check --all
       - name: Test package boundaries
         run: |
-          ./code-polishyw test --suite workspace-focused --suite workspace-playground-focused --suite local-backend-focused
+          ./code-polishyw test --suite workspace-focused --suite local-backend-focused
       - name: Test browser workflows
         run: |
           test -x "$CHROME_BINARY"
