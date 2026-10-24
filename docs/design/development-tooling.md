@@ -24,6 +24,28 @@ runner label or a global Code Polishy install.
 The weekly scan's shell function routes the literal `code-polishy supply-chain` command recognized
 by monitoring policy through `./code-polishyw`; command discovery never selects a global release.
 
+The root `.node-version` owns the development runtime selection. Package engines and the packed
+consumer template must agree with it, and CI reads that same file. The workspace publication check
+validates agreement instead of carrying another independent runtime version. After frozen
+installation, CI and contributor setup run the complete supply-chain profile so repository
+providers deferred by pre-install dependency review execute against the installed tree.
+
+## Development server security
+
+The Playground development server serves authored source and supports Vite's ordinary page and
+module transforms. It does not launch desktop editors from HTTP requests. Its Vite configuration
+registers a rejection handler for `/__open-in-editor` under Vite's configured base before Vite
+installs its editor middleware.
+This removes the request-to-process path on every supported host, including Windows and WSL.
+Developers can still open files directly in their editor and use Vite's error overlay and reloads.
+The boundary test starts the actual configuration with temporary content, verifies normal page
+serving, and requires editor requests to return HTTP 403 at both the root and a nested URL base.
+
+The dependency assessment in
+[`docs/security/dependency-assessment-2026-10-09.md`](../security/dependency-assessment-2026-10-09.md)
+records the affected release and bounded remediation dates. This server restriction also avoids
+granting future browser requests authority to start local applications after the dependency patch.
+
 ## Workspace build and CodeMirror module identity
 
 The workspace library build emits readable ESM with a source map. Package-relative modules and

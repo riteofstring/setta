@@ -118,3 +118,80 @@ KaTeX remains reachable only through `WorkspaceMarkdown.tsx` as described. The t
 findings no longer apply because AJV and `fast-uri` left the dependency graph with the
 applications' generated validators; their assessments were retired. Only the `local-backend`
 Go toolchain admission remains.
+
+## Addendum, 2026-10-23: supported Node and development-server advisories
+
+Assessor: Codex. The development runtime is Node 26.10.0, published on September 21, 2026.
+The [official release inventory](https://nodejs.org/dist/index.json) establishes its age; the
+[Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) keeps the Node 26
+line supported through April 30, 2029. Node 25 reached end of life on June 1, 2026. The selected
+release exceeds the 30-day admission minimum and needs no release-age exception. `.node-version`
+owns the pin used by CI; the root engine declaration and packed-consumer template agree with it.
+
+### Vite 6.4.3
+
+The supported interactive development entry is `pnpm workspace:playground`, which invokes Vite
+in `examples/workspace-playground`. Workspace and packed-consumer commands use Vite for builds;
+browser interaction and performance harnesses use `vite preview` bound to `127.0.0.1`. Those
+static previews do not install Vite's development editor middleware or import-analysis pipeline.
+
+The resolved Vite 6.4.3 bundle installs `launchEditorMiddleware` at `/__open-in-editor` and passes
+the request's `file` parameter through `path.resolve` to `launchEditor`. On Windows the latter
+constructs a shell command; on WSL it can turn an absolute path into a relative editor argument.
+Loopback binding alone is not a sufficient claim of non-exposure for this process-launch route.
+The Playground's Vite configuration now registers an HTTP 403 handler at that path before Vite
+registers its own handler, using Vite's configured URL base. Requests cannot reach filename
+parsing, editor discovery, or process
+creation on any supported host. The executable boundary test loads that configuration, serves
+temporary HTML successfully, and verifies editor requests are rejected at both root and nested
+URL bases.
+
+| Advisory                                                                 | Reachability decision                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [GHSA-587h-7wmj-h5pm](https://osv.dev/vulnerability/GHSA-587h-7wmj-h5pm) | The Windows `existsSync` bypass cannot reach the shell sink because the HTTP editor route is rejected first.                                                                                                                                                            |
+| [GHSA-698v-4r3x-3vcv](https://osv.dev/vulnerability/GHSA-698v-4r3x-3vcv) | Request filenames cannot reach Windows command construction or percent-variable expansion.                                                                                                                                                                              |
+| [GHSA-r825-w8mm-5pxw](https://osv.dev/vulnerability/GHSA-r825-w8mm-5pxw) | Neither the rejected route nor any direct repository caller passes attacker filenames to an editor's CLI argument parser. This includes the WSL relative-path case.                                                                                                     |
+| [GHSA-9jrq-w75r-8gcw](https://osv.dev/vulnerability/GHSA-9jrq-w75r-8gcw) | The Playground uses default SPA handling and an external `/src/main.tsx` entry. There is no SSR/custom middleware caller passing an unchanged request URL to `transformIndexHtml`.                                                                                      |
+| [GHSA-rq7h-c2jc-7f22](https://osv.dev/vulnerability/GHSA-rq7h-c2jc-7f22) | The authored dev command keeps Vite's default loopback listener and repository-owned `/src` imports. Explicit `--host` options belong to static previews, not dev import analysis. Setta does not admit attacker-created import paths through this development command. |
+
+All five findings retain exact `not-affected/unreachable` assessments, including the high-severity
+Windows finding. This is not acceptance of a reachable high-severity issue. It relies on the
+checked-in development commands and their configuration, not the assessor's current operating
+system. Reassess immediately if adding another Vite dev entry, direct editor invocation, SSR
+middleware, remote dev-server exposure, or untrusted source imports.
+
+The [npm release metadata](https://registry.npmjs.org/vite) dates Vite 6.4.4, the same-line fix for
+these findings, to October 6, 2026 at 05:49 UTC. It is only 17 days old at this review. The small
+route restriction removes the demonstrated editor exposure while preserving page serving,
+reloads, and direct use of a desktop editor. No exception for a fresh release is justified when
+that mitigation suffices and the other advisory prerequisites are absent. Review the 6.4.4 source
+delta and frozen lock on November 5 after its exact publication timestamp plus 30 days, updating
+all three direct Vite pins and the packed-consumer template together. These assessments expire
+at the end of November 5 UTC; the expiry requires that follow-up rather than silently retaining
+the old release. Registry versions remain unchanged in this assessment.
+
+### Vitest and @vitest/mocker 4.1.11
+
+The resolved `@vitest/mocker/dist/node.js` implements both vulnerable paths inside
+`interceptorPlugin.configureServer`, which registers `vitest:interceptor:register` on Vite's
+WebSocket server. A manual registration reaches generated module source; a redirect registration
+can reach a file read after the Windows path-allowlist mismatch. `mockerPlugin` enables that
+interceptor, but Setta installs neither public plugin. Its Vitest 4.1.11 Node runner imports
+`hoistMocksPlugin` and `automockPlugin` instead. The checked-in suites use Node and jsdom; a jsdom
+environment is not Vitest Browser Mode and does not register the vulnerable WebSocket handlers.
+Importing the mocker module alone does not register its plugin.
+
+Consequently [GHSA-qxg6-89mg-rqv8](https://osv.dev/vulnerability/GHSA-qxg6-89mg-rqv8) has no
+attacker-controlled manual-mock URL source, and
+[GHSA-xp26-3454-mjgp](https://osv.dev/vulnerability/GHSA-xp26-3454-mjgp) has no remote redirect
+registration path to the file-read sink, including on Windows. Each has an exact
+`not-affected/unreachable` assessment. Reassess before enabling either public mocker plugin or
+changing the test-server integration.
+
+The [mocker registry metadata](https://registry.npmjs.org/@vitest%2Fmocker) dates 4.1.12 to October
+15, 2026 at 14:40 UTC; [Vitest 4.1.12](https://registry.npmjs.org/vitest) followed at 14:51 UTC.
+Both remain inside the 30-day minimum. The alternative fixed 5.0.3 line was published September
+30 and is also too young, besides requiring a major-version change. Retain the aged 4.1.11 graph
+while these APIs are absent. Review a coordinated Vitest 4.1.12 update after November 14 at
+14:51 UTC; the exact assessments expire at the end of that UTC day. This adds no release-age
+admission and does not suppress the original scanner identities.

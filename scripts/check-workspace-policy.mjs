@@ -8,6 +8,10 @@ const rootManifest = JSON.parse(
 );
 const expectedPackageManager = rootManifest.packageManager;
 const expectedNode = rootManifest.engines?.node;
+const pinnedNode = readFileSync(
+  path.join(repositoryRoot, ".node-version"),
+  "utf8",
+).trim();
 
 function readJson(relativePath) {
   return JSON.parse(
@@ -59,9 +63,9 @@ const failures = [
   ...(expectedPackageManager === "pnpm@10.23.0"
     ? []
     : [`package.json: packageManager must remain pnpm@10.23.0`]),
-  ...(expectedNode === "25.2.1"
+  ...(expectedNode === pinnedNode
     ? []
-    : [`package.json: engines.node must remain 25.2.1`]),
+    : [`package.json: engines.node must match .node-version (${pinnedNode})`]),
   ...manifestPaths.flatMap(validateManifest),
 ];
 

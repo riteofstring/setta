@@ -17,10 +17,10 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
-      - name: Set up Node 25.2.1
+      - name: Set up pinned Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: "25.2.1"
+          node-version-file: ".node-version"
           check-latest: false
       - name: Set up pnpm 10.23.0
         uses: pnpm/action-setup@9fd676a19091d4595eefd76e4bd31c97133911f1 # v4.2.0
@@ -40,8 +40,6 @@ jobs:
       - name: Install frozen dependencies without build scripts
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-      - name: Verify installed dependency metadata
-        run: ./code-polishyw supply-chain --offline
       - name: Run online Code Polishy supply-chain checks
         run: |
           code-polishy() { ./code-polishyw "$@"; }

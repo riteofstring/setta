@@ -18,7 +18,7 @@ Clone this repository, enter its root, and install these pinned tools:
 
 | Tool    | Version                                       |
 | ------- | --------------------------------------------- |
-| Node.js | 25.2.1 (`.node-version`)                      |
+| Node.js | 26.10.0 (`.node-version`)                     |
 | pnpm    | 10.23.0 (`package.json`)                      |
 | Go      | 1.26.9 (`packages/local-backend/.go-version`) |
 
@@ -32,7 +32,7 @@ build scripts:
 ./code-polishyw setup
 ./code-polishyw dependency-review --base origin/main
 pnpm install --frozen-lockfile --ignore-scripts
-./code-polishyw supply-chain --offline
+./code-polishyw supply-chain
 ./code-polishyw doctor
 ```
 

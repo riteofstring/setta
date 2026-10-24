@@ -9,6 +9,8 @@
       {
         "path": "docs/design/development-tooling.md",
         "sourcePaths": [
+          "examples/workspace-playground/vite.config.ts",
+          "examples/workspace-playground/src/viteSecurity.test.ts",
           "examples/workspace-playground/vitest.config.ts",
           "examples/workspace-playground/vitest.setup.ts",
           "packages/workspace/vite.config.ts",
@@ -16,6 +18,7 @@
           "packages/workspace/vitest.setup.ts",
           "scripts/cdp-port.sh",
           "scripts/chrome-devtools-mcp.sh",
+          "scripts/check-workspace-policy.mjs",
           "scripts/inspect-playground.mjs",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",
@@ -396,6 +399,23 @@
         "expires": "2026-11-07"
       },
       {
+        "id": "ghsa-587h-7wmj-h5pm-6-4-3",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-587h-7wmj-h5pm",
+        "package": "vite",
+        "affectedVersion": "6.4.3",
+        "scope": "pnpm-lock.yaml",
+        "severity": "high",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. No other checked-in command exposes that dev-server route; builds and static previews do not launch editors. Windows path parsing cannot reach process execution. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-587h-7wmj-h5pm",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-05"
+      },
+      {
         "id": "ghsa-68fv-2mgg-jv7q-1-2-1",
         "ecosystem": "pnpm",
         "advisory": "GHSA-68fv-2mgg-jv7q",
@@ -411,6 +431,23 @@
         "owner": "Codex",
         "reviewed": "2026-10-09",
         "expires": "2026-11-07"
+      },
+      {
+        "id": "ghsa-698v-4r3x-3vcv-6-4-3",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-698v-4r3x-3vcv",
+        "package": "vite",
+        "affectedVersion": "6.4.3",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. The Windows shell-command sink cannot receive request filenames, including percent expansion or alternate-stream payloads. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-698v-4r3x-3vcv",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-05"
       },
       {
         "id": "ghsa-8436-99hf-9mmv-7-29-0",
@@ -430,6 +467,23 @@
         "expires": "2026-11-07"
       },
       {
+        "id": "ghsa-9jrq-w75r-8gcw-6-4-3",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-9jrq-w75r-8gcw",
+        "package": "vite",
+        "affectedVersion": "6.4.3",
+        "scope": "pnpm-lock.yaml",
+        "severity": "low",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The Playground uses Vite default SPA handling and an external module entry. Setta supplies no request URL to transformIndexHtml and configures neither custom app mode nor an SSR middleware integration. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-9jrq-w75r-8gcw",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-05"
+      },
+      {
         "id": "ghsa-pmjh-fq2x-6v4x-7-29-0",
         "ecosystem": "pnpm",
         "advisory": "GHSA-pmjh-fq2x-6v4x",
@@ -447,6 +501,23 @@
         "expires": "2026-11-07"
       },
       {
+        "id": "ghsa-qxg6-89mg-rqv8-4-1-11",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-qxg6-89mg-rqv8",
+        "package": "@vitest/mocker",
+        "affectedVersion": "4.1.11",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "Vitest runs Node/jsdom suites with hoistMocksPlugin and automockPlugin. Neither Setta nor this Vitest Node runner registers the public mockerPlugin/interceptorPlugin WebSocket handlers that accept attacker-supplied manual mock URLs. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-qxg6-89mg-rqv8",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-14"
+      },
+      {
         "id": "ghsa-r53p-7pc4-xj5r-7-29-0",
         "ecosystem": "pnpm",
         "advisory": "GHSA-r53p-7pc4-xj5r",
@@ -462,6 +533,23 @@
         "owner": "Codex",
         "reviewed": "2026-10-09",
         "expires": "2026-11-07"
+      },
+      {
+        "id": "ghsa-r825-w8mm-5pxw-6-4-3",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-r825-w8mm-5pxw",
+        "package": "vite",
+        "affectedVersion": "6.4.3",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The Playground rejects /__open-in-editor before Vite editor middleware. No checked-in caller invokes launch-editor directly, so attacker filenames cannot reach editor CLI parsing on Windows, WSL, or other supported hosts. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-r825-w8mm-5pxw",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-05"
       },
       {
         "id": "ghsa-rfgv-xxqx-mfg5-7-29-0",
@@ -515,6 +603,23 @@
         "expires": "2026-11-07"
       },
       {
+        "id": "ghsa-rq7h-c2jc-7f22-6-4-3",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-rq7h-c2jc-7f22",
+        "package": "vite",
+        "affectedVersion": "6.4.3",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "The only authored dev command uses the default loopback listener and repository-owned /src imports. Explicit --host arguments occur only in static preview harnesses, which do not execute dev-server import analysis or populate safeModulePaths. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-rq7h-c2jc-7f22",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-05"
+      },
+      {
         "id": "ghsa-rx4f-c7p8-82vq-7-29-0",
         "ecosystem": "pnpm",
         "advisory": "GHSA-rx4f-c7p8-82vq",
@@ -564,6 +669,23 @@
         "owner": "Codex",
         "reviewed": "2026-10-09",
         "expires": "2026-11-07"
+      },
+      {
+        "id": "ghsa-xp26-3454-mjgp-4-1-11",
+        "ecosystem": "pnpm",
+        "advisory": "GHSA-xp26-3454-mjgp",
+        "package": "@vitest/mocker",
+        "affectedVersion": "4.1.11",
+        "scope": "pnpm-lock.yaml",
+        "severity": "moderate",
+        "status": "not-affected",
+        "basis": "unreachable",
+        "reason": "Setta does not register mockerPlugin/interceptorPlugin or their vitest:interceptor:register WebSocket handler. Node/jsdom tests therefore have no remote redirect-registration path to the Windows file-read sink. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-10-23-supported-node-and-development-server-advisories).",
+        "impact": "The required request-to-API path is absent in the checked-in commands. Reassess before changing server configuration, middleware, mocker plugins, or network exposure.",
+        "evidence": "https://osv.dev/vulnerability/GHSA-xp26-3454-mjgp",
+        "owner": "Codex",
+        "reviewed": "2026-10-23",
+        "expires": "2026-11-14"
       }
     ],
     "dependencyOverridePolicies": []
