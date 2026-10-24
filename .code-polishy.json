@@ -284,6 +284,11 @@
     ],
     "releaseArtifacts": [
       {
+        "name": "workspace-node",
+        "versionFile": ".node-version",
+        "source": "node-runtime"
+      },
+      {
         "name": "local-backend-go",
         "versionFile": "packages/local-backend/.go-version",
         "source": "go-toolchain"
