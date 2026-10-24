@@ -5,6 +5,7 @@ import {
   horizontalListSortingStrategy,
   isValidIndex,
   itemsEqual,
+  mergeMissingDroppableRects,
   normalizeDisabled,
   rectSortingStrategy,
   resolveStrategyResult,
@@ -80,6 +81,35 @@ describe("sorting adapter utilities", () => {
     expect(computeNewIndex(3, 1, false, 3)).toBe(1);
     expect(computeNewIndex(3, 1, true, 3)).toBe(2);
   });
+
+  it.each(["the same count", "fewer targets"])(
+    "displaces a newly mounted target using frozen geometry with %s",
+    (registryChange) => {
+      const frozen = new Map([
+        ["a", rect(0, 0, 100, 20)],
+        ["removed", rect(0, 20, 100, 20)],
+        ...(registryChange === "fewer targets"
+          ? [["also-removed", rect(0, 40, 100, 20)] as const]
+          : []),
+      ]);
+      const incoming = new Map([
+        ["a", rect(0, 100, 100, 30)],
+        ["new-target", rect(0, 40, 100, 20)],
+      ]);
+
+      const merged = mergeMissingDroppableRects(frozen, incoming);
+      const result = verticalListSortingStrategy({
+        rects: getSortedRects(["a", "new-target"], merged),
+        activeIndex: 0,
+        overIndex: 1,
+        index: 1,
+        pastHalfway: true,
+      });
+
+      expect(result).toEqual([{ x: 0, y: -40, scaleX: 1, scaleY: 1 }, 1]);
+      expect(frozen.has("new-target")).toBe(false);
+    },
+  );
 
   it("computes destination indexes for middle items", () => {
     expect(computeNewIndex(2, 0, false, 5)).toBe(0);

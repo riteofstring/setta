@@ -20,25 +20,7 @@ export const DEFAULT_SORTABLE_TRANSITION = {
 };
 const disabledTransition = "transform 0ms linear";
 
-export function buildSortablePresentationState({
-  activeIndex,
-  activeRect,
-  collisions,
-  disableTransforms,
-  dragTransform,
-  index,
-  isDragging,
-  items,
-  itemsHaveChanged,
-  overIndex,
-  shouldTrackSorting,
-  sortedRects,
-  sortingEnabled,
-  strategy,
-  transition,
-  useDragOverlay,
-  wasDragActive,
-}: {
+type SortablePresentationInput = {
   activeIndex: number;
   activeRect: ClientRect | null;
   collisions: SettaCollision[] | null;
@@ -54,193 +36,94 @@ export function buildSortablePresentationState({
   sortingEnabled: boolean;
   strategy: SortingStrategy;
   transition: SortableTransition | null | undefined;
-  useDragOverlay: boolean;
   wasDragActive: boolean;
-}): {
+};
+
+export function buildSortablePresentationState(
+  input: SortablePresentationInput,
+): {
   effectiveOverIndex: number;
   finalTransform: Transform | null;
   isDraggingActive: boolean;
   isSorting: boolean;
   transitionValue: string | undefined;
 } {
-  const relevantCollision = getTrackedCollision(
-    collisions,
-    items,
-    overIndex,
-    shouldTrackSorting,
-  );
-  const dragFlags = getDragFlags(
+  const {
     activeIndex,
     index,
+    shouldTrackSorting,
     isDragging,
-    shouldTrackSorting,
-  );
-  const motionFlags = getMotionFlags({
-    activeIndex,
+    transition,
     disableTransforms,
-    isActiveItem: dragFlags.isActiveItem,
-    isSorting: dragFlags.isSorting,
-    itemsHaveChanged,
-    overIndex,
     sortingEnabled,
-    useDragOverlay,
     wasDragActive,
-  });
-  const transformState = resolveFinalTransformState({
-    activeIndex,
-    activeRect,
-    dragTransform,
-    index,
-    overIndex,
-    pastHalfway: relevantCollision?.pastHalfway ?? null,
-    shouldDisplaceActiveItem: motionFlags.shouldDisplaceActiveItem,
-    shouldDisplaceItem: motionFlags.shouldDisplaceItem,
-    sortedRects,
-    strategy,
-  });
+    itemsHaveChanged,
+  } = input;
+  const isSorting = shouldTrackSorting && activeIndex !== -1;
+  const isActiveItem = index === activeIndex && activeIndex !== -1;
+  const isDraggingActive = isDragging || (isSorting && isActiveItem);
+  const resolved = resolveSortingTransform(input, isSorting, isActiveItem);
 
   return {
-    effectiveOverIndex: transformState.effectiveOverIndex,
-    finalTransform: transformState.finalTransform,
-    isDraggingActive: dragFlags.isDraggingActive,
-    isSorting: dragFlags.isSorting,
+    effectiveOverIndex: resolved.overIndex,
+    finalTransform: resolved.transform,
+    isDraggingActive,
+    isSorting,
     transitionValue: getTransitionValue({
       transition,
-      isSorting: dragFlags.isSorting,
-      isDragging: dragFlags.isDraggingActive,
-      useDragOverlay,
+      isSorting,
+      isDragging: isDraggingActive,
       disableTransforms,
-      forceDisabledTransition: motionFlags.shouldDisableTransition,
+      forceDisabledTransition:
+        sortingEnabled && wasDragActive && itemsHaveChanged,
     }),
   };
 }
 
-function getTrackedCollision(
-  collisions: SettaCollision[] | null,
-  items: UniqueIdentifier[],
-  overIndex: number,
-  shouldTrackSorting: boolean,
-): SettaCollision | null {
-  if (!shouldTrackSorting) {
-    return null;
-  }
-
-  const preferredId = isValidIndex(overIndex)
-    ? (items[overIndex] ?? null)
-    : null;
-  return getRelevantCollision(collisions, items, preferredId);
-}
-
-function getDragFlags(
-  activeIndex: number,
-  index: number,
-  isDragging: boolean,
-  shouldTrackSorting: boolean,
-): {
-  isActiveItem: boolean;
-  isDraggingActive: boolean;
-  isSorting: boolean;
-} {
-  const isSorting = shouldTrackSorting && activeIndex !== -1;
-  const isActiveItem = index === activeIndex && activeIndex !== -1;
-  return {
-    isActiveItem,
-    isDraggingActive: isDragging || (isSorting && isActiveItem),
-    isSorting,
-  };
-}
-
-function getMotionFlags({
-  activeIndex,
-  disableTransforms,
-  isActiveItem,
-  isSorting,
-  itemsHaveChanged,
-  overIndex,
-  sortingEnabled,
-  useDragOverlay,
-  wasDragActive,
-}: {
-  activeIndex: number;
-  disableTransforms: boolean;
-  isActiveItem: boolean;
-  isSorting: boolean;
-  itemsHaveChanged: boolean;
-  overIndex: number;
-  sortingEnabled: boolean;
-  useDragOverlay: boolean;
-  wasDragActive: boolean;
-}): {
-  shouldDisableTransition: boolean;
-  shouldDisplaceActiveItem: boolean;
-  shouldDisplaceItem: boolean;
-} {
-  return {
-    shouldDisableTransition:
-      sortingEnabled && wasDragActive && itemsHaveChanged,
-    shouldDisplaceActiveItem:
-      isSorting && !useDragOverlay && isActiveItem && !disableTransforms,
-    shouldDisplaceItem:
-      isSorting &&
-      !disableTransforms &&
-      isValidIndex(activeIndex) &&
-      isValidIndex(overIndex),
-  };
-}
-
-function resolveFinalTransformState({
-  activeIndex,
-  activeRect,
-  dragTransform,
-  index,
-  overIndex,
-  pastHalfway,
-  shouldDisplaceActiveItem,
-  shouldDisplaceItem,
-  sortedRects,
-  strategy,
-}: {
-  activeIndex: number;
-  activeRect: ClientRect | null;
-  dragTransform: Transform | null;
-  index: number;
-  overIndex: number;
-  pastHalfway: boolean | null;
-  shouldDisplaceActiveItem: boolean;
-  shouldDisplaceItem: boolean;
-  sortedRects: Array<ClientRect | undefined>;
-  strategy: SortingStrategy;
-}): {
-  effectiveOverIndex: number;
-  finalTransform: Transform | null;
-} {
-  if (shouldDisplaceActiveItem) {
-    return {
-      effectiveOverIndex: overIndex,
-      finalTransform: dragTransform,
-    };
-  }
-
-  if (!shouldDisplaceItem) {
-    return {
-      effectiveOverIndex: overIndex,
-      finalTransform: null,
-    };
-  }
-
-  const result = strategy({
-    rects: sortedRects,
-    activeNodeRect: activeRect,
+function resolveSortingTransform(
+  {
     activeIndex,
-    overIndex,
+    activeRect,
+    collisions,
+    disableTransforms,
+    dragTransform,
     index,
-    pastHalfway: pastHalfway ?? undefined,
-  });
-  const resolved = resolveStrategyResult(result, overIndex);
-  return {
-    effectiveOverIndex: resolved.overIndex,
-    finalTransform: resolved.transform,
-  };
+    items,
+    overIndex,
+    sortedRects,
+    strategy,
+  }: SortablePresentationInput,
+  isSorting: boolean,
+  isActiveItem: boolean,
+): {
+  transform: Transform | null;
+  overIndex: number;
+} {
+  if (!isSorting || disableTransforms) {
+    return { transform: null, overIndex };
+  }
+  if (isActiveItem) {
+    return { transform: dragTransform, overIndex };
+  }
+  if (!isValidIndex(activeIndex) || !isValidIndex(overIndex)) {
+    return { transform: null, overIndex };
+  }
+  const collision = getRelevantCollision(
+    collisions,
+    items,
+    items[overIndex] ?? null,
+  );
+  return resolveStrategyResult(
+    strategy({
+      rects: sortedRects,
+      activeNodeRect: activeRect,
+      activeIndex,
+      overIndex,
+      index,
+      pastHalfway: collision?.pastHalfway ?? undefined,
+    }),
+    overIndex,
+  );
 }
 
 export function normalizeLocalDisabled(
@@ -309,14 +192,12 @@ function getTransitionValue({
   transition,
   isSorting,
   isDragging,
-  useDragOverlay,
   disableTransforms,
   forceDisabledTransition,
 }: {
   transition: SortableTransition | null | undefined;
   isSorting: boolean;
   isDragging: boolean;
-  useDragOverlay: boolean;
   disableTransforms: boolean;
   forceDisabledTransition: boolean;
 }): string | undefined {
@@ -328,7 +209,7 @@ function getTransitionValue({
     return undefined;
   }
 
-  if (isDragging && !useDragOverlay) {
+  if (isDragging) {
     return undefined;
   }
 

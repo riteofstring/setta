@@ -2,7 +2,7 @@ import type { Collision, UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
-import React, { useEffect, useId, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getDndSectionId } from "../dndIds";
 import {
@@ -13,6 +13,7 @@ import { useDndProviderContext } from "./DndProviderContext";
 import {
   getSortedRects,
   itemsEqual,
+  mergeMissingDroppableRects,
   normalizeDisabled,
   rectSortingStrategy,
 } from "./sorting";
@@ -20,11 +21,10 @@ import type { ClientRect, Disabled, SortingStrategy } from "./types";
 
 interface Props {
   children: React.ReactNode;
-  items: (UniqueIdentifier | { id: UniqueIdentifier })[];
+  items: UniqueIdentifier[];
   strategy?: SortingStrategy;
-  id?: string;
+  id: string;
   disabled?: boolean | Disabled;
-  forceSorting?: boolean;
 }
 
 interface ContextDescriptor {
@@ -34,7 +34,6 @@ interface ContextDescriptor {
   disableTransforms: boolean;
   items: UniqueIdentifier[];
   overIndex: number;
-  useDragOverlay: boolean;
   sortedRects: Array<ClientRect | undefined>;
   strategy: SortingStrategy;
   sortingEnabled: boolean;
@@ -57,7 +56,6 @@ export const Context = React.createContext<ContextDescriptor>({
   disableTransforms: false,
   items: [],
   overIndex: -1,
-  useDragOverlay: false,
   sortedRects: [],
   strategy: rectSortingStrategy,
   disabled: {
@@ -69,74 +67,48 @@ export const Context = React.createContext<ContextDescriptor>({
 
 export function SortableContext({
   children,
-  id,
-  items: userDefinedItems,
+  id: containerId,
+  items,
   strategy = rectSortingStrategy,
   disabled: disabledProp = false,
-  forceSorting = false,
 }: Props) {
   const manager = useDragDropManager();
   const { isSorting, isMovingFree } = useDndProviderContext();
   const isDragActive = useDragActive(manager);
-  const sortingEnabled = isSortingEnabled(forceSorting, isSorting);
-  const shouldTrackSorting = shouldTrackActiveSorting(
-    sortingEnabled,
-    isDragActive,
-  );
-  const generatedId = useId();
-  const containerId = getContainerId(id, generatedId);
-  const items = useMemo<UniqueIdentifier[]>(
-    () => userDefinedItems.map(getSortableItemId),
-    [userDefinedItems],
-  );
+  const sortingEnabled = isSorting;
+  const shouldTrackSorting = sortingEnabled && isDragActive;
   const emptyRects = useMemo(() => new Map<UniqueIdentifier, ClientRect>(), []);
   const { active, collisions, droppableRects } = useSortableDragState(
     manager,
     shouldTrackSorting,
     emptyRects,
   );
-  const allowTemp = shouldAllowTemporaryActiveId(isMovingFree, isSorting);
-  const activeIndex = getSortableActiveIndex(
-    shouldTrackSorting,
-    active,
-    items,
-    allowTemp,
-  );
   const resolvedOverId = useResolvedOverId(
     shouldTrackSorting,
     collisions,
     containerId,
     items,
-    getFallbackOverId(manager),
+    manager?.dragOperation.target?.id,
   );
   const resolvedPastHalfway = getResolvedPastHalfway(
     shouldTrackSorting,
     collisions,
     resolvedOverId,
   );
-  const overIndex = getSortableOverIndex(
-    shouldTrackSorting,
-    resolvedOverId,
-    items,
-  );
   const itemsHaveChanged = useItemsHaveChanged(items);
-  const disableTransforms = getDisableTransforms(
+  const { activeIndex, overIndex, disableTransforms } = getSortableLayout({
+    active,
+    items,
+    resolvedOverId,
     shouldTrackSorting,
-    overIndex,
-    activeIndex,
+    allowTemp: isMovingFree || isSorting,
     itemsHaveChanged,
-  );
+  });
   const disabled = normalizeDisabled(disabledProp);
-  const useDragOverlay = false;
-  const useFrozenRects = shouldFreezeDroppableRects(shouldTrackSorting, active);
-  const frozenDroppableRectsRef = useFrozenDroppableRects(
+  const useFrozenRects = shouldTrackSorting && Boolean(active);
+  const rectsForSorting = useFrozenDroppableRects(
     droppableRects,
     useFrozenRects,
-  );
-  const rectsForSorting = getRectsForSorting(
-    useFrozenRects,
-    frozenDroppableRectsRef.current,
-    droppableRects,
   );
   useSortingOverStateSync({
     collisions,
@@ -146,10 +118,12 @@ export function SortableContext({
     resolvedPastHalfway,
     shouldTrackSorting,
   });
-  const sortedRects = useSortedRects(
-    shouldTrackSorting,
-    items,
-    rectsForSorting,
+  const sortedRects = useMemo(
+    () =>
+      shouldTrackSorting
+        ? getSortedRects(items, rectsForSorting)
+        : EMPTY_SORTED_RECTS,
+    [items, rectsForSorting, shouldTrackSorting],
   );
 
   const contextValue = useMemo(
@@ -161,7 +135,6 @@ export function SortableContext({
       items,
       overIndex,
       sortingEnabled,
-      useDragOverlay,
       sortedRects,
       strategy,
     }),
@@ -174,12 +147,40 @@ export function SortableContext({
       overIndex,
       sortingEnabled,
       sortedRects,
-      useDragOverlay,
       strategy,
     ],
   );
 
   return <Context.Provider value={contextValue}>{children}</Context.Provider>;
+}
+
+function getSortableLayout({
+  active,
+  items,
+  resolvedOverId,
+  shouldTrackSorting,
+  allowTemp,
+  itemsHaveChanged,
+}: {
+  active: { id: UniqueIdentifier } | null;
+  items: UniqueIdentifier[];
+  resolvedOverId: UniqueIdentifier | null;
+  shouldTrackSorting: boolean;
+  allowTemp: boolean;
+  itemsHaveChanged: boolean;
+}) {
+  const activeIndex = shouldTrackSorting
+    ? getActiveIndex(active, items, allowTemp)
+    : -1;
+  const overIndex =
+    shouldTrackSorting && resolvedOverId ? items.indexOf(resolvedOverId) : -1;
+  return {
+    activeIndex,
+    overIndex,
+    disableTransforms:
+      shouldTrackSorting &&
+      ((overIndex !== -1 && activeIndex === -1) || itemsHaveChanged),
+  };
 }
 
 function getActiveIndex(
@@ -199,40 +200,6 @@ function getActiveIndex(
   }
 
   return items.indexOf(active.id);
-}
-
-function getSortableItemId(
-  item: UniqueIdentifier | { id: UniqueIdentifier },
-): UniqueIdentifier {
-  return typeof item === "object" && "id" in item ? item.id : item;
-}
-
-function isSortingEnabled(forceSorting: boolean, isSorting: boolean): boolean {
-  return forceSorting || isSorting;
-}
-
-function shouldTrackActiveSorting(
-  sortingEnabled: boolean,
-  isDragActive: boolean,
-): boolean {
-  return sortingEnabled && isDragActive;
-}
-
-function getContainerId(id: string | undefined, generatedId: string): string {
-  return id ?? `${ID_PREFIX}-${generatedId}`;
-}
-
-function shouldAllowTemporaryActiveId(
-  isMovingFree: boolean,
-  isSorting: boolean,
-): boolean {
-  return isMovingFree || isSorting;
-}
-
-function getFallbackOverId(
-  manager: ReturnType<typeof useDragDropManager>,
-): UniqueIdentifier | null {
-  return manager?.dragOperation.target?.id ?? null;
 }
 
 function useDragActive(
@@ -278,31 +245,6 @@ function useSortableDragState(
   return { active, collisions, droppableRects };
 }
 
-function getSortableActiveIndex(
-  shouldTrackSorting: boolean,
-  active: { id: UniqueIdentifier } | null,
-  items: UniqueIdentifier[],
-  allowTemp: boolean,
-): number {
-  if (!shouldTrackSorting) {
-    return -1;
-  }
-
-  return getActiveIndex(active, items, allowTemp);
-}
-
-function getSortableOverIndex(
-  shouldTrackSorting: boolean,
-  resolvedOverId: UniqueIdentifier | null,
-  items: UniqueIdentifier[],
-): number {
-  if (!shouldTrackSorting || !resolvedOverId) {
-    return -1;
-  }
-
-  return items.indexOf(resolvedOverId);
-}
-
 function useItemsHaveChanged(items: UniqueIdentifier[]): boolean {
   const previousItemsRef = useRef(items);
   const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
@@ -314,43 +256,20 @@ function useItemsHaveChanged(items: UniqueIdentifier[]): boolean {
   return itemsHaveChanged;
 }
 
-function getDisableTransforms(
-  shouldTrackSorting: boolean,
-  overIndex: number,
-  activeIndex: number,
-  itemsHaveChanged: boolean,
-): boolean {
-  if (!shouldTrackSorting) {
-    return false;
-  }
-
-  return (overIndex !== -1 && activeIndex === -1) || itemsHaveChanged;
-}
-
-function shouldFreezeDroppableRects(
-  shouldTrackSorting: boolean,
-  active: { id: UniqueIdentifier } | null,
-): boolean {
-  return shouldTrackSorting && Boolean(active);
-}
-
 function useResolvedOverId(
   shouldTrackSorting: boolean,
   collisions: Array<Collision> | null,
   containerId: string,
   items: UniqueIdentifier[],
-  fallbackOverId: UniqueIdentifier | null,
+  fallbackOverId: UniqueIdentifier | undefined,
 ): UniqueIdentifier | null {
-  const collisionOverId = getSortingCollisionOverId(
-    shouldTrackSorting,
-    collisions,
-    items,
-  );
-  const hasContainerCollision = hasCollisionId(
-    shouldTrackSorting,
-    collisions,
-    containerId,
-  );
+  const collisionOverId = shouldTrackSorting
+    ? (collisions?.find((collision) => items.includes(collision.id))?.id ??
+      null)
+    : null;
+  const hasContainerCollision =
+    shouldTrackSorting &&
+    Boolean(collisions?.some((collision) => collision.id === containerId));
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null);
 
   return useMemo(() => {
@@ -374,7 +293,7 @@ function useResolvedOverId(
       lastOverIdRef.current = null;
     }
 
-    return fallbackOverId;
+    return fallbackOverId ?? null;
   }, [
     collisionOverId,
     fallbackOverId,
@@ -382,33 +301,6 @@ function useResolvedOverId(
     items,
     shouldTrackSorting,
   ]);
-}
-
-function getSortingCollisionOverId(
-  shouldTrackSorting: boolean,
-  collisions: Array<Collision> | null,
-  items: UniqueIdentifier[],
-): UniqueIdentifier | null {
-  if (!shouldTrackSorting) {
-    return null;
-  }
-
-  return getOverIdFromCollisions(
-    collisions as Array<{ id: UniqueIdentifier }> | null,
-    items,
-  );
-}
-
-function hasCollisionId(
-  shouldTrackSorting: boolean,
-  collisions: Array<Collision> | null,
-  collisionId: UniqueIdentifier,
-): boolean {
-  if (!shouldTrackSorting || !collisions) {
-    return false;
-  }
-
-  return collisions.some((collision) => collision.id === collisionId);
 }
 
 function getResolvedPastHalfway(
@@ -451,41 +343,9 @@ function useFrozenDroppableRects(
     );
   }, [droppableRects, useFrozenRects]);
 
-  return frozenDroppableRectsRef;
-}
-
-function mergeMissingDroppableRects(
-  existing: Map<UniqueIdentifier, ClientRect> | null,
-  incoming: Map<UniqueIdentifier, ClientRect>,
-): Map<UniqueIdentifier, ClientRect> {
-  if (!existing) {
-    return incoming;
-  }
-
-  if (incoming.size <= existing.size) {
-    return existing;
-  }
-
-  const nextRects = new Map(existing);
-  for (const [idKey, rect] of incoming.entries()) {
-    if (!nextRects.has(idKey)) {
-      nextRects.set(idKey, rect);
-    }
-  }
-
-  return nextRects;
-}
-
-function getRectsForSorting(
-  useFrozenRects: boolean,
-  frozenRects: Map<UniqueIdentifier, ClientRect> | null,
-  droppableRects: Map<UniqueIdentifier, ClientRect>,
-): Map<UniqueIdentifier, ClientRect> {
-  if (useFrozenRects && frozenRects) {
-    return frozenRects;
-  }
-
-  return droppableRects;
+  return useFrozenRects && frozenDroppableRectsRef.current
+    ? frozenDroppableRectsRef.current
+    : droppableRects;
 }
 
 function useSortingOverStateSync(state: SortingOverSyncState): void {
@@ -501,11 +361,7 @@ function useSortingOverStateSync(state: SortingOverSyncState): void {
   const resolvedSortingOverId = getSortingOverStateId(items, resolvedOverId);
 
   useEffect(() => {
-    if (
-      !shouldTrackSorting ||
-      !hasCollisions(collisions) ||
-      !resolvedSortingOverId
-    ) {
+    if (!shouldTrackSorting || !collisions?.length || !resolvedSortingOverId) {
       clearSortingOverState(host, containerId);
       return;
     }
@@ -540,41 +396,6 @@ function getSortingOverStateId(
   }
 
   return normalizedOverId;
-}
-
-function hasCollisions(collisions: Array<Collision> | null): boolean {
-  return Boolean(collisions && collisions.length > 0);
-}
-
-function useSortedRects(
-  shouldTrackSorting: boolean,
-  items: UniqueIdentifier[],
-  rectsForSorting: Map<UniqueIdentifier, ClientRect>,
-): Array<ClientRect | undefined> {
-  return useMemo(() => {
-    if (!shouldTrackSorting) {
-      return EMPTY_SORTED_RECTS;
-    }
-
-    return getSortedRects(items, rectsForSorting);
-  }, [items, rectsForSorting, shouldTrackSorting]);
-}
-
-function getOverIdFromCollisions(
-  collisions: Array<{ id: UniqueIdentifier }> | null,
-  items: UniqueIdentifier[],
-): UniqueIdentifier | null {
-  if (!collisions || collisions.length === 0) {
-    return null;
-  }
-
-  for (const collision of collisions) {
-    if (items.includes(collision.id)) {
-      return collision.id;
-    }
-  }
-
-  return null;
 }
 
 function getDroppableRects(

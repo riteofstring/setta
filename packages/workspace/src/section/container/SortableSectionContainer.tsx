@@ -84,7 +84,6 @@ function RegularSortableSectionContainerComponent({
   renderSection: SortableSectionRenderer;
   sectionId: string;
 }) {
-  const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
   const {
@@ -96,7 +95,7 @@ function RegularSortableSectionContainerComponent({
     overIndex,
     items,
     isDragging,
-  } = useSortable({ ...dndProps, animateLayoutChanges });
+  } = useSortable(dndProps);
   const restAttributes = { ...attributes, role: undefined };
   return (
     <SortableCore
@@ -210,8 +209,3 @@ const SortableCore = React.memo(
     p.renderSection === n.renderSection &&
     _.isEqual(p.listeners, n.listeners),
 );
-
-function useAnimateLayoutChanges() {
-  const isSorting = useDndState((x) => x.isSorting);
-  return () => isSorting;
-}

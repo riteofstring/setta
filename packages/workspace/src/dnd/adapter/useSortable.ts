@@ -39,7 +39,6 @@ type UseSortableArguments = {
   attributes?: Record<string, unknown>;
   strategy?: SortingStrategy;
   transition?: SortableTransition | null;
-  animateLayoutChanges?: () => boolean;
 };
 
 const dragDeactivationDelayMs = 50;
@@ -64,7 +63,6 @@ export function useSortable({
     sortedRects,
     overIndex,
     sortingEnabled,
-    useDragOverlay,
     strategy: globalStrategy,
   } = useContext(Context);
   const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
@@ -75,10 +73,6 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const sortablePlugins = [SortableKeyboardPlugin];
   const feedback = getFeedback(sortingEnabled, isMovingFree, customData);
-  const sortableTransition = getSortableTransition(
-    transition,
-    shouldTrackSorting,
-  );
   const dragModifiers = getDragModifiers(host, isSortingMode, containerId);
   const data = useMemo(
     () => ({
@@ -91,13 +85,7 @@ export function useSortable({
     }),
     [containerId, customData, index, items],
   );
-  const wrappedData = useMemo<DndData | undefined>(() => {
-    if (!data) {
-      return undefined;
-    }
-
-    return { current: data };
-  }, [data]);
+  const wrappedData = useMemo<DndData>(() => ({ current: data }), [data]);
   const collisionDetector = useCollisionDetector();
   const {
     sortable,
@@ -113,7 +101,7 @@ export function useSortable({
     feedback,
     modifiers: dragModifiers,
     collisionDetector,
-    transition: sortableTransition,
+    transition: shouldTrackSorting ? (transition ?? null) : null,
 
     plugins: sortablePlugins,
   });
@@ -141,7 +129,6 @@ export function useSortable({
     sortingEnabled,
     strategy,
     transition,
-    useDragOverlay,
     wasDragActive,
   });
   useSyncSortableDisabled(sortable, disabled);
@@ -178,13 +165,6 @@ function getFeedback(
   return sortingEnabled || isMovingFree || itemType === "item"
     ? "none"
     : undefined;
-}
-
-function getSortableTransition(
-  transition: SortableTransition | null | undefined,
-  shouldTrackSorting: boolean,
-): SortableTransition | null {
-  return shouldTrackSorting ? (transition ?? null) : null;
 }
 
 function getDragModifiers(

@@ -132,6 +132,18 @@ or other attached runtime result stays inside the visible canvas along with its 
 fit observes that group for measurement readiness; ordinary shell sizing and selection geometry
 retain their existing boundaries.
 
+## Nested sorting geometry
+
+Nested sorting keeps the initial measured rectangles for the duration of a drag. Reading a peer's
+animated position back into the sorting calculation would move the reference point and make the
+preview jump. Newly mounted drop targets join that snapshot by identity, even if other targets
+unmounted and the registry's total count stayed the same or decreased. Existing rectangles remain
+frozen, and admitting a target does not mutate the previous snapshot.
+
+The sortable presentation derives the active transform, displaced-peer transforms, and transitions
+in one place. Collision ranking, directional hysteresis, temporary section placement, and deferred
+drag cleanup retain their separate gesture responsibilities.
+
 ## Managed-window geometry authority
 
 Managed-window state remains a controlled host value, but an integrated `WorkspaceShell` owns the

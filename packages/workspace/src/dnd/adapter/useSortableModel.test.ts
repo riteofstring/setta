@@ -45,7 +45,6 @@ describe("useSortableModel", () => {
       sortingEnabled: true,
       strategy,
       transition: DEFAULT_SORTABLE_TRANSITION,
-      useDragOverlay: false,
       wasDragActive: false,
     });
 
@@ -87,7 +86,6 @@ describe("useSortableModel", () => {
       sortingEnabled: true,
       strategy,
       transition: DEFAULT_SORTABLE_TRANSITION,
-      useDragOverlay: false,
       wasDragActive: false,
     });
 
@@ -129,7 +127,6 @@ describe("useSortableModel", () => {
       sortingEnabled: true,
       strategy: () => null,
       transition: DEFAULT_SORTABLE_TRANSITION,
-      useDragOverlay: false,
       wasDragActive: true,
     });
 

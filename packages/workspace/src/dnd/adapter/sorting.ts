@@ -44,6 +44,27 @@ export function normalizeDisabled(disabled: boolean | Disabled): Disabled {
   return disabled;
 }
 
+export function mergeMissingDroppableRects(
+  existing: Map<UniqueIdentifier, ClientRect> | null,
+  incoming: Map<UniqueIdentifier, ClientRect>,
+): Map<UniqueIdentifier, ClientRect> {
+  if (!existing) {
+    return incoming;
+  }
+
+  let nextRects = existing;
+  for (const [idKey, rect] of incoming.entries()) {
+    if (!nextRects.has(idKey)) {
+      if (nextRects === existing) {
+        nextRects = new Map(existing);
+      }
+      nextRects.set(idKey, rect);
+    }
+  }
+
+  return nextRects;
+}
+
 export function getSortedRects(
   items: UniqueIdentifier[],
   rects: Map<UniqueIdentifier, ClientRect>,

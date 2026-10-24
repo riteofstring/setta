@@ -37,6 +37,17 @@ function leaf(id: string): WorkspaceSectionInput {
 function interactionDocument(): WorkspaceDocumentInput {
   return {
     sections: {
+      "sort-group": {
+        ...leaf("sort-group"),
+        kind: "group",
+        children: ["sort-first", "sort-second", "sort-third"],
+      },
+      ...Object.fromEntries(
+        ["sort-first", "sort-second", "sort-third"].map((id) => [
+          id,
+          { ...leaf(id), size: { width: 200, height: 72 } },
+        ]),
+      ),
       "selection-first": leaf("selection-first"),
       "selection-second": leaf("selection-second"),
       "meta-text": { ...leaf("meta-text"), kind: "text-control" },
@@ -50,6 +61,7 @@ function interactionDocument(): WorkspaceDocumentInput {
       },
     },
     topLevelSections: {
+      "sort-group": { x: 40, y: 180, w: 280, h: 320, zIndex: 0 },
       "selection-first": { x: 750, y: 320, w: 200, h: 122, zIndex: 0 },
       "selection-second": { x: 790, y: 405, w: 200, h: 122, zIndex: 1 },
       "meta-text": { x: 1040, y: 40, w: 200, h: 44, zIndex: 2 },

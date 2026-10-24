@@ -420,6 +420,113 @@ async function configureClient(client) {
   await client.send("Emulation.setDeviceMetricsOverride", VIEWPORT);
 }
 
+async function verifyNestedSorting(client, key, cancel) {
+  const path = await evaluate(
+    client,
+    `(() => {
+    const point = (id) => {
+      const element = document.querySelector('[data-sortable-section-id="' + id + '"]');
+      if (!(element instanceof HTMLElement)) throw new Error('Missing sorting target ' + id);
+      const bounds = element.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+    };
+    return { start: point('sort-first'), end: point('sort-third') };
+  })()`,
+  );
+  const modifiers = key.modifiers | 1;
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    ...path.start,
+  });
+  await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...key });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Alt",
+    code: "AltLeft",
+    windowsVirtualKeyCode: 18,
+    modifiers,
+  });
+  await delay(50);
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    ...path.start,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    modifiers,
+  });
+  for (let step = 1; step <= MOVE_COUNT; step += 1) {
+    await client.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: path.start.x + ((path.end.x - path.start.x) * step) / MOVE_COUNT,
+      y: path.start.y + ((path.end.y - path.start.y) * step) / MOVE_COUNT,
+      buttons: 1,
+      modifiers,
+    });
+    await delay(16);
+  }
+  const sortingActive = await evaluate(
+    client,
+    `document.querySelector('[data-sortable-section-id="sort-first-TempDND"]') !== null`,
+  );
+  assert.equal(
+    sortingActive,
+    true,
+    "Nested sorting never activated its drag placeholder.",
+  );
+  if (cancel) {
+    await client.send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+      modifiers,
+    });
+    await client.send("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+      modifiers,
+    });
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    ...path.end,
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    modifiers,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Alt",
+    code: "AltLeft",
+    windowsVirtualKeyCode: 18,
+    modifiers: key.modifiers,
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    ...key,
+    modifiers: 0,
+  });
+  await delay(100);
+  const order = await evaluate(
+    client,
+    `Array.from(document.querySelectorAll('[data-sortable-section-id^="sort-"]'), (element) => element.getAttribute('data-sortable-section-id'))`,
+  );
+  assert.deepEqual(
+    order,
+    cancel
+      ? ["sort-first", "sort-second", "sort-third"]
+      : ["sort-second", "sort-third", "sort-first"],
+    cancel
+      ? "Cancelling nested sorting changed the order."
+      : "Nested sorting did not commit the new order.",
+  );
+  return order;
+}
+
 async function main() {
   buildBrowserFixture(process.argv.includes("--skip-build"));
   const { server, url } = await serveBrowserFixture(browserFixtureRoot);
@@ -531,6 +638,16 @@ async function main() {
       true,
       "The floating checklist window closed during the gesture.",
     );
+    const cancelledSort = await verifyNestedSorting(
+      client,
+      sectionDragPath.key,
+      true,
+    );
+    const completedSort = await verifyNestedSorting(
+      client,
+      sectionDragPath.key,
+      false,
+    );
     assert.deepEqual(
       issues,
       [],
@@ -544,6 +661,8 @@ async function main() {
             light: lightCodeGutter,
           },
           completedSelectionLabel: completed.completedSelectionLabel,
+          cancelledSort,
+          completedSort,
           floatingWindowSamples: checklistSamples.length,
           gestureSamples: samples.length,
           pointerOwnedSectionDelta: {

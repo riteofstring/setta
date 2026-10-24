@@ -32,7 +32,7 @@ providers deferred by pre-install dependency review execute against the installe
 
 Browser checks build the private `fixtures/packed-consumer` application from public package exports.
 Its default route exercises the unrelated-consumer contract; `?fixture=interactions` contains only
-the editor, text-control drag target, selection targets, and floating window needed by browser
+the editor, text-control drag target, nested sorting group, selection targets, and floating window needed by browser
 regressions. `?fixture=performance` contains the fixed 256-section workload.
 
 The interaction, performance, and packed-consumer checks share one static server. It reads the built
@@ -101,7 +101,8 @@ Workspace and moves a section on its first Cmd/Ctrl drag from content that norma
 XYFlow's no-drag filter. The marquee acceptance keeps a floating window open and Shift-drags from
 a bare pane point through that window. Every sampled move must retain positive marquee geometry
 while the viewport stays fixed; mouse-up must select multiple sections without closing the window
-or reporting a browser error.
+or reporting a browser error. Nested sorting must activate its temporary drag placeholder, preserve
+the original order on Escape, and accept a subsequent drag that commits the expected new order.
 
 Package tests cover nested section and item sorting, collision resolution, cancellation, and window
 state transitions. These browser checks retain their interaction assertions independently of the
