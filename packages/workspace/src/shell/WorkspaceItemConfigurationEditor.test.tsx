@@ -414,6 +414,93 @@ describe("WorkspaceItemConfigurationEditor", () => {
     expect(stored.configuration.choices?.[0]?.color).toBe("#ff0000");
   });
 
+  it.each(["inspector", "parameter-config"] as const)(
+    "retains %s choice commit timing and removes the selected choice",
+    async (surface) => {
+      const control: ValueControl = {
+        kind: "dropdown",
+        value: "",
+        configuration: {
+          choices: ["Alpha", "Beta"],
+          disabled: false,
+          placeholder: null,
+        },
+      };
+      loadControl(control);
+      await renderEditor(control, surface);
+      const input =
+        surface === "inspector"
+          ? getLabeledControl<HTMLInputElement>(host, "Choice 1")
+          : host.querySelector<HTMLInputElement>(
+              'input[aria-label="Choice 1"]',
+            );
+      if (!input) throw new Error("Expected editable choice.");
+      await act(async () => {
+        input.focus();
+        setInputValue(input, "Gamma");
+      });
+      expect(getStoredControl().configuration).toMatchObject({
+        choices:
+          surface === "inspector" ? ["Alpha", "Beta"] : ["Gamma", "Beta"],
+      });
+      await act(async () => input.blur());
+      expect(getStoredControl().configuration).toMatchObject({
+        choices: ["Gamma", "Beta"],
+      });
+      await renderEditor(getStoredControl(), surface);
+      const remove = host.querySelector<HTMLButtonElement>(
+        'button[aria-label="Remove choice Gamma"]',
+      );
+      if (!remove) throw new Error("Expected remove choice action.");
+      await act(async () => remove.click());
+      expect(getStoredControl().configuration).toMatchObject({
+        choices: ["Beta"],
+      });
+    },
+  );
+
+  it("edits and removes a grouped choice without changing its siblings or other groups", async () => {
+    const control: ValueControl = {
+      kind: "dropdown",
+      value: "",
+      configuration: {
+        disabled: false,
+        placeholder: null,
+        choices: [
+          { group: "First", choices: ["Alpha", "Beta"] },
+          { group: "Second", choices: ["Delta"] },
+        ],
+      },
+    };
+    loadControl(control);
+    await renderEditor(control);
+    const input = getLabeledControl<HTMLInputElement>(host, "First choice 2");
+    await act(async () => {
+      input.focus();
+      setInputValue(input, "Gamma");
+    });
+    expect(onChange).not.toHaveBeenCalled();
+    await act(async () => input.blur());
+    expect(getStoredControl().configuration).toMatchObject({
+      choices: [
+        { group: "First", choices: ["Alpha", "Gamma"] },
+        { group: "Second", choices: ["Delta"] },
+      ],
+    });
+    await renderEditor(getStoredControl());
+    const remove = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove choice Gamma"]',
+    );
+    if (!remove) throw new Error("Expected grouped remove choice action.");
+    await act(async () => remove.click());
+    expect(getStoredControl().configuration).toMatchObject({
+      choices: [
+        { group: "First", choices: ["Alpha"] },
+        { group: "Second", choices: ["Delta"] },
+      ],
+    });
+  });
+
   it("keeps an attachment maximum below the current count as a local invalid draft", async () => {
     const control: ValueControl = {
       kind: "dropzone",

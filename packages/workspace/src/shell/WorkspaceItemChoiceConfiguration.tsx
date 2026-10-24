@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import type {
   WorkspaceColorChoice,
   WorkspaceDropdownChoiceGroup,
@@ -9,6 +9,7 @@ import {
   DraftTextConfigurationRow,
   ReadOnlyConfigurationRow,
   createConfigurationCommit,
+  handleConfigurationEscape,
   type ConfigurationEditorProps,
   type WorkspaceItemValueControl,
 } from "./workspaceItemConfigurationFields";
@@ -16,16 +17,10 @@ import {
 type DropdownControl = Extract<WorkspaceItemValueControl, { kind: "dropdown" }>;
 type ColorControl = Extract<WorkspaceItemValueControl, { kind: "color" }>;
 
-function handleButtonEscape(
-  event: KeyboardEvent<HTMLElement>,
-  onEscape: () => void,
-): void {
-  if (event.key !== "Escape") {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  onEscape();
+function replaceAt<T>(values: Array<T>, index: number, value: T): Array<T> {
+  return values.map((current, currentIndex) =>
+    currentIndex === index ? value : current,
+  );
 }
 
 function RemoveConfigurationButton({
@@ -45,7 +40,7 @@ function RemoveConfigurationButton({
       className="setta-workspace-inspector-config-remove"
       disabled={disabled}
       onClick={onClick}
-      onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+      onKeyDown={(event) => handleConfigurationEscape(event, onEscape)}
       type="button"
     >
       <span aria-hidden="true">×</span>
@@ -116,11 +111,7 @@ function FlatDropdownChoices({
               label={`Choice ${index + 1}`}
               name={`choice-${index}`}
               onCommit={(nextChoice) => {
-                commitChoices(
-                  choices.map((currentChoice, currentIndex) =>
-                    currentIndex === index ? nextChoice : currentChoice,
-                  ),
-                );
+                commitChoices(replaceAt(choices, index, nextChoice));
               }}
               onEscape={onEscape}
               validate={(nextChoice) => {
@@ -202,11 +193,10 @@ function GroupedDropdownChoices({
               name={`group-${groupIndex}`}
               onCommit={(nextGroup) =>
                 commitGroups(
-                  choices.map((currentGroup, currentIndex) =>
-                    currentIndex === groupIndex
-                      ? { ...currentGroup, group: nextGroup }
-                      : currentGroup,
-                  ),
+                  replaceAt(choices, groupIndex, {
+                    ...group,
+                    group: nextGroup,
+                  }),
                 )
               }
               onEscape={onEscape}
@@ -241,19 +231,14 @@ function GroupedDropdownChoices({
                 name={`group-${groupIndex}-choice-${choiceIndex}`}
                 onCommit={(nextChoice) =>
                   commitGroups(
-                    choices.map((currentGroup, currentGroupIndex) =>
-                      currentGroupIndex === groupIndex
-                        ? {
-                            ...currentGroup,
-                            choices: currentGroup.choices.map(
-                              (currentChoice, currentChoiceIndex) =>
-                                currentChoiceIndex === choiceIndex
-                                  ? nextChoice
-                                  : currentChoice,
-                            ),
-                          }
-                        : currentGroup,
-                    ),
+                    replaceAt(choices, groupIndex, {
+                      ...group,
+                      choices: replaceAt(
+                        group.choices,
+                        choiceIndex,
+                        nextChoice,
+                      ),
+                    }),
                   )
                 }
                 onEscape={onEscape}
@@ -274,17 +259,13 @@ function GroupedDropdownChoices({
                 label={`Remove choice ${choice}`}
                 onClick={() =>
                   commitGroups(
-                    choices.map((currentGroup, currentGroupIndex) =>
-                      currentGroupIndex === groupIndex
-                        ? {
-                            ...currentGroup,
-                            choices: currentGroup.choices.filter(
-                              (_, currentChoiceIndex) =>
-                                currentChoiceIndex !== choiceIndex,
-                            ),
-                          }
-                        : currentGroup,
-                    ),
+                    replaceAt(choices, groupIndex, {
+                      ...group,
+                      choices: group.choices.filter(
+                        (_, currentChoiceIndex) =>
+                          currentChoiceIndex !== choiceIndex,
+                      ),
+                    }),
                   )
                 }
                 onEscape={onEscape}
@@ -300,14 +281,10 @@ function GroupedDropdownChoices({
                 getGroupedChoiceValues(choices),
               );
               commitGroups(
-                choices.map((currentGroup, currentIndex) =>
-                  currentIndex === groupIndex
-                    ? {
-                        ...currentGroup,
-                        choices: [...currentGroup.choices, nextChoice],
-                      }
-                    : currentGroup,
-                ),
+                replaceAt(choices, groupIndex, {
+                  ...group,
+                  choices: [...group.choices, nextChoice],
+                }),
               );
             }}
             onEscape={onEscape}
@@ -396,14 +373,10 @@ export function DropdownParameterConfigurationEditor(
               disabled={disabled}
               onChange={(event) =>
                 commitChoices(
-                  flatChoices.map((currentChoice, currentIndex) =>
-                    currentIndex === index
-                      ? event.currentTarget.value
-                      : currentChoice,
-                  ),
+                  replaceAt(flatChoices, index, event.currentTarget.value),
                 )
               }
-              onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+              onKeyDown={(event) => handleConfigurationEscape(event, onEscape)}
               placeholder="Add description..."
               type="text"
               value={choice}
@@ -487,7 +460,7 @@ function ColorInputRow({
             setError(null);
             onChange(color);
           }}
-          onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+          onKeyDown={(event) => handleConfigurationEscape(event, onEscape)}
           type="color"
           value={choice.color}
         />
@@ -543,13 +516,7 @@ export function ColorConfigurationEditor({
                 disabled={disabled}
                 index={index}
                 onChange={(color) =>
-                  commitChoices(
-                    choices.map((currentChoice, currentIndex) =>
-                      currentIndex === index
-                        ? { ...currentChoice, color }
-                        : currentChoice,
-                    ),
-                  )
+                  commitChoices(replaceAt(choices, index, { ...choice, color }))
                 }
                 onEscape={onEscape}
               />
@@ -571,11 +538,7 @@ export function ColorConfigurationEditor({
               name={`color-description-${index}`}
               onCommit={(description) =>
                 commitChoices(
-                  choices.map((currentChoice, currentIndex) =>
-                    currentIndex === index
-                      ? { ...currentChoice, description }
-                      : currentChoice,
-                  ),
+                  replaceAt(choices, index, { ...choice, description }),
                 )
               }
               onEscape={onEscape}
@@ -632,14 +595,15 @@ export function ColorParameterConfigurationEditor({
                 disabled={disabled}
                 onChange={(event) =>
                   commitChoices(
-                    choices.map((currentChoice, currentIndex) =>
-                      currentIndex === index
-                        ? { ...currentChoice, color: event.currentTarget.value }
-                        : currentChoice,
-                    ),
+                    replaceAt(choices, index, {
+                      ...choice,
+                      color: event.currentTarget.value,
+                    }),
                   )
                 }
-                onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+                onKeyDown={(event) =>
+                  handleConfigurationEscape(event, onEscape)
+                }
                 type="color"
                 value={choice.color}
               />
@@ -649,17 +613,15 @@ export function ColorParameterConfigurationEditor({
                 disabled={disabled}
                 onChange={(event) =>
                   commitChoices(
-                    choices.map((currentChoice, currentIndex) =>
-                      currentIndex === index
-                        ? {
-                            ...currentChoice,
-                            description: event.currentTarget.value,
-                          }
-                        : currentChoice,
-                    ),
+                    replaceAt(choices, index, {
+                      ...choice,
+                      description: event.currentTarget.value,
+                    }),
                   )
                 }
-                onKeyDown={(event) => handleButtonEscape(event, onEscape)}
+                onKeyDown={(event) =>
+                  handleConfigurationEscape(event, onEscape)
+                }
                 placeholder="Add description..."
                 type="text"
                 value={choice.description}

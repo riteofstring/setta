@@ -144,6 +144,11 @@ The sortable presentation derives the active transform, displaced-peer transform
 in one place. Collision ranking, directional hysteresis, temporary section placement, and deferred
 drag cleanup retain their separate gesture responsibilities.
 
+The provider and gesture monitors share upstream event translation. The provider owns cancellation
+and collision cleanup: it aborts a cancelled upstream operation before delivering the mapped event,
+then clears collision state after the callback. Subscribers therefore observe the gesture's final
+collision state while handling either completion or cancellation.
+
 ## Managed-window geometry authority
 
 Managed-window state remains a controlled host value, but an integrated `WorkspaceShell` owns the
@@ -193,6 +198,12 @@ Package mutations validate the complete request, construct one next canonical va
 once. Coupled resources such as a section forest, item tree, selection, and derived node geometry
 move through the same boundary. Browser objects, provider callbacks, file operations, and other
 nonserializable effects cross explicit registries and never enter `WorkspaceDocument`.
+
+The item Inspector keeps text edits as local drafts until blur validates and commits them; compact
+parameter configuration commits changes immediately. They share immutable choice updates and
+Escape handling while retaining those distinct publication boundaries. Date/time controls and
+serialized item configurations share option vocabularies and scale bounds, so direct rendering and
+document admission accept the same settings.
 
 ## Saved-view presentation authority
 

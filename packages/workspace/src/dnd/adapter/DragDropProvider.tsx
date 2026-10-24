@@ -6,30 +6,23 @@ import { useMemo, type PropsWithChildren } from "react";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import type { CollisionTracker } from "./collision";
 import { DndProviderContext } from "./DndProviderContext";
-import { mapDragEvent, mapDragStartEvent } from "./dragEventMapping";
-import type {
-  DragCancelEvent,
-  DragEndEvent,
-  DragMoveEvent,
-  DragOverEvent,
-  DragStartEvent,
-  SettaCollision,
-} from "./types";
+import {
+  createDragEventHandlers,
+  type DndEventHandlers,
+} from "./dragEventMapping";
+import type { SettaCollision } from "./types";
 
-type Props = PropsWithChildren<{
-  sensors?: Sensors<DragDropManager>;
-  modifiers?: Modifiers<DragDropManager>;
-  collisionTracker: CollisionTracker;
-  dndContext: {
-    isSorting: boolean;
-    isMovingFree: boolean;
-  };
-  onDragStart?: (event: DragStartEvent) => void;
-  onDragMove?: (event: DragMoveEvent) => void;
-  onDragOver?: (event: DragOverEvent) => void;
-  onDragEnd?: (event: DragEndEvent) => void;
-  onDragCancel?: (event: DragCancelEvent) => void;
-}>;
+type Props = PropsWithChildren<
+  DndEventHandlers & {
+    sensors?: Sensors<DragDropManager>;
+    modifiers?: Modifiers<DragDropManager>;
+    collisionTracker: CollisionTracker;
+    dndContext: {
+      isSorting: boolean;
+      isMovingFree: boolean;
+    };
+  }
+>;
 
 const plugins = defaultPreset.plugins.filter(
   (plugin) => plugin !== Accessibility && plugin !== AutoScroller,
@@ -49,6 +42,13 @@ export function DragDropProvider({
 }: Props) {
   const host = useWorkspaceHost();
   const tracker = collisionTracker;
+  const handlers = createDragEventHandlers(host, {
+    onDragStart,
+    onDragMove,
+    onDragOver,
+    onDragEnd,
+    onDragCancel,
+  });
   const contextValue = useMemo(
     () => ({
       isSorting: dndContext.isSorting,
@@ -67,35 +67,12 @@ export function DragDropProvider({
   return (
     <DndProviderContext.Provider value={contextValue}>
       <DndKitProvider
+        {...handlers}
         sensors={sensors}
         modifiers={modifiers}
         plugins={plugins}
         onCollision={(event) => {
           tracker.update(event.collisions as SettaCollision[] | null);
-        }}
-        onDragStart={(event, manager) => {
-          const mapped = mapDragStartEvent(host, event, manager);
-          if (!mapped) {
-            return;
-          }
-
-          onDragStart?.(mapped);
-        }}
-        onDragMove={(event, manager) => {
-          const mapped = mapDragEvent(host, event, manager);
-          if (!mapped) {
-            return;
-          }
-
-          onDragMove?.(mapped);
-        }}
-        onDragOver={(event, manager) => {
-          const mapped = mapDragEvent(host, event, manager);
-          if (!mapped) {
-            return;
-          }
-
-          onDragOver?.(mapped);
         }}
         onDragEnd={(event, manager) => {
           if (event.canceled) {
@@ -103,17 +80,7 @@ export function DragDropProvider({
             control.abort();
           }
 
-          const mapped = mapDragEvent(host, event, manager, event.canceled);
-          if (!mapped) {
-            tracker.reset();
-            return;
-          }
-
-          if (event.canceled) {
-            onDragCancel?.(mapped);
-          } else {
-            onDragEnd?.(mapped);
-          }
+          handlers.onDragEnd(event, manager);
           tracker.reset();
         }}
       >

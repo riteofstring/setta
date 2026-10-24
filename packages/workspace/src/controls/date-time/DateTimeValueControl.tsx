@@ -1,3 +1,11 @@
+import { assertStringOptions } from "../../validation";
+import {
+  DATE_OPTIONS,
+  TIME_OPTIONS,
+  TIME_DISPLAY_FORMATS,
+  TIME_DISPLAY_SCALE_MIN,
+  TIME_DISPLAY_SCALE_MAX,
+} from "./dateTimeOptions";
 import {
   useEffect,
   useMemo,
@@ -65,15 +73,6 @@ const META_CONTAINER_CLASS_NAME =
   "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
 const META_TRANSPARENT_CONTAINER_CLASS_NAME =
   "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-transparent bg-transparent px-3 py-2";
-const DATE_DISPLAY_FORMATS = ["iso", "us", "eu", "long"] as const;
-const DATE_CONTROL_MODES = ["input", "calendar"] as const;
-const DATE_SELECTION_MODES = ["single", "multiple"] as const;
-const WEEK_STARTS = ["sunday", "monday"] as const;
-const TIME_CONTROL_MODES = ["input", "display"] as const;
-const TIME_DISPLAY_FORMATS = ["twenty_four_hour", "twelve_hour"] as const;
-const TIME_DISPLAY_FONTS = ["clock", "monospace", "system"] as const;
-const TIME_DISPLAY_SCALE_MIN = 0.5;
-const TIME_DISPLAY_SCALE_MAX = 3;
 const WEEKDAY_LABELS: Record<DateCalendarWeekStart, ReadonlyArray<string>> = {
   monday: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   sunday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -141,54 +140,11 @@ type ResolvedDateValueControlConfig = {
   disabled: boolean;
 };
 
-function assertOption(
-  controlName: string,
-  field: string,
-  value: string,
-  allowed: ReadonlyArray<string>,
-): void {
-  if (!allowed.includes(value)) {
-    throw new Error(`${controlName} received invalid ${field}: ${value}.`);
-  }
-}
-
-function assertDateConfig({
-  displayFormat,
-  controlMode,
-  selectionMode,
-  weekStart,
-  timeDisplayFormat,
-}: {
-  displayFormat: DateDisplayFormat;
-  controlMode: DateControlMode;
-  selectionMode: DateSelectionMode;
-  weekStart: DateCalendarWeekStart;
-  timeDisplayFormat: TimeDisplayFormat;
-}): void {
-  assertOption(
-    "DateValueControl",
-    "displayFormat",
-    displayFormat,
-    DATE_DISPLAY_FORMATS,
-  );
-  assertOption(
-    "DateValueControl",
-    "controlMode",
-    controlMode,
-    DATE_CONTROL_MODES,
-  );
-  assertOption(
-    "DateValueControl",
-    "selectionMode",
-    selectionMode,
-    DATE_SELECTION_MODES,
-  );
-  assertOption("DateValueControl", "weekStart", weekStart, WEEK_STARTS);
-  assertOption(
-    "DateValueControl",
-    "timeDisplayFormat",
-    timeDisplayFormat,
-    TIME_DISPLAY_FORMATS,
+function assertDateConfig(config: ResolvedDateValueControlConfig): void {
+  assertStringOptions(
+    config,
+    { ...DATE_OPTIONS, timeDisplayFormat: TIME_DISPLAY_FORMATS },
+    (field, value) => `DateValueControl received invalid ${field}: ${value}.`,
   );
 }
 
@@ -206,30 +162,18 @@ function resolveDateValueControlConfig(
   };
 }
 
-function assertTimeConfig({
-  controlMode,
-  displayFormat,
-  scale,
-  font,
-}: {
+function assertTimeConfig(config: {
   controlMode: TimeControlMode;
   displayFormat: TimeDisplayFormat;
   scale: number;
   font: TimeDisplayFont;
 }): void {
-  assertOption(
-    "TimeValueControl",
-    "controlMode",
-    controlMode,
-    TIME_CONTROL_MODES,
+  assertStringOptions(
+    config,
+    TIME_OPTIONS,
+    (field, value) => `TimeValueControl received invalid ${field}: ${value}.`,
   );
-  assertOption(
-    "TimeValueControl",
-    "displayFormat",
-    displayFormat,
-    TIME_DISPLAY_FORMATS,
-  );
-  assertOption("TimeValueControl", "font", font, TIME_DISPLAY_FONTS);
+  const { scale } = config;
   if (
     !Number.isFinite(scale) ||
     scale < TIME_DISPLAY_SCALE_MIN ||

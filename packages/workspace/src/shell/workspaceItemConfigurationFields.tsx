@@ -97,7 +97,7 @@ export function ConfigurationRow({
   );
 }
 
-function handleEscape(
+export function handleConfigurationEscape(
   event: KeyboardEvent<HTMLElement>,
   onEscape: () => void,
   reset?: () => void,
@@ -136,7 +136,7 @@ export function SelectConfigurationRow({
           {...props}
           disabled={disabled}
           onChange={(event) => onChange(event.currentTarget.value)}
-          onKeyDown={(event) => handleEscape(event, onEscape)}
+          onKeyDown={(event) => handleConfigurationEscape(event, onEscape)}
           value={value}
         >
           {options.map((option) => (
@@ -309,7 +309,7 @@ function DraftConfigurationRow(
             setError(null);
           }}
           onKeyDown={(event) => {
-            if (handleEscape(event, onEscape, reset)) return;
+            if (handleConfigurationEscape(event, onEscape, reset)) return;
             if (event.key === "Enter") {
               event.preventDefault();
               event.currentTarget.blur();
@@ -342,7 +342,7 @@ export function ConfigurationActionButton({
       className="setta-workspace-inspector-config-action"
       disabled={disabled}
       onClick={onClick}
-      onKeyDown={(event) => handleEscape(event, onEscape)}
+      onKeyDown={(event) => handleConfigurationEscape(event, onEscape)}
       type="button"
     >
       {children}

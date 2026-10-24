@@ -1,3 +1,9 @@
+import {
+  assertRecord,
+  assertKnownFields,
+  assertString,
+  type UnknownRecord,
+} from "../validation";
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
 import type {
@@ -5,36 +11,6 @@ import type {
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
 } from "./types";
-
-type UnknownRecord = Record<string, unknown>;
-
-function assertRecord(
-  value: unknown,
-  owner: string,
-): asserts value is UnknownRecord {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${owner} must be an object.`);
-  }
-}
-
-function assertKnownFields(
-  record: UnknownRecord,
-  owner: string,
-  fields: ReadonlyArray<string>,
-) {
-  const knownFields = new Set(fields);
-  for (const field of Object.keys(record)) {
-    if (!knownFields.has(field)) {
-      throw new Error(`${owner} contains the unknown field ${field}.`);
-    }
-  }
-}
-
-function assertString(value: unknown, owner: string): asserts value is string {
-  if (typeof value !== "string") {
-    throw new Error(`${owner} must be a string.`);
-  }
-}
 
 function assertStringArray(
   value: unknown,

@@ -1,3 +1,17 @@
+import {
+  DATE_OPTIONS,
+  TIME_OPTIONS,
+  TIME_DISPLAY_FORMATS,
+  TIME_DISPLAY_SCALE_MIN,
+  TIME_DISPLAY_SCALE_MAX,
+} from "../controls/date-time/dateTimeOptions";
+import {
+  assertRecord,
+  assertKnownFields,
+  assertString,
+  assertStringOptions,
+  type UnknownRecord,
+} from "../validation";
 import type {
   WorkspaceDropzoneAttachment,
   WorkspaceDropzonePolicy,
@@ -8,7 +22,6 @@ import type {
   WorkspaceItemPresentation,
 } from "./types";
 
-type UnknownRecord = Record<string, unknown>;
 type ConfigurableItemControlKind = Exclude<WorkspaceItemControlKind, "group">;
 type ConfigurationValidator = (config: UnknownRecord, owner: string) => void;
 
@@ -37,34 +50,6 @@ const TEXT_LANGUAGES = new Set([
   "markdown",
 ]);
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/iu;
-
-function assertRecord(
-  value: unknown,
-  owner: string,
-): asserts value is UnknownRecord {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${owner} must be an object.`);
-  }
-}
-
-function assertKnownFields(
-  record: UnknownRecord,
-  owner: string,
-  fields: ReadonlyArray<string>,
-) {
-  const knownFields = new Set(fields);
-  for (const field of Object.keys(record)) {
-    if (!knownFields.has(field)) {
-      throw new Error(`${owner} contains the unknown field ${field}.`);
-    }
-  }
-}
-
-function assertString(value: unknown, owner: string): asserts value is string {
-  if (typeof value !== "string") {
-    throw new Error(`${owner} must be a string.`);
-  }
-}
 
 function assertNullableString(
   value: unknown,
@@ -249,26 +234,18 @@ function assertDateConfiguration(config: UnknownRecord, owner: string) {
     "weekStart",
   ]);
   assertBaseConfiguration(config, owner);
-  assertOption(config["displayFormat"], `${owner}.displayFormat`, [
-    "iso",
-    "us",
-    "eu",
-    "long",
-  ]);
-  assertOption(config["controlMode"], `${owner}.controlMode`, [
-    "input",
-    "calendar",
-  ]);
-  assertOption(config["selectionMode"], `${owner}.selectionMode`, [
-    "single",
-    "multiple",
-  ]);
-  assertOption(config["weekStart"], `${owner}.weekStart`, ["sunday", "monday"]);
+  assertStringOptions(
+    config,
+    DATE_OPTIONS,
+    (field, value) =>
+      `${owner}.${field} has unsupported value ${String(value)}.`,
+  );
   assertBoolean(config["includeTime"], `${owner}.includeTime`);
-  assertOption(config["timeDisplayFormat"], `${owner}.timeDisplayFormat`, [
-    "twenty_four_hour",
-    "twelve_hour",
-  ]);
+  assertOption(
+    config["timeDisplayFormat"],
+    `${owner}.timeDisplayFormat`,
+    TIME_DISPLAY_FORMATS,
+  );
 }
 
 function assertTimeConfiguration(config: UnknownRecord, owner: string) {
@@ -281,22 +258,18 @@ function assertTimeConfiguration(config: UnknownRecord, owner: string) {
     "transparent",
   ]);
   assertBaseConfiguration(config, owner);
-  assertOption(config["controlMode"], `${owner}.controlMode`, [
-    "input",
-    "display",
-  ]);
-  assertOption(config["displayFormat"], `${owner}.displayFormat`, [
-    "twenty_four_hour",
-    "twelve_hour",
-  ]);
-  assertOption(config["font"], `${owner}.font`, [
-    "clock",
-    "monospace",
-    "system",
-  ]);
+  assertStringOptions(
+    config,
+    TIME_OPTIONS,
+    (field, value) =>
+      `${owner}.${field} has unsupported value ${String(value)}.`,
+  );
   assertBoolean(config["transparent"], `${owner}.transparent`);
   assertFiniteNumber(config["scale"], `${owner}.scale`);
-  if (config["scale"] < 0.5 || config["scale"] > 3) {
+  if (
+    config["scale"] < TIME_DISPLAY_SCALE_MIN ||
+    config["scale"] > TIME_DISPLAY_SCALE_MAX
+  ) {
     throw new Error(`${owner}.scale must be between 0.5 and 3.`);
   }
 }

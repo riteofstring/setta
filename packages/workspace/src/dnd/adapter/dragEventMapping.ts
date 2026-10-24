@@ -1,5 +1,6 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates, Rectangle } from "@dnd-kit/geometry";
+import type { DragDropEventHandlers } from "@dnd-kit/react";
 import type { WorkspaceHost } from "../../workspaceHost";
 import { getDndChildrenStore } from "../dndChildren";
 import { getItemDndParentByChild } from "../itemDndChildren";
@@ -7,12 +8,49 @@ import { getItemDndStateStore, type ItemListKey } from "../itemDndState";
 import { promoteBestCollision } from "./collisionCompare";
 import { coerceClientRect, rectFromBoundingRect } from "./rect";
 import type {
+  DragCancelEvent,
   DragEndEvent,
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
   SettaCollision,
 } from "./types";
+
+export type DndEventHandlers = Partial<{
+  onDragStart: (event: DragStartEvent) => void;
+  onDragMove: (event: DragMoveEvent) => void;
+  onDragOver: (event: DragOverEvent) => void;
+  onDragEnd: (event: DragEndEvent) => void;
+  onDragCancel: (event: DragCancelEvent) => void;
+}>;
+
+export function createDragEventHandlers(
+  host: WorkspaceHost,
+  handlers: DndEventHandlers,
+): Pick<
+  DragDropEventHandlers,
+  "onDragStart" | "onDragMove" | "onDragOver" | "onDragEnd"
+> {
+  return {
+    onDragStart: (event, manager) => {
+      const mapped = mapDragStartEvent(host, event, manager);
+      if (mapped) handlers.onDragStart?.(mapped);
+    },
+    onDragMove: (event, manager) => {
+      const mapped = mapDragEvent(host, event, manager);
+      if (mapped) handlers.onDragMove?.(mapped);
+    },
+    onDragOver: (event, manager) => {
+      const mapped = mapDragEvent(host, event, manager);
+      if (mapped) handlers.onDragOver?.(mapped);
+    },
+    onDragEnd: (event, manager) => {
+      const mapped = mapDragEvent(host, event, manager, event.canceled);
+      const onEnd = event.canceled ? handlers.onDragCancel : handlers.onDragEnd;
+      if (mapped) onEnd?.(mapped);
+    },
+  };
+}
 
 type DragStartOperation = {
   source: Draggable | null;

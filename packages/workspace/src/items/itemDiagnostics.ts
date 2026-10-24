@@ -1,3 +1,4 @@
+import { assertRecord, assertKnownFields } from "../validation";
 import type { WorkspaceItem } from "../document/types";
 
 export type WorkspaceItemDiagnosticSeverity = "error" | "warning" | "info";
@@ -26,35 +27,12 @@ const DIAGNOSTIC_PRIORITY: Record<WorkspaceItemDiagnosticSeverity, number> = {
   info: 1,
 };
 
-type UnknownRecord = Record<string, unknown>;
-
-function assertRecord(
-  value: unknown,
-  owner: string,
-): asserts value is UnknownRecord {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${owner} must be an object.`);
-  }
-}
-
-function assertKnownDiagnosticFields(
-  diagnostic: UnknownRecord,
-  owner: string,
-): void {
-  const knownFields = new Set(["message", "severity"]);
-  for (const field of Object.keys(diagnostic)) {
-    if (!knownFields.has(field)) {
-      throw new Error(`${owner} contains the unknown field ${field}.`);
-    }
-  }
-}
-
 function normalizeDiagnostic(
   value: unknown,
   owner: string,
 ): WorkspaceItemDiagnostic {
   assertRecord(value, owner);
-  assertKnownDiagnosticFields(value, owner);
+  assertKnownFields(value, owner, ["message", "severity"]);
   if (
     typeof value["severity"] !== "string" ||
     !DIAGNOSTIC_SEVERITIES.has(

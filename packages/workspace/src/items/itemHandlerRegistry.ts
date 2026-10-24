@@ -1,3 +1,8 @@
+import {
+  assertRecord,
+  assertKnownFields,
+  type UnknownRecord,
+} from "../validation";
 import type {
   DropzoneAcceptedResult,
   DropzoneRejection,
@@ -45,32 +50,9 @@ function getRegistrations(
   registrationsByHost.set(host, registrations);
   return registrations;
 }
-type UnknownRecord = Record<string, unknown>;
 
 function getRegistrationKey(sectionId: string, itemId: string): string {
   return JSON.stringify([sectionId, itemId]);
-}
-
-function assertRecord(
-  value: unknown,
-  owner: string,
-): asserts value is UnknownRecord {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${owner} must be an object.`);
-  }
-}
-
-function assertKnownFields(
-  record: UnknownRecord,
-  owner: string,
-  fields: ReadonlyArray<string>,
-) {
-  const knownFields = new Set(fields);
-  for (const field of Object.keys(record)) {
-    if (!knownFields.has(field)) {
-      throw new Error(`${owner} contains the unknown field ${field}.`);
-    }
-  }
 }
 
 function assertHandler(value: unknown, owner: string) {

@@ -24,7 +24,11 @@ import {
   setItemDndState,
   useItemDndState,
 } from "../itemDndState";
-import { mapDragEvent, mapDragStartEvent } from "./dragEventMapping";
+import {
+  createDragEventHandlers,
+  mapDragEvent,
+  mapDragStartEvent,
+} from "./dragEventMapping";
 import type { DragEndEvent, SettaCollision } from "./types";
 
 type RectInput = {
@@ -64,6 +68,54 @@ describe("dragEventMapping", () => {
     testWorkspace.dndChildren.getState().reset();
     testWorkspace.itemDndChildren.getState().reset();
     testWorkspace.itemDndState.getState().reset();
+  });
+
+  it("routes cancelled and completed gestures separately and ignores releases without a source", () => {
+    const received: Array<{ kind: string; id: string; canceled?: boolean }> =
+      [];
+    const handlers = createDragEventHandlers(testWorkspace.host, {
+      onDragEnd: (event) =>
+        received.push({
+          kind: "commit",
+          id: String(event.active.id),
+          canceled: event.canceled,
+        }),
+      onDragCancel: (event) =>
+        received.push({
+          kind: "cancel",
+          id: String(event.active.id),
+          canceled: event.canceled,
+        }),
+    });
+    const manager = { collisionObserver: { collisions: [] } };
+    const operation = {
+      source: { id: "active-1" },
+      target: null,
+      activatorEvent: null,
+      transform: { x: 11, y: 13 },
+    };
+
+    handlers.onDragEnd(
+      { operation, canceled: true } as never,
+      manager as never,
+    );
+    handlers.onDragEnd(
+      { operation, canceled: false } as never,
+      manager as never,
+    );
+    handlers.onDragEnd(
+      { operation: { ...operation, source: null }, canceled: true } as never,
+      manager as never,
+    );
+    handlers.onDragEnd(
+      { operation: { ...operation, source: null }, canceled: false } as never,
+      manager as never,
+    );
+
+    expect(received).toEqual([
+      { kind: "cancel", id: "active-1", canceled: true },
+      { kind: "commit", id: "active-1", canceled: false },
+    ]);
   });
 
   it("returns null on drag start when source is missing", () => {
