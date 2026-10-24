@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { TbGripVertical } from "react-icons/tb";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../interaction";
 import React, {
   useCallback,
   useId,
@@ -544,6 +546,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       quickInfoDescriptionId={quickInfoDescriptionId}
     >
       {renderItemRowContent(renderContext, renderItem)}
+      <ItemDragHandle item={rowState.item} />
       <ItemColumnResizeHandle />
       <WorkspaceItemDiagnostics diagnostics={diagnostics} />
       {layout !== "leaf" && (
@@ -551,6 +554,21 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       )}
     </ItemRowShell>
   );
+}
+
+function ItemDragHandle({ item }: { item: ItemRowRenderContext["item"] }) {
+  const { enabled } = useItemListContext();
+  return enabled ? (
+    <button
+      type="button"
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute -start-4 top-0 flex h-6 w-4 touch-none cursor-grab items-center justify-center rounded text-setta-400 hover:text-setta-600 focus-visible:outline dark:hover:text-setta-200`}
+      aria-label={`Drag ${item.presentation?.label || item.id}`}
+      title="Drag to reorder or nest this parameter"
+      data-workspace-item-drag-handle="true"
+    >
+      <TbGripVertical aria-hidden="true" />
+    </button>
+  ) : null;
 }
 
 function getItemQuickInfoHandlers(

@@ -527,6 +527,161 @@ async function verifyNestedSorting(client, key, cancel) {
   return order;
 }
 
+async function dragHandle(
+  client,
+  selector,
+  target,
+  cancel = false,
+  touch = false,
+) {
+  const start = await evaluate(
+    client,
+    `(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    const r = element.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`,
+  );
+  if (touch) {
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...start, id: 1 }],
+    });
+  } else {
+    await client.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      ...start,
+    });
+    await client.send("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      ...start,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+    });
+  }
+  for (let step = 1; step <= MOVE_COUNT; step++) {
+    const point = {
+      x: start.x + ((target.x - start.x) * step) / MOVE_COUNT,
+      y: start.y + ((target.y - start.y) * step) / MOVE_COUNT,
+    };
+    await moveHandlePointer(client, point, touch);
+    await delay(25);
+  }
+  if (cancel)
+    await client.send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+    });
+  await client.send(
+    touch ? "Input.dispatchTouchEvent" : "Input.dispatchMouseEvent",
+    touch
+      ? { type: "touchEnd", touchPoints: [] }
+      : {
+          type: "mouseReleased",
+          ...target,
+          button: "left",
+          buttons: 0,
+          clickCount: 1,
+        },
+  );
+  if (cancel)
+    await client.send("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+    });
+  await delay(450);
+}
+
+async function moveHandlePointer(client, point, touch) {
+  await client.send(
+    touch ? "Input.dispatchTouchEvent" : "Input.dispatchMouseEvent",
+    touch
+      ? { type: "touchMove", touchPoints: [{ ...point, id: 1 }] }
+      : { type: "mouseMoved", ...point, buttons: 1 },
+  );
+}
+
+async function verifyDirectHandles(client, touch = false) {
+  const handle =
+    '[data-section-id="meta-text"] [data-meta-control-drag-handle]';
+  const point = await evaluate(
+    client,
+    `(() => {
+    const r = document.querySelector('[data-section-id="sort-group"]').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.bottom - 15 };
+  })()`,
+  );
+  await dragHandle(client, handle, point, true, touch);
+  assert.equal(
+    await evaluate(
+      client,
+      `!!document.querySelector('.react-flow__node[data-id="meta-text"]')`,
+    ),
+    true,
+    "Cancel must leave the control on the canvas",
+  );
+  await dragHandle(client, handle, point, false, touch);
+  assert.equal(
+    await evaluate(
+      client,
+      `!!document.querySelector('[data-section-id="sort-group"] [data-section-id="meta-text"]')`,
+    ),
+    true,
+    "Direct handle must drop the control into the group",
+  );
+  await dragHandle(client, handle, { x: 1100, y: 170 }, false, touch);
+  assert.equal(
+    await evaluate(
+      client,
+      `!!document.querySelector('.react-flow__node[data-id="meta-text"]')`,
+    ),
+    true,
+    "Direct handle must extract the control",
+  );
+  const itemTarget = await evaluate(
+    client,
+    `(() => {
+    const r = document.querySelector('[data-workspace-item-id="second"]').getBoundingClientRect();
+    return { x: r.left + 8, y: r.bottom - 2 };
+  })()`,
+  );
+  await dragHandle(
+    client,
+    '[data-workspace-item-id="first"] [data-workspace-item-drag-handle]',
+    itemTarget,
+    false,
+    touch,
+  );
+  assert.deepEqual(
+    await evaluate(
+      client,
+      `Array.from(document.querySelectorAll('[data-section-id="parameters"] [data-workspace-item-id]'), e => e.dataset.workspaceItemId)`,
+    ),
+    ["second", "first"],
+    "Direct parameter handle must reorder without selection mode",
+  );
+  await evaluate(
+    client,
+    `document.querySelector('[data-workspace-item-id="first"] [role="textbox"]').focus()`,
+  );
+  await delay(100);
+  await client.send("Input.insertText", { text: "Changed" });
+  await delay(100);
+  assert.match(
+    await evaluate(
+      client,
+      `document.querySelector('[data-workspace-item-id="first"]').textContent`,
+    ),
+    /Changed/,
+    "Parameter editing must remain enabled after the drag",
+  );
+}
+
 async function main() {
   buildBrowserFixture(process.argv.includes("--skip-build"));
   const { server, url } = await serveBrowserFixture(browserFixtureRoot);
@@ -560,6 +715,21 @@ async function main() {
       });
       writeFileSync(screenshot, Buffer.from(data, "base64"));
     }
+    await verifyDirectHandles(client);
+    await client.send("Emulation.setTouchEmulationEnabled", {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    await navigateToWorkspace(
+      client,
+      `${url}?fixture=interactions&color-mode=dark`,
+    );
+    await verifyDirectHandles(client, true);
+    await client.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await navigateToWorkspace(
+      client,
+      `${url}?fixture=interactions&color-mode=dark`,
+    );
     const sectionDragPath = await preparePointerOwnedSectionDrag(client);
     assert.equal(
       sectionDragPath.activeElement,

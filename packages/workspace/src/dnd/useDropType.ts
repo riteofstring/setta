@@ -128,6 +128,12 @@ export function onDragStart(
     return;
   }
   const activeId = String(active.id);
+  if (
+    !getDndStateStore(host).getState().isMovingFree &&
+    !getDndStateStore(host).getState().isSorting
+  ) {
+    getDndStateStore(host).setState({ isMovingFree: true, isHandleDrag: true });
+  }
   const dndState = getDndStateStore(host).getState();
   const { selection, normalizedWidth, normalizedHeight } =
     resolveDragStartLayout(host, activeId, activeRect ?? null);

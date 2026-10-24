@@ -9,7 +9,6 @@ import {
   useWorkspaceCapabilities,
 } from "../document/capabilities";
 import { getItemSelectionModeStore } from "../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
 import { getDndStateStore } from "./dndState";
@@ -26,6 +25,7 @@ type DndSource = {
     current?: {
       type?: string;
       isTopLevel?: boolean;
+      itemId?: string;
     };
   };
 };
@@ -36,14 +36,6 @@ function getDragType(source: DndSource): string | null {
 
 function getIsTopLevel(source: DndSource): boolean {
   return Boolean(source.data?.current?.isTopLevel);
-}
-
-function eventTargetsNoDragElement(event: Event): boolean {
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return target.closest(`.${NO_DRAG_CLASS_NAME}`) !== null;
 }
 
 function preventSectionActivation(
@@ -61,11 +53,13 @@ function preventSectionActivation(
     return false;
   }
 
-  if (eventTargetsNoDragElement(event)) {
-    return true;
-  }
-
-  return true;
+  const target = event.target;
+  return !(
+    target instanceof Element &&
+    target.closest('[data-meta-control-drag-handle="true"]') &&
+    target.closest("[data-section-id]")?.getAttribute("data-section-id") ===
+      String(source.id)
+  );
 }
 
 export function useSectionDndSensors() {
@@ -77,6 +71,18 @@ export function useSectionDndSensors() {
     }
 
     const pointerSensor = PointerSensor.configure({
+      activationConstraints: (event, source) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-meta-control-drag-handle="true"]')
+        ) {
+          return [new PointerActivationConstraints.Distance({ value: 5 })];
+        }
+        const constraints = PointerSensor.defaults.activationConstraints;
+        return typeof constraints === "function"
+          ? constraints(event, source)
+          : constraints;
+      },
       activatorElements: (source: DndSource) => {
         const baseTarget = source.handle ?? source.element;
         const handleElement = getSelectionDragHandle(host).value;
@@ -105,15 +111,22 @@ export function useSectionDndSensors() {
 
 function preventItemActivation(
   host: WorkspaceHost,
-  _event: Event,
+  event: Event,
   source: DndSource,
 ): boolean {
   if (getDragType(source) !== "item") {
     return true;
   }
-  return (
-    !getWorkspaceCapabilitiesStore(host).getState().canEditStructure ||
-    !getItemSelectionModeStore(host).getState().isSelectingItems
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure)
+    return true;
+  if (getItemSelectionModeStore(host).getState().isSelectingItems) return false;
+  const target = event.target;
+  return !(
+    target instanceof Element &&
+    target.closest('[data-workspace-item-drag-handle="true"]') &&
+    target
+      .closest("[data-workspace-item-id]")
+      ?.getAttribute("data-workspace-item-id") === source.data?.current?.itemId
   );
 }
 

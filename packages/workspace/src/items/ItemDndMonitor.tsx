@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useDndMonitor } from "../dnd/adapter";
 import { useItemDndState } from "../dnd/itemDndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   deferItemDragReset,
@@ -18,6 +19,9 @@ import {
 export function ItemDndMonitor() {
   const host = useWorkspaceHost();
   const manager = useDragDropManager();
+  const canEditStructure = useWorkspaceCapabilities(
+    (state) => state.canEditStructure,
+  );
   const pendingReset = useItemDndState((state) => state.pendingReset);
   const isSelectingItems = useItemSelectionMode(
     (state) => state.isSelectingItems,
@@ -36,9 +40,9 @@ export function ItemDndMonitor() {
   ).value;
 
   useEffect(() => {
-    if (isSelectingItems || !manager) {
+    if (!manager) return;
+    if (canContinueItemDrag(manager, canEditStructure, isSelectingItems))
       return;
-    }
     if (!isDragging && !isInitializing) {
       return;
     }
@@ -49,7 +53,14 @@ export function ItemDndMonitor() {
     }
     manager.actions.stop({ canceled: true });
     deferItemDragReset(host);
-  }, [host, isDragging, isInitializing, isSelectingItems, manager]);
+  }, [
+    host,
+    isDragging,
+    isInitializing,
+    isSelectingItems,
+    canEditStructure,
+    manager,
+  ]);
 
   useEffect(() => {
     if (!pendingReset || !isIdle) {
@@ -67,4 +78,16 @@ export function ItemDndMonitor() {
   });
 
   return null;
+}
+
+function canContinueItemDrag(
+  manager: NonNullable<ReturnType<typeof useDragDropManager>>,
+  canEditStructure: boolean,
+  isSelectingItems: boolean,
+) {
+  const target = manager.dragOperation.activatorEvent?.target;
+  const fromHandle =
+    target instanceof Element &&
+    target.closest('[data-workspace-item-drag-handle="true"]');
+  return canEditStructure && (isSelectingItems || fromHandle);
 }

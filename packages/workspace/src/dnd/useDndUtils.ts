@@ -7,7 +7,7 @@ import {
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { useDndMonitor, type Disabled } from "./adapter";
 import { useDndChildren } from "./dndChildren";
-import { setDndDisabled, useDndMode, useDndState } from "./dndState";
+import { getDndStateStore, setDndDisabled, useDndState } from "./dndState";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 
 export function useHasTempNested(sectionId: string) {
@@ -44,7 +44,6 @@ const defaultDisabledState: Disabled = { draggable: false, droppable: true };
 
 export function useDisableSortable(sectionId: string): Disabled {
   const host = useWorkspaceHost();
-  const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState(
     (x) => x.disabled[sectionId] ?? defaultDisabledState,
   );
@@ -74,6 +73,7 @@ export function useDisableSortable(sectionId: string): Disabled {
   }: {
     active: { id: string | number; data?: { current?: unknown } };
   }) {
+    const mode = getDndStateStore(host).getState();
     const activeData = active.data?.current as
       { sortable?: { containerId?: string | number } } | undefined;
     if (
@@ -82,8 +82,8 @@ export function useDisableSortable(sectionId: string): Disabled {
         activeId: String(active.id),
         activeContainerId: activeData?.sortable?.containerId,
         activeIdInAncestorSet: activeIdInAncestorSet(String(active.id)),
-        isMovingFree,
-        isSorting,
+        isMovingFree: mode.isMovingFree || !mode.isSorting,
+        isSorting: mode.isSorting,
       })
     ) {
       setDndDisabled(host, sectionId, { draggable: false, droppable: false });

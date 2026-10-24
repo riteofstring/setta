@@ -137,6 +137,20 @@ or other attached runtime result stays inside the visible canvas along with its 
 fit observes that group for measurement readiness; ordinary shell sizing and selection geometry
 retain their existing boundaries.
 
+## Direct drag handles
+
+Meta controls expose a persistent, focusable drag grip. Starting on that grip enters the existing
+free-move session without requiring a held modifier. A grip-owned session ends on drop or cancel;
+modifier reconciliation cannot cancel it merely because Alt is not held. The five-pixel threshold
+also applies to touch, where the dedicated grip already prevents page panning. Ordinary section
+content retains its existing modifier gestures and control editing behavior.
+
+Parameter rows expose a grip whenever structure editing is allowed and the list is unfiltered.
+The same item drag engine handles nesting and reordering from that grip without entering global
+item selection mode or disabling editable controls. Selection mode still enables whole-row and
+multi-item dragging. Source identity checks prevent an ancestor row from capturing a descendant's
+grip. Capability loss cancels an active parameter drag; filtered and read-only lists expose none.
+
 ## Nested sorting geometry
 
 Nested sorting keeps the initial measured rectangles for the duration of a drag. Reading a peer's

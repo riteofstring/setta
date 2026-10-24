@@ -5,6 +5,8 @@ import {
   createWorkspaceShellViewState,
   createWorkspaceWindowingState,
   MetaControl,
+  ItemDndContext,
+  WorkspaceItemList,
   registerSectionKinds,
   setWorkspaceColorMode,
   WorkspaceCanvas,
@@ -51,6 +53,55 @@ function interactionDocument(): WorkspaceDocumentInput {
       "selection-first": leaf("selection-first"),
       "selection-second": leaf("selection-second"),
       "meta-text": { ...leaf("meta-text"), kind: "text-control" },
+      parameters: {
+        ...leaf("parameters"),
+        kind: "parameters",
+        itemTree: {
+          rootId: "root",
+          selectedItemIds: [],
+          items: {
+            root: { id: "root", children: ["first", "second"] },
+            first: {
+              id: "first",
+              children: [],
+              presentation: {
+                label: "First",
+                labelEditable: false,
+                control: {
+                  kind: "text",
+                  value: "Editable",
+                  configuration: {
+                    disabled: false,
+                    placeholder: null,
+                    autocomplete: "off",
+                    singleLine: true,
+                    wrapLines: false,
+                  },
+                },
+              },
+            },
+            second: {
+              id: "second",
+              children: [],
+              presentation: {
+                label: "Second",
+                labelEditable: false,
+                control: {
+                  kind: "text",
+                  value: "Still editable",
+                  configuration: {
+                    disabled: false,
+                    placeholder: null,
+                    autocomplete: "off",
+                    singleLine: true,
+                    wrapLines: false,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       "code-editor": {
         ...leaf("code-editor"),
         kind: WORKSPACE_CODE_SECTION_KIND,
@@ -66,6 +117,7 @@ function interactionDocument(): WorkspaceDocumentInput {
       "selection-second": { x: 790, y: 405, w: 200, h: 122, zIndex: 1 },
       "meta-text": { x: 1040, y: 40, w: 200, h: 44, zIndex: 2 },
       "code-editor": { x: 400, y: 20, w: 500, h: 120, zIndex: 3 },
+      parameters: { x: 40, y: 20, w: 300, h: 130, zIndex: 4 },
     },
     viewport: { x: 0, y: 0, zoom: 1 },
     activeIds: [],
@@ -189,6 +241,18 @@ export function mountBrowserFixture(root: HTMLElement, mode: string): void {
       : "light",
   );
   registerSectionKinds(host, {
+    parameters: {
+      renderContent: (section) => (
+        <ItemDndContext>
+          <WorkspaceItemList
+            sectionId={section.id}
+            listKey="fixture-parameters"
+            topLevelItemIds={section.itemTree!.items.root!.children}
+          />
+        </ItemDndContext>
+      ),
+      itemArea: { toolbar: "hidden" },
+    },
     leaf: {
       renderContent: (section) => <p>{section.name}</p>,
       defaultSize: { width: 200, height: 122 },

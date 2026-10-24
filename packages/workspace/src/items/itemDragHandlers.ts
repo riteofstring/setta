@@ -130,7 +130,10 @@ export function handleItemDragStart(
   manager: DragDropManager | null,
 ) {
   const dragData = getItemDragData(event);
-  if (!dragData || !canStartItemDrag(host)) {
+  if (
+    !dragData ||
+    !canStartItemDrag(host, manager?.dragOperation.activatorEvent)
+  ) {
     return;
   }
   const { sectionId } = dragData;
@@ -650,8 +653,15 @@ function getOverIdForListKey(
   return over.id;
 }
 
-function canStartItemDrag(host: WorkspaceHost) {
-  if (!getItemSelectionModeStore(host).getState().isSelectingItems) {
+function canStartItemDrag(host: WorkspaceHost, event?: Event | null) {
+  const target = event?.target;
+  const fromHandle =
+    target instanceof Element &&
+    target.closest('[data-workspace-item-drag-handle="true"]');
+  if (
+    !fromHandle &&
+    !getItemSelectionModeStore(host).getState().isSelectingItems
+  ) {
     return false;
   }
   return getWorkspaceCapabilitiesStore(host).getState().canEditStructure;

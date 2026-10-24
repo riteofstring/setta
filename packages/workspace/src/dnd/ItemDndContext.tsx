@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from "react";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import type { WorkspaceHost } from "../workspaceHost";
 import { ItemDndMonitor } from "../items/ItemDndMonitor";
@@ -22,14 +21,10 @@ export function ItemDndContext({ children }: { children: ReactNode }) {
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
-  const isSelectingItems = useItemSelectionMode(
-    (state) => state.isSelectingItems,
-  );
-  const itemDndEnabled = canEditStructure && isSelectingItems;
   const itemDndActive = useItemDndState(
     (state) => Boolean(state.activeId) || state.pendingReset,
   );
-  const shouldRenderHelpers = itemDndEnabled || itemDndActive;
+  const shouldRenderHelpers = canEditStructure || itemDndActive;
   const sensors = useItemDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(
     () => createItemCollisionTracker(host),

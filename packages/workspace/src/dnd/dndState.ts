@@ -24,6 +24,7 @@ type ZustandDndState = {
   triggerDistCondition: boolean;
   isSorting: boolean;
   isMovingFree: boolean;
+  isHandleDrag: boolean;
   pendingDeactivation: boolean;
   disabled: Record<string, Disabled>;
   draggingIds: Array<string>;
@@ -44,6 +45,7 @@ function createDndStateStore() {
       triggerDistCondition: false,
       isSorting: false,
       isMovingFree: false,
+      isHandleDrag: false,
       pendingDeactivation: false,
       disabled: {},
       draggingIds: [],
@@ -106,7 +108,9 @@ function resetDndState(host: WorkspaceHost) {
 }
 
 export function deactivateDnd(host: WorkspaceHost) {
-  const { isMovingFree, isSorting } = getDndStateStore(host).getState();
+  const { isMovingFree, isSorting, isHandleDrag } =
+    getDndStateStore(host).getState();
+  if (isHandleDrag) return;
   if (!isMovingFree && !isSorting) {
     return;
   }

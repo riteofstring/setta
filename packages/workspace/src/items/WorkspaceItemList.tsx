@@ -9,7 +9,6 @@ import {
 import type { ItemListKey } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type {
@@ -169,7 +168,6 @@ export function WorkspaceItemList({
   const itemTree = useWorkspaceDocument((x) =>
     getSectionItemTreeOrThrow(x, sectionId),
   );
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
   const { filterActive, listVisibleSet, visibleSet } =
     useResolvedItemVisibility({
@@ -177,7 +175,7 @@ export function WorkspaceItemList({
       topLevelItemIds,
       visibleItemIds,
     });
-  const enabled = isSelectingItems && canEditStructure && !filterActive;
+  const enabled = canEditStructure && !filterActive;
   const normalizedItemDiagnostics = useNormalizedItemDiagnostics(
     itemDiagnostics,
     sectionId,

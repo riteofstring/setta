@@ -4,6 +4,7 @@ import { useWorkspaceCapabilities } from "../../document/capabilities";
 import type { WorkspaceSection } from "../../document/types";
 import {
   NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "../../interaction";
@@ -29,13 +30,15 @@ export function MetaControlChrome({
   return (
     <>
       {showDragHandle ? (
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 motion-safe:transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100"
-          aria-hidden="true"
+        <button
+          type="button"
+          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute left-1/2 top-0 z-20 flex h-6 w-12 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded focus-visible:outline focus-visible:outline-2 active:cursor-grabbing`}
+          aria-label={`Drag ${section.name.trim() || "meta control"}`}
+          title="Drag to move or drop into a group"
           data-meta-control-drag-handle="true"
         >
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
-        </div>
+        </button>
       ) : null}
       <div className="absolute start-0 top-1/2 z-[200] -translate-y-1/2 ltr:-translate-x-full rtl:translate-x-full">
         <div className="flex h-12 w-10 items-center justify-end">
