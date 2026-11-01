@@ -13,10 +13,27 @@
 
 .setta-workspace .setta-workspace-graph-edge {
   pointer-events: none;
+  outline: none;
 }
 
 .setta-workspace .setta-workspace-graph-edge-path {
   fill: none;
+  stroke: var(--setta-workspace-graph-family-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--dashed
+  .setta-workspace-graph-edge-path {
+  stroke-dasharray: 7 5;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge--dotted
+  .setta-workspace-graph-edge-path {
+  stroke-dasharray: 0 6;
 }
 
 .setta-workspace .setta-workspace-graph-edge-interaction {
@@ -25,82 +42,58 @@
 }
 
 .setta-workspace
-  .setta-workspace-graph-edge--data
+  .setta-workspace-graph-edge--running
   .setta-workspace-graph-edge-path {
-  stroke: var(--setta-wire-color, #b1b1b7);
-  stroke-width: 1;
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 3px var(--setta-workspace-graph-family-color));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .setta-workspace
+    .setta-workspace-graph-edge--running:is(
+      .setta-workspace-graph-edge--dashed,
+      .setta-workspace-graph-edge--dotted
+    )
+    .setta-workspace-graph-edge-path {
+    animation: setta-workspace-graph-edge-flow 800ms linear infinite;
+  }
 }
 
 .setta-workspace
-  .setta-workspace-graph-edge--data:hover
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--data:focus
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--data:focus-visible
-  .setta-workspace-graph-edge-path,
-.setta-workspace
-  .setta-workspace-graph-edge--data.setta-workspace-graph-edge--selected
+  .setta-workspace-graph-edge:hover
   .setta-workspace-graph-edge-path {
-  stroke: #3b82f6;
+  stroke-width: 2.6;
 }
 
 .setta-workspace
-  .setta-workspace-graph-edge--agentic
+  .setta-workspace-graph-edge:is(
+    .setta-workspace-graph-edge--selected,
+    :focus-visible
+  )
   .setta-workspace-graph-edge-path {
-  stroke: #60a5fa;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 7 5;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 5px var(--setta-workspace-graph-family-color));
 }
 
 .setta-workspace
-  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--selected
-  .setta-workspace-graph-edge-path {
-  stroke: #2563eb;
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.32));
-}
-
-.setta-workspace
-  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--running
-  .setta-workspace-graph-edge-path {
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 4px rgb(37 99 235 / 0.35));
-}
-
-.setta-workspace
-  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--missing
+  .setta-workspace-graph-edge.setta-workspace-graph-edge--missing
   .setta-workspace-graph-edge-path {
   stroke: #ef4444;
-  stroke-width: 2.2;
   stroke-dasharray: 8 5;
   filter: drop-shadow(0 0 6px rgb(239 68 68 / 0.35));
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--workflow
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-graph-edge.setta-workspace-graph-edge--missing
   .setta-workspace-graph-edge-path {
-  stroke: #f59e0b;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: none;
+  stroke: #f87171;
+  filter: drop-shadow(0 0 6px rgb(248 113 113 / 0.4));
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--workflow.setta-workspace-graph-edge--selected
-  .setta-workspace-graph-edge-path {
-  stroke: #ea580c;
-  stroke-width: 2.8;
-  filter: drop-shadow(0 0 4px rgb(234 88 12 / 0.24));
-}
-
-.setta-workspace .setta-workspace-graph-edge--data:focus,
-.setta-workspace .setta-workspace-graph-edge--data:focus-visible {
-  outline: none;
+@keyframes setta-workspace-graph-edge-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
 }
 
 .setta-workspace .setta-workspace-graph-edge-label {
@@ -109,7 +102,8 @@
 
 .setta-workspace .setta-workspace-graph-edge-label-background {
   fill: white;
-  stroke: none;
+  stroke: var(--setta-workspace-graph-family-color);
+  stroke-width: 1;
 }
 
 .setta-workspace .setta-workspace-graph-edge-label-text {
@@ -117,17 +111,13 @@
   font-size: 10px;
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--workflow
+.setta-workspace.setta-workspace-dark
   .setta-workspace-graph-edge-label-background {
-  fill: rgb(255 251 235 / 0.96);
-  stroke: rgb(217 119 6 / 0.38);
+  fill: rgb(30 41 59 / 0.96);
 }
 
-.setta-workspace
-  .setta-workspace-graph-edge--workflow
-  .setta-workspace-graph-edge-label-text {
-  fill: #9a3412;
+.setta-workspace.setta-workspace-dark .setta-workspace-graph-edge-label-text {
+  fill: #e2e8f0;
 }
 
 .setta-workspace .setta-workspace-graph-edge [data-workspace-graph-reconnect] {
@@ -136,23 +126,18 @@
 }
 
 .setta-workspace .setta-workspace-graph-connection-preview {
-  stroke: var(--setta-wire-color, #b1b1b7);
-  stroke-width: 1;
+  stroke: var(--setta-workspace-graph-family-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.75;
 }
 
 .setta-workspace .setta-workspace-graph-port-safe-zone {
-  --setta-workspace-graph-port-color: hsl(219 25% 34%);
-  --setta-workspace-graph-port-border-color: hsl(219 24% 89%);
-  --setta-workspace-graph-port-render-size: 10px;
-  --setta-workspace-graph-port-safe-height: 10px;
-  --setta-workspace-graph-port-safe-width: 10px;
-  --setta-workspace-graph-port-side-offset: -6px;
-  --setta-workspace-graph-port-dot-offset: 0px;
   position: absolute;
   z-index: 40;
   display: block;
-  width: var(--setta-workspace-graph-port-safe-width);
-  height: var(--setta-workspace-graph-port-safe-height);
+  width: 16px;
+  height: 16px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -160,280 +145,65 @@
   background: transparent;
   box-sizing: border-box;
   cursor: crosshair;
-  opacity: 1;
   transform: translateY(-50%);
-  transition: opacity 80ms ease-out;
   touch-action: none;
 }
 
 .setta-workspace .setta-workspace-graph-port-safe-zone--left {
-  left: var(--setta-workspace-graph-port-side-offset);
+  left: -9px;
 }
 
 .setta-workspace .setta-workspace-graph-port-safe-zone--right {
-  right: var(--setta-workspace-graph-port-side-offset);
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port-safe-zone--left {
-  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port-safe-zone--right {
-  clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ) {
-  --setta-workspace-graph-port-color: #2563eb;
-  --setta-workspace-graph-port-border-color: #2563eb;
-  --setta-workspace-graph-port-render-size: 14px;
-  --setta-workspace-graph-port-safe-height: 42px;
-  --setta-workspace-graph-port-safe-width: 32px;
-  --setta-workspace-graph-port-side-offset: -32px;
-  --setta-workspace-graph-port-dot-offset: 6px;
-  z-index: 160;
-  opacity: 0;
-}
-
-.setta-workspace .setta-workspace-graph-port--workflow {
-  --setta-workspace-graph-port-color: #d97706;
-  --setta-workspace-graph-port-border-color: #d97706;
-}
-
-.setta-workspace
-  [data-workspace-section-shell="true"]:hover
-  .setta-workspace-graph-port-safe-zone,
-.setta-workspace .setta-workspace-graph-port-safe-zone:hover,
-.setta-workspace .setta-workspace-graph-port-safe-zone:focus-visible {
-  opacity: 1;
-  transition-duration: 70ms;
-}
-
-.setta-workspace .setta-workspace-graph-port--connected,
-.setta-workspace .setta-workspace-graph-port--connection-active {
-  opacity: 1;
-  transition: none;
+  right: -9px;
 }
 
 .setta-workspace .setta-workspace-graph-port--disabled {
   cursor: default;
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--disabled {
-  opacity: 0;
-}
-
-.setta-workspace
-  [data-workspace-section-shell="true"]:hover
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--disabled,
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--disabled:hover,
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--disabled:focus-visible,
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--connected.setta-workspace-graph-port--disabled,
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--connection-active.setta-workspace-graph-port--disabled {
   opacity: 0.45;
 }
 
 .setta-workspace .setta-workspace-graph-port-dot {
   position: absolute;
   top: 50%;
-  width: var(--setta-workspace-graph-port-render-size);
-  height: var(--setta-workspace-graph-port-render-size);
-  border: 1px solid var(--setta-workspace-graph-port-border-color);
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--setta-workspace-graph-family-color);
   border-radius: 9999px;
-  background: var(--setta-workspace-graph-port-color);
+  background: var(--setta-workspace-graph-family-color);
   box-sizing: border-box;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
+  transition: box-shadow 80ms ease-out;
 }
 
 .setta-workspace
-  .setta-workspace-graph-port--data
+  .setta-workspace-graph-port--target
   .setta-workspace-graph-port-dot {
-  transition:
-    background-color 80ms ease-out,
-    border-color 80ms ease-out,
-    box-shadow 80ms ease-out;
-}
-
-.setta-workspace
-  .setta-workspace-graph-port-safe-zone--left
-  .setta-workspace-graph-port-dot {
-  left: var(--setta-workspace-graph-port-dot-offset);
-}
-
-.setta-workspace
-  .setta-workspace-graph-port-safe-zone--right
-  .setta-workspace-graph-port-dot {
-  right: var(--setta-workspace-graph-port-dot-offset);
-}
-
-.setta-workspace
-  .setta-workspace-graph-port--data:not(:disabled):hover
-  .setta-workspace-graph-port-dot {
-  border-color: #3b82f6;
-  background: #3b82f6;
-}
-
-.setta-workspace
-  .setta-workspace-graph-port--data:not(:disabled):active
-  .setta-workspace-graph-port-dot {
-  border-color: #67e8f9;
-  background: #67e8f9;
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--source
-  .setta-workspace-graph-port-dot {
-  border-width: 0;
-  background: var(--setta-workspace-graph-port-color);
-}
-
-.setta-workspace
-  :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ).setta-workspace-graph-port--target
-  .setta-workspace-graph-port-dot {
-  border-width: 2px;
-  border-color: var(--setta-workspace-graph-port-color);
-  background: transparent;
-}
-
-.setta-workspace.setta-workspace-dark .setta-workspace-graph-port-safe-zone {
-  --setta-workspace-graph-port-color: hsl(219 25% 77%);
-  --setta-workspace-graph-port-border-color: hsl(220 25% 11%);
-}
-
-.setta-workspace.setta-workspace-dark .setta-workspace-graph-port--agentic {
-  --setta-workspace-graph-port-color: #3b82f6;
-  --setta-workspace-graph-port-border-color: #3b82f6;
-}
-
-.setta-workspace.setta-workspace-dark .setta-workspace-graph-port--workflow {
-  --setta-workspace-graph-port-color: #f59e0b;
-  --setta-workspace-graph-port-border-color: #f59e0b;
-}
-
-.setta-workspace
-  [data-workspace-section-style-themed="true"]
-  > .setta-workspace-graph-port--data {
-  --setta-workspace-graph-port-color: var(--setta-section-style-arg-handle);
-  --setta-workspace-graph-port-border-color: var(
-    --setta-section-style-arg-handle
-  );
-}
-
-.setta-workspace
-  [data-workspace-section-style-themed="true"]
-  > .setta-workspace-graph-port--data:not(:disabled):hover
-  .setta-workspace-graph-port-dot {
-  border-color: var(--setta-section-style-arg-handle-hover);
-  background: var(--setta-section-style-arg-handle-hover);
-}
-
-.setta-workspace
-  [data-workspace-section-style-themed="true"]
-  > .setta-workspace-graph-port--data:not(:disabled):active
-  .setta-workspace-graph-port-dot {
-  border-color: var(--setta-section-style-arg-handle-active);
-  background: var(--setta-section-style-arg-handle-active);
-}
-
-.setta-workspace
-  [data-workspace-section-style-themed="true"]
-  > :is(
-    .setta-workspace-graph-port--agentic,
-    .setta-workspace-graph-port--workflow
-  ) {
-  --setta-workspace-graph-port-color: var(--setta-section-style-agentic-handle);
-  --setta-workspace-graph-port-border-color: var(
-    --setta-section-style-agentic-handle
-  );
+  background: white;
 }
 
 .setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--agentic
-  .setta-workspace-graph-edge-path {
-  stroke: #60a5fa;
+  .setta-workspace-graph-port--target
+  .setta-workspace-graph-port-dot {
+  background: hsl(220 25% 11%);
 }
 
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--selected
-  .setta-workspace-graph-edge-path {
-  stroke: #2563eb;
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--agentic.setta-workspace-graph-edge--missing
-  .setta-workspace-graph-edge-path {
-  stroke: #f87171;
-  filter: drop-shadow(0 0 6px rgb(248 113 113 / 0.4));
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--workflow
-  .setta-workspace-graph-edge-path {
-  stroke: #fbbf24;
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--workflow.setta-workspace-graph-edge--selected
-  .setta-workspace-graph-edge-path {
-  stroke: #fb923c;
-  filter: drop-shadow(0 0 5px rgb(251 146 60 / 0.28));
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--workflow
-  .setta-workspace-graph-edge-label-background {
-  fill: rgb(30 41 59 / 0.96);
-  stroke: rgb(251 191 36 / 0.36);
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-graph-edge--workflow
-  .setta-workspace-graph-edge-label-text {
-  fill: #fde68a;
+.setta-workspace
+  .setta-workspace-graph-port-safe-zone:not(:disabled):is(
+    :hover,
+    :focus-visible
+  )
+  .setta-workspace-graph-port-dot {
+  box-shadow: 0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--setta-workspace-graph-family-color) 35%,
+      transparent
+    );
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .setta-workspace .setta-workspace-graph-port-safe-zone {
+  .setta-workspace .setta-workspace-graph-port-dot {
     transition-duration: 0.01ms;
   }
 }

@@ -286,14 +286,14 @@ describe("public package API", () => {
   it("exposes controlled canvas ingress, attention, and graph contracts", () => {
     const ports = [
       {
-        family: "data",
+        family: "signal",
         id: "source",
         label: "Data output",
         sectionId: "source-section",
         type: "source",
       },
       {
-        family: "data",
+        family: "signal",
         id: "target",
         label: "Data input",
         sectionId: "target-section",
@@ -301,15 +301,16 @@ describe("public package API", () => {
       },
     ] satisfies ReadonlyArray<workspace.WorkspaceGraphPort>;
     const graph = {
-      canConnect: (connection) => connection.family === "data",
+      canConnect: (connection) => connection.family === "signal",
       edges: [
         {
-          family: "data",
+          family: "signal",
           id: "edge",
           source: { portId: "source", sectionId: "source-section" },
           target: { portId: "target", sectionId: "target-section" },
         },
       ],
+      families: { signal: { color: "#22d3ee", pattern: "dotted" } },
       ports,
       selectedEdgeIds: new Set<string>(),
     } satisfies workspace.WorkspaceGraphConfiguration;

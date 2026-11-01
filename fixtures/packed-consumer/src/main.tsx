@@ -24,6 +24,7 @@ import {
   type WorkspaceCreationContext,
   type WorkspaceCanvasConfiguration,
   type WorkspaceDocumentInput,
+  type WorkspaceGraphConfiguration,
   type WorkspaceGraphEdge,
   type WorkspaceGraphPort,
   type WorkspaceSection,
@@ -290,51 +291,57 @@ const consumerDocument: WorkspaceDocumentInput = {
   savedViews: null,
 };
 
+const consumerGraphFamilies = {
+  audio: { color: "#22d3ee" },
+  mod: { color: "#a78bfa", pattern: "dotted" },
+  notes: { color: "#f59e0b", pattern: "dotted" },
+} as const satisfies WorkspaceGraphConfiguration["families"];
+
 const consumerGraphPorts = [
   {
-    family: "data",
-    id: "packed-welcome-data-source",
-    label: "Welcome note data output",
+    family: "audio",
+    id: "packed-welcome-audio-source",
+    label: "Welcome note audio output",
     position: 0.3,
     sectionId: "welcome-note",
     type: "source",
   },
   {
-    family: "data",
-    id: "packed-items-data-target",
-    label: "Packed items data input",
+    family: "audio",
+    id: "packed-items-audio-target",
+    label: "Packed items audio input",
     position: 0.3,
     sectionId: "packed-items",
     type: "target",
   },
   {
-    family: "agentic",
-    id: "packed-nested-agentic-source",
-    label: "Nested note agentic output",
+    family: "mod",
+    id: "packed-nested-mod-source",
+    label: "Nested note mod output",
     position: 0.5,
     sectionId: "nested-note",
     type: "source",
   },
   {
-    family: "agentic",
-    id: "packed-welcome-agentic-target",
-    label: "Welcome note agentic input",
+    family: "mod",
+    id: "packed-welcome-mod-target",
+    label: "Welcome note mod input",
     position: 0.5,
     sectionId: "welcome-note",
     type: "target",
   },
   {
-    family: "workflow",
-    id: "packed-time-workflow-source",
-    label: "Packed time workflow output",
+    family: "notes",
+    id: "packed-time-notes-source",
+    label: "Packed time notes output",
     position: 0.7,
     sectionId: "packed-time",
     type: "source",
   },
   {
-    family: "workflow",
-    id: "packed-items-workflow-target",
-    label: "Packed items workflow input",
+    family: "notes",
+    id: "packed-items-notes-target",
+    label: "Packed items notes input",
     position: 0.7,
     sectionId: "packed-items",
     type: "target",
@@ -343,32 +350,35 @@ const consumerGraphPorts = [
 
 const consumerGraphEdges = [
   {
-    family: "data",
-    id: "packed-data-edge",
-    source: { portId: "packed-welcome-data-source", sectionId: "welcome-note" },
-    target: { portId: "packed-items-data-target", sectionId: "packed-items" },
+    family: "audio",
+    id: "packed-audio-edge",
+    source: {
+      portId: "packed-welcome-audio-source",
+      sectionId: "welcome-note",
+    },
+    target: { portId: "packed-items-audio-target", sectionId: "packed-items" },
   },
   {
-    family: "agentic",
-    id: "packed-agentic-edge",
+    family: "mod",
+    id: "packed-mod-edge",
     source: {
-      portId: "packed-nested-agentic-source",
+      portId: "packed-nested-mod-source",
       sectionId: "nested-note",
     },
     target: {
-      portId: "packed-welcome-agentic-target",
+      portId: "packed-welcome-mod-target",
       sectionId: "welcome-note",
     },
   },
   {
-    family: "workflow",
-    id: "packed-workflow-edge",
+    family: "notes",
+    id: "packed-notes-edge",
     source: {
-      portId: "packed-time-workflow-source",
+      portId: "packed-time-notes-source",
       sectionId: "packed-time",
     },
     target: {
-      portId: "packed-items-workflow-target",
+      portId: "packed-items-notes-target",
       sectionId: "packed-items",
     },
   },
@@ -506,6 +516,7 @@ function ConsumerApp() {
         canConnect: (connection) =>
           connection.source.sectionId !== connection.target.sectionId,
         edges: graphEdges,
+        families: consumerGraphFamilies,
         onConnect: (connection) => {
           const id = `packed-created-edge-${nextGraphEdgeNumber.current}`;
           nextGraphEdgeNumber.current += 1;
@@ -516,7 +527,6 @@ function ConsumerApp() {
           setGraphEdges((current) =>
             current.filter((edge) => !deletedIds.has(edge.id)),
           );
-          setSelectedEdgeIds(new Set());
         },
         onReconnect: ({ connection, edgeId }) => {
           setGraphEdges((current) =>

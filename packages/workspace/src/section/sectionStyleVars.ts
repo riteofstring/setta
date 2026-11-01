@@ -15,9 +15,5 @@ export function resolveSectionStyleVars(
     "--setta-section-style-outline": sectionStyleTheme.outline,
     "--setta-section-style-text": sectionStyleTheme.text,
     "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-    "--setta-section-style-arg-handle": sectionStyleTheme.border,
-    "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
-    "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
-    "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
   };
 }

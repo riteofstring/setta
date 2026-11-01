@@ -735,14 +735,6 @@ describe("SectionContainer", () => {
       themedShell?.getAttribute("data-workspace-section-style-themed"),
     ).toBe("true");
     expect(
-      themedShell?.style.getPropertyValue("--setta-section-style-arg-handle"),
-    ).toBe("#bad3fc");
-    expect(
-      themedShell?.style.getPropertyValue(
-        "--setta-section-style-agentic-handle",
-      ),
-    ).toBe("#80aef9");
-    expect(
       host.querySelector('[data-testid="kind-icon"]')?.getAttribute("class"),
     ).toContain("text-[color:var(--setta-section-style-muted-text)]");
   });

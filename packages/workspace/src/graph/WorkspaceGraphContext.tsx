@@ -261,6 +261,7 @@ export function WorkspaceGraphProvider({
       return;
     }
     snapshot.onDelete(detachEdgeIds(Array.from(snapshot.selectedEdgeIds)));
+    snapshot.onSelectedEdgeIdsChange?.(detachSelectedEdgeIds(new Set()));
   }, [canEditStructure, snapshot]);
 
   useEffect(() => {

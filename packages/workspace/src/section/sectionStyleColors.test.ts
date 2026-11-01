@@ -103,7 +103,7 @@ describe("deriveSectionStyleTheme", () => {
 });
 
 describe("resolveSectionStyleVars", () => {
-  it("maps the derived theme onto section and graph-port CSS variables", () => {
+  it("maps the derived theme onto section CSS variables", () => {
     expect(
       resolveSectionStyleVars(deriveSectionStyleTheme("#3b82f6", true)),
     ).toEqual({
@@ -113,10 +113,6 @@ describe("resolveSectionStyleVars", () => {
       "--setta-section-style-outline": "#295bac",
       "--setta-section-style-text": "#ffffff",
       "--setta-section-style-muted-text": "#797f8b",
-      "--setta-section-style-arg-handle": "#183462",
-      "--setta-section-style-arg-handle-hover": "#295bac",
-      "--setta-section-style-arg-handle-active": "#183462",
-      "--setta-section-style-agentic-handle": "#295bac",
     });
   });
 

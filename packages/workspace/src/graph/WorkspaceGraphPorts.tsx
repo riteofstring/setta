@@ -8,11 +8,12 @@ import {
 } from "../interaction";
 import type { WorkspaceGraphPort } from "./types";
 import {
+  evaluateWorkspaceGraphConnection,
+  getWorkspaceGraphFamilyStyle,
   getWorkspaceGraphPortPosition,
   getWorkspaceGraphPortSide,
 } from "./validation";
 import { useWorkspaceGraph } from "./WorkspaceGraphContext";
-import { evaluateWorkspaceGraphConnection } from "./validation";
 
 type WorkspaceGraphPortConnectionState = "idle" | "invalid" | "valid";
 
@@ -63,15 +64,11 @@ function getWorkspaceGraphPortPermissions(
 }
 
 function getWorkspaceGraphPortClassName({
-  connected,
   connectionState,
-  graph,
   port,
   side,
 }: {
-  connected: boolean;
   connectionState: WorkspaceGraphPortConnectionState;
-  graph: ActiveWorkspaceGraph;
   port: WorkspaceGraphPort;
   side: ReturnType<typeof getWorkspaceGraphPortSide>;
 }): string {
@@ -82,10 +79,7 @@ function getWorkspaceGraphPortClassName({
     SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
     "setta-workspace-graph-port-safe-zone",
     `setta-workspace-graph-port-safe-zone--${side}`,
-    `setta-workspace-graph-port--${port.family}`,
     `setta-workspace-graph-port--${port.type}`,
-    connected ? "setta-workspace-graph-port--connected" : null,
-    graph.gesture ? "setta-workspace-graph-port--connection-active" : null,
     port.disabled ? "setta-workspace-graph-port--disabled" : null,
     connectionState === "valid"
       ? "setta-workspace-graph-port--candidate-valid"
@@ -121,9 +115,7 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
   );
   const canInteract = canStart || canReceive;
   const className = getWorkspaceGraphPortClassName({
-    connected,
     connectionState,
-    graph: activeGraph,
     port,
     side,
   });
@@ -158,7 +150,12 @@ function WorkspaceGraphPortButton({ port }: { port: WorkspaceGraphPort }) {
       data-workspace-graph-port-id={port.id}
       disabled={!canInteract}
       onPointerDown={onPointerDown}
-      style={{ top: `${position * 100}%` }}
+      style={{
+        ...getWorkspaceGraphFamilyStyle(
+          activeGraph.snapshot.families.get(port.family),
+        ),
+        top: `${position * 100}%`,
+      }}
       type="button"
     >
       <span
