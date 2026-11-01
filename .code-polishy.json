@@ -1,7 +1,7 @@
 {
   "version": 4,
   "project": {
-    "kind": "application",
+    "kind": "library",
     "capabilities": ["frontend", "ui"]
   },
   "documentation": {
@@ -12,8 +12,6 @@
           "packages/workspace/vite.config.ts",
           "packages/workspace/editorBuild.ts",
           "packages/workspace/vitest.setup.ts",
-          "scripts/cdp-port.sh",
-          "scripts/chrome-devtools-mcp.sh",
           "scripts/check-workspace-policy.mjs",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",

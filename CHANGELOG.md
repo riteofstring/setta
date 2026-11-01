@@ -12,18 +12,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Publishable `@riteofstring/setta` React library.
 - Browser worker pipelines with dependent stages, bounded latest-input queuing, cancellation,
   timeout recovery, and retained successful output.
-- Browser-only print studio at setta.dev, using the same public APIs as downstream consumers.
+- setta.dev showcase, built only on the same public APIs as downstream consumers.
 - Initial open-source project documentation and package metadata.
 - Apache-2.0 attribution for Kevin Musgrave and Jeff Musgrave and bundled dependency notices.
 - Source setup instructions and hosted frontend, browser, and security checks.
 - Browser `localStorage` helpers that restore workspace shell pane layout and saved views.
+- A bundled CodeMirror editor stack, so consumers install no editor packages, and type
+  declarations that resolve under Bundler, Node10 and NodeNext module resolution.
 
 ### Changed
 
-- Upgrade the pinned Code Polishy release to 0.29.3.
 - Use the canonical `riteofstring/setta` repository path.
 
 ### Removed
 
 - The four example applications and the `setta` Python package. The library is the product;
   setta.dev is the showcase.
+- The local Go backend.

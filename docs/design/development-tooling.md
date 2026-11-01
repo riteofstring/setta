@@ -76,23 +76,6 @@ jsdom does not measure DOM ranges. CodeMirror pointer-coordinate lookup calls
 `Range#getClientRects`; the setup returns an empty rectangle list so the lookup follows its normal
 no-geometry path instead of throwing. Browser builds retain real geometry.
 
-## Chrome DevTools launcher
-
-The CDP profile suffix forces the `C` locale around macOS `shasum`. The system command is a Perl
-script and may crash when a caller supplies an unsupported locale such as `C.UTF-8`; hashing the
-worktree path does not require locale-dependent behavior.
-
-The port resolver first reads the worktree-specific running browser PID. macOS shells can expose
-different `TMPDIR` values, placing the same browser's PID file outside the current computed run
-directory, so the resolver also scans running Chrome commands for the exact worktree profile path.
-That fallback still derives identity from the worktree-specific profile and does not attach to an
-arbitrary browser.
-
-`chrome-devtools-mcp` is exact-pinned because its transport and command-line grammar are part of the
-local development boundary. The launcher uses the required camel-case `--browserUrl` option.
-Warnings and banners are redirected to a timestamped log because unexpected stderr during startup
-can corrupt the MCP transport stream; protocol stdout remains clean.
-
 ## Workspace browser interaction acceptance
 
 `pnpm workspace:browser:test` builds Workspace and the private browser fixture, serves its compiled

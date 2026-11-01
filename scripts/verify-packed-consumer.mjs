@@ -1,7 +1,6 @@
 import {
   cpSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -66,20 +65,9 @@ function assertFixtureManifest() {
   }
 }
 
-function buildAndPackWorkspace(artifactDirectory) {
+function buildAndPackWorkspace() {
   runPnpm(["--filter", "@riteofstring/setta", "build"]);
-  runPnpm(["pack", "--pack-destination", artifactDirectory], {
-    cwd: path.join(repositoryRoot, "packages/workspace"),
-  });
-  const tarballs = readdirSync(artifactDirectory).filter((name) =>
-    name.endsWith(".tgz"),
-  );
-  if (tarballs.length !== 1) {
-    throw new Error(
-      `Expected one packed tarball, found ${String(tarballs.length)}.`,
-    );
-  }
-  return path.join(artifactDirectory, tarballs[0]);
+  return path.join(repositoryRoot, "packages/workspace/setta.tgz");
 }
 
 const requiredTarballEntries = [
@@ -188,14 +176,12 @@ const keepConsumer = process.argv.includes("--keep");
 const temporaryRoot = mkdtempSync(
   path.join(tmpdir(), "setta-workspace-packed-consumer-"),
 );
-const artifactDirectory = path.join(temporaryRoot, "artifact");
 const consumerRoot = path.join(temporaryRoot, "consumer");
 
 try {
   assertConsumerImportSurface();
   assertFixtureManifest();
-  mkdirSync(artifactDirectory);
-  const tarballPath = buildAndPackWorkspace(artifactDirectory);
+  const tarballPath = buildAndPackWorkspace();
   assertTarballContents(tarballPath);
   materializeConsumer(consumerRoot, tarballPath);
   runPnpm(["install", "--lockfile-only", "--ignore-scripts"], {
