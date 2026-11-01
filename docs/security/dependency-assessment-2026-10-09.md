@@ -1,8 +1,9 @@
 # Dependency assessment, 2026-10-09
 
 Assessor: Codex. Retained scope: the published `@riteofstring/setta` package, the private browser
-fixture, the checked-in build and test commands, and `pnpm-lock.yaml`. Reassess by 2026-11-07, or immediately if the
-callers described here change. These conclusions do not cover arbitrary applications embedding
+fixture, the checked-in build and test commands, and `pnpm-lock.yaml`. Dated addenda update the
+initial review below; `.code-polishy.json` declares the active versions and individual expiry dates.
+Reassess immediately if the callers described here change. These conclusions do not cover arbitrary applications embedding
 Workspace or executing third-party build plugins. Advisory findings remain visible in Code Polishy.
 
 ## Retained npm releases
@@ -142,3 +143,72 @@ admission and does not suppress the original scanner identities.
 GitHub withdrew [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
 on October 23, 2026 because it is not a practically exploitable vulnerability. The
 `braces@3.0.3` assessment is retired; the dependency version remains unchanged.
+
+## Addendum, 2026-11-04: aged patches and Undici network advisories
+
+Assessor: Codex. The local Go backend has been removed. The retained dependency graph belongs to
+the React library, its private browser fixture, and local build/test commands.
+
+### Aged patch releases
+
+The exact workspace overrides select `undici@7.29.1` for jsdom 28.1.0 and
+`source-map-js@1.2.2` for PostCSS 8.5.23 and css-tree 3.2.1. Both satisfy their callers' existing
+dependency ranges. No direct dependency, lifecycle permission, or release-age exception is added.
+Revisit these overrides with their owning dependencies so they do not retain an obsolete patch.
+
+| Package                                                               | Registry publication, UTC    | Review                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Undici 7.29.1](https://registry.npmjs.org/undici/7.29.1)             | September 4, 2026, 14:25:11  | Fixes the ten advisories in the original Undici table. The source delta corrects cache isolation, retry/body completion, decompression limits, WebSocket cleanup, and TLS callback preservation in BalancedPool; it also updates HTTP/2 bookkeeping and EventSource parsing. No dependency or lifecycle-hook changes. |
+| [source-map-js 1.2.2](https://registry.npmjs.org/source-map-js/1.2.2) | September 30, 2026, 14:08:09 | Fixes GHSA-68fv-2mgg-jv7q by bounding indexed-map offsets and nested work, efficiently serializing line gaps, and stopping past exhausted source text. Also falls back to its ordinary sorter when dynamic code generation is unavailable. No dependency or lifecycle hooks.                                          |
+
+Both packages exceed the 30-day admission minimum. Registry tarball integrity was verified before
+reviewing the packaged source delta. Undici retains its existing development `prepare` command;
+neither package has an install hook, and dependency installation keeps scripts disabled. The
+eleven assessments for the superseded versions are retired.
+
+### Undici 7.29.1 reachability
+
+Undici enters the graph only through the development dependency jsdom 28.1.0, including Vitest's
+jsdom peer. It is not a dependency of the published library. `packages/workspace/vite.config.ts`
+selects local component suites and `vitest.setup.ts` adds DOM shims; neither supplies jsdom
+resource options, custom dispatchers, TLS callbacks, cache interceptors, or remote fixtures.
+
+Vitest's jsdom environment constructs `new JSDOM` from authored HTML with `resources` undefined.
+In jsdom's `lib/api.js`, `extractResourcesOptions` selects the default dispatcher, no user
+interceptors, and `loadSubresources: false`. Its per-document resource loader returns before
+dispatch when subresource loading is disabled. This does not disable XMLHttpRequest or WebSocket:
+the checked-in tests instantiate neither. jsdom's WebSocket implementation imports Undici, so
+adding a socket test would change this conclusion.
+
+jsdom's resource implementation uses `dispatcher.dispatch`, with its own redirect and
+decompression handlers, rather than Undici's `fetch` implementation. Its copied decompression
+code must be reviewed independently if remote fixtures are introduced; no untrusted compressed
+response reaches it in the current suites. The repository scripts' only network client,
+`scripts/lib/cdp-client.mjs`, uses Node's built-in `fetch` and `WebSocket` for the isolated Chrome
+process launched by the browser fixture. Its HTTP request is to `127.0.0.1`, and Chrome supplies
+the local WebSocket URL. That separate runtime client is not an npm Undici import or an
+attacker-selected remote endpoint.
+
+| Advisory                                                                 | Required input and absent path                                                                                                                                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [GHSA-2m5v-pch6-74hx](https://osv.dev/vulnerability/GHSA-2m5v-pch6-74hx) | Agent/EnvHttpProxyAgent drops a function-valued `tls.checkServerIdentity` option while cloning it. No caller sets such a callback; ordinary certificate validation remains in place.       |
+| [GHSA-4qv8-2p9j-2685](https://osv.dev/vulnerability/GHSA-4qv8-2p9j-2685) | A hostile SSE stream exhausts memory through retained EventSource fields/chunks. No caller constructs EventSource or supplies that stream.                                                 |
+| [GHSA-4w7w-5xrc-9h26](https://osv.dev/vulnerability/GHSA-4w7w-5xrc-9h26) | Cross-origin redirect responses poison a shared cache when redirect and cache interceptors are composed. Neither that composition nor a shared cache exists here.                          |
+| [GHSA-55wc-3pg8-jfw6](https://osv.dev/vulnerability/GHSA-55wc-3pg8-jfw6) | Asynchronous decompression calls a throwing downstream handler outside its error boundary. No Undici decompress/dump chain or untrusted compressed jsdom response is supplied.             |
+| [GHSA-9fm3-97px-rjf6](https://osv.dev/vulnerability/GHSA-9fm3-97px-rjf6) | A WebSocket peer floods PING frames without reading automatic PONG replies. No test constructs jsdom/Undici WebSocket; the separate Node CDP client talks to its own local Chrome process. |
+| [GHSA-f72v-6w45-q472](https://osv.dev/vulnerability/GHSA-f72v-6w45-q472) | Undici fetch skips mixed-case integrity algorithm tokens. No caller uses that fetch API or supplies integrity metadata.                                                                    |
+| [GHSA-qrxm-fqhp-jwvm](https://osv.dev/vulnerability/GHSA-qrxm-fqhp-jwvm) | A hostile TLS 1.2 peer changes certificates during renegotiation and triggers an HTTP/1 or HTTP/2 assertion. No test makes a remote HTTPS request.                                         |
+| [GHSA-xjj6-f33q-929c](https://osv.dev/vulnerability/GHSA-xjj6-f33q-929c) | Undici fetch rejects excessive content encodings before attaching a response-body error listener. No caller uses that fetch path or receives such a remote response.                       |
+
+These eight exact findings have `not-affected/unreachable` assessments for Undici 7.29.1, owned by
+Codex and expiring November 14, 2026. The conclusion depends on both the API paths and input
+sources above, not merely on Undici being a development dependency. Reassess before introducing
+remote fixtures, custom TLS/dispatchers, caches, network clients, or Node-side rendering.
+
+The [Undici registry history](https://registry.npmjs.org/undici) dates the same-line fix, 7.30.1,
+to October 15, 2026 at 14:18:31 UTC. It becomes eligible on November 14 at that time. The absent
+attack paths do not justify admitting a younger release; review 7.30.1 and replace the exact
+override when it ages. The existing Vite and Vitest assessments retain their independent review
+dates above. KaTeX's fixed line and postcss-selector-parser 7 require broader version changes;
+their documented input prerequisites remain absent. The parser's same-major 6.1.5 patch was
+published October 19 and becomes eligible November 18.
