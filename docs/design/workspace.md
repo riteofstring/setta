@@ -131,7 +131,10 @@ Native external drag data crosses one explicit canvas ingress boundary. Acceptan
 and limited to an exact bare-pane target; after acceptance Workspace translates the screen point
 once and returns the original `DataTransfer` and drag event to the host. MIME interpretation,
 authorization, creation, persistence, and feedback remain application responsibilities. Browser
-objects never enter the document.
+objects never enter the document. A host that turns a drop into a section uses the public atomic
+insertion funnel shared with creation commands, so the insertion itself enforces the
+structure-editing capability and becomes one structural-history step instead of a complete-document
+commit that would clear history.
 
 Multi-section attention is host-owned transient presentation state. Semantic validation rejects an
 unknown or hidden target without depending on render timing. Highlight state can therefore precede

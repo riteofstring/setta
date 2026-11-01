@@ -196,7 +196,11 @@ const canvas = useMemo<WorkspaceCanvasConfiguration>(
     externalDrop: {
       canDrop: (transfer) => transfer.types.includes("application/x-host-card"),
       onDrop: (transfer, position) =>
-        createCard(transfer.getData("application/x-host-card"), position),
+        insertWorkspaceSection(
+          host,
+          cardSection(transfer.getData("application/x-host-card")),
+          position,
+        ),
     },
     graph: {
       canConnect: (connection) => validateConnection(connection),
@@ -218,7 +222,7 @@ const canvas = useMemo<WorkspaceCanvasConfiguration>(
       selectedEdgeIds,
     },
   }),
-  [edges, ports, selectedEdgeIds],
+  [edges, host, ports, selectedEdgeIds],
 );
 
 <WorkspaceShell canvas={canvas} {...shellProps} />;
@@ -230,6 +234,12 @@ to one workspace position, and calls `onDrop`. Drops over sections, controls, pa
 Workspace UI stay with those surfaces. The host owns MIME parsing, authorization, document
 creation, persistence, errors, and notifications; `DataTransfer` never enters
 `WorkspaceDocument`.
+
+`insertWorkspaceSection(host, section, position)` adds one host-built `WorkspaceSectionInput` as a
+top-level section at a workspace position, selects it, and records one structural-history step when history is enabled, the
+same path the creation commands use. It throws when `canEditStructure` is false, for a duplicate or
+malformed id, a non-finite position, or a section that already claims children. Unlike
+`commitWorkspaceDocument`, it leaves existing history intact.
 
 The graph is a complete controlled projection. The host declares its port families in `families`,
 each with a CSS `color` (any color value, including a `var()` the host themes for light and dark)

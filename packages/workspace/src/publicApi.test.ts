@@ -128,6 +128,7 @@ const RUNTIME_EXPORTS = [
   "getWorkspaceKeyBindings",
   "getWorkspaceTopLevelAutoLayoutDisabledReason",
   "insertWorkspaceItem",
+  "insertWorkspaceSection",
   "maximizeWorkspaceWindow",
   "minimizeWorkspaceWindow",
   "moveWorkspaceFloatingWindow",
@@ -480,6 +481,51 @@ describe("public package API", () => {
     });
     expect(publications).toHaveLength(1);
     unsubscribe();
+    host.dispose();
+  });
+
+  it("inserts a host-created section at a workspace position as one undoable step", () => {
+    const host = workspace.createWorkspaceHost({ history: { kind: "local" } });
+    workspace.registerSectionKinds(host, {
+      leaf: {
+        defaultSize: { height: 120, width: 240 },
+        renderContent: () => null,
+      },
+    });
+    host.loadDocument({
+      activeIds: [],
+      sections: {},
+      topLevelSections: {},
+      viewport: { x: 0, y: 0, zoom: 1 },
+      savedViews: null,
+    });
+
+    workspace.insertWorkspaceSection(
+      host,
+      {
+        children: [],
+        id: "dropped",
+        isHorizontalOrientation: false,
+        isMinimized: false,
+        kind: "leaf",
+        name: "Dropped",
+        overflowMode: false,
+        positionAndSizeLocked: false,
+        styleColor: null,
+        tagColor: null,
+      },
+      { x: 320, y: -48 },
+    );
+
+    expect(host.getSnapshot().topLevelSections["dropped"]).toMatchObject({
+      x: 320,
+      y: -48,
+    });
+    expect(workspace.getWorkspaceHistoryState(host).canUndo).toBe(true);
+    expect(workspace.undoWorkspace(host)).toBe(true);
+    expect(host.getSnapshot().sections["dropped"]).toBeUndefined();
+    expect(host.getSnapshot().topLevelSections["dropped"]).toBeUndefined();
+    expect(workspace.getWorkspaceHistoryState(host).canUndo).toBe(false);
     host.dispose();
   });
 

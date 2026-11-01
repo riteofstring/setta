@@ -162,6 +162,13 @@ describe("insertWorkspaceSection", () => {
         { x: 0, y: 0 },
       ),
     ).toThrow(/without existing child claims/);
+    testWorkspace.capabilities.setState({ canEditStructure: false });
+    expect(() =>
+      insertWorkspaceSection(testWorkspace.host, createSection("read-only"), {
+        x: 0,
+        y: 0,
+      }),
+    ).toThrow(/permission to edit workspace structure/);
     expect(Object.keys(testWorkspace.document.getState().sections)).toEqual([
       "existing",
     ]);

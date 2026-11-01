@@ -1,3 +1,4 @@
+import { getWorkspaceCapabilitiesStore } from "./capabilities";
 import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { resolveAndValidateWorkspaceSections } from "./loadWorkspaceDocument";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
@@ -12,8 +13,37 @@ import type { WorkspaceHost } from "../workspaceHost";
 
 function assertFinitePosition(position: Position): void {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
-    throw new Error("A created workspace section requires a finite position.");
+    throw new Error(
+      "An inserted workspace section requires a finite position.",
+    );
   }
+}
+
+function getInsertableSectionId(
+  host: WorkspaceHost,
+  sectionInput: WorkspaceSectionInput,
+  position: Position,
+): string {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure) {
+    throw new Error(
+      "Inserting a section requires permission to edit workspace structure.",
+    );
+  }
+  assertFinitePosition(position);
+  if (typeof sectionInput.id !== "string" || sectionInput.id.trim() === "") {
+    throw new Error("An inserted workspace section requires a non-empty id.");
+  }
+  if (sectionInput.id.trim() !== sectionInput.id) {
+    throw new Error(
+      "An inserted workspace section id cannot have leading or trailing whitespace.",
+    );
+  }
+  if (sectionInput.children.length !== 0) {
+    throw new Error(
+      "An inserted workspace section must arrive without existing child claims.",
+    );
+  }
+  return sectionInput.id;
 }
 
 export function insertWorkspaceSection(
@@ -21,25 +51,10 @@ export function insertWorkspaceSection(
   sectionInput: WorkspaceSectionInput,
   position: Position,
 ): void {
-  assertFinitePosition(position);
-  if (typeof sectionInput.id !== "string" || sectionInput.id.trim() === "") {
-    throw new Error("A created workspace section requires a non-empty id.");
-  }
-  const sectionId = sectionInput.id.trim();
-  if (sectionId !== sectionInput.id) {
-    throw new Error(
-      "A created workspace section id cannot have leading or trailing whitespace.",
-    );
-  }
-  if (sectionInput.children.length !== 0) {
-    throw new Error(
-      "A creation command must return one section without existing child claims.",
-    );
-  }
-
+  const sectionId = getInsertableSectionId(host, sectionInput, position);
   const current = getWorkspaceDocumentStore(host).getState();
   if (current.sections[sectionId]) {
-    throw new Error(`Cannot create duplicate workspace section ${sectionId}.`);
+    throw new Error(`Cannot insert duplicate workspace section ${sectionId}.`);
   }
   const validated = resolveAndValidateWorkspaceSections(host, {
     ...current.sections,
@@ -47,7 +62,7 @@ export function insertWorkspaceSection(
   });
   const section = validated.sections[sectionId];
   if (!section) {
-    throw new Error(`Created workspace section ${sectionId} did not resolve.`);
+    throw new Error(`Inserted workspace section ${sectionId} did not resolve.`);
   }
   const maximumZIndex = Object.values(current.topLevelSections).reduce(
     (maximum, layout) => Math.max(maximum, layout.zIndex),

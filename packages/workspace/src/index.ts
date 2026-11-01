@@ -262,6 +262,7 @@ export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
 export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot";
 export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
+export { insertWorkspaceSection } from "./document/insertWorkspaceSection";
 export {
   activateWorkspaceSavedView,
   createWorkspaceSavedView,
