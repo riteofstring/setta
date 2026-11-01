@@ -513,9 +513,11 @@ CodeMirror runtime identity. The editor packages are therefore development depen
 declared runtime dependency and peer stays external, and nothing else does. Consumers install no
 editor packages and need no editor aliases or version overrides; the build includes the editor
 dependencies' license notices. Public declarations must not name a bundled package either, so the
-public language union lives apart from the CodeMirror language support. The package-boundary check
-owns the emitted import list, the imports reachable from the public declarations, the exports-only
-manifest, scoped stylesheet markers, and absence of dependency CSS.
+public language union lives apart from the CodeMirror language support. The build packs
+`packages/workspace/setta.tgz`, which Code Polishy's `scope.bundledDependencies` declaration
+inspects for leaked editor imports in the shipped JavaScript and public declarations. The
+package-boundary check owns the emitted import list, exports-only manifest, scoped stylesheet
+markers, and absence of dependency CSS.
 
 ## Verification harnesses
 

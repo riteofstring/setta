@@ -130,41 +130,6 @@ function validateBuiltEntry() {
   );
 }
 
-function declarationPath(fromFile, specifier) {
-  const resolved = path.resolve(path.dirname(fromFile), specifier);
-  return [
-    `${resolved.replace(/\.js$/u, "")}.d.ts`,
-    path.join(resolved, "index.d.ts"),
-  ].find((candidate) => existsSync(candidate));
-}
-
-function validatePublicDeclarations() {
-  const pending = ["dist/types/index.d.ts", "dist/types/browser/index.d.ts"]
-    .map((entry) => path.join(packageRoot, entry))
-    .filter((entry) => existsSync(entry));
-  const visited = new Set(pending);
-  const failures = [];
-  while (pending.length > 0) {
-    const file = pending.pop();
-    for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
-      if (specifier.startsWith(".")) {
-        const next = declarationPath(file, specifier);
-        if (next && !visited.has(next)) {
-          visited.add(next);
-          pending.push(next);
-        }
-      } else if (
-        !runtimeDependencyNames.has(bareSpecifierPackageName(specifier))
-      ) {
-        failures.push(
-          `${path.relative(packageRoot, file)}: public declarations import ${specifier}, which consumers do not install`,
-        );
-      }
-    }
-  }
-  return failures;
-}
-
 function validateBuiltArtifacts() {
   const requiredArtifacts = [
     "dist/index.js.map",
@@ -190,7 +155,6 @@ function validateBuiltArtifacts() {
     ...missing,
     ...browserImports,
     ...validateBuiltEntry(),
-    ...validatePublicDeclarations(),
     ...validateBuiltStylesheet(),
   ];
 }
