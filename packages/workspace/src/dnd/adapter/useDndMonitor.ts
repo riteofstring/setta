@@ -2,8 +2,8 @@ import { useDragDropMonitor } from "@dnd-kit/react";
 import {
   createDragEventHandlers,
   type DndEventHandlers,
-} from "./dragEventMapping";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "./dragEventMapping.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 export function useDndMonitor(handlers: DndEventHandlers): void {
   const host = useWorkspaceHost();

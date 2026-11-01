@@ -2,12 +2,12 @@ import type {
   WorkspaceFloatingWindow,
   WorkspaceWindowBoundaryInsets,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 import {
   resolveWorkspaceBottomDockStripReservedWidthPx,
   resolveWorkspaceMaxVisibleBottomDockWindowCount,
   WORKSPACE_BOTTOM_DOCK_SURFACE_MAX_WIDTH_PX,
-} from "./workspaceBottomDockLayout";
+} from "./workspaceBottomDockLayout.js";
 
 const WORKSPACE_BOTTOM_DOCK_MIN_WINDOW_HEIGHT_PX = 220;
 

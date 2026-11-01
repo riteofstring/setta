@@ -1,4 +1,4 @@
-import type { JsonValue } from "./types";
+import type { JsonValue } from "./types.js";
 
 const MAXIMUM_JSON_DEPTH = 100;
 

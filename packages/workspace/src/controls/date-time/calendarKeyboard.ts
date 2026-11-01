@@ -1,6 +1,6 @@
-import type { WorkspaceTextDirection } from "../../styles/textDirection";
-import { formatIsoDate, parseIsoDate } from "./calendarGrid";
-import type { DateCalendarWeekStart } from "./dateTimeTypes";
+import type { WorkspaceTextDirection } from "../../styles/textDirection.js";
+import { formatIsoDate, parseIsoDate } from "./calendarGrid.js";
+import type { DateCalendarWeekStart } from "./dateTimeTypes.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAY_NAVIGATION_DELTAS: Readonly<Record<string, number>> = {

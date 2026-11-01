@@ -10,30 +10,30 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { focusSectionAfterEscape } from "../sectionFocus";
-import { DummyCodeMirror } from "./DummyCodeMirror";
+import { applyActiveSectionChange } from "../../canvas/activeSectionController.js";
+import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent.js";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { focusSectionAfterEscape } from "../sectionFocus.js";
+import { DummyCodeMirror } from "./DummyCodeMirror.js";
 import {
   getOnCreateEditor,
   type TextValueActivationEvent,
-} from "./onCreateEditor";
+} from "./onCreateEditor.js";
 import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
-} from "./textValueExtensions";
-import type { TextValueCompletionProvider } from "./textValueCompletion";
-import type { TextValueLanguage } from "./editorLanguages";
+} from "./textValueExtensions.js";
+import type { TextValueCompletionProvider } from "./textValueCompletion.js";
+import type { TextValueLanguage } from "./editorLanguages.js";
 import {
   mountTextValueThemeStyles,
   useTextValueTheme,
   type TextValueTheme,
-} from "./textValueTheme";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
+} from "./textValueTheme.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
 
 export type TextValueEditorPresentation = "item-row" | "section-field";
 

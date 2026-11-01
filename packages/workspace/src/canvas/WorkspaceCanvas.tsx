@@ -8,36 +8,36 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
-import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
-import { SectionDndContext } from "../dnd/SectionDndContext";
-import { getNodeInternalsStore } from "../document/stores";
-import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
-import { WorkspaceGraphProvider } from "../graph/WorkspaceGraphContext";
-import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
-import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer.js";
+import { SectionDndContext } from "../dnd/SectionDndContext.js";
+import { getNodeInternalsStore } from "../document/stores.js";
+import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes.js";
+import { WorkspaceGraphProvider } from "../graph/WorkspaceGraphContext.js";
+import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap.js";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 import {
   assertWorkspaceCanvasConfiguration,
   type WorkspaceCanvasConfiguration,
-} from "./configuration";
-import { useCanvasViewportDocumentSync } from "./documentViewportSync";
-import { useCanvasKeyActivations } from "./keyActivations";
+} from "./configuration.js";
+import { useCanvasViewportDocumentSync } from "./documentViewportSync.js";
+import { useCanvasKeyActivations } from "./keyActivations.js";
 import {
   maybeCompleteInitialFitView,
   raiseTempZIndex,
   updateNodeDimensionsFromXyflow,
   updateNodePositionsAndCommit,
-} from "./nodeInternalsActions";
-import { getWorkspaceOptionsStore, useWorkspaceOptions } from "./options";
-import { useWorkspacePointerLocation } from "./pointerLocation";
-import { getReactFlowStore } from "./store";
-import type { NodeDragItem } from "./types";
-import { WorkspaceXyflowAdapter } from "./xyflow/WorkspaceXyflowAdapter";
-import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
+} from "./nodeInternalsActions.js";
+import { getWorkspaceOptionsStore, useWorkspaceOptions } from "./options.js";
+import { useWorkspacePointerLocation } from "./pointerLocation.js";
+import { getReactFlowStore } from "./store.js";
+import type { NodeDragItem } from "./types.js";
+import { WorkspaceXyflowAdapter } from "./xyflow/WorkspaceXyflowAdapter.js";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types.js";
 
 const outerWrapperStyle: CSSProperties = {
   position: "relative",

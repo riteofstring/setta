@@ -1,39 +1,43 @@
 import {
   getSectionChildren,
   getSectionOrThrow,
-} from "../document/documentSelectors";
-import { canWorkspaceSectionAcceptNestedSection } from "../document/sectionKindRegistry";
-import { isDescendantOfSectionSelection } from "../document/sectionSelection";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../document/documentSelectors.js";
+import { canWorkspaceSectionAcceptNestedSection } from "../document/sectionKindRegistry.js";
+import { isDescendantOfSectionSelection } from "../document/sectionSelection.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   assertWorkspaceHostActive,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
-import { computeNewIndex } from "./adapter";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type {
+  DragMoveEvent,
+  DragOverEvent,
+  DragStartEvent,
+} from "./adapter/index.js";
+import { computeNewIndex } from "./adapter/index.js";
 import {
   getCollisionTriggerDistCondition,
   resolveOverCollisionId,
-} from "./adapter/collisionCompare";
+} from "./adapter/collisionCompare.js";
 import {
   addDndChild,
   manualDndChildrenReset,
   removeDndChild,
   replaceDndSectionsWithTemp,
   getDndChildrenStore,
-} from "./dndChildren";
-import { getDndSectionId } from "./dndIds";
+} from "./dndChildren.js";
+import { getDndSectionId } from "./dndIds.js";
 import {
   getDndStateStore,
   setActiveDnd,
   setDndTime,
   useDndState,
-} from "./dndState";
-import { resolveDragStartLayout } from "./dropTypeDragLayout";
-import { BehaviorDropTypeEnum } from "./dropTypes";
-import { resetSortingOverState } from "./sortingOverState";
+} from "./dndState.js";
+import { resolveDragStartLayout } from "./dropTypeDragLayout.js";
+import { BehaviorDropTypeEnum } from "./dropTypes.js";
+import { resetSortingOverState } from "./sortingOverState.js";
 
 type DropTypeRuntime = {
   lastPastHalfwayByOverId: Record<string, boolean>;

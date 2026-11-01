@@ -1,10 +1,10 @@
-import { parseWorkspaceSavedViewsState } from "../saved-views/state";
-import type { WorkspaceSavedViewsState } from "../document/types";
+import { parseWorkspaceSavedViewsState } from "../saved-views/state.js";
+import type { WorkspaceSavedViewsState } from "../document/types.js";
 import type {
   WorkspaceShellOutlineViewState,
   WorkspaceShellPaneViewState,
   WorkspaceShellViewState,
-} from "./workspaceShellTypes";
+} from "./workspaceShellTypes.js";
 
 export type WorkspaceBrowserStorage = Pick<Storage, "getItem" | "setItem">;
 

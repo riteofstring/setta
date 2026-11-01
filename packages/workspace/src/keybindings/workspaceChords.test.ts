@@ -6,7 +6,7 @@ import {
   getWorkspaceChordSignature,
   matchesWorkspaceChord,
   parseWorkspaceChord,
-} from "./workspaceChords";
+} from "./workspaceChords.js";
 
 function heldKeysEqual(held: ReadonlyArray<string>) {
   return (codes: ReadonlyArray<string>) =>

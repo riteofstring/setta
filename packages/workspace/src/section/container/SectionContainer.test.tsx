@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,27 +20,30 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement, Profiler, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../../canvas/store";
-import { registerWorkspaceCommands } from "../../commands/workspaceCommandRegistry";
-import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
-import type { MetaControlKind } from "../../controls/meta/metaControlTypes";
-import { useDndChildren } from "../../dnd/dndChildren";
-import { useDndState } from "../../dnd/dndState";
-import { SectionDndContext } from "../../dnd/SectionDndContext";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../../document/sectionKindRegistry";
-import { setSectionName } from "../../document/sectionMutations";
+import { initialCanvasState, useReactFlow } from "../../canvas/store.js";
+import { registerWorkspaceCommands } from "../../commands/workspaceCommandRegistry.js";
+import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState.js";
+import type { MetaControlKind } from "../../controls/meta/metaControlTypes.js";
+import { useDndChildren } from "../../dnd/dndChildren.js";
+import { useDndState } from "../../dnd/dndState.js";
+import { SectionDndContext } from "../../dnd/SectionDndContext.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../../document/sectionKindRegistry.js";
+import { setSectionName } from "../../document/sectionMutations.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../../document/stores";
-import type { WorkspaceDocument, WorkspaceSection } from "../../document/types";
-import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
-import { setGroupOverflowMode } from "../groupOverflowAction";
-import { useSectionRefs } from "../sectionRefs";
-import { SectionContainer } from "./SectionContainer";
+} from "../../document/stores.js";
+import type {
+  WorkspaceDocument,
+  WorkspaceSection,
+} from "../../document/types.js";
+import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip.js";
+import { setGroupOverflowMode } from "../groupOverflowAction.js";
+import { useSectionRefs } from "../sectionRefs.js";
+import { SectionContainer } from "./SectionContainer.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

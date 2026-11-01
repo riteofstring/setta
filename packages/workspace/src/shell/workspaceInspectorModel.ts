@@ -1,11 +1,11 @@
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { getItemOrThrow } from "../document/itemTree";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { getItemOrThrow } from "../document/itemTree.js";
 import {
   getRootSelectedSectionIds,
   getSharedParentId,
-} from "../document/sectionSelection";
-import type { WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSection } from "../document/types";
+} from "../document/sectionSelection.js";
+import type { WorkspaceDocumentState } from "../document/stores.js";
+import type { WorkspaceItem, WorkspaceSection } from "../document/types.js";
 
 export type WorkspaceInspectorSelection =
   | { type: "empty" }

@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,7 +16,7 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   isItemListViewRegistered,
   registerItemListView,
@@ -24,7 +24,7 @@ import {
   unregisterItemListView,
   updateItemListView,
   type RegisteredItemListView,
-} from "./itemListRegistry";
+} from "./itemListRegistry.js";
 
 function makeView(
   listKey: string,

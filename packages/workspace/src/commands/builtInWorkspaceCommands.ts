@@ -1,62 +1,62 @@
-import { getReactFlowStore } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store.js";
 import {
   autoLayoutTopLevelSections,
   getWorkspaceTopLevelAutoLayoutDisabledReason,
-} from "../auto-layout/topLevelAutoLayout";
+} from "../auto-layout/topLevelAutoLayout.js";
 import {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,
   pasteWorkspaceClipboard,
-} from "../clipboard/operations";
-import { getItemDndStateStore } from "../dnd/itemDndState";
+} from "../clipboard/operations.js";
+import { getItemDndStateStore } from "../dnd/itemDndState.js";
 import {
   captureSectionGroupingFocus,
   restoreFocusAfterSectionGrouping,
-} from "../controls/sectionFocus";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { isGroupSection } from "../document/documentSelectors";
-import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
-import { getRootSelectedSectionIds } from "../document/sectionSelection";
+} from "../controls/sectionFocus.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { isGroupSection } from "../document/documentSelectors.js";
+import { getWorkspaceItemFactory } from "../document/sectionKindRegistry.js";
+import { getRootSelectedSectionIds } from "../document/sectionSelection.js";
 import {
   getWorkspaceHistoryState,
   redoWorkspace,
   undoWorkspace,
-} from "../history/workspaceHistory";
+} from "../history/workspaceHistory.js";
 import {
   deleteSections,
   groupSections,
   setSectionsPositionLocked,
-} from "../document/sectionMutations";
+} from "../document/sectionMutations.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { canUngroupWorkspaceSections } from "../document/ungroupSections";
+} from "../document/types.js";
+import { canUngroupWorkspaceSections } from "../document/ungroupSections.js";
 import {
   deleteLastWorkspaceItem,
   deleteSelectedWorkspaceItems,
   deleteWorkspaceItems,
   insertWorkspaceItem,
-} from "../items/itemAuthoringActions";
-import { setGroupOverflowMode } from "../section/groupOverflowAction";
-import { ungroupSections } from "../section/ungroupAction";
+} from "../items/itemAuthoringActions.js";
+import { setGroupOverflowMode } from "../section/groupOverflowAction.js";
+import { ungroupSections } from "../section/ungroupAction.js";
 import {
   getWorkspaceSavedViewSectionAction,
   setWorkspaceSavedViewSectionsDisplayed,
-} from "../saved-views/editing";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { getWorkspaceSavedViewsOperationDisabledReason } from "../saved-views/operations";
-import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel";
+} from "../saved-views/editing.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { getWorkspaceSavedViewsOperationDisabledReason } from "../saved-views/operations.js";
+import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel.js";
 import type {
   WorkspaceItemCommandContext,
   WorkspacePackageCommandDefinition,
   WorkspaceSectionCommandContext,
-} from "./workspaceCommandTypes";
+} from "./workspaceCommandTypes.js";
 
 const MISSING_SECTION_REASON =
   "This section is no longer part of the workspace.";

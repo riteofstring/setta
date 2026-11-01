@@ -1,5 +1,8 @@
-import { getWorkspaceGraphBezier, type WorkspaceGraphPoint } from "./geometry";
-import type { WorkspaceGraphEdge, WorkspaceGraphPortSide } from "./types";
+import {
+  getWorkspaceGraphBezier,
+  type WorkspaceGraphPoint,
+} from "./geometry.js";
+import type { WorkspaceGraphEdge, WorkspaceGraphPortSide } from "./types.js";
 
 type WorkspaceGraphEndpoint = Readonly<{
   point: WorkspaceGraphPoint;

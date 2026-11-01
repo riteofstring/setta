@@ -6,9 +6,12 @@ import type {
 import {
   buildHighlightedCodeLines,
   buildPlainCodeLines,
-} from "./highlightedCodeLines";
-import type { TextValueLanguage } from "./editorLanguages";
-import { getThemeScopeClassName, type TextValueTheme } from "./textValueTheme";
+} from "./highlightedCodeLines.js";
+import type { TextValueLanguage } from "./editorLanguages.js";
+import {
+  getThemeScopeClassName,
+  type TextValueTheme,
+} from "./textValueTheme.js";
 
 const lineWrapStyle: CSSProperties = {
   whiteSpace: "break-spaces",

@@ -6,19 +6,19 @@ import {
   type PointerEventHandler,
   type RefObject,
 } from "react";
-import { getReactFlowStore } from "../canvas/store";
-import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
-import { setItemColumnWidth } from "../document/itemColumnWidth";
-import { useWorkspaceDocument } from "../document/stores";
-import { getInlineDirectionSign } from "../styles/textDirection";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getSectionItemTreeOrThrow } from "../document/documentSelectors.js";
+import { setItemColumnWidth } from "../document/itemColumnWidth.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { getInlineDirectionSign } from "../styles/textDirection.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   calculateBoundedItemColumnWidth,
   getDeepestItemDepth,
   getDefaultItemColumnWidth,
   getItemColumnCssWidth,
   ITEM_COLUMN_CENTER_OFFSET_PX,
-} from "./itemColumnWidth";
+} from "./itemColumnWidth.js";
 
 type DragListeners = {
   move: ((event: PointerEvent) => void) | null;

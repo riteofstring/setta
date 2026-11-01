@@ -1,18 +1,18 @@
 import type { ComponentType } from "react";
-import { createPaneCommandContext } from "../commands/workspaceCommandContexts";
-import { resolveWorkspaceCommandEntry } from "../commands/workspaceCommandResolution";
-import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
-import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { createWorkspaceSectionFromCommand } from "../section/createSectionAction";
-import { getWorkspaceToolbarContributions } from "./workspaceToolbarContributions";
-import type { WorkspaceHost } from "../workspaceHost";
+import { createPaneCommandContext } from "../commands/workspaceCommandContexts.js";
+import { resolveWorkspaceCommandEntry } from "../commands/workspaceCommandResolution.js";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes.js";
+import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { createWorkspaceSectionFromCommand } from "../section/createSectionAction.js";
+import { getWorkspaceToolbarContributions } from "./workspaceToolbarContributions.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceToolbarContribution,
   WorkspaceToolbarPlacement,
-} from "./workspaceToolbarTypes";
+} from "./workspaceToolbarTypes.js";
 
 export type WorkspaceToolbarEntry = Readonly<{
   checked: boolean | null;

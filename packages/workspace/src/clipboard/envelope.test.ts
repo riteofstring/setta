@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   parseWorkspaceClipboardEnvelope,
   serializeWorkspaceClipboardEnvelope,
-} from "./envelope";
+} from "./envelope.js";
 import {
   WORKSPACE_CLIPBOARD_SCHEMA_ID,
   WORKSPACE_CLIPBOARD_SCHEMA_VERSION,
   type WorkspaceClipboardEnvelope,
   type WorkspaceClipboardEnvelopeParseOptions,
-} from "./types";
+} from "./types.js";
 
 function createEnvelope(): WorkspaceClipboardEnvelope {
   return {

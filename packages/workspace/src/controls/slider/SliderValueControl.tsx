@@ -1,18 +1,18 @@
 import * as Slider from "@radix-ui/react-slider";
 import { useEffect, useState } from "react";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../../interaction";
+} from "../../interaction.js";
 import {
   assertNumericControlConfig,
   clampNumericValue,
-} from "../numeric/numericControlConfig";
-import { handleSectionControlEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../numeric/numericControlConfig.js";
+import { handleSectionControlEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 export type SliderValueControlProps = {
   ariaLabel: string;

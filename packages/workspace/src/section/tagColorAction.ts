@@ -1,9 +1,9 @@
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { normalizeSectionTagColor } from "./sectionTagColors";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { normalizeSectionTagColor } from "./sectionTagColors.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function setSectionTagColor(
   host: WorkspaceHost,

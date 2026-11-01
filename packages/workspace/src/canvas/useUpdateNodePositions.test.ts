@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,12 +16,12 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useActiveSections, useNodeInternals } from "../document/stores";
-import type { Node } from "../document/types";
-import { useWorkspaceOptions } from "./options";
-import { initialCanvasState, useReactFlow } from "./store";
-import { updatePositions } from "./useUpdateNodePositions";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useActiveSections, useNodeInternals } from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import { useWorkspaceOptions } from "./options.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { updatePositions } from "./useUpdateNodePositions.js";
 
 function createNode(): Node {
   return {

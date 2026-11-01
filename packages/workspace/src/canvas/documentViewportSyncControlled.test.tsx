@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,7 +20,7 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useCanvasViewportDocumentSync } from "./documentViewportSync";
+import { useCanvasViewportDocumentSync } from "./documentViewportSync.js";
 
 let root: Root;
 let container: HTMLDivElement;

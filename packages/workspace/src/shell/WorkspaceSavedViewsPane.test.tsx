@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,11 +20,11 @@ afterEachWorkspaceTestHost(() => {
 import { act, createRef, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { enableWorkspaceSavedViews } from "../saved-views/operations";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { enableWorkspaceSavedViews } from "../saved-views/operations.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

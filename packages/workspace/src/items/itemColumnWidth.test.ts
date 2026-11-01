@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceSectionItemTree } from "../document/types";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
 import {
   calculateBoundedItemColumnWidth,
   getDeepestItemDepth,
   getDefaultItemColumnWidth,
   getItemColumnCssWidth,
   getItemColumnMargin,
-} from "./itemColumnWidth";
+} from "./itemColumnWidth.js";
 
 function makeNestedItemTree(): WorkspaceSectionItemTree {
   return {

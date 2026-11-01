@@ -1,28 +1,28 @@
-import { isMacOs } from "../canvas/utils";
-import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
+import { isMacOs } from "../canvas/utils.js";
+import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
 import {
   listBuiltInWorkspaceKeyBindings,
   type WorkspaceKeyBindingDefinition,
-} from "./builtInWorkspaceKeyBindings";
-import { createWorkspaceCreationKeyBinding } from "./creationKeyBindings";
-import { listReservedWorkspaceGestures } from "./reservedWorkspaceGestures";
+} from "./builtInWorkspaceKeyBindings.js";
+import { createWorkspaceCreationKeyBinding } from "./creationKeyBindings.js";
+import { listReservedWorkspaceGestures } from "./reservedWorkspaceGestures.js";
 import {
   getChordSuppressesBrowserDefault,
   getChordYieldsToEditableTarget,
-} from "./workspaceChordPolicy";
+} from "./workspaceChordPolicy.js";
 import {
   formatWorkspaceChord,
   getWorkspaceChordSignature,
   parseWorkspaceChord,
   type ParsedWorkspaceChord,
-} from "./workspaceChords";
+} from "./workspaceChords.js";
 import type {
   WorkspaceKeyBinding,
   WorkspaceKeyBindingConflict,
   WorkspaceKeyBindingDescriptor,
-} from "./workspaceKeyBindingTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceKeyBindingTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type ChordAssignment = {
   chord: string;

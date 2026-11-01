@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,23 +17,23 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceDocument,
   WorkspaceSectionInput,
-} from "../document/types";
+} from "../document/types.js";
 import {
   getBoundedGroupSize,
   setGroupOverflowMode,
-} from "./groupOverflowAction";
-import { useSectionRefs } from "./sectionRefs";
+} from "./groupOverflowAction.js";
+import { useSectionRefs } from "./sectionRefs.js";
 
 function makeSection(
   id: string,

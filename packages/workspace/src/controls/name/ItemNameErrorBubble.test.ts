@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { computeItemNameErrorBubblePosition } from "./ItemNameErrorBubble";
+import { computeItemNameErrorBubblePosition } from "./ItemNameErrorBubble.js";
 
 const SECTION_ID = "section";
 const CONTAINER_ID = `${SECTION_ID}-CustomResizable`;

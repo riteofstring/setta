@@ -1,4 +1,4 @@
-import type { WorkspaceSection } from "../document/types";
+import type { WorkspaceSection } from "../document/types.js";
 import {
   WORKSPACE_GRAPH_EDGE_PATTERNS,
   WORKSPACE_GRAPH_EDGE_STATUSES,
@@ -13,7 +13,7 @@ import {
   type WorkspaceGraphPortReference,
   type WorkspaceGraphPortSide,
   type WorkspaceGraphPortType,
-} from "./types";
+} from "./types.js";
 
 type WorkspaceGraphSnapshot = Readonly<{
   canConnect: WorkspaceGraphConfiguration["canConnect"];

@@ -1,20 +1,28 @@
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
-import type { Node, Viewport } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/stores.js";
+import type { Node, Viewport } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   resolveActiveSectionsBounds,
   resolveSectionRect,
-} from "./activeSectionBounds";
-import { getNodesBounds, hasPositiveRectBounds } from "./nodeBounds";
-import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
-import { clamp, getOverlappingArea } from "./utils";
-import { EMPTY_VIEWPORT_INSETS, getVisibleCanvasRect } from "./viewportInsets";
-import { screenToFlowPosition } from "./viewportPosition";
+} from "./activeSectionBounds.js";
+import { getNodesBounds, hasPositiveRectBounds } from "./nodeBounds.js";
+import type {
+  ReactFlowState,
+  Rect,
+  Transform,
+  ViewportInsets,
+} from "./types.js";
+import { clamp, getOverlappingArea } from "./utils.js";
+import {
+  EMPTY_VIEWPORT_INSETS,
+  getVisibleCanvasRect,
+} from "./viewportInsets.js";
+import { screenToFlowPosition } from "./viewportPosition.js";
 
-export { getNodesBounds } from "./nodeBounds";
+export { getNodesBounds } from "./nodeBounds.js";
 
 export function getActiveSectionsBounds(
   host: WorkspaceHost,

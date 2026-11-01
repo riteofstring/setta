@@ -1,8 +1,8 @@
 import {
   cloneFrozenWorkspaceClipboardJsonValue,
   cloneWorkspaceClipboardJsonValue,
-} from "./json";
-import { parseWorkspaceLocalClipboardPayload } from "./localPayload";
+} from "./json.js";
+import { parseWorkspaceLocalClipboardPayload } from "./localPayload.js";
 import type {
   JsonValue,
   WorkspaceClipboardIdMaps,
@@ -11,15 +11,15 @@ import type {
   WorkspaceClipboardLocalPastePlan,
   WorkspaceClipboardLocalPastePlanInput,
   WorkspaceClipboardSectionDataCloneContext,
-} from "./types";
+} from "./types.js";
 import type {
   WorkspaceItem,
   WorkspaceItemPresentation,
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
+} from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
 
 function assertStableAllocatedIdentifier(value: string, role: string): void {
   if (

@@ -3,23 +3,23 @@ import {
   getRegisteredSectionKindOrThrow,
   getWorkspaceItemAreaPresentationOrThrow,
   type SectionKindDefinition,
-} from "../../document/sectionKindRegistry";
-import type { WorkspaceSection } from "../../document/types";
-import { WorkspaceItemToolbar } from "../../items/WorkspaceItemToolbar";
-import { WorkspaceItemFilterProvider } from "../../items/WorkspaceItemFilterContext";
-import { SectionHeader } from "../header/SectionHeader";
-import { CustomResizable } from "../resize/CustomResizable";
-import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
-import { MetaControlChrome } from "./MetaControlChrome";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { WorkspaceSectionWindowPlaceholder } from "../../windowing/WorkspaceSectionWindowPlaceholder";
+} from "../../document/sectionKindRegistry.js";
+import type { WorkspaceSection } from "../../document/types.js";
+import { WorkspaceItemToolbar } from "../../items/WorkspaceItemToolbar.js";
+import { WorkspaceItemFilterProvider } from "../../items/WorkspaceItemFilterContext.js";
+import { SectionHeader } from "../header/SectionHeader.js";
+import { CustomResizable } from "../resize/CustomResizable.js";
+import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors.js";
+import { MetaControlChrome } from "./MetaControlChrome.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { WorkspaceSectionWindowPlaceholder } from "../../windowing/WorkspaceSectionWindowPlaceholder.js";
 import {
   focusOrReopenWorkspaceWindow,
   getExternalWorkspaceSectionWindowBinding,
-} from "../../windowing/workspaceSectionWindowing";
-import { moveWorkspaceWindowToCanvasSection } from "../../windowing/windowingState";
-import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
+} from "../../windowing/workspaceSectionWindowing.js";
+import { moveWorkspaceWindowToCanvasSection } from "../../windowing/windowingState.js";
+import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext.js";
 
 type SectionContainerContentProps = {
   section: WorkspaceSection;

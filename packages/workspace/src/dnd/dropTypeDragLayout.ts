@@ -1,22 +1,22 @@
-import { getReactFlowStore } from "../canvas/store";
-import { getActiveSectionIds } from "../document/activeSections";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
 import {
   getSectionChildren,
   getSectionIsHorizontalOrientation,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   getRootSelectedSectionIds,
   getSharedParentId,
   orderSectionIdsByParent,
-} from "../document/sectionSelection";
+} from "../document/sectionSelection.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { DragStartEvent } from "./adapter";
-import { getDndStateStore } from "./dndState";
+} from "../document/stores.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { DragStartEvent } from "./adapter/index.js";
+import { getDndStateStore } from "./dndState.js";
 
 type DragRect = {
   top: number;

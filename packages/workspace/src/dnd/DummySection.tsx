@@ -4,10 +4,13 @@ import _ from "lodash";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 import { TbDragDrop } from "react-icons/tb";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useDndState } from "./dndState";
-import { resolveRectBoundsFromMap, type DragRectLike } from "./dragRectBounds";
-import { DRAG_PREVIEW_Z_INDEX } from "./layers";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useDndState } from "./dndState.js";
+import {
+  resolveRectBoundsFromMap,
+  type DragRectLike,
+} from "./dragRectBounds.js";
+import { DRAG_PREVIEW_Z_INDEX } from "./layers.js";
 
 export function TempDNDSection({ ref }: { ref?: Ref<HTMLDivElement> }) {
   const { width, height } = useDndState(

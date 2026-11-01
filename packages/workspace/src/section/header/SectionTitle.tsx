@@ -1,11 +1,11 @@
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { getSectionOrThrow } from "../../document/documentSelectors";
-import { setSectionName } from "../../document/sectionMutations";
-import { useWorkspaceDocument } from "../../document/stores";
-import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
-import { Editable } from "./Editable";
-import { useEditableOnSubmit } from "./useEditableOnSubmit";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
+import { setSectionName } from "../../document/sectionMutations.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
+import { Editable } from "./Editable.js";
+import { useEditableOnSubmit } from "./useEditableOnSubmit.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 export type SectionTitleClassNames = {
   editing?: string;

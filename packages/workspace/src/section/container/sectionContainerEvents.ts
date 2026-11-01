@@ -1,13 +1,13 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
+import { applyActiveSectionChange } from "../../canvas/activeSectionController.js";
+import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation.js";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
   shouldRetainNativeContextMenu,
-} from "../../context-menu/workspaceMenuOwnership";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { getOnSectionClick } from "../sectionClick";
+} from "../../context-menu/workspaceMenuOwnership.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { getOnSectionClick } from "../sectionClick.js";
 
 export function getSectionContainerHandlers(
   host: WorkspaceHost,

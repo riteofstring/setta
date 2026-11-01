@@ -1,24 +1,24 @@
-import { useIsDragActive, useItemsHaveChanged } from "./useSortingState";
-import { rectFromBoundingRect } from "./rect";
+import { useIsDragActive, useItemsHaveChanged } from "./useSortingState.js";
+import { rectFromBoundingRect } from "./rect.js";
 import type { Collision, UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useMemo, useRef } from "react";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getDndSectionId } from "../dndIds";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getDndSectionId } from "../dndIds.js";
 import {
   clearSortingOverState,
   setSortingOverState,
-} from "../sortingOverState";
-import { useDndProviderContext } from "./DndProviderContext";
+} from "../sortingOverState.js";
+import { useDndProviderContext } from "./DndProviderContext.js";
 import {
   getSortedRects,
   mergeMissingDroppableRects,
   normalizeDisabled,
   rectSortingStrategy,
-} from "./sorting";
-import type { ClientRect, Disabled, SortingStrategy } from "./types";
+} from "./sorting.js";
+import type { ClientRect, Disabled, SortingStrategy } from "./types.js";
 
 interface Props {
   children: React.ReactNode;

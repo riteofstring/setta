@@ -7,58 +7,58 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { useWorkspaceSectionAttentionTransitioning } from "../../attention/workspaceSectionAttention";
-import { openWorkspacePaneMenu } from "../../context-menu/workspaceMenuInvocation";
+import { useWorkspaceSectionAttentionTransitioning } from "../../attention/workspaceSectionAttention.js";
+import { openWorkspacePaneMenu } from "../../context-menu/workspaceMenuInvocation.js";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
-} from "../../context-menu/workspaceMenuOwnership";
-import { applyActiveSectionChange } from "../activeSectionController";
+} from "../../context-menu/workspaceMenuOwnership.js";
+import { applyActiveSectionChange } from "../activeSectionController.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../../document/stores";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { useDndMode } from "../../dnd/dndState";
+} from "../../document/stores.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { useDndMode } from "../../dnd/dndState.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "../../interaction";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
-import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
+} from "../../interaction.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope.js";
 import {
   CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME,
   useCodeMirrorTooltipParentRef,
-} from "../codeMirrorTooltipParent";
-import { computeReadyToBeVisible } from "../fitView";
+} from "../codeMirrorTooltipParent.js";
+import { computeReadyToBeVisible } from "../fitView.js";
 import {
   useWorkspaceOptions,
   type WorkspaceInteractionOptions,
-} from "../options";
-import { getReactFlowStore, useReactFlow } from "../store";
-import type { NodeDragItem } from "../types";
-import { WorkspaceBackground } from "../WorkspaceBackground";
-import { WorkspaceGraphLayer } from "../../graph/WorkspaceGraphLayer";
-import { attachWorkspaceExternalDropHandlers } from "../external-drop/handlers";
-import type { WorkspaceExternalDropConfiguration } from "../external-drop/types";
-import { WorkspaceXyflowNode } from "./WorkspaceXyflowNode";
-import { useWorkspaceXyflowNodeDrag } from "./WorkspaceXyflowNodeDrag";
-import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection";
-import { useWorkspaceXyflowWheelBehavior } from "./useWorkspaceXyflowWheelBehavior";
-import { createWorkspaceXyflowNodeProjector } from "./workspaceXyflowProjection";
+} from "../options.js";
+import { getReactFlowStore, useReactFlow } from "../store.js";
+import type { NodeDragItem } from "../types.js";
+import { WorkspaceBackground } from "../WorkspaceBackground.js";
+import { WorkspaceGraphLayer } from "../../graph/WorkspaceGraphLayer.js";
+import { attachWorkspaceExternalDropHandlers } from "../external-drop/handlers.js";
+import type { WorkspaceExternalDropConfiguration } from "../external-drop/types.js";
+import { WorkspaceXyflowNode } from "./WorkspaceXyflowNode.js";
+import { useWorkspaceXyflowNodeDrag } from "./WorkspaceXyflowNodeDrag.js";
+import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection.js";
+import { useWorkspaceXyflowWheelBehavior } from "./useWorkspaceXyflowWheelBehavior.js";
+import { createWorkspaceXyflowNodeProjector } from "./workspaceXyflowProjection.js";
 import {
   getWorkspaceXyflowRuntime,
   registerWorkspaceXyflowInstance,
-} from "./workspaceXyflowRuntime";
+} from "./workspaceXyflowRuntime.js";
 import type {
   WorkspaceXyflowNodeChange,
   WorkspaceXyflowNodeDimensions,
   WorkspaceXyflowSectionNode,
   WorkspaceXyflowViewport,
-} from "./types";
+} from "./types.js";
 
 type WorkspaceXyflowAdapterProps = {
   defaultViewport: WorkspaceXyflowViewport;

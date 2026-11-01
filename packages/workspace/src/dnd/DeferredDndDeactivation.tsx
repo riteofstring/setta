@@ -1,8 +1,8 @@
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useEffect } from "react";
-import { forceDeactivateDnd, useDndState } from "./dndState";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { forceDeactivateDnd, useDndState } from "./dndState.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export function DeferredDndDeactivation() {
   const host = useWorkspaceHost();

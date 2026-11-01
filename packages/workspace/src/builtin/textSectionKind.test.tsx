@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,28 +20,28 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { getWorkspaceDocument } from "../document/documentChangeCallback";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { getWorkspaceDocument } from "../document/documentChangeCallback.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
-import { HeaderIcon } from "../section/header/HeaderIcon";
-import { SectionHeader } from "../section/header/SectionHeader";
-import { setWorkspaceTextSectionData } from "./textSectionActions";
+} from "../document/types.js";
+import { HeaderIcon } from "../section/header/HeaderIcon.js";
+import { SectionHeader } from "../section/header/SectionHeader.js";
+import { setWorkspaceTextSectionData } from "./textSectionActions.js";
 import {
   createWorkspaceTextSectionData,
   WORKSPACE_TEXT_SECTION_KIND,
-} from "./textSectionData";
-import { createWorkspaceTextSection } from "./textSectionKind";
+} from "./textSectionData.js";
+import { createWorkspaceTextSection } from "./textSectionKind.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

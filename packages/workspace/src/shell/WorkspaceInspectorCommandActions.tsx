@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import {
   useWorkspaceCommandEntries,
   type WorkspaceCommandEntry,
-} from "../commands/workspaceCommandResolution";
+} from "../commands/workspaceCommandResolution.js";
 import type {
   WorkspaceCommandContext,
   WorkspaceCommandSurface,
-} from "../commands/workspaceCommandTypes";
+} from "../commands/workspaceCommandTypes.js";
 
 type WorkspaceInspectorCommandActionsProps = {
   children?: ReactNode;

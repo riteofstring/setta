@@ -8,7 +8,7 @@ import {
   selectWorkspaceShellTab,
   toggleWorkspaceShellPane,
   toggleWorkspaceShellPaneFullWidth,
-} from "./workspaceShellLayout";
+} from "./workspaceShellLayout.js";
 
 function createState() {
   return createWorkspaceShellViewState({

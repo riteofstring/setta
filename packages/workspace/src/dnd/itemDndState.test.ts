@@ -4,7 +4,7 @@ import {
   getItemIdFromDndId,
   getTempItemDndId,
   isTempItem,
-} from "./itemDndState";
+} from "./itemDndState.js";
 
 describe("itemDndState id helpers", () => {
   it("creates list-key scoped item dnd ids", () => {

@@ -11,7 +11,7 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "../interaction";
+} from "../interaction.js";
 
 const MAXIMUM_STROKE_POINTS = 1_024;
 

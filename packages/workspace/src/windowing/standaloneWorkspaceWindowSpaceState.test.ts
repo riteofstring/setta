@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildWorkspaceFloatingSnapBounds,
   buildWorkspaceFloatingSnapResizeSeams,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   applyStandaloneWorkspaceWindowBounds,
   createActiveStandaloneWorkspaceSnapResize,
@@ -10,12 +10,12 @@ import {
   hydrateStandaloneWorkspaceWindowSpace,
   hydrateStandaloneWorkspaceWindowSpaceState,
   resolveActiveStandaloneWorkspaceSnapResizeBounds,
-} from "./standaloneWorkspaceWindowSpaceState";
+} from "./standaloneWorkspaceWindowSpaceState.js";
 import {
   WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
-import { createWorkspaceWindowSpace } from "./windowSpaces";
+} from "./windowingTypes.js";
+import { createWorkspaceWindowSpace } from "./windowSpaces.js";
 
 const viewport: WorkspaceWindowViewport = {
   height: 800,

@@ -1,18 +1,18 @@
-export { DragDropProvider } from "./DragDropProvider";
-export { SortableContext } from "./SortableContext";
+export { DragDropProvider } from "./DragDropProvider.js";
+export { SortableContext } from "./SortableContext.js";
 export {
   computeNewIndex,
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
-} from "./sorting";
+} from "./sorting.js";
 export type {
   Disabled,
   DragEndEvent,
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
-} from "./types";
-export { useDndMonitor } from "./useDndMonitor";
-export { useDraggable } from "./useDraggable";
-export { useDroppable } from "./useDroppable";
-export { useSortable } from "./useSortable";
+} from "./types.js";
+export { useDndMonitor } from "./useDndMonitor.js";
+export { useDraggable } from "./useDraggable.js";
+export { useDroppable } from "./useDroppable.js";
+export { useSortable } from "./useSortable.js";

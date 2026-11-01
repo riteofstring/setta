@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,16 +16,16 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { getActiveSectionIds } from "../document/activeSections";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { Node, WorkspaceSection } from "../document/types";
-import { applyActiveSectionChange } from "./activeSectionController";
-import { initialCanvasState, useReactFlow } from "./store";
+} from "../document/stores.js";
+import type { Node, WorkspaceSection } from "../document/types.js";
+import { applyActiveSectionChange } from "./activeSectionController.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
 
 function makeSection(
   id: string,

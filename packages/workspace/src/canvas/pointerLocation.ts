@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import type { Position } from "../document/types";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
+import type { Position } from "../document/types.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const pointerLocationsByHost = new WeakMap<WorkspaceHost, Position | null>();
 

@@ -1,9 +1,9 @@
-import { useWorkspaceOptions } from "../canvas/options";
-import { getReactFlowStore, useReactFlow } from "../canvas/store";
-import { setCenter } from "../canvas/viewportHelpers";
-import { useWorkspaceAppearance } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import MiniMap from "./MiniMap";
+import { useWorkspaceOptions } from "../canvas/options.js";
+import { getReactFlowStore, useReactFlow } from "../canvas/store.js";
+import { setCenter } from "../canvas/viewportHelpers.js";
+import { useWorkspaceAppearance } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import MiniMap from "./MiniMap.js";
 
 const DEFAULT_MINIMAP_WIDTH_PX = 200;
 const MINIMAP_ASPECT_RATIO = 4 / 3;

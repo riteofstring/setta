@@ -1,6 +1,6 @@
-import { computeNewIndex } from "../dnd/adapter";
-import type { SettaCollision } from "../dnd/adapter/types";
-import type { ItemListKey } from "../dnd/itemDndState";
+import { computeNewIndex } from "../dnd/adapter/index.js";
+import type { SettaCollision } from "../dnd/adapter/types.js";
+import type { ItemListKey } from "../dnd/itemDndState.js";
 
 type ItemOverlayVisibilityInput = {
   shouldRenderOverlay: boolean;

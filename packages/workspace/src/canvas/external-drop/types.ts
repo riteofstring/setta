@@ -1,4 +1,4 @@
-import type { Position } from "../../document/types";
+import type { Position } from "../../document/types.js";
 
 export type WorkspaceExternalDropCanDrop = (
   dataTransfer: DataTransfer,

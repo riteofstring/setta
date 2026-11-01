@@ -1,5 +1,5 @@
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceHostDomId } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals.js";
 
 export function getWorkspaceSectionResizableId(
   host: WorkspaceHost,

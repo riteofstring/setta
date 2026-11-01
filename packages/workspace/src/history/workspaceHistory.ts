@@ -1,19 +1,19 @@
 import { useSyncExternalStore } from "react";
 import _ from "lodash";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
 import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
-} from "../document/workspaceSnapshot";
-import type { WorkspaceDocument } from "../document/types";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../document/workspaceSnapshot.js";
+import type { WorkspaceDocument } from "../document/types.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   assertWorkspaceHostActive,
   getWorkspaceHostElements,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryCapability,
@@ -25,8 +25,8 @@ import type {
   WorkspaceHistorySynchronization,
   WorkspaceHistoryTransaction,
   WorkspaceHostOptions,
-} from "./workspaceHistoryTypes";
-import { createWorkspaceHistoryReplayDocument } from "./workspaceHistoryReplay";
+} from "./workspaceHistoryTypes.js";
+import { createWorkspaceHistoryReplayDocument } from "./workspaceHistoryReplay.js";
 
 declare const workspaceHistoryBatchToken: unique symbol;
 

@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   closeWorkspaceNavigator,
   getWorkspaceNavigatorStore,
@@ -11,7 +11,7 @@ import {
   setWorkspaceNavigatorActiveIndex,
   setWorkspaceNavigatorMode,
   setWorkspaceNavigatorQuery,
-} from "./workspaceNavigatorState";
+} from "./workspaceNavigatorState.js";
 
 const hosts: Array<WorkspaceHost> = [];
 

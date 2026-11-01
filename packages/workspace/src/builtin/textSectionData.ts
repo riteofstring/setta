@@ -1,4 +1,4 @@
-import type { WorkspaceSectionData } from "../document/types";
+import type { WorkspaceSectionData } from "../document/types.js";
 
 export const WORKSPACE_TEXT_SECTION_KIND = "setta.text";
 

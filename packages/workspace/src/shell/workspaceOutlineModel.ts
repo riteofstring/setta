@@ -2,13 +2,13 @@ import { matchSorter } from "match-sorter";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
-} from "../document/savedViewDisplay";
-import type { WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
+} from "../document/savedViewDisplay.js";
+import type { WorkspaceDocumentState } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
 
 export type WorkspaceOutlineNode = {
   section: WorkspaceSection;

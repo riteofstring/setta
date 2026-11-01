@@ -1,14 +1,14 @@
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { setSectionData } from "../document/sectionData";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { setSectionData } from "../document/sectionData.js";
+import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceCodeSectionData,
-} from "./codeSectionData";
+} from "./codeSectionData.js";
 
 function getCodeSection(
   host: WorkspaceHost,

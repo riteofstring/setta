@@ -3,14 +3,14 @@ import { FiSave } from "react-icons/fi";
 import type {
   WorkspaceWindowSpaceErrors,
   WorkspaceWindowSpacesPaneProps,
-} from "./WorkspaceWindowSpacesPane";
-import { WorkspaceWindowSpaceRow } from "./WorkspaceWindowSpacesPaneParts";
+} from "./WorkspaceWindowSpacesPane.js";
+import { WorkspaceWindowSpaceRow } from "./WorkspaceWindowSpacesPaneParts.js";
 import {
   canSnapshotWorkspaceWindowSpace,
   restoreWorkspaceWindowSpace,
   type WorkspaceWindowSpace,
-} from "./windowSpaces";
-import { WorkspaceWindowingError } from "./windowingTypes";
+} from "./windowSpaces.js";
+import { WorkspaceWindowingError } from "./windowingTypes.js";
 
 function joinClassNames(
   ...classNames: ReadonlyArray<string | false | undefined>

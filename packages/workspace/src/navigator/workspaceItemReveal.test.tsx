@@ -2,22 +2,22 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ItemDndContext } from "../dnd/ItemDndContext";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { getWorkspaceDocumentStore } from "../document/stores";
+import { ItemDndContext } from "../dnd/ItemDndContext.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
 import {
   registerItemListView,
   unregisterItemListView,
-} from "../items/itemListRegistry";
-import { WorkspaceItemList } from "../items/WorkspaceItemList";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { WorkspaceProvider } from "../workspaceHostContext";
+} from "../items/itemListRegistry.js";
+import { WorkspaceItemList } from "../items/WorkspaceItemList.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { WorkspaceProvider } from "../workspaceHostContext.js";
 import {
   getWorkspaceItemRevealAvailability,
   registerWorkspaceItemRevealTarget,
   revealWorkspaceItem,
   useWorkspaceItemRevealTarget,
-} from "./workspaceItemReveal";
+} from "./workspaceItemReveal.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

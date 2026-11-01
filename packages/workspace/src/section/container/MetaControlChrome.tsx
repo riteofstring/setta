@@ -1,14 +1,14 @@
 import { TbAdjustmentsHorizontal } from "react-icons/tb";
-import { handleSectionControlEscape } from "../../controls/sectionFocus";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import type { WorkspaceSection } from "../../document/types";
+import { handleSectionControlEscape } from "../../controls/sectionFocus.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import type { WorkspaceSection } from "../../document/types.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "../../interaction";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../interaction.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 const EDIT_TRIGGER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${NO_DRAG_CLASS_NAME} relative flex h-6 w-6 cursor-pointer select-none items-center justify-center rounded-full p-1 me-1 -ms-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none motion-safe:transition-colors motion-safe:duration-150 hover:bg-setta-100 focus:opacity-100 focus:pointer-events-auto focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-50 after:absolute after:end-[-0.25rem] after:top-1/2 after:h-12 after:w-10 after:-translate-y-1/2 after:content-['']`;
 const EDIT_ICON_CLASS_NAME =

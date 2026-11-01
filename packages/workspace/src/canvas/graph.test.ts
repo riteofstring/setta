@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,23 +16,23 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { setActiveSectionIds } from "../document/activeSections";
+import { setActiveSectionIds } from "../document/activeSections.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { Node, WorkspaceSection } from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
+} from "../document/stores.js";
+import type { Node, WorkspaceSection } from "../document/types.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
 import {
   getActiveSectionsBounds,
   getNodesInside,
   getPaneRect,
   getSectionRect,
   getViewportForBounds,
-} from "./graph";
-import { useWorkspaceOptions } from "./options";
-import { initialCanvasState, useReactFlow } from "./store";
+} from "./graph.js";
+import { useWorkspaceOptions } from "./options.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
   return {

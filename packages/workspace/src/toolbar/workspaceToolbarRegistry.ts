@@ -1,12 +1,12 @@
-import { listWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
+import { listWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore.js";
 import {
   assertWorkspaceToolbarContributions,
   createWorkspaceToolbarCommandCatalog,
   setWorkspaceToolbarContributions,
-} from "./workspaceToolbarContributions";
-import type { WorkspaceToolbarContribution } from "./workspaceToolbarTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceToolbarContributions.js";
+import type { WorkspaceToolbarContribution } from "./workspaceToolbarTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function registerWorkspaceToolbarContributions(
   host: WorkspaceHost,

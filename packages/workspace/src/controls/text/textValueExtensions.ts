@@ -15,12 +15,12 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
-import type { TextValueLanguage } from "./editorLanguages";
-import { getTextValueLanguageExtensions } from "./textValueLanguages";
+import type { TextValueLanguage } from "./editorLanguages.js";
+import { getTextValueLanguageExtensions } from "./textValueLanguages.js";
 import type {
   TextValueCompletionProvider,
   TextValueCompletionResult,
-} from "./textValueCompletion";
+} from "./textValueCompletion.js";
 
 export const TEXT_VALUE_BASIC_SETUP = {
   lineNumbers: false,

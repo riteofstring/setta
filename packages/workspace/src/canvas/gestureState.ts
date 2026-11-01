@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
-import { createHostStoreGetter } from "../state/hostStore";
+import { withResetFn } from "../state/storeUtils.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
 
 type CanvasGestureState = {
   mouseDownDraggingSection: boolean;

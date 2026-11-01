@@ -3,26 +3,26 @@ import React from "react";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../../document/documentSelectors";
-import { isWorkspaceSectionVisible } from "../../document/savedViewDisplay";
+} from "../../document/documentSelectors.js";
+import { isWorkspaceSectionVisible } from "../../document/savedViewDisplay.js";
 import {
   canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
   type SectionKindDefinition,
-} from "../../document/sectionKindRegistry";
+} from "../../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useWorkspaceDocument,
   type WorkspaceDocumentState,
-} from "../../document/stores";
-import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getOutlineColor } from "../sectionColors";
-import type { SectionDragListeners } from "./ContainerCore";
-import { ContainerSwitch } from "./ContainerSwitch";
-import { MaybeManyNestedSections } from "./ManyNestedSections";
-import { SectionContainerCore } from "./SectionContainerCore";
+} from "../../document/stores.js";
+import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getOutlineColor } from "../sectionColors.js";
+import type { SectionDragListeners } from "./ContainerCore.js";
+import { ContainerSwitch } from "./ContainerSwitch.js";
+import { MaybeManyNestedSections } from "./ManyNestedSections.js";
+import { SectionContainerCore } from "./SectionContainerCore.js";
 
 type SectionAttachedContentRenderer = NonNullable<
   Extract<

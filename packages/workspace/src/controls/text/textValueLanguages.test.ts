@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { TextValueLanguage } from "./editorLanguages";
+import type { TextValueLanguage } from "./editorLanguages.js";
 import {
   getTextValueLanguageExtensions,
   getTextValueLanguageParser,
-} from "./textValueLanguages";
+} from "./textValueLanguages.js";
 
 const SLICE_LANGUAGES: Array<TextValueLanguage> = [
   "python",

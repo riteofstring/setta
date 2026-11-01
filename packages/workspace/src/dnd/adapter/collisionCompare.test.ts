@@ -4,8 +4,8 @@ import {
   promoteBestCollision,
   resolveOverCollision,
   resolveOverCollisionId,
-} from "./collisionCompare";
-import type { SettaCollision } from "./types";
+} from "./collisionCompare.js";
+import type { SettaCollision } from "./types.js";
 
 const EMPTY_PARENT_BY_CHILD: Record<string, string | null> = {};
 

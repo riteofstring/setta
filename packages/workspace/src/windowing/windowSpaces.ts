@@ -2,8 +2,8 @@ import {
   denormalizeWorkspaceWindowBounds,
   normalizeWorkspaceWindowBounds,
   type WorkspaceNormalizedWindowBounds,
-} from "./windowingSnapLayout";
-import { getWorkspaceWindowStackingOrder } from "./windowingState";
+} from "./windowingSnapLayout.js";
+import { getWorkspaceWindowStackingOrder } from "./windowingState.js";
 import {
   assertKnownFields,
   assertRecord,
@@ -17,7 +17,7 @@ import {
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 export interface WorkspaceWindowSpaceWindow {
   readonly id: string;

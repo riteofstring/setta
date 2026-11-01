@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,20 +16,20 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceDocument } from "../document/types";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { WorkspaceDocument } from "../document/types.js";
 import {
   applyLoadedDocumentViewport,
   armLoadedDocumentFitView,
   getInitialCanvasViewport,
   startCanvasViewportDocumentSync,
-} from "./documentViewportSync";
-import { initialCanvasState, useReactFlow } from "./store";
-import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
+} from "./documentViewportSync.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime.js";
 import type {
   WorkspaceXyflowInstance,
   WorkspaceXyflowViewport,
-} from "./xyflow/types";
+} from "./xyflow/types.js";
 
 beforeEach(() => {
   testWorkspace.document.getState().reset();

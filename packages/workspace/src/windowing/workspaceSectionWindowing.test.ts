@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_SECTION_KIND } from "../document/documentSelectors";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceSection } from "../document/types";
-import { createWorkspaceHost } from "../workspaceHost";
+import { GROUP_SECTION_KIND } from "../document/documentSelectors.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { createWorkspaceHost } from "../workspaceHost.js";
 import {
   allocateWorkspaceSectionWindowId,
   canWorkspaceSectionOpenInWindow,
   focusOrReopenWorkspaceWindow,
   getExternalWorkspaceSectionWindowBinding,
   reconcileWorkspaceSectionWindowBindings,
-} from "./workspaceSectionWindowing";
+} from "./workspaceSectionWindowing.js";
 import {
   createWorkspaceWindowingState,
   WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   type WorkspaceFloatingWindowInput,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 function makeSection(id: string, kind = "ordinary"): WorkspaceSection {
   return {

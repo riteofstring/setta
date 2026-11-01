@@ -1,18 +1,18 @@
 import type { CSSProperties } from "react";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors.js";
 import {
   getSectionOrThrow,
   getTopLevelSectionIdsForDisplay,
-} from "./documentSelectors";
-import { getVisibleTopLevelSectionIdsForDisplay } from "./savedViewDisplay";
+} from "./documentSelectors.js";
+import { getVisibleTopLevelSectionIdsForDisplay } from "./savedViewDisplay.js";
 import {
   getWorkspaceAppearanceStore,
   type NodeInternalsState,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { Node, TopLevelSectionLayout, WorkspaceSection } from "./types";
+} from "./stores.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { Node, TopLevelSectionLayout, WorkspaceSection } from "./types.js";
 
 function getSectionNodeStyle(
   section: WorkspaceSection,

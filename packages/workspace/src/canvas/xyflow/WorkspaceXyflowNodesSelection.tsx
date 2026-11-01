@@ -1,26 +1,29 @@
 import cc from "classcat";
 import _ from "lodash";
 import React, { useEffect, useRef, type KeyboardEvent } from "react";
-import { openWorkspaceSelectionMenu } from "../../context-menu/workspaceMenuInvocation";
+import { openWorkspaceSelectionMenu } from "../../context-menu/workspaceMenuInvocation.js";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
-} from "../../context-menu/workspaceMenuOwnership";
-import { useDndMode } from "../../dnd/dndState";
+} from "../../context-menu/workspaceMenuOwnership.js";
+import { useDndMode } from "../../dnd/dndState.js";
 import {
   setSelectionDragHandle,
   setSelectionDragPrimaryId,
-} from "../../dnd/selectionDragHandle";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { getSectionOrThrow } from "../../document/documentSelectors";
-import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
-import type { Position } from "../../document/types";
-import { NO_PAN_CLASS_NAME } from "../../interaction";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { useReactFlow } from "../store";
-import type { Rect } from "../types";
-import { updatePositions } from "../useUpdateNodePositions";
-import { useWorkspaceXyflowNodesSelectionDrag } from "./useWorkspaceXyflowNodesSelectionDrag";
+} from "../../dnd/selectionDragHandle.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
+import {
+  useActiveSections,
+  useWorkspaceDocument,
+} from "../../document/stores.js";
+import type { Position } from "../../document/types.js";
+import { NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { useReactFlow } from "../store.js";
+import type { Rect } from "../types.js";
+import { updatePositions } from "../useUpdateNodePositions.js";
+import { useWorkspaceXyflowNodesSelectionDrag } from "./useWorkspaceXyflowNodesSelectionDrag.js";
 
 const arrowKeyDiffs: Record<string, Position> = {
   ArrowUp: { x: 0, y: -1 },

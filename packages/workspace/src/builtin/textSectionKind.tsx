@@ -1,14 +1,14 @@
 import type { ComponentType, ReactNode } from "react";
 import { FaMarkdown } from "react-icons/fa6";
 import { PiTextTFill } from "react-icons/pi";
-import { getSectionOrThrow } from "../document/documentSelectors";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
 import type {
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
   WorkspaceSectionKindIconProps,
-} from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
-import type { SectionSize, WorkspaceSection } from "../document/types";
+} from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { SectionSize, WorkspaceSection } from "../document/types.js";
 import {
   parseWorkspaceTextSectionData,
   WORKSPACE_TEXT_SECTION_DISPLAY_MODES,
@@ -16,9 +16,9 @@ import {
   type WorkspaceTextSectionChoices,
   type WorkspaceTextSectionDisplayMode,
   type WorkspaceTextSectionFormat,
-} from "./textSectionData";
-import { ToggleTextSectionDisplayModeButton } from "./ToggleTextSectionDisplayModeButton";
-import { WorkspaceTextSectionBody } from "./WorkspaceTextSectionBody";
+} from "./textSectionData.js";
+import { ToggleTextSectionDisplayModeButton } from "./ToggleTextSectionDisplayModeButton.js";
+import { WorkspaceTextSectionBody } from "./WorkspaceTextSectionBody.js";
 
 const WORKSPACE_TEXT_SECTION_DEFAULT_SIZE: SectionSize = {
   width: 500,

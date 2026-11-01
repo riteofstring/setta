@@ -6,8 +6,8 @@ import {
   WORKSPACE_TEXT_SECTION_DEFAULT_FONT_SIZE,
   WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
   WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE,
-} from "./textSectionData";
-import { buildWorkspaceTextTypographyScale } from "./textSectionTypography";
+} from "./textSectionData.js";
+import { buildWorkspaceTextTypographyScale } from "./textSectionTypography.js";
 
 describe("built-in text section data", () => {
   it("opens on the reference's empty plain-text editor at its 14 px base", () => {

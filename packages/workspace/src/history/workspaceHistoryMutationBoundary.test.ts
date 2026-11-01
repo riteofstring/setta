@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { startCanvasViewportDocumentSync } from "../canvas/documentViewportSync";
-import { commitTopLevelLayoutToDocument } from "../canvas/nodeInternalsActions";
-import { getReactFlowStore } from "../canvas/store";
-import { setActiveSectionIds } from "../document/activeSections";
-import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
-import { setItemColumnWidth } from "../document/itemColumnWidth";
-import { setItemData } from "../document/itemData";
+import { startCanvasViewportDocumentSync } from "../canvas/documentViewportSync.js";
+import { commitTopLevelLayoutToDocument } from "../canvas/nodeInternalsActions.js";
+import { getReactFlowStore } from "../canvas/store.js";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { insertWorkspaceSection } from "../document/insertWorkspaceSection.js";
+import { setItemColumnWidth } from "../document/itemColumnWidth.js";
+import { setItemData } from "../document/itemData.js";
 import {
   setItemControlConfiguration,
   setItemLabel,
   setItemValue,
-} from "../document/itemPresentationMutations";
-import { setSelectedItems } from "../document/itemSelection";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { moveItems } from "../document/moveItems";
-import { moveSections } from "../document/moveSections";
-import { setSectionData } from "../document/sectionData";
+} from "../document/itemPresentationMutations.js";
+import { setSelectedItems } from "../document/itemSelection.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { moveItems } from "../document/moveItems.js";
+import { moveSections } from "../document/moveSections.js";
+import { setSectionData } from "../document/sectionData.js";
 import {
   deleteSection,
   groupSections,
@@ -24,27 +24,27 @@ import {
   setSectionsPositionLocked,
   toggleGroupOrientation,
   toggleMinimized,
-} from "../document/sectionMutations";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { getNodeInternalsStore } from "../document/stores";
+} from "../document/sectionMutations.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { getNodeInternalsStore } from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
+} from "../document/types.js";
 import {
   deleteWorkspaceItems,
   insertWorkspaceItem,
-} from "../items/itemAuthoringActions";
-import { setGroupOverflowMode } from "../section/groupOverflowAction";
-import { setWorkspaceSectionSize } from "../section/sectionSizes";
-import { setSectionTagColor } from "../section/tagColorAction";
-import { ungroupSections } from "../section/ungroupAction";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../items/itemAuthoringActions.js";
+import { setGroupOverflowMode } from "../section/groupOverflowAction.js";
+import { setWorkspaceSectionSize } from "../section/sectionSizes.js";
+import { setSectionTagColor } from "../section/tagColorAction.js";
+import { ungroupSections } from "../section/ungroupAction.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryState,
   WorkspaceHistoryTransaction,
-} from "./workspaceHistoryTypes";
+} from "./workspaceHistoryTypes.js";
 
 type HistoryWorkspace = {
   host: WorkspaceHost;

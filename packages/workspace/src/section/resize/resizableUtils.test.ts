@@ -7,7 +7,7 @@ import {
   getResizeHandleClickState,
   isResizeDoubleClick,
   shouldEmitResizeEndEvent,
-} from "./resizableUtils";
+} from "./resizableUtils.js";
 
 describe("getResizeHandleClickState", () => {
   it("detects a second press on the same handle inside the threshold", () => {

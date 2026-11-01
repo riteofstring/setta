@@ -2,21 +2,21 @@ import _ from "lodash";
 import type {
   ActiveSectionPolicyContext,
   ActiveSectionPolicyResult,
-} from "../document/activeSectionPolicy";
-import { resolveActiveSectionChange } from "../document/activeSectionPolicy";
+} from "../document/activeSectionPolicy.js";
+import { resolveActiveSectionChange } from "../document/activeSectionPolicy.js";
 import {
   getActiveSectionIds,
   setActiveSectionIds,
-} from "../document/activeSections";
+} from "../document/activeSections.js";
 import {
   getHighestAncestor,
   getSectionHasSelectedItems,
-} from "../document/documentSelectors";
-import { getItemSelectionModeStore } from "../document/itemSelectionMode";
-import { setZIndices } from "../document/sectionZIndices";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getReactFlowStore } from "./store";
+} from "../document/documentSelectors.js";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode.js";
+import { setZIndices } from "../document/sectionZIndices.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getReactFlowStore } from "./store.js";
 
 type SectionClickIntent = {
   interaction: "section-click";

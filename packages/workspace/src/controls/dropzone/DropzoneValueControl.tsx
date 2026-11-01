@@ -7,15 +7,15 @@ import {
   type RefObject,
 } from "react";
 import { FiUploadCloud } from "react-icons/fi";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../../interaction";
-import { handleSectionControlEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
+} from "../../interaction.js";
+import { handleSectionControlEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
 import {
   assertDropzoneAttachments,
   assertDropzonePolicy,
@@ -23,12 +23,12 @@ import {
   getDroppedTextRejection,
   getDropzoneRemainingSlots,
   partitionDropzoneFiles,
-} from "./dropzonePolicy";
+} from "./dropzonePolicy.js";
 import type {
   DropzoneAttachment,
   DropzonePolicy,
   DropzoneValueControlProps,
-} from "./dropzoneTypes";
+} from "./dropzoneTypes.js";
 
 const INTERACTION_BOUNDARY_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 const ROOT_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} section-value flex h-full min-h-0 w-full flex-col gap-2`;

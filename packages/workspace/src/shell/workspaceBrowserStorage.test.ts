@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseWorkspaceSavedViewsState } from "../saved-views/state";
+import { parseWorkspaceSavedViewsState } from "../saved-views/state.js";
 import {
   loadWorkspaceSavedViews,
   loadWorkspaceShellViewState,
   saveWorkspaceSavedViews,
   saveWorkspaceShellViewState,
   type WorkspaceBrowserStorage,
-} from "./workspaceBrowserStorage";
-import { createWorkspaceShellViewState } from "./workspaceShellLayout";
+} from "./workspaceBrowserStorage.js";
+import { createWorkspaceShellViewState } from "./workspaceShellLayout.js";
 
 function memoryStorage(): WorkspaceBrowserStorage & {
   entries: Map<string, string>;

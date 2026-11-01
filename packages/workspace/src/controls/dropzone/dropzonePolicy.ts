@@ -3,7 +3,7 @@ import type {
   DropzoneFileRejection,
   DropzonePolicy,
   DropzoneTextRejection,
-} from "./dropzoneTypes";
+} from "./dropzoneTypes.js";
 
 type DropzoneFilePartition = {
   accepted: File[];

@@ -1,15 +1,15 @@
-import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
+import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes.js";
 import {
   clampWorkspaceSectionSize,
   getWorkspaceSectionSizeBounds,
-} from "../section/resize/sectionSizingBounds";
-import { isGroupSection } from "./documentSelectors";
+} from "../section/resize/sectionSizingBounds.js";
+import { isGroupSection } from "./documentSelectors.js";
 import {
   getRegisteredSectionKindOrThrow,
   type SectionKindDefinition,
-} from "./sectionKindRegistry";
-import type { SectionSize, WorkspaceSectionInput } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./sectionKindRegistry.js";
+import type { SectionSize, WorkspaceSectionInput } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const DEFAULT_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
 

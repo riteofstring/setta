@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { handleSectionControlEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { handleSectionControlEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
 
 export type PasswordSavedValueAction = {
   pending: boolean;

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,23 +20,23 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   registerItemListView,
   resetItemListViews,
-} from "../items/itemListRegistry";
+} from "../items/itemListRegistry.js";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
   moveSelectedItemsUp,
   unindentSelectedItems,
-} from "../items/selectedItemMoves";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
-import { useCanvasKeyActivations } from "./keyActivations";
-import { initialCanvasState } from "./store";
+} from "../items/selectedItemMoves.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
+import { useCanvasKeyActivations } from "./keyActivations.js";
+import { initialCanvasState } from "./store.js";
 
-vi.mock("../items/selectedItemMoves", () => ({
+vi.mock("../items/selectedItemMoves.js", () => ({
   moveSelectedItemsUp: vi.fn(() => true),
   moveSelectedItemsDown: vi.fn(() => true),
   indentSelectedItems: vi.fn(() => true),

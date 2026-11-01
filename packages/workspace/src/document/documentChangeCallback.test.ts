@@ -1,32 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { persistSectionSizeChange } from "../section/sectionSizes";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { setActiveSectionIds } from "./activeSections";
+import { persistSectionSizeChange } from "../section/sectionSizes.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { setActiveSectionIds } from "./activeSections.js";
 import {
   getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
-} from "./documentChangeCallback";
+} from "./documentChangeCallback.js";
 import {
   commitWorkspaceDocument,
   loadWorkspaceDocument,
-} from "./loadWorkspaceDocument";
-import { moveSections } from "./moveSections";
-import { registerSectionKinds } from "./sectionKindRegistry";
+} from "./loadWorkspaceDocument.js";
+import { moveSections } from "./moveSections.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   deleteSection,
   setSectionName,
   toggleGroupOrientation,
   toggleMinimized,
   togglePositionLock,
-} from "./sectionMutations";
+} from "./sectionMutations.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "./stores";
-import type { WorkspaceDocument, WorkspaceSection } from "./types";
-import { createWorkspaceSavedViewsState } from "../saved-views/state";
+} from "./stores.js";
+import type { WorkspaceDocument, WorkspaceSection } from "./types.js";
+import { createWorkspaceSavedViewsState } from "../saved-views/state.js";
 
 function makeSection(
   id: string,

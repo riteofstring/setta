@@ -1,6 +1,6 @@
-import { NO_DRAG_CLASS_NAME } from "../interaction";
-import { getElementTextDirection } from "../styles/textDirection";
-import { getKeyboardWorkspaceMenuPoint } from "./workspaceMenuGeometry";
+import { NO_DRAG_CLASS_NAME } from "../interaction.js";
+import { getElementTextDirection } from "../styles/textDirection.js";
+import { getKeyboardWorkspaceMenuPoint } from "./workspaceMenuGeometry.js";
 
 const NATIVE_CONTEXT_MENU_SELECTOR = [
   "a[href]",

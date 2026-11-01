@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,14 +16,14 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { setSectionData } from "./sectionData";
-import { registerSectionKinds } from "./sectionKindRegistry";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { setSectionData } from "./sectionData.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
+} from "./stores.js";
 
 function loadTestDocument() {
   registerSectionKinds(testWorkspace.host, {

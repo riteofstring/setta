@@ -4,20 +4,20 @@ import {
   type PointerEvent,
   type WheelEvent,
 } from "react";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
 import {
   MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../../interaction";
+} from "../../interaction.js";
 import {
   assertNumericControlConfig,
   clampNumericValue,
   type NumericControlConfig,
-} from "../numeric/numericControlConfig";
-import { handleSectionControlEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../numeric/numericControlConfig.js";
+import { handleSectionControlEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 const ROTARY_START_DEG = -135;
 const ROTARY_END_DEG = 135;

@@ -1,18 +1,18 @@
 import _ from "lodash";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
-import type { Position } from "../document/types";
-import { resolveWorkspaceMotionDuration } from "../styles/motion";
-import type { WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import { getPaneRect, getSectionRect, getViewportForBounds } from "./graph";
-import { getWorkspaceOptionsStore } from "./options";
-import { getWorkspacePointerLocation } from "./pointerLocation";
-import { getReactFlowStore } from "./store";
-import type { Rect } from "./types";
-import { getVisibleCanvasRect } from "./viewportInsets";
-import { screenToFlowPosition } from "./viewportPosition";
-import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { isWorkspaceSectionVisible } from "../document/savedViewDisplay.js";
+import type { Position } from "../document/types.js";
+import { resolveWorkspaceMotionDuration } from "../styles/motion.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
+import { getPaneRect, getSectionRect, getViewportForBounds } from "./graph.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import { getWorkspacePointerLocation } from "./pointerLocation.js";
+import { getReactFlowStore } from "./store.js";
+import type { Rect } from "./types.js";
+import { getVisibleCanvasRect } from "./viewportInsets.js";
+import { screenToFlowPosition } from "./viewportPosition.js";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
 
 export type WorkspaceViewportBoundsFitOptions = Readonly<{
   duration: number;

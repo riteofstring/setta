@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceSectionItemTree } from "../document/types";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
 import {
   getHighestWorkspaceItemDiagnosticSeverity,
   getWorkspaceItemDiagnosticCountSummary,
   getWorkspaceItemDiagnosticRowClassName,
   normalizeWorkspaceItemDiagnosticRegistry,
   type WorkspaceItemDiagnosticRegistry,
-} from "./itemDiagnostics";
+} from "./itemDiagnostics.js";
 
 function makeItemTree(): WorkspaceSectionItemTree {
   return {

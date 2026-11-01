@@ -1,38 +1,38 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { setActiveSectionIds } from "../document/activeSections";
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { startCanvasViewportDocumentSync } from "../canvas/documentViewportSync";
-import { updatePositions } from "../canvas/useUpdateNodePositions";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { startCanvasViewportDocumentSync } from "../canvas/documentViewportSync.js";
+import { updatePositions } from "../canvas/useUpdateNodePositions.js";
 import {
   getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
-} from "../document/documentChangeCallback";
-import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../document/documentChangeCallback.js";
+import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
-import { getReactFlowStore } from "../canvas/store";
-import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
+} from "../document/stores.js";
+import { getReactFlowStore } from "../canvas/store.js";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime.js";
 import type {
   WorkspaceXyflowInstance,
   WorkspaceXyflowViewport,
-} from "../canvas/xyflow/types";
-import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState";
+} from "../canvas/xyflow/types.js";
+import { getWorkspaceMenuStateStore } from "../context-menu/workspaceMenuState.js";
 import {
   activateDndMovingFreeMode,
   getDndStateStore,
   setActiveDnd,
-} from "../dnd/dndState";
+} from "../dnd/dndState.js";
 import type {
   WorkspaceDocument,
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
-import { getWorkspaceHistoryState } from "../history/workspaceHistory";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import { getWorkspaceHistoryState } from "../history/workspaceHistory.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   activateWorkspaceSavedView,
   createWorkspaceSavedView,
@@ -44,12 +44,12 @@ import {
   reorderWorkspaceSavedView,
   setWorkspaceSavedViewSectionVisibility,
   setWorkspaceSavedViewTabVisibility,
-} from "./operations";
+} from "./operations.js";
 import {
   createWorkspaceSavedViewsState,
   parseWorkspaceSavedViewsState,
   projectWorkspaceDocumentSavedViews,
-} from "./state";
+} from "./state.js";
 
 const hosts: Array<WorkspaceHost> = [];
 

@@ -1,7 +1,7 @@
 import type { NodeProps } from "@xyflow/react";
-import { useWorkspaceDocument } from "../../document/stores";
-import { SectionContainer } from "../../section/container/SectionContainer";
-import type { WorkspaceXyflowSectionNode } from "./types";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { SectionContainer } from "../../section/container/SectionContainer.js";
+import type { WorkspaceXyflowSectionNode } from "./types.js";
 
 export function WorkspaceXyflowNode({
   data,

@@ -7,14 +7,17 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
-import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceGraphConfiguration, WorkspaceGraphEdge } from "./types";
+} from "../../test/workspaceTestHost.js";
+import type { WorkspaceSection } from "../document/types.js";
+import type {
+  WorkspaceGraphConfiguration,
+  WorkspaceGraphEdge,
+} from "./types.js";
 import {
   WorkspaceGraphProvider,
   useWorkspaceGraph,
-} from "./WorkspaceGraphContext";
-import { WorkspaceGraphLayer } from "./WorkspaceGraphLayer";
+} from "./WorkspaceGraphContext.js";
+import { WorkspaceGraphLayer } from "./WorkspaceGraphLayer.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

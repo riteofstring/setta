@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes.js";
 
 export type WorkspaceToolbarPlacement = "before-viewport" | "before-minimap";
 

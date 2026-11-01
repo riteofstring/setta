@@ -1,6 +1,6 @@
-import { getSectionOrThrow, isGroupSection } from "./documentSelectors";
-import type { ActiveSectionsState, WorkspaceDocumentState } from "./stores";
-import type { WorkspaceSection } from "./types";
+import { getSectionOrThrow, isGroupSection } from "./documentSelectors.js";
+import type { ActiveSectionsState, WorkspaceDocumentState } from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
 
 type PreparedUngroupSections = {
   activeSections: ActiveSectionsState;

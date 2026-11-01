@@ -9,19 +9,22 @@ import {
 import { createPortal } from "react-dom";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
+import { withResetFn } from "../state/storeUtils.js";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
-} from "../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+} from "../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
 import {
   assertWorkspaceHostActive,
   isWorkspaceHostElement,
   registerWorkspaceHostElement,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const INITIAL_TOOLTIP_WIDTH_PX = 256;
 const MOUSE_OFFSET_PX = 10;

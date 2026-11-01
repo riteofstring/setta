@@ -4,7 +4,7 @@ import {
   resolveWorkspaceBottomDockStripReservedWidthPx,
   resolveWorkspaceBottomDockWindowWidthsToFit,
   resolveWorkspaceMaxVisibleBottomDockWindowCount,
-} from "./workspaceBottomDockLayout";
+} from "./workspaceBottomDockLayout.js";
 
 describe("workspace bottom dock layout", () => {
   it("reserves the frozen strip widths for single and multiple windows", () => {

@@ -1,4 +1,4 @@
-import { getOutlineColor } from "./sectionColors";
+import { getOutlineColor } from "./sectionColors.js";
 
 type SectionContainerShellClassNameOptions = {
   isActiveSection: boolean;

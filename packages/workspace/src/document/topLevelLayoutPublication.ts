@@ -1,13 +1,13 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { Node, TopLevelSectionLayout } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { Node, TopLevelSectionLayout } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function topLevelLayoutsEqual(
   current: Readonly<Record<string, TopLevelSectionLayout>>,

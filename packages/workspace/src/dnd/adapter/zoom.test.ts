@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,8 +16,8 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { describe, expect, it } from "vitest";
-import { useReactFlow } from "../../canvas/store";
-import { applyZoomToTransform, transformToString } from "./zoom";
+import { useReactFlow } from "../../canvas/store.js";
+import { applyZoomToTransform, transformToString } from "./zoom.js";
 
 describe("zoom adapter utilities", () => {
   it("returns null and empty string for null transforms", () => {

@@ -3,24 +3,24 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { DragDropProvider } from "./adapter";
-import { createCollisionTracker } from "./adapter/collision";
-import { DeferredDndDeactivation } from "./DeferredDndDeactivation";
+} from "../document/stores.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { DragDropProvider } from "./adapter/index.js";
+import { createCollisionTracker } from "./adapter/collision.js";
+import { DeferredDndDeactivation } from "./DeferredDndDeactivation.js";
 import {
   getDisplayedSectionIdToChildren,
   getDndChildrenStore,
   updateDndChildren,
-} from "./dndChildren";
-import { useDndMode } from "./dndState";
-import { DragOperationShapeSync } from "./DragOperationShapeSync";
-import { DummyDragOverlay } from "./DummySection";
-import { useSectionDndSensors } from "./useDNDSensors";
-import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";
-import { useModifiers } from "./useModifiers";
-import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
+} from "./dndChildren.js";
+import { useDndMode } from "./dndState.js";
+import { DragOperationShapeSync } from "./DragOperationShapeSync.js";
+import { DummyDragOverlay } from "./DummySection.js";
+import { useSectionDndSensors } from "./useDNDSensors.js";
+import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType.js";
+import { useModifiers } from "./useModifiers.js";
+import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection.js";
 
 function useDndChildrenDocumentSync() {
   const host = useWorkspaceHost();

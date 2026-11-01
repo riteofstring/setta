@@ -1,7 +1,10 @@
 import { useCallback, useLayoutEffect, useState } from "react";
 import { createStore } from "zustand/vanilla";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
 
 export const CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME =
   "setta-workspace-codemirror-tooltips";

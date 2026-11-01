@@ -3,22 +3,22 @@ import { FiEye, FiEyeOff } from "react-icons/fi";
 import {
   captureSectionRemovalFocusTarget,
   restoreFocusAfterSectionRemoval,
-} from "../../controls/sectionFocus";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
+} from "../../controls/sectionFocus.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../../document/documentSelectors";
-import { deleteSection } from "../../document/sectionMutations";
-import { useWorkspaceDocument } from "../../document/stores";
+} from "../../document/documentSelectors.js";
+import { deleteSection } from "../../document/sectionMutations.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
 import {
   getWorkspaceSavedViewSectionAction,
   setWorkspaceSavedViewSectionsDisplayed,
-} from "../../saved-views/editing";
-import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState";
-import { getWorkspaceSavedViewsOperationDisabledReason } from "../../saved-views/operations";
-import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../saved-views/editing.js";
+import { useWorkspaceSavedViewEditing } from "../../saved-views/editingState.js";
+import { getWorkspaceSavedViewsOperationDisabledReason } from "../../saved-views/operations.js";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 type DeleteOrHideButtonProps = {
   sectionId: string;

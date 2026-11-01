@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ClientRect, SettaCollision, Transform } from "./types";
+import type { ClientRect, SettaCollision, Transform } from "./types.js";
 import {
   DEFAULT_SORTABLE_TRANSITION,
   buildSortablePresentationState,
   getRelevantCollision,
   normalizeLocalDisabled,
-} from "./useSortableModel";
+} from "./useSortableModel.js";
 
 const items = ["a", "b", "c"];
 const sortedRects: Array<ClientRect | undefined> = [

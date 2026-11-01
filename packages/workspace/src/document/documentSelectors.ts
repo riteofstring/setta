@@ -1,9 +1,9 @@
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export const GROUP_SECTION_KIND = "group";
 

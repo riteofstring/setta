@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,20 +16,20 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setActiveSectionIds } from "../document/activeSections";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceSectionInput } from "../document/types";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
 import {
   getWorkspaceSavedViewSectionAction,
   setWorkspaceSavedViewEditing,
   setWorkspaceSavedViewSectionsDisplayed,
-} from "./editing";
-import { isWorkspaceSavedViewEditing } from "./editingState";
+} from "./editing.js";
+import { isWorkspaceSavedViewEditing } from "./editingState.js";
 import {
   enableWorkspaceSavedViews,
   setWorkspaceSavedViewSectionVisibility,
-} from "./operations";
+} from "./operations.js";
 
 function section(
   id: string,

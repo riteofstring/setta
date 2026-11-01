@@ -1,23 +1,23 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionOrThrow,
   GROUP_SECTION_KIND,
   isGroupSection,
-} from "./documentSelectors";
+} from "./documentSelectors.js";
 import {
   createNodesMapFromDocumentChildren,
   reprojectNodeStylesForAppearance,
-} from "./nodeProjection";
-import { getRootSelectedSectionIds } from "./sectionSelection";
+} from "./nodeProjection.js";
+import { getRootSelectedSectionIds } from "./sectionSelection.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { WorkspaceSection } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function setSectionValues(
   host: WorkspaceHost,

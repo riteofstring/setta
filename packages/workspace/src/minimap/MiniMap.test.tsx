@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -21,14 +21,14 @@ import { act, createRef } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { useActiveSections } from "../document/stores";
+import { useActiveSections } from "../document/stores.js";
 import {
   getXYWidthHeight,
   MinimapSvg,
   resolveMiniMapKeyboardPosition,
   syncSelectedMiniMapNodes,
-} from "./MiniMap";
-import type { MiniMapNodeProps } from "./types";
+} from "./MiniMap.js";
+import type { MiniMapNodeProps } from "./types.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

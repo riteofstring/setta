@@ -1,10 +1,10 @@
-import { screenToFlowPosition } from "../viewportPosition";
-import type { WorkspaceHost } from "../../workspaceHost";
+import { screenToFlowPosition } from "../viewportPosition.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
 import type {
   WorkspaceExternalDropCallback,
   WorkspaceExternalDropCanDrop,
   WorkspaceExternalDropConfiguration,
-} from "./types";
+} from "./types.js";
 
 type WorkspaceExternalDropCallbacks = {
   canDrop: WorkspaceExternalDropCanDrop;

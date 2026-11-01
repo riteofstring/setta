@@ -8,7 +8,7 @@ import {
   isMenuNavigationKey,
   shouldDispatchFilterInputEvent,
   shouldEditableTargetHandleMenuKey,
-} from "./paneMenuKeyboard";
+} from "./paneMenuKeyboard.js";
 
 function createInput(value: string, start: number, end = start) {
   const input = document.createElement("input");

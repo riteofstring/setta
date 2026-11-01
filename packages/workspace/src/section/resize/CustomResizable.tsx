@@ -1,33 +1,33 @@
 import _ from "lodash";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { getCanvasGesturesStore } from "../../canvas/gestureState";
-import { useWorkspaceOptions } from "../../canvas/options";
-import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { getSectionOrThrow } from "../../document/documentSelectors";
-import { useWorkspaceDocument } from "../../document/stores";
+import { getCanvasGesturesStore } from "../../canvas/gestureState.js";
+import { useWorkspaceOptions } from "../../canvas/options.js";
+import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
 import {
   beginWorkspaceHistoryBatch,
   cancelWorkspaceHistoryBatch,
   completeWorkspaceHistoryBatch,
   type WorkspaceHistoryBatch,
-} from "../../history/workspaceHistory";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import type { SectionSize } from "../../document/types";
+} from "../../history/workspaceHistory.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import type { SectionSize } from "../../document/types.js";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "../../interaction";
-import { getSectionSurfaceClassName } from "../sectionChrome";
-import { getWorkspaceSectionResizableId } from "../sectionDomIds";
+} from "../../interaction.js";
+import { getSectionSurfaceClassName } from "../sectionChrome.js";
+import { getWorkspaceSectionResizableId } from "../sectionDomIds.js";
 import {
   getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
   persistSectionSizeChange,
   type ResizeHandleDirection,
-} from "../sectionSizes";
+} from "../sectionSizes.js";
 import {
   clampChangedSize,
   getAutoClampSize,
@@ -36,10 +36,10 @@ import {
   getResizeHandleClickState,
   isResizeDoubleClick,
   shouldEmitResizeEndEvent,
-} from "./resizableUtils";
-import { ResizableWithScale } from "./ResizableWithScale";
-import { setSectionResizeEvent } from "./resizeEvents";
-import { useSectionMinMaxDims } from "./sizingPolicy";
+} from "./resizableUtils.js";
+import { ResizableWithScale } from "./ResizableWithScale.js";
+import { setSectionResizeEvent } from "./resizeEvents.js";
+import { useSectionMinMaxDims } from "./sizingPolicy.js";
 
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {

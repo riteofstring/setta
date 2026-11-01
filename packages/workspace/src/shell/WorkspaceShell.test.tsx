@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -28,22 +28,22 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
-import { enableWorkspaceSavedViews } from "../saved-views/operations";
-import { WorkspaceShell } from "./WorkspaceShell";
-import { createWorkspaceShellViewState } from "./workspaceShellLayout";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration.js";
+import { enableWorkspaceSavedViews } from "../saved-views/operations.js";
+import { WorkspaceShell } from "./WorkspaceShell.js";
+import { createWorkspaceShellViewState } from "./workspaceShellLayout.js";
 import type {
   WorkspaceShellTabDefinition,
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
-} from "./workspaceShellTypes";
-import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
-import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
+} from "./workspaceShellTypes.js";
+import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes.js";
+import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext.js";
 import {
   createWorkspaceWindowingState,
   type WorkspaceWindowViewport,
-} from "../windowing/windowingTypes";
+} from "../windowing/windowingTypes.js";
 
 const { shiftWorkspaceMapForLeadingPane, workspaceCanvasProps } = vi.hoisted(
   () => ({
@@ -52,20 +52,20 @@ const { shiftWorkspaceMapForLeadingPane, workspaceCanvasProps } = vi.hoisted(
   }),
 );
 
-vi.mock("../canvas/WorkspaceCanvas", () => ({
+vi.mock("../canvas/WorkspaceCanvas.js", () => ({
   WorkspaceCanvas: (props: unknown) => {
     workspaceCanvasProps(props);
     return <div data-testid="workspace-canvas" />;
   },
 }));
-vi.mock("../canvas/viewportHelpers", () => ({
+vi.mock("../canvas/viewportHelpers.js", () => ({
   shiftWorkspaceMapForLeadingPane,
 }));
-vi.mock("../toolbar/WorkspaceControls", () => ({
+vi.mock("../toolbar/WorkspaceControls.js", () => ({
   WorkspaceControls: () => <div data-testid="workspace-controls" />,
 }));
-vi.mock("../tooltip/WorkspaceTooltip", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../tooltip/WorkspaceTooltip")>()),
+vi.mock("../tooltip/WorkspaceTooltip.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../tooltip/WorkspaceTooltip.js")>()),
   WorkspaceTooltip: () => <div data-testid="workspace-tooltip" />,
 }));
 

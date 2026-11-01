@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
-} from "./textValueExtensions";
+} from "./textValueExtensions.js";
 
 function createState(
   options: Partial<Parameters<typeof getTextValueExtensions>[0]> = {},

@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,15 +16,15 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   addDndChild,
   removeDndChild,
   replaceDndSectionsWithTemp,
   updateDndChildren,
   getDndChildrenStore,
-} from "./dndChildren";
-import { getDndSectionId } from "./dndIds";
+} from "./dndChildren.js";
+import { getDndSectionId } from "./dndIds.js";
 
 describe("dndChildren state", () => {
   let host: WorkspaceHost;

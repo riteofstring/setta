@@ -1,24 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setActiveSectionIds } from "../document/activeSections";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
-import { setSelectedItems } from "../document/itemSelection";
-import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { setItemData } from "../document/itemData";
-import { setItemValue } from "../document/itemPresentationMutations";
-import { moveSections } from "../document/moveSections";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { setSectionData } from "../document/sectionData";
-import { deleteSection, setSectionName } from "../document/sectionMutations";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { persistSectionSizeChange } from "../section/sectionSizes";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
+import { insertWorkspaceSection } from "../document/insertWorkspaceSection.js";
+import { setSelectedItems } from "../document/itemSelection.js";
+import { commitWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { setItemData } from "../document/itemData.js";
+import { setItemValue } from "../document/itemPresentationMutations.js";
+import { moveSections } from "../document/moveSections.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { setSectionData } from "../document/sectionData.js";
+import { deleteSection, setSectionName } from "../document/sectionMutations.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { persistSectionSizeChange } from "../section/sectionSizes.js";
 import type {
   WorkspaceDocument,
   WorkspaceItem,
   WorkspaceSection,
-} from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   beginWorkspaceHistoryBatch,
   cancelWorkspaceHistoryBatch,
@@ -28,13 +28,13 @@ import {
   redoWorkspace,
   subscribeWorkspaceHistory,
   undoWorkspace,
-} from "./workspaceHistory";
+} from "./workspaceHistory.js";
 import type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryState,
   WorkspaceHistorySynchronization,
   WorkspaceHistoryTransaction,
-} from "./workspaceHistoryTypes";
+} from "./workspaceHistoryTypes.js";
 
 function makeSection(
   id: string,

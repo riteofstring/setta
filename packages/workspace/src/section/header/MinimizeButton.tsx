@@ -1,8 +1,8 @@
-import { getSectionOrThrow } from "../../document/documentSelectors";
-import { toggleMinimized } from "../../document/sectionMutations";
-import { useWorkspaceDocument } from "../../document/stores";
-import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
+import { toggleMinimized } from "../../document/sectionMutations.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 type MinimizeButtonProps = {
   sectionId: string;

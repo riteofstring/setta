@@ -1,4 +1,4 @@
-import { rectFromBoundingRect } from "./rect";
+import { rectFromBoundingRect } from "./rect.js";
 import {
   CollisionPriority,
   CollisionType,
@@ -6,15 +6,15 @@ import {
 } from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
 import type { Coordinates, Shape } from "@dnd-kit/geometry";
-import { getReactFlowStore } from "../../canvas/store";
-import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../../document/stores";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { isTempSection } from "../dndIds";
-import { getDndStateStore } from "../dndState";
-import { isTempItem } from "../itemDndState";
-import { resolveOverCollision } from "./collisionCompare";
-import type { ClientRect, SettaCollision } from "./types";
+import { getReactFlowStore } from "../../canvas/store.js";
+import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../../document/stores.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { isTempSection } from "../dndIds.js";
+import { getDndStateStore } from "../dndState.js";
+import { isTempItem } from "../itemDndState.js";
+import { resolveOverCollision } from "./collisionCompare.js";
+import type { ClientRect, SettaCollision } from "./types.js";
 
 type CollisionMode = "section" | "item";
 

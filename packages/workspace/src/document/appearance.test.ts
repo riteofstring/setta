@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,16 +17,16 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { setWorkspaceColorMode } from "./appearance";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { setWorkspaceColorMode } from "./appearance.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
 import {
   getNodeInternalsStore,
   getWorkspaceAppearanceStore,
   getWorkspaceDocumentStore,
   type WorkspaceColorMode,
   type WorkspaceDocumentState,
-} from "./stores";
+} from "./stores.js";
 
 const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
   window,

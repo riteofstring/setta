@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -21,7 +21,7 @@ import {
   getSortingOverState,
   resetSortingOverState,
   setSortingOverState,
-} from "./sortingOverState";
+} from "./sortingOverState.js";
 
 describe("sortingOverState", () => {
   beforeEach(() => {

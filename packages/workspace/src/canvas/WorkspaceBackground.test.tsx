@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,10 +20,10 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useWorkspaceAppearance } from "../document/stores";
-import { useWorkspaceOptions } from "./options";
-import { initialCanvasState, useReactFlow } from "./store";
-import { WorkspaceBackground } from "./WorkspaceBackground";
+import { useWorkspaceAppearance } from "../document/stores.js";
+import { useWorkspaceOptions } from "./options.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { WorkspaceBackground } from "./WorkspaceBackground.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

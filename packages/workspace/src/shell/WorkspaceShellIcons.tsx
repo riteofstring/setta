@@ -1,7 +1,7 @@
 import { BsCardChecklist } from "react-icons/bs";
 import { TbLayoutDashboard } from "react-icons/tb";
 import { MdOutlineSettingsApplications } from "react-icons/md";
-import type { WorkspaceShellTabIconProps } from "./workspaceShellTypes";
+import type { WorkspaceShellTabIconProps } from "./workspaceShellTypes.js";
 
 export function WorkspaceSectionSettingsIcon(
   props: WorkspaceShellTabIconProps,

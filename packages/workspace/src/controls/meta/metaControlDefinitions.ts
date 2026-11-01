@@ -1,4 +1,4 @@
-import type { ColorValueChoice } from "../color/ColorValueControl";
+import type { ColorValueChoice } from "../color/ColorValueControl.js";
 import type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -7,16 +7,16 @@ import type {
   TimeControlMode,
   TimeDisplayFont,
   TimeDisplayFormat,
-} from "../date-time/dateTimeTypes";
-import type { DropdownValueChoiceGroup } from "../dropdown/DropdownValueControl";
+} from "../date-time/dateTimeTypes.js";
+import type { DropdownValueChoiceGroup } from "../dropdown/DropdownValueControl.js";
 import type {
   DropzoneAcceptedResult,
   DropzoneAttachment,
   DropzonePolicy,
   DropzoneRejection,
   DropzoneServerPickerRequest,
-} from "../dropzone/dropzoneTypes";
-import type { TextValueLanguage } from "../text/editorLanguages";
+} from "../dropzone/dropzoneTypes.js";
+import type { TextValueLanguage } from "../text/editorLanguages.js";
 
 type ControlledMetaValue = {
   ariaLabel: string;

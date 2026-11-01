@@ -1,23 +1,23 @@
-import { getPaneRect } from "../canvas/graph";
-import { getReactFlowStore } from "../canvas/store";
-import { getMetaControlMinimumSize } from "../controls/meta/metaControlTypes";
-import { isGroupSection } from "../document/documentSelectors";
+import { getPaneRect } from "../canvas/graph.js";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getMetaControlMinimumSize } from "../controls/meta/metaControlTypes.js";
+import { isGroupSection } from "../document/documentSelectors.js";
 import {
   getMetaControlPresentation,
   getSectionKindSizeConstraints,
-} from "../document/sectionKindRegistry";
-import { resolveWorkspaceSectionSize } from "../document/sectionSize";
+} from "../document/sectionKindRegistry.js";
+import { resolveWorkspaceSectionSize } from "../document/sectionSize.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   Position,
   SectionSizeValue,
   WorkspaceSectionInput,
-} from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceSectionSizeBounds } from "./resize/sectionSizingBounds";
+} from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceSectionSizeBounds } from "./resize/sectionSizingBounds.js";
 
 type WorkspaceEmptySpacePlacement = Readonly<{
   position: Position;

@@ -1,8 +1,8 @@
 import {
   assertNoReservedItemDndTokens,
   type ItemListKey,
-} from "../dnd/itemDndState";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../dnd/itemDndState.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export type RegisteredItemListView = {
   listKey: ItemListKey;

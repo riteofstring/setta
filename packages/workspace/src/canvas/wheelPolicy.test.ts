@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   NATIVE_HORIZONTAL_WHEEL_CLASS_NAME,
   NATIVE_VERTICAL_WHEEL_CLASS_NAME,
-} from "../interaction";
-import { resolveWheelTargetDisposition } from "./wheelPolicy";
+} from "../interaction.js";
+import { resolveWheelTargetDisposition } from "./wheelPolicy.js";
 
 function disposition({
   classNames,

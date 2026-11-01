@@ -1,4 +1,4 @@
-import type { Position, Viewport } from "../document/types";
+import type { Position, Viewport } from "../document/types.js";
 
 export type WorkspaceMenuClientPoint = {
   x: number;

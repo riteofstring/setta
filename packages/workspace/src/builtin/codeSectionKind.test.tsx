@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,27 +20,27 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { getWorkspaceDocument } from "../document/documentChangeCallback";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { getWorkspaceDocument } from "../document/documentChangeCallback.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
-import { HeaderIcon } from "../section/header/HeaderIcon";
-import { setWorkspaceCodeSectionData } from "./codeSectionActions";
+} from "../document/types.js";
+import { HeaderIcon } from "../section/header/HeaderIcon.js";
+import { setWorkspaceCodeSectionData } from "./codeSectionActions.js";
 import {
   createWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_KIND,
-} from "./codeSectionData";
-import { createWorkspaceCodeSection } from "./codeSectionKind";
+} from "./codeSectionData.js";
+import { createWorkspaceCodeSection } from "./codeSectionKind.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

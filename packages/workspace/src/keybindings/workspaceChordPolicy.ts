@@ -1,4 +1,4 @@
-import type { ParsedWorkspaceChord } from "./workspaceChords";
+import type { ParsedWorkspaceChord } from "./workspaceChords.js";
 
 type ChordPatternMode =
   | "no-modifiers"

@@ -7,30 +7,30 @@ import {
   type PointerEvent,
   type RefObject,
 } from "react";
-import type { WorkspaceWindowRenderers } from "./WorkspaceWindowManager";
-import { WorkspaceWindowSurface } from "./WorkspaceWindowSurface";
+import type { WorkspaceWindowRenderers } from "./WorkspaceWindowManager.js";
+import { WorkspaceWindowSurface } from "./WorkspaceWindowSurface.js";
 import {
   buildWorkspaceFloatingSnapResizeSeams,
   classifyWorkspaceFloatingSnapPreset,
   type WorkspaceFloatingSnapResizeSeam,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   hydrateStandaloneWorkspaceWindowSpace,
   hydrateStandaloneWorkspaceWindowSpaceState,
   type ActiveStandaloneWorkspaceSnapResize,
   type StandaloneWorkspaceWindow,
-} from "./standaloneWorkspaceWindowSpaceState";
-import { useStandaloneWorkspaceWindowSpaceInteractions } from "./useStandaloneWorkspaceWindowSpaceInteractions";
+} from "./standaloneWorkspaceWindowSpaceState.js";
+import { useStandaloneWorkspaceWindowSpaceInteractions } from "./useStandaloneWorkspaceWindowSpaceInteractions.js";
 import {
   createWorkspaceWindowSpace,
   type WorkspaceWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 import {
   createWorkspaceWindowViewport,
   type WorkspaceWindowBoundaryInsets,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const EMPTY_INSETS: WorkspaceWindowBoundaryInsets = Object.freeze({
   bottom: 0,

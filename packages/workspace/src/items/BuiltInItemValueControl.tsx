@@ -1,20 +1,20 @@
-import { ColorValueControl } from "../controls/color/ColorValueControl";
+import { ColorValueControl } from "../controls/color/ColorValueControl.js";
 import {
   DateValueControl,
   TimeValueControl,
-} from "../controls/date-time/DateTimeValueControl";
-import { DropdownValueControl } from "../controls/dropdown/DropdownValueControl";
-import { DropzoneValueControl } from "../controls/dropzone/DropzoneValueControl";
-import { PasswordValueControl } from "../controls/password/PasswordValueControl";
-import { RotaryValueControl } from "../controls/rotary/RotaryValueControl";
-import { SliderValueControl } from "../controls/slider/SliderValueControl";
-import { SwitchValueControl } from "../controls/switch/SwitchValueControl";
-import { TextValueEditor } from "../controls/text/TextValueEditor";
-import { setItemValue } from "../document/itemPresentationMutations";
-import type { WorkspaceItemControlPresentation } from "../document/types";
-import { getItemHandlerRegistration } from "./itemHandlerRegistry";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../controls/date-time/DateTimeValueControl.js";
+import { DropdownValueControl } from "../controls/dropdown/DropdownValueControl.js";
+import { DropzoneValueControl } from "../controls/dropzone/DropzoneValueControl.js";
+import { PasswordValueControl } from "../controls/password/PasswordValueControl.js";
+import { RotaryValueControl } from "../controls/rotary/RotaryValueControl.js";
+import { SliderValueControl } from "../controls/slider/SliderValueControl.js";
+import { SwitchValueControl } from "../controls/switch/SwitchValueControl.js";
+import { TextValueEditor } from "../controls/text/TextValueEditor.js";
+import { setItemValue } from "../document/itemPresentationMutations.js";
+import type { WorkspaceItemControlPresentation } from "../document/types.js";
+import { getItemHandlerRegistration } from "./itemHandlerRegistry.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type ValueControl = Exclude<
   WorkspaceItemControlPresentation,

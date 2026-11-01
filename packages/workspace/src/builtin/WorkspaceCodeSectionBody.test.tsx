@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -25,35 +25,35 @@ import { activateHover, EditorView } from "@codemirror/view";
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { getWorkspaceDocument } from "../document/documentChangeCallback";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { getWorkspaceDocument } from "../document/documentChangeCallback.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
-import { useResizeEvent } from "../section/resize/resizeEvents";
-import { setWorkspaceCodeSectionData } from "./codeSectionActions";
+} from "../document/types.js";
+import { useResizeEvent } from "../section/resize/resizeEvents.js";
+import { setWorkspaceCodeSectionData } from "./codeSectionActions.js";
 import {
   createWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionDataOverrides,
-} from "./codeSectionData";
-import { createWorkspaceCodeSection } from "./codeSectionKind";
+} from "./codeSectionData.js";
+import { createWorkspaceCodeSection } from "./codeSectionKind.js";
 import type {
   WorkspaceCodeSectionCompletionResult,
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionRequest,
-} from "./codeSectionCompletion";
+} from "./codeSectionCompletion.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -1,22 +1,22 @@
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   getWorkspaceItemFactory,
   type WorkspaceItemToolbarMode,
-} from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
+} from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
 import {
   deleteLastWorkspaceItem,
   deleteSelectedWorkspaceItems,
   insertWorkspaceItem,
-} from "./itemAuthoringActions";
-import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
-import { WorkspaceItemFilterControls } from "./WorkspaceItemFilterControls";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./itemAuthoringActions.js";
+import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext.js";
+import { WorkspaceItemFilterControls } from "./WorkspaceItemFilterControls.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 function getItemAuthoringToneClasses(hasSectionStyleTheme: boolean): {
   button: string;

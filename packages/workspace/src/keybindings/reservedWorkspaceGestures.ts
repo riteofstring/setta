@@ -1,7 +1,7 @@
 import {
   parseWorkspaceChord,
   type ParsedWorkspaceChord,
-} from "./workspaceChords";
+} from "./workspaceChords.js";
 
 type ReservedWorkspaceGesture = Readonly<{
   chord: ParsedWorkspaceChord;

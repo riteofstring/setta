@@ -1,29 +1,29 @@
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState, type MouseEvent } from "react";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { focusSectionAfterEscape } from "../sectionFocus";
-import { DummyCodeMirror } from "../text/DummyCodeMirror";
+import { applyActiveSectionChange } from "../../canvas/activeSectionController.js";
+import { useCodeMirrorTooltipParent } from "../../canvas/codeMirrorTooltipParent.js";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { focusSectionAfterEscape } from "../sectionFocus.js";
+import { DummyCodeMirror } from "../text/DummyCodeMirror.js";
 import {
   getOnCreateEditor,
   type TextValueActivationEvent,
-} from "../text/onCreateEditor";
+} from "../text/onCreateEditor.js";
 import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
-} from "../text/textValueExtensions";
-import type { TextValueLanguage } from "../text/editorLanguages";
+} from "../text/textValueExtensions.js";
+import type { TextValueLanguage } from "../text/editorLanguages.js";
 import {
   mountTextValueThemeStyles,
   useTextValueTheme,
   type TextValueTheme,
-} from "../text/textValueTheme";
-import { ItemNameErrorBubble } from "./ItemNameErrorBubble";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
+} from "../text/textValueTheme.js";
+import { ItemNameErrorBubble } from "./ItemNameErrorBubble.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
 
 export type ItemNameEditorProps = {
   sectionId: string;

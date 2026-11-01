@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,24 +17,24 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getReactFlowStore, initialCanvasState } from "../canvas/store";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { getReactFlowStore, initialCanvasState } from "../canvas/store.js";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   openWorkspaceItemMenu,
   openWorkspacePaneMenu,
   openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
-} from "./workspaceMenuInvocation";
-import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
-import { getWorkspaceMenuStateStore } from "./workspaceMenuState";
+} from "./workspaceMenuInvocation.js";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry.js";
+import { getWorkspaceMenuStateStore } from "./workspaceMenuState.js";
 
 function createSection(id: string, item = false): WorkspaceSection {
   return {

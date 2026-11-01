@@ -11,7 +11,7 @@ import {
   buildWorkspaceFloatingSnapResizeBounds,
   classifyWorkspaceFloatingSnapPreset,
   type WorkspaceFloatingSnapResizeSeam,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   clampWorkspaceFloatingWindowBounds,
   closeWorkspaceWindow,
@@ -23,7 +23,7 @@ import {
   resizeWorkspaceFloatingWindow,
   restoreWorkspaceWindow,
   setWorkspaceWindowBoundsAtomically,
-} from "./windowingState";
+} from "./windowingState.js";
 import {
   captureWorkspaceWindowPointer,
   clampWorkspaceWindowNumber,
@@ -39,14 +39,14 @@ import {
   type WorkspaceWindowFreeResizeSession,
   type WorkspaceWindowSnapPreview,
   type WorkspaceWindowSnapResizeSession,
-} from "./workspaceWindowManagerInteractions";
+} from "./workspaceWindowManagerInteractions.js";
 import {
   type WorkspaceFloatingWindow,
   type WorkspaceWindowBounds,
   type WorkspaceWindowingMutationOptions,
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 type UseInteractionsArgs = {
   rootRef: RefObject<HTMLDivElement | null>;

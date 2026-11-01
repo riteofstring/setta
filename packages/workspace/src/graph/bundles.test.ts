@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   getWorkspaceGraphBundledPath,
   getWorkspaceGraphBundles,
-} from "./bundles";
-import { getWorkspaceGraphBezier } from "./geometry";
-import type { WorkspaceGraphEdge } from "./types";
+} from "./bundles.js";
+import { getWorkspaceGraphBezier } from "./geometry.js";
+import type { WorkspaceGraphEdge } from "./types.js";
 
 const ports = new Map([
   ["out", { point: { x: 0, y: 100 }, side: "right" as const }],

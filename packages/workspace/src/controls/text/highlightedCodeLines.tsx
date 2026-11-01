@@ -5,8 +5,11 @@ import type { ReactNode } from "react";
 import {
   getTextValueLanguageParser,
   type TextValueParserLike,
-} from "./textValueLanguages";
-import { getThemeHighlightStyle, type TextValueTheme } from "./textValueTheme";
+} from "./textValueLanguages.js";
+import {
+  getThemeHighlightStyle,
+  type TextValueTheme,
+} from "./textValueTheme.js";
 
 function buildDecorationRangeSet(
   code: string,

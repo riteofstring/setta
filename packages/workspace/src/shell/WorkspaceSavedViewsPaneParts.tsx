@@ -9,7 +9,7 @@ import {
 } from "react";
 import { FiBookmark, FiCheck, FiEdit3, FiPlus, FiTrash2 } from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import type { WorkspaceSavedView } from "../document/types";
+import type { WorkspaceSavedView } from "../document/types.js";
 
 export type WorkspaceSavedViewDisabledReasons = {
   activate: string | null;

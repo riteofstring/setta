@@ -12,7 +12,7 @@ import { shell as shellMode } from "@codemirror/legacy-modes/mode/shell";
 import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import type { Extension } from "@codemirror/state";
 import type { highlightTree } from "@lezer/highlight";
-import type { WorkspaceEditorLanguage } from "./editorLanguages";
+import type { WorkspaceEditorLanguage } from "./editorLanguages.js";
 
 const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 const SHELL_LANGUAGE = StreamLanguage.define(shellMode);

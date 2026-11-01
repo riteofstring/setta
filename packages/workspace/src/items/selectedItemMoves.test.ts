@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,22 +17,25 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionItemTree } from "../document/types";
-import { registerItemListView, resetItemListViews } from "./itemListRegistry";
+} from "../document/stores.js";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
+import {
+  registerItemListView,
+  resetItemListViews,
+} from "./itemListRegistry.js";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
   moveSelectedItemsUp,
   unindentSelectedItems,
-} from "./selectedItemMoves";
+} from "./selectedItemMoves.js";
 
 const changeCallback = vi.fn();
 

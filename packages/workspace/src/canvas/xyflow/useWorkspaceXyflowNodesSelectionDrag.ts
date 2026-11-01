@@ -1,17 +1,20 @@
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { setZIndices } from "../../document/sectionZIndices";
-import { getNodeInternalsStore } from "../../document/stores";
-import type { Position } from "../../document/types";
-import { NO_DRAG_CLASS_NAME } from "../../interaction";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getDragItems, hasSelector } from "../dragItems";
-import { getCanvasGesturesStore } from "../gestureState";
-import { raiseTempZIndex, updateNodePositions } from "../nodeInternalsActions";
-import { getWorkspaceOptionsStore } from "../options";
-import { getReactFlowStore } from "../store";
-import type { NodeDragItem } from "../types";
-import { calcAutoPan, getEventPosition } from "../utils";
+import { setZIndices } from "../../document/sectionZIndices.js";
+import { getNodeInternalsStore } from "../../document/stores.js";
+import type { Position } from "../../document/types.js";
+import { NO_DRAG_CLASS_NAME } from "../../interaction.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getDragItems, hasSelector } from "../dragItems.js";
+import { getCanvasGesturesStore } from "../gestureState.js";
+import {
+  raiseTempZIndex,
+  updateNodePositions,
+} from "../nodeInternalsActions.js";
+import { getWorkspaceOptionsStore } from "../options.js";
+import { getReactFlowStore } from "../store.js";
+import type { NodeDragItem } from "../types.js";
+import { calcAutoPan, getEventPosition } from "../utils.js";
 
 type UseWorkspaceXyflowNodesSelectionDragParams = {
   nodeRef: RefObject<HTMLElement | null>;

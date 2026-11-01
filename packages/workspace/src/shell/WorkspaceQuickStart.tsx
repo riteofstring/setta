@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { LuCompass } from "react-icons/lu";
-import { fitWorkspaceSections } from "../attention/workspaceSectionAttention";
-import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { useWorkspaceDocumentSnapshot } from "../document/useWorkspaceDocumentSnapshot";
-import { activateWorkspaceSavedView } from "../saved-views/operations";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceShellTabIconProps } from "./workspaceShellTypes";
+import { fitWorkspaceSections } from "../attention/workspaceSectionAttention.js";
+import { isWorkspaceSectionVisible } from "../document/savedViewDisplay.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { useWorkspaceDocumentSnapshot } from "../document/useWorkspaceDocumentSnapshot.js";
+import { activateWorkspaceSavedView } from "../saved-views/operations.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceShellTabIconProps } from "./workspaceShellTypes.js";
 
 export type WorkspaceQuickStartStep = Readonly<{
   title: string;

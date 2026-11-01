@@ -3,23 +3,23 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSection,
-} from "../document/types";
-import { getWorkspaceHostForElement } from "../workspaceHostInternals";
+} from "../document/types.js";
+import { getWorkspaceHostForElement } from "../workspaceHostInternals.js";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 import {
   StandaloneWorkspaceSectionSurface,
   type StandaloneWorkspaceSectionSurfaceProps,
-} from "./StandaloneWorkspaceSectionSurface";
+} from "./StandaloneWorkspaceSectionSurface.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

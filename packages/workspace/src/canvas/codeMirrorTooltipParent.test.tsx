@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -22,12 +22,12 @@ import { EditorView } from "@codemirror/view";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TextValueEditor } from "../controls/text/TextValueEditor";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { initialCanvasState } from "./store";
-import { CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME } from "./codeMirrorTooltipParent";
-import { WorkspaceCanvas } from "./WorkspaceCanvas";
+import { TextValueEditor } from "../controls/text/TextValueEditor.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { initialCanvasState } from "./store.js";
+import { CODEMIRROR_TOOLTIP_PARENT_CLASS_NAME } from "./codeMirrorTooltipParent.js";
+import { WorkspaceCanvas } from "./WorkspaceCanvas.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

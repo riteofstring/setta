@@ -515,8 +515,10 @@ editor packages and need no editor aliases or version overrides; the build inclu
 dependencies' license notices. Public declarations must not name a bundled package either, so the
 public language union lives apart from the CodeMirror language support. The build packs
 `packages/workspace/setta.tgz`, which Code Polishy's `scope.bundledDependencies` declaration
-inspects for leaked editor imports in the shipped JavaScript and public declarations. The
-package-boundary check owns the emitted import list, exports-only manifest, scoped stylesheet
+inspects for leaked editor imports in the shipped JavaScript and public declarations. Source writes
+relative imports with explicit `.js` extensions because the emitted declarations keep them verbatim,
+and NodeNext consumers resolve no extensionless relative import; the packed consumer type-checks
+under both Bundler and NodeNext resolution. The package-boundary check owns the emitted import list, exports-only manifest, scoped stylesheet
 markers, and absence of dependency CSS.
 
 ## Verification harnesses

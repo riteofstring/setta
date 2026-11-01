@@ -1,35 +1,35 @@
 import { useCallback } from "react";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../interaction";
-import { useIsScrollable } from "../useIsScrollable";
+} from "../interaction.js";
+import { useIsScrollable } from "../useIsScrollable.js";
 import {
   getWorkspaceTextSectionData,
   setWorkspaceTextSectionData,
-} from "./textSectionActions";
+} from "./textSectionActions.js";
 import {
   getWorkspaceTextSectionEditorLanguage,
   parseWorkspaceTextSectionData,
   type WorkspaceTextSectionChoices,
   type WorkspaceTextSectionData,
-} from "./textSectionData";
+} from "./textSectionData.js";
 import {
   buildWorkspaceTextTypographyScale,
   getWorkspaceTextTypographyStyle,
-} from "./textSectionTypography";
+} from "./textSectionTypography.js";
 import {
   EDITABLE_SECTION_EDITOR_PRESENTATION,
   READ_ONLY_SECTION_EDITOR_PRESENTATION,
   type WorkspaceSectionEditorChange,
-} from "./sectionEditorExtensions";
-import { WorkspaceMarkdown } from "./WorkspaceMarkdown";
-import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
+} from "./sectionEditorExtensions.js";
+import { WorkspaceMarkdown } from "./WorkspaceMarkdown.js";
+import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor.js";
 
 const RENDERED_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} -mt-1 mb-3 ms-4 -me-px cursor-auto select-text overflow-y-scroll pe-4 [&_.setta-prose]:p-0`;
 

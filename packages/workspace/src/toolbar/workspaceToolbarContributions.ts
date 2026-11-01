@@ -1,12 +1,12 @@
 import type {
   WorkspaceCommandScope,
   WorkspaceCommandSurface,
-} from "../commands/workspaceCommandTypes";
+} from "../commands/workspaceCommandTypes.js";
 import type {
   WorkspaceToolbarContribution,
   WorkspaceToolbarPlacement,
-} from "./workspaceToolbarTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceToolbarTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const TOOLBAR_SURFACE: WorkspaceCommandSurface = "toolbar";
 const TOOLBAR_SCOPE: WorkspaceCommandScope = "pane";

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -28,16 +28,16 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 import {
   WorkspaceWindowManager,
   type WorkspaceWindowManagerProps,
-} from "./WorkspaceWindowManager";
+} from "./WorkspaceWindowManager.js";
 import {
   createWorkspaceWindowingState,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowingState,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

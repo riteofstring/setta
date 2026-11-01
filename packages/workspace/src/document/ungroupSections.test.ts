@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceDocumentState } from "./stores";
-import type { WorkspaceSection } from "./types";
+import type { WorkspaceDocumentState } from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
 import {
   canUngroupWorkspaceSections,
   prepareUngroupSections,
-} from "./ungroupSections";
+} from "./ungroupSections.js";
 
 function makeSection(
   id: string,

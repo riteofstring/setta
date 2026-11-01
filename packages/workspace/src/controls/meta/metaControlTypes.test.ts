@@ -8,7 +8,7 @@ import {
   getMetaControlMinimumSize,
   TEXTAREA_META_CONTROL_SIZE,
   type MetaControlKind,
-} from "./metaControlTypes";
+} from "./metaControlTypes.js";
 
 describe("meta control sizing", () => {
   it("freezes the common default and minimum inner geometry", () => {

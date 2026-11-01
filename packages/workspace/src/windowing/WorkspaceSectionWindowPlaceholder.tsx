@@ -1,7 +1,7 @@
 import { RiExternalLinkLine } from "react-icons/ri";
-import { useWorkspaceDocument } from "../document/stores";
-import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export type WorkspaceSectionWindowPlaceholderProps = {
   sectionId: string;

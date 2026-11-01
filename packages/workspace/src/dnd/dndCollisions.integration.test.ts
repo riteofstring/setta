@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,12 +17,16 @@ afterEachWorkspaceTestHost(() => {
 
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
-import { resolveOverCollision } from "./adapter/collisionCompare";
-import { mapDragEvent } from "./adapter/dragEventMapping";
-import type { SettaCollision } from "./adapter/types";
-import { updateDndChildren, useDndChildren } from "./dndChildren";
-import { updateItemChildren, useItemDndChildren } from "./itemDndChildren";
-import { getItemDndId, setItemDndState, useItemDndState } from "./itemDndState";
+import { resolveOverCollision } from "./adapter/collisionCompare.js";
+import { mapDragEvent } from "./adapter/dragEventMapping.js";
+import type { SettaCollision } from "./adapter/types.js";
+import { updateDndChildren, useDndChildren } from "./dndChildren.js";
+import { updateItemChildren, useItemDndChildren } from "./itemDndChildren.js";
+import {
+  getItemDndId,
+  setItemDndState,
+  useItemDndState,
+} from "./itemDndState.js";
 
 function collision(id: string, intersectionRatio: number): SettaCollision {
   return {

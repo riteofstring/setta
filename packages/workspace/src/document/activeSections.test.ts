@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,8 +16,8 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { getActiveSectionIds, setActiveSectionIds } from "./activeSections";
-import { useActiveSections } from "./stores";
+import { getActiveSectionIds, setActiveSectionIds } from "./activeSections.js";
+import { useActiveSections } from "./stores.js";
 
 describe("setActiveSectionIds", () => {
   beforeEach(() => {

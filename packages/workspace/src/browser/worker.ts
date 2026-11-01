@@ -1,5 +1,8 @@
-import { executeBrowserPipeline, validateBrowserPipeline } from "./execute";
-import type { BrowserPipelineStage, BrowserPipelineWorkerScope } from "./types";
+import { executeBrowserPipeline, validateBrowserPipeline } from "./execute.js";
+import type {
+  BrowserPipelineStage,
+  BrowserPipelineWorkerScope,
+} from "./types.js";
 
 export function exposeBrowserPipeline<Input>(
   scope: BrowserPipelineWorkerScope,

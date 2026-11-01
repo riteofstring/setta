@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,18 +20,18 @@ afterEachWorkspaceTestHost(() => {
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getActiveSectionIds } from "../document/activeSections";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
-import { focusAdjacentTopLevelSection } from "./sectionNavigation";
-import { useWorkspaceFocusScope } from "./workspaceFocusScopes";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "../document/stores.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
+import { focusAdjacentTopLevelSection } from "./sectionNavigation.js";
+import { useWorkspaceFocusScope } from "./workspaceFocusScopes.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

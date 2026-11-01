@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes.js";
 
 const WORKSPACE_NAVIGATOR_MODES = ["find", "commands"] as const;
 

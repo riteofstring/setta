@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type {
   WorkspaceColorChoice,
   WorkspaceDropdownChoiceGroup,
-} from "../document/types";
+} from "../document/types.js";
 import {
   ConfigurationActionButton,
   ConfigurationRow,
@@ -12,7 +12,7 @@ import {
   handleConfigurationEscape,
   type ConfigurationEditorProps,
   type WorkspaceItemValueControl,
-} from "./workspaceItemConfigurationFields";
+} from "./workspaceItemConfigurationFields.js";
 
 type DropdownControl = Extract<WorkspaceItemValueControl, { kind: "dropdown" }>;
 type ColorControl = Extract<WorkspaceItemValueControl, { kind: "color" }>;

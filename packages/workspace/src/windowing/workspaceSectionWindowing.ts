@@ -1,13 +1,16 @@
-import { isGroupSection } from "../document/documentSelectors";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
-import type { WorkspaceDocument, WorkspaceSection } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import { focusWorkspaceWindow, reopenWorkspaceWindow } from "./windowingState";
+import { isGroupSection } from "../document/documentSelectors.js";
+import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry.js";
+import type { WorkspaceDocument, WorkspaceSection } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import {
+  focusWorkspaceWindow,
+  reopenWorkspaceWindow,
+} from "./windowingState.js";
 import {
   createWorkspaceWindowingState,
   type WorkspaceFloatingWindow,
   type WorkspaceWindowingState,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const WORKSPACE_SECTION_WINDOW_ID_PREFIX = "workspace-section-window:";
 const WORKSPACE_SECTION_CONTENT_ID_PREFIX = "workspace-section:";

@@ -10,19 +10,19 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { FiCheck, FiCommand, FiSearch, FiX } from "react-icons/fi";
-import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution";
-import { useActiveSections } from "../document/stores";
-import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry";
-import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
-import { getElementTextDirection } from "../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution.js";
+import { useActiveSections } from "../document/stores.js";
+import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry.js";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility.js";
+import { getElementTextDirection } from "../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getWorkspaceHostDomId,
   registerWorkspaceHostElement,
-} from "../workspaceHostInternals";
-import { resolveWorkspaceFindResults } from "./workspaceFind";
-import { resolveWorkspacePaletteEntries } from "./workspacePalette";
+} from "../workspaceHostInternals.js";
+import { resolveWorkspaceFindResults } from "./workspaceFind.js";
+import { resolveWorkspacePaletteEntries } from "./workspacePalette.js";
 import {
   closeWorkspaceNavigator,
   closeWorkspaceNavigatorAfterFocusTransfer,
@@ -33,13 +33,13 @@ import {
   setWorkspaceNavigatorQuery,
   setWorkspaceNavigatorStatus,
   useWorkspaceNavigator,
-} from "./workspaceNavigatorState";
+} from "./workspaceNavigatorState.js";
 import type {
   WorkspaceNavigatorActivation,
   WorkspaceNavigatorEntry,
   WorkspaceNavigatorMode,
   WorkspaceNavigatorProps,
-} from "./workspaceNavigatorTypes";
+} from "./workspaceNavigatorTypes.js";
 
 type WorkspaceNavigatorEntryGroup = {
   label: string;

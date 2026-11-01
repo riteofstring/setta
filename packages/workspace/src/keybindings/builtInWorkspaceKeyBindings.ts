@@ -1,4 +1,4 @@
-import { onFitViewHandler } from "../canvas/fitView";
+import { onFitViewHandler } from "../canvas/fitView.js";
 import {
   getCanZoomIn,
   getCanZoomOut,
@@ -7,39 +7,39 @@ import {
   zoomIn,
   zoomOut,
   zoomToPointerLocation,
-} from "../canvas/viewportHelpers";
+} from "../canvas/viewportHelpers.js";
 import {
   createPaneCommandContext,
   createSectionCommandContext,
-} from "../commands/workspaceCommandContexts";
-import { getWorkspaceCommandOrThrow } from "../commands/workspaceCommandRegistry";
-import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution";
-import { getActiveSectionIds } from "../document/activeSections";
-import { getSectionHasSelectedItems } from "../document/documentSelectors";
+} from "../commands/workspaceCommandContexts.js";
+import { getWorkspaceCommandOrThrow } from "../commands/workspaceCommandRegistry.js";
+import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getSectionHasSelectedItems } from "../document/documentSelectors.js";
 import {
   selectAllInWorkspace,
   selectAllTopLevelNonGroupSections,
-} from "../document/selectAllActions";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
-import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
+} from "../document/selectAllActions.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation.js";
+import { focusWorkspaceScope } from "../focus/workspaceFocusScopes.js";
 import {
   FOCUS_ITEM_FILTER_BINDING_ID,
   focusSectionItemFilter,
-} from "../items/itemFilterFocusRegistry";
-import { getSectionItemVisibility } from "../items/itemListRegistry";
+} from "../items/itemFilterFocusRegistry.js";
+import { getSectionItemVisibility } from "../items/itemListRegistry.js";
 import {
   hasWorkspaceNavigatorSurface,
   openWorkspaceNavigator,
-} from "../navigator/workspaceNavigatorState";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../navigator/workspaceNavigatorState.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
   moveSelectedItemsUp,
   unindentSelectedItems,
-} from "../items/selectedItemMoves";
-import { getIsEditableTarget } from "./editableTarget";
+} from "../items/selectedItemMoves.js";
+import { getIsEditableTarget } from "./editableTarget.js";
 
 const HISTORY_REPEAT_INTERVAL_MS = 100;
 

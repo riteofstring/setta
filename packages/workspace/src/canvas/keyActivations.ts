@@ -3,23 +3,23 @@ import {
   activateDndMovingFreeMode,
   activateDndSortingMode,
   deactivateDnd,
-} from "../dnd/dndState";
+} from "../dnd/dndState.js";
 import {
   getActiveSectionIds,
   setActiveSectionIds,
-} from "../document/activeSections";
-import { unselectAllItems } from "../document/itemSelection";
+} from "../document/activeSections.js";
+import { unselectAllItems } from "../document/itemSelection.js";
 import {
   activateItemSelect,
   deactivateItemSelect,
-} from "../document/itemSelectionMode";
-import { getIsEditableTarget } from "../keybindings/editableTarget";
-import { RESERVED_WORKSPACE_GESTURES } from "../keybindings/reservedWorkspaceGestures";
+} from "../document/itemSelectionMode.js";
+import { getIsEditableTarget } from "../keybindings/editableTarget.js";
+import { RESERVED_WORKSPACE_GESTURES } from "../keybindings/reservedWorkspaceGestures.js";
 import {
   matchesWorkspaceChord,
   type ParsedWorkspaceChord,
-} from "../keybindings/workspaceChords";
-import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch";
+} from "../keybindings/workspaceChords.js";
+import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch.js";
 import {
   closeFrozenWorkspaceTooltip,
   copyWorkspaceTooltipPage,
@@ -29,16 +29,16 @@ import {
   freezeWorkspaceTooltip,
   getIsFrozenWorkspaceTooltipFocused,
   incrementWorkspaceTooltipPage,
-} from "../tooltip/WorkspaceTooltip";
-import { getReactFlowStore } from "./store";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../tooltip/WorkspaceTooltip.js";
+import { getReactFlowStore } from "./store.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getWorkspaceHostForElement,
   isWorkspaceHostElement,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspacePointerLocation } from "./pointerLocation";
-import { isMacOs } from "./utils";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspacePointerLocation } from "./pointerLocation.js";
+import { isMacOs } from "./utils.js";
 
 function isBareTooltipKey(event: KeyboardEvent): boolean {
   return (

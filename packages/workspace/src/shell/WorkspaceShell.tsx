@@ -12,39 +12,39 @@ import {
 } from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
-import { getReactFlowStore, useReactFlow } from "../canvas/store";
-import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers";
+import { getReactFlowStore, useReactFlow } from "../canvas/store.js";
+import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers.js";
 import {
   areViewportInsetsEqual,
   EMPTY_VIEWPORT_INSETS,
   getPhysicalViewportInsets,
-} from "../canvas/viewportInsets";
-import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
-import { getElementTextDirection } from "../styles/textDirection";
-import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { WorkspaceControls } from "../toolbar/WorkspaceControls";
-import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
-import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator";
-import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes";
-import { WorkspaceInspector } from "./WorkspaceInspector";
-import { WorkspaceOutline } from "./WorkspaceOutline";
+} from "../canvas/viewportInsets.js";
+import { resolveSectionTagColorPalette } from "../section/sectionTagColors.js";
+import { getElementTextDirection } from "../styles/textDirection.js";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { WorkspaceControls } from "../toolbar/WorkspaceControls.js";
+import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
+import { WorkspaceNavigator } from "../navigator/WorkspaceNavigator.js";
+import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes.js";
+import { WorkspaceInspector } from "./WorkspaceInspector.js";
+import { WorkspaceOutline } from "./WorkspaceOutline.js";
 import {
   getWorkspaceShellSavedViewTabsHeight,
   useHasWorkspaceShellSavedViewTabs,
   WorkspaceShellCenter,
-} from "./WorkspaceShellCenter";
-import { WorkspaceShellPane } from "./WorkspaceShellPane";
-import { WorkspaceSavedViewTabs } from "./WorkspaceSavedViewTabs";
-import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane";
-import { WorkspaceSavedViewsIcon } from "./WorkspaceShellIcons";
+} from "./WorkspaceShellCenter.js";
+import { WorkspaceShellPane } from "./WorkspaceShellPane.js";
+import { WorkspaceSavedViewTabs } from "./WorkspaceSavedViewTabs.js";
+import { WorkspaceSavedViewsPane } from "./WorkspaceSavedViewsPane.js";
+import { WorkspaceSavedViewsIcon } from "./WorkspaceShellIcons.js";
 import {
   assertWorkspaceShellWindowingConfiguration,
   WorkspaceShellWindowManagerLayer,
   WorkspaceShellWindowingComposition,
-} from "./WorkspaceShellWindowing";
+} from "./WorkspaceShellWindowing.js";
 import {
   getWorkspaceShellPaneMinimumWidth,
   getWorkspaceShellPaneTrueWidth,
@@ -57,13 +57,13 @@ import {
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
   WORKSPACE_SAVED_VIEWS_TAB_ID,
-} from "./workspaceShellLayout";
+} from "./workspaceShellLayout.js";
 import type {
   WorkspaceShellPane as WorkspaceShellPaneSide,
   WorkspaceShellProps,
   WorkspaceShellTabDefinition,
   WorkspaceShellViewState,
-} from "./workspaceShellTypes";
+} from "./workspaceShellTypes.js";
 
 type FocusRequest = {
   pane: WorkspaceShellPaneSide;

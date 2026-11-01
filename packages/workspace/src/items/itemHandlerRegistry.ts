@@ -2,13 +2,13 @@ import {
   assertRecord,
   assertKnownFields,
   type UnknownRecord,
-} from "../validation";
+} from "../validation.js";
 import type {
   DropzoneAcceptedResult,
   DropzoneRejection,
   DropzoneServerPickerRequest,
-} from "../controls/dropzone/dropzoneTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../controls/dropzone/dropzoneTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type WorkspaceItemHandlerRegistrationBase = {
   sectionId: string;

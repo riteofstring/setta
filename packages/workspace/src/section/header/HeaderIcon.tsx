@@ -1,7 +1,7 @@
 import { FaLayerGroup } from "react-icons/fa6";
-import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
-import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { GROUP_SECTION_KIND } from "../../document/documentSelectors.js";
+import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 const themedHeaderIconClassName =
   "text-[color:var(--setta-section-style-muted-text)] motion-safe:transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,33 +20,33 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
-import { useDndState } from "../dnd/dndState";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry.js";
+import { useDndState } from "../dnd/dndState.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
-import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
+} from "../document/stores.js";
+import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation.js";
+import { focusWorkspaceScope } from "../focus/workspaceFocusScopes.js";
 import {
   registerItemListView,
   resetItemListViews,
-} from "../items/itemListRegistry";
-import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry";
+} from "../items/itemListRegistry.js";
+import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry.js";
 import {
   getWorkspaceTooltipHandlers,
   useWorkspaceTooltip,
   WorkspaceTooltip,
-} from "../tooltip/WorkspaceTooltip";
-import { onFitViewHandler } from "./fitView";
-import { useCanvasKeyActivations } from "./keyActivations";
-import { useWorkspacePointerLocation } from "./pointerLocation";
-import { initialCanvasState, useReactFlow } from "./store";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "../tooltip/WorkspaceTooltip.js";
+import { onFitViewHandler } from "./fitView.js";
+import { useCanvasKeyActivations } from "./keyActivations.js";
+import { useWorkspacePointerLocation } from "./pointerLocation.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 import {
   getCanZoomIn,
   getCanZoomOut,
@@ -54,14 +54,14 @@ import {
   zoomIn,
   zoomOut,
   zoomToPointerLocation,
-} from "./viewportHelpers";
+} from "./viewportHelpers.js";
 
-vi.mock("./fitView", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./fitView")>()),
+vi.mock("./fitView.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./fitView.js")>()),
   onFitViewHandler: vi.fn(() => true),
 }));
-vi.mock("./viewportHelpers", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./viewportHelpers")>()),
+vi.mock("./viewportHelpers.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./viewportHelpers.js")>()),
   getCanZoomIn: vi.fn(() => true),
   getCanZoomOut: vi.fn(() => true),
   getIsZoomRuntimeReady: vi.fn(() => true),
@@ -71,17 +71,19 @@ vi.mock("./viewportHelpers", async (importOriginal) => ({
   zoomToPointerLocation: vi.fn(() => true),
 }));
 
-vi.mock("../focus/sectionNavigation", () => ({
+vi.mock("../focus/sectionNavigation.js", () => ({
   focusAdjacentTopLevelSection: vi.fn(() => true),
 }));
-vi.mock("../focus/workspaceFocusScopes", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../focus/workspaceFocusScopes")>()),
+vi.mock("../focus/workspaceFocusScopes.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../focus/workspaceFocusScopes.js")
+  >()),
   focusWorkspaceScope: vi.fn(() => true),
 }));
 
 let mockIsMacOs = false;
-vi.mock("./utils", async (importOriginal) => {
-  const original = await importOriginal<typeof import("./utils")>();
+vi.mock("./utils.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./utils.js")>();
   return { ...original, isMacOs: () => mockIsMacOs };
 });
 

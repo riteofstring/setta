@@ -1,5 +1,5 @@
 import { type PointerEvent } from "react";
-import type { WorkspaceFloatingSnapResizeSeam } from "./windowingSnapLayout";
+import type { WorkspaceFloatingSnapResizeSeam } from "./windowingSnapLayout.js";
 import {
   applyStandaloneWorkspaceWindowBounds,
   createActiveStandaloneWorkspaceSnapResize,
@@ -7,7 +7,7 @@ import {
   resolveActiveStandaloneWorkspaceSnapResizeBounds,
   type ActiveStandaloneWorkspaceSnapResize,
   type StandaloneWorkspaceWindow,
-} from "./standaloneWorkspaceWindowSpaceState";
+} from "./standaloneWorkspaceWindowSpaceState.js";
 
 type SetStandaloneWindows = (
   updater: (

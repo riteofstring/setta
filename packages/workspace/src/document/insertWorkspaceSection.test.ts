@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,16 +16,16 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { insertWorkspaceSection } from "./insertWorkspaceSection";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { registerSectionKinds } from "./sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { insertWorkspaceSection } from "./insertWorkspaceSection.js";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
-import type { WorkspaceDocument, WorkspaceSectionInput } from "./types";
+} from "./stores.js";
+import type { WorkspaceDocument, WorkspaceSectionInput } from "./types.js";
 
 function createSection(
   id: string,

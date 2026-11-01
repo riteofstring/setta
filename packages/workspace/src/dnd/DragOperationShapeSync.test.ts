@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   resolveDragBaseRect,
   resolveSelectionBoundingRect,
-} from "./DragOperationShapeSync";
+} from "./DragOperationShapeSync.js";
 
 function rect({
   left,

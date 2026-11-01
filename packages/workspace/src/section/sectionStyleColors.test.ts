@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveSectionStyleTheme } from "./sectionStyleColors";
-import { resolveSectionStyleVars } from "./sectionStyleVars";
+import { deriveSectionStyleTheme } from "./sectionStyleColors.js";
+import { resolveSectionStyleVars } from "./sectionStyleVars.js";
 
 function parseHexRgb(value: string) {
   return [1, 3, 5].map((start) =>

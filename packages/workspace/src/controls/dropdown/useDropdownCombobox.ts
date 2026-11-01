@@ -6,7 +6,7 @@ import {
   type ComboboxItem,
   type ComboboxItemGroup,
   type OnSelectedItemChange,
-} from "./comboboxStateReducer";
+} from "./comboboxStateReducer.js";
 
 export function useDropdownCombobox({
   allItems,

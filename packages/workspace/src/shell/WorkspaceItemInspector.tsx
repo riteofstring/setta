@@ -2,32 +2,32 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import {
   createItemCommandContext,
   createSectionCommandContext,
-} from "../commands/workspaceCommandContexts";
-import { ItemNameEditor } from "../controls/name/ItemNameEditor";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
+} from "../commands/workspaceCommandContexts.js";
+import { ItemNameEditor } from "../controls/name/ItemNameEditor.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { hasWorkspaceItemPresentation } from "../document/itemPresentation.js";
 import {
   setItemHelpText,
   setItemLabel,
   setItemPresentation,
-} from "../document/itemPresentationMutations";
-import { ItemSelectionModeAffectsControlsContext } from "../document/itemSelectionMode";
+} from "../document/itemPresentationMutations.js";
+import { ItemSelectionModeAffectsControlsContext } from "../document/itemSelectionMode.js";
 import {
   createWorkspaceInspectorContributionContext,
   getRegisteredSectionKindOrThrow,
-} from "../document/sectionKindRegistry";
-import type { WorkspaceItem, WorkspaceSection } from "../document/types";
-import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
-import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
-import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
+} from "../document/sectionKindRegistry.js";
+import type { WorkspaceItem, WorkspaceSection } from "../document/types.js";
+import { getItemHandlerRegistration } from "../items/itemHandlerRegistry.js";
+import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions.js";
+import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor.js";
 import {
   createWorkspaceInspectorItemControl,
   isWorkspaceInspectorItemControlKind,
   WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS,
   type WorkspaceInspectorItemControlKind,
-} from "./workspaceInspectorItemDefaults";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../workspaceHostInternals";
+} from "./workspaceInspectorItemDefaults.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals.js";
 
 type WorkspaceItemInspectorProps = {
   section: WorkspaceSection;

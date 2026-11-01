@@ -3,14 +3,14 @@ import {
   assertKnownFields,
   assertString,
   type UnknownRecord,
-} from "../validation";
-import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
-import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
+} from "../validation.js";
+import { assertNoReservedItemDndTokens } from "../dnd/itemDndState.js";
+import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation.js";
 import type {
   WorkspaceItem,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
-} from "./types";
+} from "./types.js";
 
 function assertStringArray(
   value: unknown,

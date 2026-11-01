@@ -1,14 +1,17 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
 import {
   assertWorkspaceHostActive,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceNavigatorMode,
   WorkspaceNavigatorState,
-} from "./workspaceNavigatorTypes";
+} from "./workspaceNavigatorTypes.js";
 
 type WorkspaceNavigatorRuntime = {
   mountedSurfaceCount: number;

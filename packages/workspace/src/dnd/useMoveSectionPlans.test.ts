@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { DragEndEvent } from "./adapter";
+import type { DragEndEvent } from "./adapter/index.js";
 import {
   planFreeMove,
   planSortingMove,
   type DndRect,
-} from "./useMoveSectionPlans";
+} from "./useMoveSectionPlans.js";
 
 function over(id: string): NonNullable<DragEndEvent["over"]> {
   return { id } as NonNullable<DragEndEvent["over"]>;

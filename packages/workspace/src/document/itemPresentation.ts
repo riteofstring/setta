@@ -4,14 +4,14 @@ import {
   TIME_DISPLAY_FORMATS,
   TIME_DISPLAY_SCALE_MIN,
   TIME_DISPLAY_SCALE_MAX,
-} from "../controls/date-time/dateTimeOptions";
+} from "../controls/date-time/dateTimeOptions.js";
 import {
   assertRecord,
   assertKnownFields,
   assertString,
   assertStringOptions,
   type UnknownRecord,
-} from "../validation";
+} from "../validation.js";
 import type {
   WorkspaceDropzoneAttachment,
   WorkspaceDropzonePolicy,
@@ -20,7 +20,7 @@ import type {
   WorkspaceItemControlKind,
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,
-} from "./types";
+} from "./types.js";
 
 type ConfigurableItemControlKind = Exclude<WorkspaceItemControlKind, "group">;
 type ConfigurationValidator = (config: UnknownRecord, owner: string) => void;

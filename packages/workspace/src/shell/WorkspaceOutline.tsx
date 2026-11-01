@@ -11,21 +11,21 @@ import {
   type MouseEvent,
   type RefObject,
 } from "react";
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { focusWorkspaceSection } from "../canvas/viewportHelpers";
-import { openWorkspaceSectionMenu } from "../context-menu/workspaceMenuInvocation";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { focusWorkspaceSection } from "../canvas/viewportHelpers.js";
+import { openWorkspaceSectionMenu } from "../context-menu/workspaceMenuInvocation.js";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
   shouldRetainNativeContextMenu,
-} from "../context-menu/workspaceMenuOwnership";
-import { isGroupSection } from "../document/documentSelectors";
+} from "../context-menu/workspaceMenuOwnership.js";
+import { isGroupSection } from "../document/documentSelectors.js";
 import {
   useActiveSections,
   useWorkspaceDocument,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { WorkspaceOutlineBranch } from "./WorkspaceOutlineRow";
+} from "../document/stores.js";
+import { WorkspaceOutlineBranch } from "./WorkspaceOutlineRow.js";
 import {
   createWorkspaceOutlineTree,
   filterWorkspaceOutlineTree,
@@ -34,10 +34,10 @@ import {
   getWorkspaceOutlineVisibleEntries,
   resolveWorkspaceOutlineFocus,
   type WorkspaceOutlineEntry,
-} from "./workspaceOutlineModel";
-import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "./workspaceOutlineModel.js";
+import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 const TYPEAHEAD_RESET_MS = 700;
 const OUTLINE_ACTIVATION_KEYS = new Set(["Enter", " "]);

@@ -1,14 +1,14 @@
-import { getActiveSectionIds } from "../document/activeSections";
-import { getRootSelectedSectionIds } from "../document/sectionSelection";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getRootSelectedSectionIds } from "../document/sectionSelection.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
-import type { Position } from "../document/types";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getNodesBounds, hasPositiveRectBounds } from "./nodeBounds";
-import type { Rect } from "./types";
+} from "../document/stores.js";
+import type { Position } from "../document/types.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getNodesBounds, hasPositiveRectBounds } from "./nodeBounds.js";
+import type { Rect } from "./types.js";
 
 type ScreenToFlowPosition = (
   position: Position,

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getSectionItemVisibility } from "../items/itemListRegistry";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getSectionItemVisibility } from "../items/itemListRegistry.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   assertWorkspaceHostActive,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
+} from "../workspaceHostInternals.js";
 
 const WORKSPACE_ITEM_REVEAL_EMPHASIS_DURATION_MS = 1_500;
 

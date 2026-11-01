@@ -1,20 +1,20 @@
-import { getReactFlowStore } from "../canvas/store";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { createNodesMapFromDocumentChildren } from "../document/nodeProjection";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
+import { createNodesMapFromDocumentChildren } from "../document/nodeProjection.js";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
+} from "../document/stores.js";
 import {
   prepareUngroupSections,
   type UngroupPromotedSectionMeasurement,
-} from "../document/ungroupSections";
-import { getSectionRefsStore } from "./sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceHostElement } from "../workspaceHostInternals";
+} from "../document/ungroupSections.js";
+import { getSectionRefsStore } from "./sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 type UngroupFocusSurface = "canvas" | "outline";
 

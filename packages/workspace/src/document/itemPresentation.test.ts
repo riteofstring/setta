@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -22,19 +22,19 @@ import {
   setItemLabel,
   setItemPresentation,
   setItemValue,
-} from "./itemPresentationMutations";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { registerSectionKinds } from "./sectionKindRegistry";
+} from "./itemPresentationMutations.js";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
+} from "./stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceItem,
   WorkspaceItemControlPresentation,
-} from "./types";
+} from "./types.js";
 
 const VALID_CONTROLS: ReadonlyArray<WorkspaceItemControlPresentation> = [
   { kind: "group" },

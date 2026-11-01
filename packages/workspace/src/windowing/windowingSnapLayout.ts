@@ -6,7 +6,7 @@ import {
   type WorkspaceWindowBounds,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const WORKSPACE_FLOATING_SNAP_BOUNDS_TOLERANCE_PX = 2;
 const WORKSPACE_FLOATING_SNAP_POINTER_ZONE_PX = 84;

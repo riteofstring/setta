@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceSavedView } from "../document/types";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { WorkspaceSavedView } from "../document/types.js";
 import {
   activateWorkspaceSavedView,
   getWorkspaceSavedViewsOperationDisabledReason,
-} from "../saved-views/operations";
-import { getOrderedWorkspaceSavedViews } from "../saved-views/state";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../saved-views/operations.js";
+import { getOrderedWorkspaceSavedViews } from "../saved-views/state.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export const WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX = 36;
 

@@ -1,28 +1,28 @@
-import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
+import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState.js";
 import {
   getActiveSectionIds,
   setActiveSectionIds,
-} from "../document/activeSections";
-import { createNodesMapFromDocumentChildren } from "../document/nodeProjection";
+} from "../document/activeSections.js";
+import { createNodesMapFromDocumentChildren } from "../document/nodeProjection.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { forceDeactivateDnd } from "../dnd/dndState";
-import { manualDndChildrenReset } from "../dnd/dndChildren";
-import { resetItemDragState } from "../items/itemDragHandlers";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceSavedViewSectionVisible } from "./state";
+} from "../document/stores.js";
+import { forceDeactivateDnd } from "../dnd/dndState.js";
+import { manualDndChildrenReset } from "../dnd/dndChildren.js";
+import { resetItemDragState } from "../items/itemDragHandlers.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceSavedViewSectionVisible } from "./state.js";
 import {
   getWorkspaceSavedViewsOperationDisabledReason,
   setWorkspaceSavedViewSectionVisibility,
-} from "./operations";
-import type { WorkspaceSavedViewsOperationResult } from "./types";
+} from "./operations.js";
+import type { WorkspaceSavedViewsOperationResult } from "./types.js";
 import {
   isWorkspaceSavedViewEditing,
   setWorkspaceSavedViewEditingState,
-} from "./editingState";
+} from "./editingState.js";
 
 export function setWorkspaceSavedViewEditing(
   host: WorkspaceHost,

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,11 +20,11 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspacePointerLocation } from "./pointerLocation";
-import { initialCanvasState } from "./store";
-import { zoomToPointerLocation } from "./viewportHelpers";
-import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./xyflow/types";
+import { useWorkspacePointerLocation } from "./pointerLocation.js";
+import { initialCanvasState } from "./store.js";
+import { zoomToPointerLocation } from "./viewportHelpers.js";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "./xyflow/types.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

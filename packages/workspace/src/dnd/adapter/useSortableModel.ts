@@ -1,13 +1,13 @@
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import type { Coordinates } from "@dnd-kit/geometry";
-import { isValidIndex, resolveStrategyResult } from "./sorting";
+import { isValidIndex, resolveStrategyResult } from "./sorting.js";
 import type {
   ClientRect,
   Disabled,
   SettaCollision,
   SortingStrategy,
   Transform,
-} from "./types";
+} from "./types.js";
 
 export type SortableTransition = {
   duration?: number;

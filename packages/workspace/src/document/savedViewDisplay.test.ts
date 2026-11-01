@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,15 +16,15 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { describe, expect, it } from "vitest";
-import { getDisplayedSectionIdToChildren } from "../dnd/dndChildren";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { getDisplayedSectionIdToChildren } from "../dnd/dndChildren.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
   isWorkspaceSectionVisible,
-} from "./savedViewDisplay";
-import type { WorkspaceDocumentState } from "./stores";
-import type { WorkspaceSection } from "./types";
+} from "./savedViewDisplay.js";
+import type { WorkspaceDocumentState } from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
 
 function section(id: string, children: Array<string> = []): WorkspaceSection {
   return {

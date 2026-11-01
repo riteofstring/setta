@@ -3,12 +3,12 @@ import { useEffect } from "react";
 import {
   getWorkspaceDocumentStore,
   useWorkspaceDocument,
-} from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { useDndMonitor, type Disabled } from "./adapter";
-import { useDndChildren } from "./dndChildren";
-import { getDndStateStore, setDndDisabled, useDndState } from "./dndState";
-import { BehaviorDropTypeEnum } from "./dropTypes";
+} from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { useDndMonitor, type Disabled } from "./adapter/index.js";
+import { useDndChildren } from "./dndChildren.js";
+import { getDndStateStore, setDndDisabled, useDndState } from "./dndState.js";
+import { BehaviorDropTypeEnum } from "./dropTypes.js";
 
 export function useHasTempNested(sectionId: string) {
   return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);

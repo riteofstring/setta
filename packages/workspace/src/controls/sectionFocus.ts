@@ -1,14 +1,14 @@
-import { getReactFlowStore } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store.js";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
-} from "../document/savedViewDisplay";
+} from "../document/savedViewDisplay.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/stores.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type SectionControlKeyboardEvent = {
   key: string;

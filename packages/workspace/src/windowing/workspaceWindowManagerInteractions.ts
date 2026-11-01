@@ -1,11 +1,11 @@
 import { type PointerEvent } from "react";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceHostElement } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceHostElement } from "../workspaceHostInternals.js";
 import {
   buildWorkspaceFloatingSnapBounds,
   resolveWorkspaceFloatingSnapPresetFromPointer,
   type WorkspaceFloatingSnapResizeSeam,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   clampWorkspaceFloatingWindowBounds,
   moveWorkspaceFloatingWindow,
@@ -15,7 +15,7 @@ import {
   WORKSPACE_FLOATING_WINDOW_MIN_WIDTH_PX,
   WORKSPACE_FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX,
   WORKSPACE_FLOATING_WINDOW_UNSNAP_DRAG_THRESHOLD_PX,
-} from "./windowingState";
+} from "./windowingState.js";
 import {
   isWorkspaceWindowVisible,
   type WorkspaceFloatingWindow,
@@ -24,7 +24,7 @@ import {
   type WorkspaceWindowingMutationOptions,
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 export const WORKSPACE_WINDOW_FREE_RESIZE_DIRECTIONS = [
   "top",

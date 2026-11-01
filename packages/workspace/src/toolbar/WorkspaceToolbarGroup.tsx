@@ -1,19 +1,19 @@
-import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution";
-import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../workspaceHostInternals";
+import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution.js";
+import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals.js";
 import {
   COMPACT_TOUCH_TARGET_PROPS,
   CONTROLS_DIVIDER_CLASS_NAME,
   getToggleControlClassName,
   INACTIVE_CONTROL_CLASS_NAME,
   TOGGLE_CONTROL_CLASS_NAME,
-} from "./workspaceControlStyles";
+} from "./workspaceControlStyles.js";
 import {
   resolveWorkspaceToolbarEntries,
   type WorkspaceToolbarEntry,
-} from "./workspaceToolbarEntries";
-import type { WorkspaceToolbarPlacement } from "./workspaceToolbarTypes";
+} from "./workspaceToolbarEntries.js";
+import type { WorkspaceToolbarPlacement } from "./workspaceToolbarTypes.js";
 
 function getContributionDescriptionId(hostId: string, key: string): string {
   return `${hostId}-toolbar-reason-${key.replace(":", "-")}`;

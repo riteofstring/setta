@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,10 +16,10 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { setActiveSectionIds } from "../document/activeSections";
-import { useActiveSections } from "../document/stores";
-import type { Node } from "../document/types";
-import { getDragItems } from "./dragItems";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { useActiveSections } from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import { getDragItems } from "./dragItems.js";
 
 function createNode(id: string, x: number, y: number): Node {
   return {

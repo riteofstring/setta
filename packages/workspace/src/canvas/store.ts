@@ -1,15 +1,22 @@
 import { subscribeWithSelector } from "zustand/middleware";
 import { createStore } from "zustand/vanilla";
-import type { Position } from "../document/types";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
-import { resolveActiveSectionsBounds } from "./activeSectionBounds";
-import { resolveScreenToFlowPosition } from "./flowPosition";
-import { getWorkspaceOptionsStore } from "./options";
-import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
-import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
-import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
+import type { Position } from "../document/types.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { resolveActiveSectionsBounds } from "./activeSectionBounds.js";
+import { resolveScreenToFlowPosition } from "./flowPosition.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import type {
+  CoordinateExtent,
+  ReactFlowState,
+  ReactFlowStore,
+} from "./types.js";
+import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets.js";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
 
 const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],

@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,15 +16,15 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { moveItems, orderItemIdsByParent } from "./moveItems";
-import { registerSectionKinds } from "./sectionKindRegistry";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { moveItems, orderItemIdsByParent } from "./moveItems.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
-import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
+} from "./stores.js";
+import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types.js";
 
 function makeItemTree(
   childrenById: Record<string, Array<string>>,

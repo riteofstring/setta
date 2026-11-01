@@ -3,24 +3,24 @@
 import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { SectionContainerContent } from "../section/container/SectionContainerContent";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { SectionContainerContent } from "../section/container/SectionContainerContent.js";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
-import { WorkspaceWindowingContextProvider } from "./workspaceWindowingContext";
-import { IntegratedWorkspaceWindowManager } from "./IntegratedWorkspaceWindowManager";
+} from "../../test/workspaceTestHost.js";
+import { WorkspaceWindowingContextProvider } from "./workspaceWindowingContext.js";
+import { IntegratedWorkspaceWindowManager } from "./IntegratedWorkspaceWindowManager.js";
 import {
   createWorkspaceWindowingState,
   type WorkspaceWindowingState,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

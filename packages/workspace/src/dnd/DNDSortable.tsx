@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
-import { getSectionIsHorizontalOrientation } from "../document/documentSelectors";
-import type { Disabled } from "./adapter";
+import { getSectionIsHorizontalOrientation } from "../document/documentSelectors.js";
+import type { Disabled } from "./adapter/index.js";
 import {
   horizontalListSortingStrategy,
   SortableContext,
   verticalListSortingStrategy,
-} from "./adapter";
-import { useDndState } from "./dndState";
-import { useDisableSortable } from "./useDndUtils";
-import { getDndParentId } from "./useDropType";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./adapter/index.js";
+import { useDndState } from "./dndState.js";
+import { useDisableSortable } from "./useDndUtils.js";
+import { getDndParentId } from "./useDropType.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export function DNDSortable({
   sectionId,

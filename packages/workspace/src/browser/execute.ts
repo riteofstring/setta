@@ -2,7 +2,7 @@ import type {
   BrowserPipelineStage,
   BrowserStageProgress,
   BrowserStageStatus,
-} from "./types";
+} from "./types.js";
 
 export function validateBrowserPipeline<Input>(
   stages: readonly BrowserPipelineStage<Input>[],

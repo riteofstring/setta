@@ -1,9 +1,12 @@
 import { createStore } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { PanOnScrollMode, SelectionMode } from "./types";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { PanOnScrollMode, SelectionMode } from "./types.js";
 
 export type WorkspaceGridPattern = "lines" | "dots" | "cross";
 

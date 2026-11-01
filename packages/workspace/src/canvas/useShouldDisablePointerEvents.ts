@@ -1,5 +1,5 @@
-import { useDndState } from "../dnd/dndState";
-import { useReactFlow } from "./store";
+import { useDndState } from "../dnd/dndState.js";
+import { useReactFlow } from "./store.js";
 
 export function useShouldDisablePointerEvents() {
   const isSortingOrMovingFree = useDndState(

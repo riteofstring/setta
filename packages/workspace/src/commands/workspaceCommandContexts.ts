@@ -2,17 +2,17 @@ import type {
   Position,
   WorkspaceItem,
   WorkspaceSection,
-} from "../document/types";
+} from "../document/types.js";
 import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
-} from "../document/workspaceSnapshot";
+} from "../document/workspaceSnapshot.js";
 import type {
   WorkspaceItemCommandContext,
   WorkspacePaneCommandContext,
   WorkspaceSectionCommandContext,
-} from "./workspaceCommandTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceCommandTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const sectionSnapshots = new WeakMap<
   WorkspaceSection,

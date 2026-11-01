@@ -4,11 +4,11 @@ import { useComputed } from "@dnd-kit/react/hooks";
 import _ from "lodash";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useDndMonitor } from "../dnd/adapter";
-import type { DragStartEvent } from "../dnd/adapter/types";
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { isItemOverlayVisible } from "./itemDndMonitorUtils";
+import { useDndMonitor } from "../dnd/adapter/index.js";
+import type { DragStartEvent } from "../dnd/adapter/types.js";
+import { useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { isItemOverlayVisible } from "./itemDndMonitorUtils.js";
 
 type ItemDragEventData = { current?: { type?: string } };
 

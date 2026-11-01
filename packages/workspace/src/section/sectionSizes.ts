@@ -1,20 +1,20 @@
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../document/documentSelectors";
-import { assertValidSectionOverflowMode } from "../document/groupOverflow";
-import { getSectionKindSizeConstraints } from "../document/sectionKindRegistry";
+} from "../document/documentSelectors.js";
+import { assertValidSectionOverflowMode } from "../document/groupOverflow.js";
+import { getSectionKindSizeConstraints } from "../document/sectionKindRegistry.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import type { SectionSize, WorkspaceSection } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/stores.js";
+import type { SectionSize, WorkspaceSection } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   clampWorkspaceSectionSize,
   getWorkspaceSectionSizeBounds,
-} from "./resize/sectionSizingBounds";
+} from "./resize/sectionSizingBounds.js";
 
 export type ResizeHandleDirection =
   | "bottom"

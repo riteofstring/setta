@@ -1,11 +1,11 @@
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../interaction";
-import { useItemListContext } from "./ItemListContext";
+} from "../interaction.js";
+import { useItemListContext } from "./ItemListContext.js";
 
 export function ItemColumnResizeHandle() {
   const canEditLayout = useWorkspaceCapabilities(

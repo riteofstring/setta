@@ -6,10 +6,10 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { WorkspaceParameterConfigurationView } from "./WorkspaceParameterConfigurationView";
+} from "../../test/workspaceTestHost.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { WorkspaceParameterConfigurationView } from "./WorkspaceParameterConfigurationView.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -21,19 +21,19 @@ import { act, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
 import {
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { Node, WorkspaceSection } from "../document/types";
+} from "../document/stores.js";
+import type { Node, WorkspaceSection } from "../document/types.js";
 import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
-} from "./MiniMapNodes";
-import type { MiniMapNodeProps } from "./types";
+} from "./MiniMapNodes.js";
+import type { MiniMapNodeProps } from "./types.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

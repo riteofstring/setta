@@ -4,7 +4,7 @@ import {
   parseIsoDate,
   resolveCalendarAnchorDate,
   shiftCalendarMonth,
-} from "./calendarGrid";
+} from "./calendarGrid.js";
 
 describe("calendarGrid", () => {
   it("parses strict ISO dates", () => {

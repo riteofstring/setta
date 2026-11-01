@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -24,12 +24,12 @@ import {
   resetItemDndChildren,
   updateItemChildren,
   useItemDndChildren,
-} from "./itemDndChildren";
+} from "./itemDndChildren.js";
 import {
   getItemDndId,
   getTempItemDndId,
   type ItemListKey,
-} from "./itemDndState";
+} from "./itemDndState.js";
 
 describe("itemDndChildren state", () => {
   beforeEach(() => {

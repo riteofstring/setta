@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
+import { WorkspaceItemLabel } from "./WorkspaceItemLabel.js";
 
 describe("WorkspaceItemLabel", () => {
   it("places a leaf label in the package-owned key slot", () => {

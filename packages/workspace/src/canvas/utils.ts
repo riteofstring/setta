@@ -2,7 +2,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
 } from "react";
-import type { Box, Dimensions, Rect } from "./types";
+import type { Box, Dimensions, Rect } from "./types.js";
 
 export const isMacOs = () =>
   typeof navigator !== "undefined" && navigator?.userAgent?.indexOf("Mac") >= 0;

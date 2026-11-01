@@ -5,8 +5,8 @@ import type {
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
+} from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
 
 export const WORKSPACE_CLIPBOARD_SCHEMA_ID =
   "setta.workspace.section-clipboard";

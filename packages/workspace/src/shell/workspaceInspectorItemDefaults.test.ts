@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertWorkspaceItemControlPresentation } from "../document/itemPresentation";
+import { assertWorkspaceItemControlPresentation } from "../document/itemPresentation.js";
 import {
   createWorkspaceInspectorItemControl,
   isWorkspaceInspectorItemControlKind,
   WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS,
-} from "./workspaceInspectorItemDefaults";
+} from "./workspaceInspectorItemDefaults.js";
 
 describe("workspace Inspector item defaults", () => {
   it("creates a complete valid control for every ordinary UI type", () => {

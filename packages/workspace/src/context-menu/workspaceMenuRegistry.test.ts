@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,9 +16,9 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceCreationCommands } from "./creationCommandStore";
-import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceCreationCommands } from "./creationCommandStore.js";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry.js";
 
 describe("workspace creation command registry", () => {
   let host: WorkspaceHost;

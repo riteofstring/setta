@@ -1,6 +1,6 @@
-import { buildItemParentMap, getItemOrThrow } from "./itemTree";
-import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
+import { buildItemParentMap, getItemOrThrow } from "./itemTree.js";
+import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation.js";
+import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types.js";
 
 type PreparedWorkspaceItemInsertion = {
   itemTree: WorkspaceSectionItemTree;

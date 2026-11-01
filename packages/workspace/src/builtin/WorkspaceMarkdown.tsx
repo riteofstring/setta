@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { WorkspaceMarkdownCodeBlock } from "./WorkspaceMarkdownCodeBlock";
+import { WorkspaceMarkdownCodeBlock } from "./WorkspaceMarkdownCodeBlock.js";
 
 const REMARK_PLUGINS = [remarkGfm, remarkMath];
 const REHYPE_PLUGINS = [rehypeKatex];

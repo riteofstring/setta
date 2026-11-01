@@ -5,10 +5,10 @@ import {
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../../document/documentSelectors";
-import { toggleGroupOrientation } from "../../document/sectionMutations";
-import { useWorkspaceDocument } from "../../document/stores";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../document/documentSelectors.js";
+import { toggleGroupOrientation } from "../../document/sectionMutations.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 type ChangeOrientationButtonProps = {
   sectionId: string;

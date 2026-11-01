@@ -9,7 +9,7 @@ import {
   githubLightInit,
 } from "@uiw/codemirror-theme-github";
 import { createTheme } from "@uiw/codemirror-themes";
-import { useWorkspaceAppearance } from "../../document/stores";
+import { useWorkspaceAppearance } from "../../document/stores.js";
 
 const lightSettings = {
   background: "#ffffff00",

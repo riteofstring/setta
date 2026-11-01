@@ -1,19 +1,19 @@
 import _ from "lodash";
-import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { focusWorkspaceSection } from "../../canvas/viewportHelpers";
-import { useDndChildren } from "../../dnd/dndChildren";
-import { DNDSortable } from "../../dnd/DNDSortable";
-import { useHasTempNested } from "../../dnd/useDndUtils";
+import { applyActiveSectionChange } from "../../canvas/activeSectionController.js";
+import { focusWorkspaceSection } from "../../canvas/viewportHelpers.js";
+import { useDndChildren } from "../../dnd/dndChildren.js";
+import { DNDSortable } from "../../dnd/DNDSortable.js";
+import { useHasTempNested } from "../../dnd/useDndUtils.js";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../../document/documentSelectors";
-import { useWorkspaceDocument } from "../../document/stores";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 import {
   SortableSectionContainer,
   type SortableSectionRenderer,
-} from "./SortableSectionContainer";
+} from "./SortableSectionContainer.js";
 
 export function MaybeManyNestedSections({
   isGroup,

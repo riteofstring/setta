@@ -1,15 +1,15 @@
-import { parseIsoDate, type CalendarMonthCell } from "./calendarGrid";
+import { parseIsoDate, type CalendarMonthCell } from "./calendarGrid.js";
 import type {
   DateDisplayFormat,
   DateSelectionMode,
   TimeDisplayFormat,
-} from "./dateTimeTypes";
+} from "./dateTimeTypes.js";
 import {
   combineIsoDateAndTimeParts,
   formatDateTimeForDisplay,
   normalizeDateToIso,
   splitIsoDateAndTimeParts,
-} from "./dateTimeUtils";
+} from "./dateTimeUtils.js";
 
 function collectCalendarSelectionCandidates(parsed: unknown): Array<string> {
   if (Array.isArray(parsed)) {

@@ -6,8 +6,8 @@ import {
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MODES,
   type WorkspaceCodeSectionMode,
-} from "./codeSectionData";
-import type { WorkspaceSectionData } from "../document/types";
+} from "./codeSectionData.js";
+import type { WorkspaceSectionData } from "../document/types.js";
 
 const GENERATED_PREFIX = "import math";
 const GENERATED_SUFFIX = "state = value";

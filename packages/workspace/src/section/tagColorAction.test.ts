@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,16 +16,16 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionInput } from "../document/types";
-import { setSectionTagColor } from "./tagColorAction";
+} from "../document/stores.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
+import { setSectionTagColor } from "./tagColorAction.js";
 
 function makeSection(
   id: string,

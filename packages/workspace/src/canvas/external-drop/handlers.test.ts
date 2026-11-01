@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../../test/workspaceTestHost";
-import { attachWorkspaceExternalDropHandlers } from "./handlers";
-import type { WorkspaceExternalDropConfiguration } from "./types";
+} from "../../../test/workspaceTestHost.js";
+import { attachWorkspaceExternalDropHandlers } from "./handlers.js";
+import type { WorkspaceExternalDropConfiguration } from "./types.js";
 
 type DragEventOptions = {
   clientX?: number;

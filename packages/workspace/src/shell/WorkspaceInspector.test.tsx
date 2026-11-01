@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -28,29 +28,29 @@ import {
   type Mock,
   vi,
 } from "vitest";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
 import {
   registerSectionKinds,
   type WorkspaceInspectorContributionContext,
-} from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
+} from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceItemControlPresentation,
   WorkspaceSectionInput,
-} from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
+} from "../document/types.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
 import {
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   type WorkspaceSectionTagColorPalette,
-} from "../section/sectionTagColors";
+} from "../section/sectionTagColors.js";
 import {
   WorkspaceInspector,
   WorkspaceSectionEditor,
-} from "./WorkspaceInspector";
+} from "./WorkspaceInspector.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

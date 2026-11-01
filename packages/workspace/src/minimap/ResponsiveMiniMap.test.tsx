@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -24,16 +24,16 @@ import {
   setWorkspaceMiniMapVisibility,
   toggleMiniMap,
   useWorkspaceOptions,
-} from "../canvas/options";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
+} from "../canvas/options.js";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
-import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
+} from "../document/stores.js";
+import { ResponsiveMiniMap } from "./ResponsiveMiniMap.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

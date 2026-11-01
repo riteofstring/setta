@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 import { createStore } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type SectionRefsState = {
   withNested: Record<string, HTMLElement | null>;

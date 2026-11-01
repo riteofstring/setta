@@ -1,22 +1,22 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "./documentSelectors";
+} from "./documentSelectors.js";
 import {
   assertWorkspaceItemControlConfiguration,
   assertWorkspaceItemControlPresentation,
   assertWorkspaceItemPresentation,
   hasWorkspaceItemPresentation,
-} from "./itemPresentation";
-import { getItemOrThrow } from "./itemTree";
-import { getWorkspaceDocumentStore } from "./stores";
+} from "./itemPresentation.js";
+import { getItemOrThrow } from "./itemTree.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
 import type {
   WorkspaceItemControlConfiguration,
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,
-} from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function getBuiltInItemState(
   host: WorkspaceHost,

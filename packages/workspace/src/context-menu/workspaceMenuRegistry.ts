@@ -1,16 +1,16 @@
-import { listWorkspaceCommands } from "../commands/workspaceCommandRegistry";
+import { listWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
 import {
   assertWorkspaceKeyBindingsForCreationCommands,
   invalidateResolvedWorkspaceKeyBindings,
-} from "../keybindings/workspaceKeyBindingRegistry";
+} from "../keybindings/workspaceKeyBindingRegistry.js";
 import {
   assertWorkspaceToolbarContributions,
   createWorkspaceToolbarCommandCatalog,
   getWorkspaceToolbarContributions,
-} from "../toolbar/workspaceToolbarContributions";
-import { setWorkspaceCreationCommands } from "./creationCommandStore";
-import type { WorkspaceCreationCommand } from "./workspaceMenuTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../toolbar/workspaceToolbarContributions.js";
+import { setWorkspaceCreationCommands } from "./creationCommandStore.js";
+import type { WorkspaceCreationCommand } from "./workspaceMenuTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const CREATION_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 

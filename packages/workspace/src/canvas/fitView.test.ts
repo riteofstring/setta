@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,13 +16,13 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useNodeInternals } from "../document/stores";
-import type { Node } from "../document/types";
-import { fitView, onFitViewHandler } from "./fitView";
-import { useWorkspaceOptions } from "./options";
-import { initialCanvasState, useReactFlow } from "./store";
-import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./xyflow/types";
+import { useNodeInternals } from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import { fitView, onFitViewHandler } from "./fitView.js";
+import { useWorkspaceOptions } from "./options.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "./xyflow/types.js";
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
   return {

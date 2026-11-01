@@ -1,10 +1,10 @@
 import { useEffect, type RefObject } from "react";
-import { movePaneToIncludeElement } from "../canvas/viewportHelpers";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
+import { movePaneToIncludeElement } from "../canvas/viewportHelpers.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
+import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder.js";
 
 export type WorkspaceFocusScopeId = "leading-pane" | "canvas" | "trailing-pane";
 

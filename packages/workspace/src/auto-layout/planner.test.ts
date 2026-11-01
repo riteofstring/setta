@@ -3,7 +3,7 @@ import {
   DEFAULT_WORKSPACE_TOP_LEVEL_AUTO_LAYOUT_GAP,
   planWorkspaceTopLevelAutoLayout,
   type WorkspaceTopLevelAutoLayoutRectangle,
-} from "./planner";
+} from "./planner.js";
 
 function rectangle(
   id: string,

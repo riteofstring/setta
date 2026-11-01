@@ -1,17 +1,17 @@
 import { memo } from "react";
-import { computeReadyToBeVisible } from "../canvas/fitView";
-import { useReactFlow } from "../canvas/store";
+import { computeReadyToBeVisible } from "../canvas/fitView.js";
+import { useReactFlow } from "../canvas/store.js";
 import {
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
   type NodeInternalsState,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import type { Node } from "../document/types";
-import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import MiniMapNode from "./MiniMapNode";
-import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
+} from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors.js";
+import MiniMapNode from "./MiniMapNode.js";
+import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types.js";
 
 type RenderableMiniMapNode = Node & {
   height: number;

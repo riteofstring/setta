@@ -6,25 +6,25 @@ import {
   useRef,
   type KeyboardEvent,
 } from "react";
-import { useCodeMirrorTooltipParent } from "../canvas/codeMirrorTooltipParent";
-import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
-import { useTextValueTheme } from "../controls/text/textValueTheme";
+import { useCodeMirrorTooltipParent } from "../canvas/codeMirrorTooltipParent.js";
+import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages.js";
+import { useTextValueTheme } from "../controls/text/textValueTheme.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../interaction";
+} from "../interaction.js";
 import {
   getSectionEditorBasicSetup,
   getSectionEditorExtensions,
   isSectionEditorEditable,
   type WorkspaceSectionEditorChange,
   type WorkspaceSectionEditorPresentation,
-} from "./sectionEditorExtensions";
-import type { WorkspaceCodeSectionDiagnostic } from "./codeSectionData";
-import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
-import type { WorkspaceCodeSectionLanguage } from "./codeSectionData";
-import { useSectionEditorHeight } from "./useSectionEditorHeight";
+} from "./sectionEditorExtensions.js";
+import type { WorkspaceCodeSectionDiagnostic } from "./codeSectionData.js";
+import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion.js";
+import type { WorkspaceCodeSectionLanguage } from "./codeSectionData.js";
+import { useSectionEditorHeight } from "./useSectionEditorHeight.js";
 
 const WRAPPER_BASE_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} min-h-0 flex-1 cursor-auto [&_*]:!outline-0`;
 

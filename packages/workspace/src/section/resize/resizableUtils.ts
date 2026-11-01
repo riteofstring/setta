@@ -1,5 +1,5 @@
-import type { SectionSize } from "../../document/types";
-import type { ResizeHandleDirection } from "../sectionSizes";
+import type { SectionSize } from "../../document/types.js";
+import type { ResizeHandleDirection } from "../sectionSizes.js";
 
 const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
 

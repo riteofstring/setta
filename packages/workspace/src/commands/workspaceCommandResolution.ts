@@ -2,23 +2,23 @@ import { useSyncExternalStore, type ComponentType } from "react";
 import {
   getWorkspaceClipboardRuntimeState,
   subscribeWorkspaceClipboardAvailability,
-} from "../clipboard/registry";
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useActiveSections, useWorkspaceDocument } from "../document/stores";
-import { useWorkspaceHistoryState } from "../history/workspaceHistory";
-import { useWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../clipboard/registry.js";
+import { useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useActiveSections, useWorkspaceDocument } from "../document/stores.js";
+import { useWorkspaceHistoryState } from "../history/workspaceHistory.js";
+import { useWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getWorkspaceCommandOrThrow,
   getWorkspaceCommands,
   type RegisteredWorkspaceCommand,
-} from "./workspaceCommandRegistry";
+} from "./workspaceCommandRegistry.js";
 import type {
   WorkspaceCommandContext,
   WorkspaceCommandIconProps,
   WorkspaceCommandSurface,
-} from "./workspaceCommandTypes";
+} from "./workspaceCommandTypes.js";
 
 export type WorkspaceCommandEntry = {
   checked: boolean | null;

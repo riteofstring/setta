@@ -42,7 +42,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
-import { mountBrowserFixture } from "./browserFixture";
+import { mountBrowserFixture } from "./browserFixture.js";
 
 function getNoteText(section: WorkspaceSection): string {
   const data = section.data;

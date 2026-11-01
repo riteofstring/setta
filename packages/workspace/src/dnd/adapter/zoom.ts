@@ -1,6 +1,6 @@
-import { getReactFlowStore } from "../../canvas/store";
-import type { WorkspaceHost } from "../../workspaceHost";
-import type { Transform } from "./types";
+import { getReactFlowStore } from "../../canvas/store.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import type { Transform } from "./types.js";
 
 function getZoomScale(host: WorkspaceHost): number {
   return getReactFlowStore(host).getState().transform[2];

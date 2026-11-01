@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,14 +17,14 @@ afterEachWorkspaceTestHost(() => {
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UIEvent } from "react";
-import type { Node, WorkspaceSection } from "../document/types";
+import type { Node, WorkspaceSection } from "../document/types.js";
 import {
   cancelWorkspaceCanvasScrolling,
   commitWorkspaceXyflowNodeDrag,
-} from "./WorkspaceCanvas";
-import type { NodeDragItem } from "./types";
-import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./xyflow/types";
+} from "./WorkspaceCanvas.js";
+import type { NodeDragItem } from "./types.js";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "./xyflow/types.js";
 
 function createSection(id: string): WorkspaceSection {
   return {

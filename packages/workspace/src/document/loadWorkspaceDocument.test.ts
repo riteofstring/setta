@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,34 +16,40 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState } from "../canvas/store";
-import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
+import { initialCanvasState } from "../canvas/store.js";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types.js";
 import {
   publishWorkspaceMenuInvocation,
   useWorkspaceMenuState,
-} from "../context-menu/workspaceMenuState";
-import { setDndDisabled, useDndState } from "../dnd/dndState";
-import { updateItemChildren, useItemDndChildren } from "../dnd/itemDndChildren";
-import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
-import { getWorkspaceDocument } from "./documentChangeCallback";
-import { getHighestAncestor, getSectionOrThrow } from "./documentSelectors";
-import { activateItemSelect, useItemSelectionMode } from "./itemSelectionMode";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { registerSectionKinds } from "./sectionKindRegistry";
+} from "../context-menu/workspaceMenuState.js";
+import { setDndDisabled, useDndState } from "../dnd/dndState.js";
+import {
+  updateItemChildren,
+  useItemDndChildren,
+} from "../dnd/itemDndChildren.js";
+import { setItemDndState, useItemDndState } from "../dnd/itemDndState.js";
+import { getWorkspaceDocument } from "./documentChangeCallback.js";
+import { getHighestAncestor, getSectionOrThrow } from "./documentSelectors.js";
+import {
+  activateItemSelect,
+  useItemSelectionMode,
+} from "./itemSelectionMode.js";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "./stores";
+} from "./stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
-} from "./types";
+} from "./types.js";
 
 function makeSection(
   id: string,

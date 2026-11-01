@@ -6,14 +6,14 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
-import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceGraphConfiguration } from "./types";
+} from "../../test/workspaceTestHost.js";
+import type { WorkspaceSection } from "../document/types.js";
+import type { WorkspaceGraphConfiguration } from "./types.js";
 import {
   useWorkspaceGraph,
   WorkspaceGraphProvider,
-} from "./WorkspaceGraphContext";
-import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts";
+} from "./WorkspaceGraphContext.js";
+import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -1,9 +1,9 @@
-import type { WorkspaceHost } from "../workspaceHost";
-import { notifyWorkspaceHistoryDocumentChange } from "../history/workspaceHistory";
-import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes";
-import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceDocument } from "./types";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { notifyWorkspaceHistoryDocumentChange } from "../history/workspaceHistory.js";
+import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes.js";
+import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceDocument } from "./types.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
 
 export type WorkspaceDocumentSubscription = (
   document: WorkspaceDocument,

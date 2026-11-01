@@ -2,7 +2,7 @@ import type { PointerEvent, ReactNode } from "react";
 import type {
   WorkspaceFloatingWindow,
   WorkspaceWindowBounds,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 export type WorkspaceBottomDockWindowAction = {
   readonly id:

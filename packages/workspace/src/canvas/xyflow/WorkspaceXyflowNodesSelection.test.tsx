@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,19 +20,19 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
-import { useDndState } from "../../dnd/dndState";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
-import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../../document/sectionKindRegistry";
+import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState.js";
+import { useDndState } from "../../dnd/dndState.js";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
+import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../../document/stores";
-import type { WorkspaceSection } from "../../document/types";
-import { initialCanvasState, useReactFlow } from "../store";
-import { WorkspaceXyflowNodesSelectionWrapper } from "./WorkspaceXyflowNodesSelection";
+} from "../../document/stores.js";
+import type { WorkspaceSection } from "../../document/types.js";
+import { initialCanvasState, useReactFlow } from "../store.js";
+import { WorkspaceXyflowNodesSelectionWrapper } from "./WorkspaceXyflowNodesSelection.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

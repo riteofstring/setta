@@ -8,18 +8,18 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BehaviorDropTypeEnum } from "../../dnd/dropTypes";
+import { BehaviorDropTypeEnum } from "../../dnd/dropTypes.js";
 import {
   DRAG_PREVIEW_Z_INDEX,
   DROP_FEEDBACK_Z_INDEX,
   DROP_TARGET_Z_INDEX,
-} from "../../dnd/layers";
-import { useSectionRefs } from "../sectionRefs";
-import { DndSlot } from "./DndSlot";
+} from "../../dnd/layers.js";
+import { useSectionRefs } from "../sectionRefs.js";
+import { DndSlot } from "./DndSlot.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

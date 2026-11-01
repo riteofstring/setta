@@ -3,22 +3,22 @@ import {
   getMetaControlHeightSizeMode,
   getMetaControlMinimumSize,
   type MetaControlHeightSizeMode,
-} from "../../controls/meta/metaControlTypes";
-import { getSectionOrThrow } from "../../document/documentSelectors";
+} from "../../controls/meta/metaControlTypes.js";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
 import {
   getMetaControlPresentation,
   getSectionKindSizeConstraints,
-} from "../../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../../document/stores";
-import { useResizeEvent } from "./resizeEvents";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { useResizeEvent } from "./resizeEvents.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 import {
   getWorkspaceSectionSizeBounds,
   SECTION_SIZING_POLICY,
   type WorkspaceSectionSizeConstraints,
-} from "./sectionSizingBounds";
+} from "./sectionSizingBounds.js";
 
-export { SECTION_SIZING_POLICY } from "./sectionSizingBounds";
+export { SECTION_SIZING_POLICY } from "./sectionSizingBounds.js";
 
 type SectionMinMaxDims = {
   minHeight: number;

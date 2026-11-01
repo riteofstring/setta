@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
+import type { WorkspaceDocumentState } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
 import {
   getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
   setSelfParentSiblingChildrenWidths,
-} from "./sectionSizes";
+} from "./sectionSizes.js";
 
 function makeSection(
   id: string,

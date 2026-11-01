@@ -1,12 +1,12 @@
-import { WorkspaceWindowSpacesPaneContent } from "./WorkspaceWindowSpacesPaneLayout";
+import { WorkspaceWindowSpacesPaneContent } from "./WorkspaceWindowSpacesPaneLayout.js";
 import type {
   WorkspaceWindowSpace,
   WorkspaceWindowSpaceRestoreResult,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 import type {
   WorkspaceWindowingState,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 export type WorkspaceWindowSpacePending = {
   save?: boolean;

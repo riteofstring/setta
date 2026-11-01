@@ -8,19 +8,19 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction.js";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
-} from "../../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
+} from "../../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope.js";
 import type {
   ComboboxItem,
   ComboboxItemGroup,
   OnSelectedItemChange,
-} from "./comboboxStateReducer";
-import { useDropdownCombobox } from "./useDropdownCombobox";
+} from "./comboboxStateReducer.js";
+import { useDropdownCombobox } from "./useDropdownCombobox.js";
 
 export type DropdownValueChoiceGroup = {
   group: string;

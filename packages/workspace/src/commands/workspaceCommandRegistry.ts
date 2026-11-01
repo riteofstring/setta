@@ -1,17 +1,17 @@
-import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
+import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore.js";
 import {
   assertWorkspaceToolbarContributions,
   createWorkspaceToolbarCommandCatalog,
   getWorkspaceToolbarContributions,
-} from "../toolbar/workspaceToolbarContributions";
-import { builtInWorkspaceCommands } from "./builtInWorkspaceCommands";
+} from "../toolbar/workspaceToolbarContributions.js";
+import { builtInWorkspaceCommands } from "./builtInWorkspaceCommands.js";
 import type {
   WorkspaceCommandDefinition,
   WorkspaceCommandScope,
   WorkspaceCommandSurface,
   WorkspacePackageCommandDefinition,
-} from "./workspaceCommandTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceCommandTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const COMMAND_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
 const PACKAGE_COMMAND_PREFIX = "workspace.";

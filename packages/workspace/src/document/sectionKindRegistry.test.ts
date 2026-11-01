@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { GROUP_SECTION_KIND } from "./documentSelectors";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { GROUP_SECTION_KIND } from "./documentSelectors.js";
 import {
   canWorkspaceSectionOwnNestedSections,
   getMetaControlPresentation,
@@ -8,7 +8,7 @@ import {
   getWorkspaceItemAreaPresentationOrThrow,
   registerSectionKinds,
   type SectionKindDefinition,
-} from "./sectionKindRegistry";
+} from "./sectionKindRegistry.js";
 
 function makeDefinition(): SectionKindDefinition {
   return { renderContent: () => null };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { assertWorkspaceCanvasConfiguration } from "./configuration";
-import type { WorkspaceCanvasConfiguration } from "./configuration";
+import { assertWorkspaceCanvasConfiguration } from "./configuration.js";
+import type { WorkspaceCanvasConfiguration } from "./configuration.js";
 
 describe("Workspace canvas configuration", () => {
   it("accepts an absent or empty configuration", () => {

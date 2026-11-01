@@ -1,4 +1,4 @@
-import type { SectionSize, SectionSizeValue } from "../../document/types";
+import type { SectionSize, SectionSizeValue } from "../../document/types.js";
 
 export const SECTION_SIZING_POLICY = {
   minHeight: 0,

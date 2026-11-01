@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSectionMinMaxDims, SECTION_SIZING_POLICY } from "./sizingPolicy";
+import { getSectionMinMaxDims, SECTION_SIZING_POLICY } from "./sizingPolicy.js";
 
 describe("getSectionMinMaxDims", () => {
   it("pins minimized sections to the minimized height", () => {

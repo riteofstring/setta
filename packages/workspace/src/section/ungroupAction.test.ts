@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,24 +17,24 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { updateNodeDimensionsFromXyflow } from "../canvas/nodeInternalsActions";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { updateNodeDimensionsFromXyflow } from "../canvas/nodeInternalsActions.js";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   commitWorkspaceDocument,
   loadWorkspaceDocument,
-} from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { Node, WorkspaceSectionInput } from "../document/types";
-import { createWorkspaceSavedViewsState } from "../saved-views/state";
-import { useSectionRefs } from "./sectionRefs";
-import { ungroupSections } from "./ungroupAction";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "../document/stores.js";
+import type { Node, WorkspaceSectionInput } from "../document/types.js";
+import { createWorkspaceSavedViewsState } from "../saved-views/state.js";
+import { useSectionRefs } from "./sectionRefs.js";
+import { ungroupSections } from "./ungroupAction.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 function makeSection(
   id: string,

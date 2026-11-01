@@ -1,38 +1,38 @@
 import {
   applyLoadedDocumentViewport,
   armLoadedDocumentFitView,
-} from "../canvas/documentViewportSync";
-import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
-import { resetWorkspaceSectionAttention } from "../attention/workspaceSectionAttention";
-import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
-import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
-import { resetItemDragState } from "../items/itemDragHandlers";
-import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import { normalizeSectionTagColor } from "../section/sectionTagColors";
+} from "../canvas/documentViewportSync.js";
+import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions.js";
+import { resetWorkspaceSectionAttention } from "../attention/workspaceSectionAttention.js";
+import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState.js";
+import { resetDndSessionForLoadedDocument } from "../dnd/dndState.js";
+import { resetItemDragState } from "../items/itemDragHandlers.js";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors.js";
+import { normalizeSectionTagColor } from "../section/sectionTagColors.js";
 import {
   getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
-} from "./documentChangeCallback";
-import { synchronizeWorkspaceHistory } from "../history/workspaceHistory";
-import { isGroupSection } from "./documentSelectors";
-import { assertValidSectionOverflowMode } from "./groupOverflow";
-import { deactivateItemSelect } from "./itemSelectionMode";
-import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+} from "./documentChangeCallback.js";
+import { synchronizeWorkspaceHistory } from "../history/workspaceHistory.js";
+import { isGroupSection } from "./documentSelectors.js";
+import { assertValidSectionOverflowMode } from "./groupOverflow.js";
+import { deactivateItemSelect } from "./itemSelectionMode.js";
+import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
 import {
   canWorkspaceSectionAcceptNestedSection,
   canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
   getWorkspaceItemAreaPresentationOrThrow,
-} from "./sectionKindRegistry";
-import { resolveWorkspaceSectionSize } from "./sectionSize";
+} from "./sectionKindRegistry.js";
+import { resolveWorkspaceSectionSize } from "./sectionSize.js";
 import {
   assertWorkspaceSavedViewsStateForDocument,
   isWorkspaceSavedViewSectionVisible,
   parseWorkspaceSavedViewsState,
   reconcileWorkspaceSavedViewsState,
-} from "../saved-views/state";
+} from "../saved-views/state.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
@@ -40,15 +40,15 @@ import {
   runWithAtomicallyPublishedWorkspaceStores,
   type NodeInternalsState,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { WorkspaceHistoryChangeKind } from "../history/workspaceHistoryTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSection,
   WorkspaceSectionInput,
-} from "./types";
-import { setWorkspaceSavedViewEditingState } from "../saved-views/editingState";
+} from "./types.js";
+import { setWorkspaceSavedViewEditingState } from "../saved-views/editingState.js";
 
 const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -24,9 +24,9 @@ import {
   activateDndMovingFreeMode,
   activateDndSortingMode,
   useDndState,
-} from "../dnd/dndState";
-import { initialCanvasState, useReactFlow } from "./store";
-import { useShouldDisablePointerEvents } from "./useShouldDisablePointerEvents";
+} from "../dnd/dndState.js";
+import { initialCanvasState, useReactFlow } from "./store.js";
+import { useShouldDisablePointerEvents } from "./useShouldDisablePointerEvents.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -1,27 +1,27 @@
 import { useCallback, useMemo, useRef } from "react";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getWorkspaceCodeSectionData,
   setWorkspaceCodeSectionData,
-} from "./codeSectionActions";
+} from "./codeSectionActions.js";
 import {
   getWorkspaceCodeSectionEditorLanguage,
   parseWorkspaceCodeSectionData,
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceGeneratedRegion,
-} from "./codeSectionData";
-import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
+} from "./codeSectionData.js";
+import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion.js";
 import {
   EDITABLE_SECTION_EDITOR_PRESENTATION,
   READ_ONLY_SECTION_EDITOR_PRESENTATION,
   type WorkspaceSectionEditorChange,
   type WorkspaceSectionEditorPresentation,
-} from "./sectionEditorExtensions";
-import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
+} from "./sectionEditorExtensions.js";
+import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor.js";
 
 function resolveEditorPresentation(
   generatedRegion: WorkspaceGeneratedRegion | null,

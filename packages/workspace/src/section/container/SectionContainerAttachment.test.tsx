@@ -6,13 +6,13 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
-import { registerWorkspaceCommands } from "../../commands/workspaceCommandRegistry";
-import { SectionDndContext } from "../../dnd/SectionDndContext";
-import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../../document/sectionKindRegistry";
-import type { WorkspaceSection } from "../../document/types";
-import { SectionContainer } from "./SectionContainer";
+} from "../../../test/workspaceTestHost.js";
+import { registerWorkspaceCommands } from "../../commands/workspaceCommandRegistry.js";
+import { SectionDndContext } from "../../dnd/SectionDndContext.js";
+import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../../document/sectionKindRegistry.js";
+import type { WorkspaceSection } from "../../document/types.js";
+import { SectionContainer } from "./SectionContainer.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

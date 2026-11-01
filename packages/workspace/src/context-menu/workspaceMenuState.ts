@@ -3,14 +3,17 @@ import type {
   WorkspaceItemCommandContext,
   WorkspacePaneCommandContext,
   WorkspaceSectionCommandContext,
-} from "../commands/workspaceCommandTypes";
-import type { Position } from "../document/types";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { WorkspaceTextDirection } from "../styles/textDirection";
-import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
+} from "../commands/workspaceCommandTypes.js";
+import type { Position } from "../document/types.js";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { WorkspaceTextDirection } from "../styles/textDirection.js";
+import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry.js";
 
 type WorkspaceMenuInvocationBase = {
   clientPoint: WorkspaceMenuClientPoint;

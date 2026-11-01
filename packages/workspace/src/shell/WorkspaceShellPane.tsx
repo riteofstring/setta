@@ -5,18 +5,18 @@ import {
   type PointerEvent,
 } from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
-import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
+import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes.js";
 import {
   getWorkspaceShellPaneMaximumWidth,
   getWorkspaceShellPaneMinimumWidth,
   isWorkspaceShellPaneFullWidth,
   WORKSPACE_SHELL_CLOSED_PANE_WIDTH,
-} from "./workspaceShellLayout";
+} from "./workspaceShellLayout.js";
 import type {
   WorkspaceShellPane,
   WorkspaceShellPaneViewState,
   WorkspaceShellTabDefinition,
-} from "./workspaceShellTypes";
+} from "./workspaceShellTypes.js";
 
 type PaneStyle = CSSProperties & {
   "--setta-workspace-shell-pane-closed-offset": string;

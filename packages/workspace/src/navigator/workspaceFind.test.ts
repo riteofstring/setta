@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorkspaceDocumentStore } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
 import {
   registerSectionKinds,
   type SectionKindDefinition,
-} from "../document/sectionKindRegistry";
+} from "../document/sectionKindRegistry.js";
 import type {
   TopLevelSectionLayout,
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   buildWorkspaceFindResults,
   resolveWorkspaceFindResults,
-} from "./workspaceFind";
+} from "./workspaceFind.js";
 
 let host: WorkspaceHost;
 

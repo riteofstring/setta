@@ -1,28 +1,28 @@
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { getReactFlowStore } from "../canvas/store";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { getReactFlowStore } from "../canvas/store.js";
 import {
   createItemCommandContext,
   createPaneCommandContext,
   createSectionCommandContext,
-} from "../commands/workspaceCommandContexts";
-import { getWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { getActiveSectionIds } from "../document/activeSections";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { getItemOrThrow } from "../document/itemTree";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { Position, WorkspaceSection } from "../document/types";
-import { getElementTextDirection } from "../styles/textDirection";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceCreationCommands } from "./creationCommandStore";
+} from "../commands/workspaceCommandContexts.js";
+import { getWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { getItemOrThrow } from "../document/itemTree.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { Position, WorkspaceSection } from "../document/types.js";
+import { getElementTextDirection } from "../styles/textDirection.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceCreationCommands } from "./creationCommandStore.js";
 import {
   clientPointToWorkspacePosition,
   type WorkspaceMenuClientPoint,
-} from "./workspaceMenuGeometry";
+} from "./workspaceMenuGeometry.js";
 import {
   publishWorkspaceMenuInvocation,
   type WorkspaceMenuInitialFocus,
   type WorkspaceSectionMenuSurface,
-} from "./workspaceMenuState";
+} from "./workspaceMenuState.js";
 
 function getWorkspacePosition(
   host: WorkspaceHost,

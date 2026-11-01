@@ -1,7 +1,7 @@
 import { MdOutlineWebAsset } from "react-icons/md";
-import { WorkspaceBottomDockManager } from "./WorkspaceBottomDockManager";
-import type { WorkspaceBottomDockPillDisplayMode } from "./workspaceBottomDockLayout";
-import type { WorkspaceFloatingWindow } from "./windowingTypes";
+import { WorkspaceBottomDockManager } from "./WorkspaceBottomDockManager.js";
+import type { WorkspaceBottomDockPillDisplayMode } from "./workspaceBottomDockLayout.js";
+import type { WorkspaceFloatingWindow } from "./windowingTypes.js";
 
 type WorkspaceBottomDockRecoveryStripProps = {
   readonly bottom: number;

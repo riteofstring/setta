@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,24 +17,24 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getWorkspaceDocument } from "../document/documentChangeCallback";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import type { WorkspaceItemFactoryContext } from "../document/sectionKindRegistry";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { setItemDndState, useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { getWorkspaceDocument } from "../document/documentChangeCallback.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import type { WorkspaceItemFactoryContext } from "../document/sectionKindRegistry.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionItemTree } from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
+} from "../document/stores.js";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
 import {
   deleteSelectedWorkspaceItems,
   deleteWorkspaceItems,
   insertWorkspaceItem,
-} from "./itemAuthoringActions";
+} from "./itemAuthoringActions.js";
 
 function loadItemDocument(): void {
   loadWorkspaceDocument(testWorkspace.host, {

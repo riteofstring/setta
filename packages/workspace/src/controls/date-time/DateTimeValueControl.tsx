@@ -1,11 +1,11 @@
-import { assertStringOptions } from "../../validation";
+import { assertStringOptions } from "../../validation.js";
 import {
   DATE_OPTIONS,
   TIME_OPTIONS,
   TIME_DISPLAY_FORMATS,
   TIME_DISPLAY_SCALE_MIN,
   TIME_DISPLAY_SCALE_MAX,
-} from "./dateTimeOptions";
+} from "./dateTimeOptions.js";
 import {
   useEffect,
   useMemo,
@@ -14,29 +14,29 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { getElementTextDirection } from "../../styles/textDirection";
-import { focusSectionAfterEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { getElementTextDirection } from "../../styles/textDirection.js";
+import { focusSectionAfterEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 import {
   buildCalendarMonthGrid,
   parseIsoDate,
   resolveCalendarAnchorDate,
   shiftCalendarMonth,
   type CalendarMonthCell,
-} from "./calendarGrid";
+} from "./calendarGrid.js";
 import {
   resolveCalendarKeyboardDate,
   shiftCalendarDateByMonths,
-} from "./calendarKeyboard";
+} from "./calendarKeyboard.js";
 import {
   formatMonthTitle,
   parseCalendarSelectedDates,
   resolveCalendarCellClassName,
   resolveCalendarDateSelectionValue,
   resolveCalendarSummaryText,
-} from "./calendarSelection";
+} from "./calendarSelection.js";
 import type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -47,7 +47,7 @@ import type {
   TimeDisplayFont,
   TimeDisplayFormat,
   TimeValueControlProps,
-} from "./dateTimeTypes";
+} from "./dateTimeTypes.js";
 import {
   combineIsoDateAndTimeParts,
   formatDateForDisplay,
@@ -58,7 +58,7 @@ import {
   normalizeDateToIso,
   normalizeTimeTo24Hour,
   splitIsoDateAndTimeParts,
-} from "./dateTimeUtils";
+} from "./dateTimeUtils.js";
 
 const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 

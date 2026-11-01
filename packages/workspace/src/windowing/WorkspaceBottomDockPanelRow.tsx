@@ -1,13 +1,13 @@
 import type { PointerEvent } from "react";
-import type { WorkspaceBottomDockRenderWindow } from "./WorkspaceBottomDock";
+import type { WorkspaceBottomDockRenderWindow } from "./WorkspaceBottomDock.js";
 import {
   WORKSPACE_BOTTOM_DOCK_TITLE_DRAG_AFFORDANCE,
   type WorkspaceBottomDockResizeDirection,
   type WorkspaceBottomDockResizeHandlers,
   type WorkspaceBottomDockWindowAction,
-} from "./workspaceBottomDockInternal";
-import type { WorkspaceFloatingWindow } from "./windowingTypes";
-import { WORKSPACE_BOTTOM_DOCK_DEFAULT_WINDOW_WIDTH_PX } from "./workspaceBottomDockLayout";
+} from "./workspaceBottomDockInternal.js";
+import type { WorkspaceFloatingWindow } from "./windowingTypes.js";
+import { WORKSPACE_BOTTOM_DOCK_DEFAULT_WINDOW_WIDTH_PX } from "./workspaceBottomDockLayout.js";
 
 const WORKSPACE_BOTTOM_DOCK_MIN_WINDOW_HEIGHT_PX = 220;
 

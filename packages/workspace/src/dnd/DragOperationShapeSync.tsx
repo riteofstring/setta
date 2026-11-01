@@ -4,10 +4,10 @@ import { useComputed } from "@dnd-kit/react/hooks";
 import { effects } from "@dnd-kit/state";
 import _ from "lodash";
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { useDndProviderContext } from "./adapter/DndProviderContext";
-import { useDndState } from "./dndState";
-import { resolveRectBoundsById, type DragRectLike } from "./dragRectBounds";
-import { useItemDndState } from "./itemDndState";
+import { useDndProviderContext } from "./adapter/DndProviderContext.js";
+import { useDndState } from "./dndState.js";
+import { resolveRectBoundsById, type DragRectLike } from "./dragRectBounds.js";
+import { useItemDndState } from "./itemDndState.js";
 
 type DragOperationShapeSyncProps = {
   enabled?: boolean;

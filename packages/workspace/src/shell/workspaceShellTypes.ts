@@ -1,8 +1,8 @@
 import type { ComponentType, ReactNode, RefObject } from "react";
-import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
-import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes";
-import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
-import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration.js";
+import type { WorkspaceNavigatorConfiguration } from "../navigator/workspaceNavigatorTypes.js";
+import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors.js";
+import type { WorkspaceShellWindowingConfiguration } from "../windowing/workspaceWindowingContext.js";
 
 export type WorkspaceShellPane = "leading" | "trailing";
 

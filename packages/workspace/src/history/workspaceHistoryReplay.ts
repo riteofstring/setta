@@ -5,8 +5,8 @@ import type {
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
+} from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
 
 export function createWorkspaceHistoryReplayDocument({
   live,

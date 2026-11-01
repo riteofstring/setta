@@ -1,34 +1,34 @@
-import { getSectionContainerHandlers } from "./sectionContainerEvents";
+import { getSectionContainerHandlers } from "./sectionContainerEvents.js";
 import _ from "lodash";
 import React, { type CSSProperties, type ReactNode } from "react";
-import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
-import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
-import { useHasTempNested } from "../../dnd/useDndUtils";
+import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention.js";
+import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents.js";
+import { useHasTempNested } from "../../dnd/useDndUtils.js";
 import {
   getSectionOrThrow,
   GROUP_SECTION_KIND,
-} from "../../document/documentSelectors";
+} from "../../document/documentSelectors.js";
 import {
   useActiveSections,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../../document/stores";
+} from "../../document/stores.js";
 import {
   BOUNDED_GROUP_SCROLL_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "../../interaction";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
-import { useIsScrollable } from "../../useIsScrollable";
-import { ChangeOrientationButton } from "../header/ChangeOrientationButton";
-import { DeleteOrHideButton } from "../header/DeleteOrHideButton";
-import { LockPositionButton } from "../header/LockPositionButton";
-import { MenuButton } from "../header/MenuButton";
-import { SectionTitle } from "../header/SectionTitle";
-import { getOutlineColor } from "../sectionColors";
-import { useSectionRefAndInit } from "../sectionRefs";
-import { deriveSectionStyleTheme } from "../sectionStyleColors";
-import { resolveSectionStyleVars } from "../sectionStyleVars";
+} from "../../interaction.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts.js";
+import { useIsScrollable } from "../../useIsScrollable.js";
+import { ChangeOrientationButton } from "../header/ChangeOrientationButton.js";
+import { DeleteOrHideButton } from "../header/DeleteOrHideButton.js";
+import { LockPositionButton } from "../header/LockPositionButton.js";
+import { MenuButton } from "../header/MenuButton.js";
+import { SectionTitle } from "../header/SectionTitle.js";
+import { getOutlineColor } from "../sectionColors.js";
+import { useSectionRefAndInit } from "../sectionRefs.js";
+import { deriveSectionStyleTheme } from "../sectionStyleColors.js";
+import { resolveSectionStyleVars } from "../sectionStyleVars.js";
 
 export type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
 export type SectionDragRef = (element: Element | null) => void;

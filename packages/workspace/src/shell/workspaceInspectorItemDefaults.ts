@@ -1,4 +1,4 @@
-import type { WorkspaceItemControlPresentation } from "../document/types";
+import type { WorkspaceItemControlPresentation } from "../document/types.js";
 
 export const WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS = [
   "text",

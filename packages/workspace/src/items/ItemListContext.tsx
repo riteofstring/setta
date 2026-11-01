@@ -7,16 +7,19 @@ import {
   type PointerEventHandler,
   type ReactNode,
 } from "react";
-import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
-import { useItemDndChildren } from "../dnd/itemDndChildren";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "../dnd/adapter/index.js";
+import { useItemDndChildren } from "../dnd/itemDndChildren.js";
 import {
   getItemDndId,
   isTempItem,
   useItemDndState,
   type ItemListKey,
-} from "../dnd/itemDndState";
-import type { WorkspaceItem } from "../document/types";
-import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics";
+} from "../dnd/itemDndState.js";
+import type { WorkspaceItem } from "../document/types.js";
+import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics.js";
 
 export type ItemRowRenderContext = {
   sectionId: string;

@@ -1,4 +1,4 @@
-import type { DateCalendarWeekStart } from "./dateTimeTypes";
+import type { DateCalendarWeekStart } from "./dateTimeTypes.js";
 
 export type CalendarMonthCell = {
   isoDate: string;

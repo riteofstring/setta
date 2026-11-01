@@ -1,10 +1,10 @@
-import { getReactFlowStore } from "../canvas/store";
-import { getIsZoomRuntimeReady, setCenter } from "../canvas/viewportHelpers";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
-import type { WorkspaceHost } from "../workspaceHost";
-import { resolveWorkspaceEmptySpacePlacement } from "./emptySpacePlacement";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getIsZoomRuntimeReady, setCenter } from "../canvas/viewportHelpers.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { insertWorkspaceSection } from "../document/insertWorkspaceSection.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { resolveWorkspaceEmptySpacePlacement } from "./emptySpacePlacement.js";
 
 const CREATION_PAN_DURATION_MS = 200;
 

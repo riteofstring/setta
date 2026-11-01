@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPhysicalViewportInsets,
   getVisibleCanvasRect,
-} from "./viewportInsets";
+} from "./viewportInsets.js";
 
 describe("workspace viewport insets", () => {
   it("maps logical shell panes to physical canvas edges", () => {

@@ -2,7 +2,7 @@ import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import type { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useEffect, useRef } from "react";
-import { itemsEqual } from "./sorting";
+import { itemsEqual } from "./sorting.js";
 
 export function useIsDragActive(
   manager: ReturnType<typeof useDragDropManager>,

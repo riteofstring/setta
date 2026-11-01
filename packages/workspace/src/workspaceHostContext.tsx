@@ -1,8 +1,8 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import type { StoreApi } from "zustand/vanilla";
-import { assertWorkspaceHostActive } from "./workspaceHostInternals";
-import type { WorkspaceHost } from "./workspaceHost";
+import { assertWorkspaceHostActive } from "./workspaceHostInternals.js";
+import type { WorkspaceHost } from "./workspaceHost.js";
 
 const WorkspaceHostContext = createContext<WorkspaceHost | null>(null);
 

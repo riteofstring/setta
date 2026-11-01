@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
-import { WorkspaceBottomDock } from "./WorkspaceBottomDock";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
+import { WorkspaceBottomDock } from "./WorkspaceBottomDock.js";
 import {
   WorkspaceManagedWindowFrame,
   WorkspaceWindowManagerWindows,
@@ -16,7 +16,7 @@ import {
   WorkspaceWindowManagerSnapResizeHandle,
   type WorkspaceManagedWindowAction,
   type WorkspaceWindowRenderers,
-} from "./WorkspaceWindowManagerParts";
+} from "./WorkspaceWindowManagerParts.js";
 import {
   areWorkspaceWindowBoundsEqual,
   areWorkspaceWindowViewportsEqual,
@@ -25,13 +25,13 @@ import {
   isWorkspaceWindowExclusivelyTop,
   isWorkspaceWindowPresentationExclusivelyTop,
   resolveWorkspaceWindowShortcut,
-} from "./workspaceWindowManagerInteractions";
+} from "./workspaceWindowManagerInteractions.js";
 import {
   buildWorkspaceFloatingSnapResizeSeams,
   classifyWorkspaceFloatingSnapPreset,
   denormalizeWorkspaceWindowBounds,
   normalizeWorkspaceWindowBounds,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   clampWorkspaceFloatingWindowBounds,
   dockWorkspaceWindow,
@@ -44,8 +44,8 @@ import {
   showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
   undockWorkspaceWindow,
-} from "./windowingState";
-import { useWorkspaceWindowManagerInteractions } from "./useWorkspaceWindowManagerInteractions";
+} from "./windowingState.js";
+import { useWorkspaceWindowManagerInteractions } from "./useWorkspaceWindowManagerInteractions.js";
 import {
   createWorkspaceWindowViewport,
   isWorkspaceWindowVisible,
@@ -56,7 +56,7 @@ import {
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const EMPTY_INSETS: WorkspaceWindowBoundaryInsets = Object.freeze({
   bottom: 0,
@@ -68,7 +68,7 @@ const EMPTY_INSETS: WorkspaceWindowBoundaryInsets = Object.freeze({
 export type {
   WorkspaceWindowRenderer,
   WorkspaceWindowRenderers,
-} from "./WorkspaceWindowManagerParts";
+} from "./WorkspaceWindowManagerParts.js";
 
 export type WorkspaceWindowManagerProps = {
   state: WorkspaceWindowingState;

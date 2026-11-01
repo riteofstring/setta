@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { TbGripVertical } from "react-icons/tb";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../interaction";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../interaction.js";
 import React, {
   useCallback,
   useId,
@@ -8,54 +8,61 @@ import React, {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useReactFlow } from "../canvas/store";
-import { openWorkspaceItemMenu } from "../context-menu/workspaceMenuInvocation";
+import { useReactFlow } from "../canvas/store.js";
+import { openWorkspaceItemMenu } from "../context-menu/workspaceMenuInvocation.js";
 import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
   shouldRetainNativeContextMenu,
-} from "../context-menu/workspaceMenuOwnership";
-import { useSortable } from "../dnd/adapter";
-import { applyZoomToTransform, transformToString } from "../dnd/adapter/zoom";
-import { getItemDndId, isTempItem, useItemDndState } from "../dnd/itemDndState";
+} from "../context-menu/workspaceMenuOwnership.js";
+import { useSortable } from "../dnd/adapter/index.js";
+import {
+  applyZoomToTransform,
+  transformToString,
+} from "../dnd/adapter/zoom.js";
+import {
+  getItemDndId,
+  isTempItem,
+  useItemDndState,
+} from "../dnd/itemDndState.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "../document/documentSelectors";
-import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
-import { toggleItemSelected } from "../document/itemSelection";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { getItemOrThrow } from "../document/itemTree";
-import { useWorkspaceItemRevealTarget } from "../navigator/workspaceItemReveal";
+} from "../document/documentSelectors.js";
+import { hasWorkspaceItemPresentation } from "../document/itemPresentation.js";
+import { toggleItemSelected } from "../document/itemSelection.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
+import { getItemOrThrow } from "../document/itemTree.js";
+import { useWorkspaceItemRevealTarget } from "../navigator/workspaceItemReveal.js";
 import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
-import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+} from "../document/stores.js";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors.js";
 import {
   getWorkspaceTooltipHandlers,
   type WorkspaceTooltipPage,
-} from "../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { BuiltInItemRowContent } from "./BuiltInItemRowContent";
-import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
+} from "../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { BuiltInItemRowContent } from "./BuiltInItemRowContent.js";
+import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle.js";
 import {
   useItemDndChildrenForParent,
   useItemListContext,
   type ItemRowRenderContext,
-} from "./ItemListContext";
+} from "./ItemListContext.js";
 import {
   getWorkspaceItemDiagnosticTooltipContent,
   WorkspaceItemDiagnostics,
-} from "./WorkspaceItemDiagnostics";
+} from "./WorkspaceItemDiagnostics.js";
 import {
   getHighestWorkspaceItemDiagnosticSeverity,
   getWorkspaceItemDiagnosticCountSummary,
   getWorkspaceItemDiagnosticLabel,
   getWorkspaceItemDiagnosticRowClassName,
   type WorkspaceItemDiagnosticSeverity,
-} from "./itemDiagnostics";
+} from "./itemDiagnostics.js";
 
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 

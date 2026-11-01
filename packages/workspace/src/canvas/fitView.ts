@@ -1,13 +1,13 @@
-import { resolveWorkspaceMotionDuration } from "../styles/motion";
-import { getNodesBounds, getViewportForBounds } from "./graph";
-import { getNodes } from "./nodeInternals";
-import { getWorkspaceOptionsStore } from "./options";
-import { getReactFlowStore } from "./store";
-import type { FitViewOptions, ReactFlowState } from "./types";
-import { getVisibleCanvasRect } from "./viewportInsets";
-import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
+import { resolveWorkspaceMotionDuration } from "../styles/motion.js";
+import { getNodesBounds, getViewportForBounds } from "./graph.js";
+import { getNodes } from "./nodeInternals.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import { getReactFlowStore } from "./store.js";
+import type { FitViewOptions, ReactFlowState } from "./types.js";
+import { getVisibleCanvasRect } from "./viewportInsets.js";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
 
 type InternalFitViewOptions = {
   initial?: boolean;

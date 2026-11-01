@@ -1,7 +1,7 @@
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { createWorkspaceSectionFromCommand } from "../section/createSectionAction";
-import type { WorkspaceKeyBindingDefinition } from "./builtInWorkspaceKeyBindings";
-import type { WorkspaceHost } from "../workspaceHost";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { createWorkspaceSectionFromCommand } from "../section/createSectionAction.js";
+import type { WorkspaceKeyBindingDefinition } from "./builtInWorkspaceKeyBindings.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function createWorkspaceCreationKeyBinding(
   host: WorkspaceHost,

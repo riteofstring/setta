@@ -7,18 +7,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { getReactFlowStore } from "../canvas/store";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceDocument } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceGraphConfiguration } from "./types";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { getReactFlowStore } from "../canvas/store.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceGraphConfiguration } from "./types.js";
 import {
   detachWorkspaceGraphConnection,
   evaluateWorkspaceGraphConnection,
   validateWorkspaceGraphConfiguration,
   type WorkspaceGraphSnapshot,
-} from "./validation";
+} from "./validation.js";
 
 type WorkspaceGraphClientPoint = Readonly<{
   x: number;

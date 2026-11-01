@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertNumericControlConfig } from "./numericControlConfig";
+import { assertNumericControlConfig } from "./numericControlConfig.js";
 
 describe("assertNumericControlConfig", () => {
   it.each([

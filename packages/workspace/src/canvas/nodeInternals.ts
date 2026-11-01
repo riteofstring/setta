@@ -1,6 +1,6 @@
-import { getNodeInternalsStore } from "../document/stores";
-import type { Node } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getNodeInternalsStore } from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function getNodes(host: WorkspaceHost): Array<Node> {
   return Array.from(getNodeInternalsStore(host).getState().x.values());

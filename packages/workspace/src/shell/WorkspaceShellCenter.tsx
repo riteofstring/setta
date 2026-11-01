@@ -1,7 +1,7 @@
-import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
-import type { WorkspaceCanvasConfiguration } from "../canvas/configuration";
-import { useWorkspaceDocument } from "../document/stores";
-import { WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX } from "./WorkspaceSavedViewTabs";
+import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas.js";
+import type { WorkspaceCanvasConfiguration } from "../canvas/configuration.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { WORKSPACE_SAVED_VIEW_TABS_HEIGHT_PX } from "./WorkspaceSavedViewTabs.js";
 
 export function useHasWorkspaceShellSavedViewTabs(
   includeSavedViewTabs: boolean,

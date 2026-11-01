@@ -1,5 +1,5 @@
-import { WorkspaceWindowManager } from "./WorkspaceWindowManager";
-import { useOptionalWorkspaceWindowing } from "./workspaceWindowingContext";
+import { WorkspaceWindowManager } from "./WorkspaceWindowManager.js";
+import { useOptionalWorkspaceWindowing } from "./workspaceWindowingContext.js";
 
 export function IntegratedWorkspaceWindowManager() {
   const windowing = useOptionalWorkspaceWindowing();

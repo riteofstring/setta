@@ -3,14 +3,14 @@ import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import {
   buildHighlightedCodeLines,
   buildPlainCodeLines,
-} from "../controls/text/highlightedCodeLines";
+} from "../controls/text/highlightedCodeLines.js";
 import {
   getThemeScopeClassName,
   mountTextValueThemeStyles,
   useTextValueTheme,
-} from "../controls/text/textValueTheme";
-import { resolveMarkdownCodeLanguage } from "./markdownCodeLanguages";
-import { readFencedCode } from "./markdownHastReaders";
+} from "../controls/text/textValueTheme.js";
+import { resolveMarkdownCodeLanguage } from "./markdownCodeLanguages.js";
+import { readFencedCode } from "./markdownHastReaders.js";
 
 const COPY_RESET_MS = 2000;
 

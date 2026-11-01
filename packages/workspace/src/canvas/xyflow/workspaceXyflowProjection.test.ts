@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import type {
   Node as WorkspaceNode,
   WorkspaceSection,
-} from "../../document/types";
-import { NO_PAN_CLASS_NAME } from "../../interaction";
-import { projectWorkspaceNodesToXyflow } from "./workspaceXyflowProjection";
+} from "../../document/types.js";
+import { NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { projectWorkspaceNodesToXyflow } from "./workspaceXyflowProjection.js";
 
 function createWorkspaceNode(
   overrides: Partial<WorkspaceNode> & Pick<WorkspaceNode, "id">,

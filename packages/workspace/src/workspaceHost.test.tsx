@@ -18,46 +18,46 @@ import {
   WorkspaceProvider,
   type WorkspaceDocumentInput,
   type WorkspaceHost,
-} from "./index";
-import { getCanvasGesturesStore } from "./canvas/gestureState";
-import { getWorkspaceOptionsStore } from "./canvas/options";
-import { getReactFlowStore } from "./canvas/store";
-import { getWorkspaceCommandOrThrow } from "./commands/workspaceCommandRegistry";
-import { createPaneCommandContext } from "./commands/workspaceCommandContexts";
-import { getWorkspaceCreationCommands } from "./context-menu/creationCommandStore";
+} from "./index.js";
+import { getCanvasGesturesStore } from "./canvas/gestureState.js";
+import { getWorkspaceOptionsStore } from "./canvas/options.js";
+import { getReactFlowStore } from "./canvas/store.js";
+import { getWorkspaceCommandOrThrow } from "./commands/workspaceCommandRegistry.js";
+import { createPaneCommandContext } from "./commands/workspaceCommandContexts.js";
+import { getWorkspaceCreationCommands } from "./context-menu/creationCommandStore.js";
 import {
   getWorkspaceMenuStateStore,
   publishWorkspaceMenuInvocation,
-} from "./context-menu/workspaceMenuState";
-import { setActiveSectionIds } from "./document/activeSections";
-import { getWorkspaceCapabilitiesStore } from "./document/capabilities";
+} from "./context-menu/workspaceMenuState.js";
+import { setActiveSectionIds } from "./document/activeSections.js";
+import { getWorkspaceCapabilitiesStore } from "./document/capabilities.js";
 import {
   getWorkspaceAppearanceStore,
   getWorkspaceDocumentStore,
-} from "./document/stores";
-import { setSelectedItems } from "./document/itemSelection";
-import { getDndChildrenStore } from "./dnd/dndChildren";
-import { getDndStateStore, setActiveDnd } from "./dnd/dndState";
-import { getItemDndStateStore, setItemDndState } from "./dnd/itemDndState";
+} from "./document/stores.js";
+import { setSelectedItems } from "./document/itemSelection.js";
+import { getDndChildrenStore } from "./dnd/dndChildren.js";
+import { getDndStateStore, setActiveDnd } from "./dnd/dndState.js";
+import { getItemDndStateStore, setItemDndState } from "./dnd/itemDndState.js";
 import {
   getItemHandlerRegistration,
   type WorkspaceItemHandlerRegistration,
-} from "./items/itemHandlerRegistry";
+} from "./items/itemHandlerRegistry.js";
 import {
   registerItemListView,
   resolveItemListView,
-} from "./items/itemListRegistry";
-import { getWorkspaceKeyBindings } from "./keybindings/workspaceKeyBindingRegistry";
-import { getSectionRefsStore } from "./section/sectionRefs";
+} from "./items/itemListRegistry.js";
+import { getWorkspaceKeyBindings } from "./keybindings/workspaceKeyBindingRegistry.js";
+import { getSectionRefsStore } from "./section/sectionRefs.js";
 import {
   getResizeEventStore,
   setSectionResizeEvent,
-} from "./section/resize/resizeEvents";
-import { getWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarContributions";
+} from "./section/resize/resizeEvents.js";
+import { getWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarContributions.js";
 import {
   enableWorkspaceTooltip,
   getWorkspaceTooltipStore,
-} from "./tooltip/WorkspaceTooltip";
+} from "./tooltip/WorkspaceTooltip.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

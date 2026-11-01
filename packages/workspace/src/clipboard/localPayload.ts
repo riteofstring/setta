@@ -1,18 +1,18 @@
-import { WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT } from "./types";
-import { assertWorkspaceClipboardJsonValue } from "./json";
+import { WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT } from "./types.js";
+import { assertWorkspaceClipboardJsonValue } from "./json.js";
 import type {
   JsonValue,
   WorkspaceClipboardFragment,
   WorkspaceClipboardLocalPayloadParseResult,
   WorkspaceClipboardLocalSectionContent,
   WorkspaceLocalClipboardPayload,
-} from "./types";
+} from "./types.js";
 import type {
   WorkspaceItem,
   WorkspaceItemPresentation,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
-} from "../document/types";
+} from "../document/types.js";
 
 type UnknownRecord = Record<string, unknown>;
 

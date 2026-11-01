@@ -1,11 +1,11 @@
 import { matchSorter } from "match-sorter";
-import { buildItemParentMap, getItemOrThrow } from "../document/itemTree";
-import { getWorkspaceItemSearchableText } from "../document/sectionKindRegistry";
+import { buildItemParentMap, getItemOrThrow } from "../document/itemTree.js";
+import { getWorkspaceItemSearchableText } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type WorkspaceItemFilterResult = {
   filterActive: boolean;

@@ -1,10 +1,10 @@
-import { isGroupSection } from "../../document/documentSelectors";
+import { isGroupSection } from "../../document/documentSelectors.js";
 import type {
   Node as WorkspaceNode,
   WorkspaceSection,
-} from "../../document/types";
-import { NO_PAN_CLASS_NAME } from "../../interaction";
-import type { WorkspaceXyflowSectionNode } from "./types";
+} from "../../document/types.js";
+import { NO_PAN_CLASS_NAME } from "../../interaction.js";
+import type { WorkspaceXyflowSectionNode } from "./types.js";
 
 type WorkspaceXyflowProjectionInput = {
   activeSectionIds: ReadonlyArray<string>;

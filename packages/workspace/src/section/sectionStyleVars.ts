@@ -1,4 +1,4 @@
-import { deriveSectionStyleTheme } from "./sectionStyleColors";
+import { deriveSectionStyleTheme } from "./sectionStyleColors.js";
 
 type SectionStyleVars = Record<`--setta-section-style-${string}`, string>;
 

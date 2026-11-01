@@ -1,14 +1,14 @@
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../document/documentSelectors";
-import { assertValidSectionOverflowMode } from "../document/groupOverflow";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { SectionSize } from "../document/types";
-import { getSectionRefsStore } from "./sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/documentSelectors.js";
+import { assertValidSectionOverflowMode } from "../document/groupOverflow.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { SectionSize } from "../document/types.js";
+import { getSectionRefsStore } from "./sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type MeasuredGroupSize = Pick<DOMRect, "height" | "width">;
 

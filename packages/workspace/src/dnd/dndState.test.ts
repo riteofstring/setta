@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,10 +16,10 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { getDndChildrenStore } from "./dndChildren";
-import { getDndSectionId, isTempSection } from "./dndIds";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { getDndChildrenStore } from "./dndChildren.js";
+import { getDndSectionId, isTempSection } from "./dndIds.js";
 import {
   activateDndMovingFreeMode,
   activateDndSortingMode,
@@ -29,7 +29,7 @@ import {
   setDndDisabled,
   setDndTime,
   getDndStateStore,
-} from "./dndState";
+} from "./dndState.js";
 
 describe("dndState", () => {
   let host: WorkspaceHost;

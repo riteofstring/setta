@@ -6,16 +6,16 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { computeReadyToBeVisible } from "../canvas/fitView";
-import { useReactFlow } from "../canvas/store";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
+import { computeReadyToBeVisible } from "../canvas/fitView.js";
+import { useReactFlow } from "../canvas/store.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../document/stores.js";
 import {
   NATIVE_HORIZONTAL_WHEEL_CLASS_NAME,
   NATIVE_VERTICAL_WHEEL_CLASS_NAME,
-} from "../interaction";
-import { useResizeEvent } from "../section/resize/resizeEvents";
-import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
+} from "../interaction.js";
+import { useResizeEvent } from "../section/resize/resizeEvents.js";
+import { useSectionMinMaxDims } from "../section/resize/sizingPolicy.js";
 
 const SECTION_HEADER_ALLOWANCE_PX = 30;
 

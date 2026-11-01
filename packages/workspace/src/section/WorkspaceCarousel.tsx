@@ -7,8 +7,8 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "../interaction";
-import { useIsScrollable } from "../useIsScrollable";
+} from "../interaction.js";
+import { useIsScrollable } from "../useIsScrollable.js";
 
 export type WorkspaceCarouselItem = Readonly<{
   content: ReactNode;

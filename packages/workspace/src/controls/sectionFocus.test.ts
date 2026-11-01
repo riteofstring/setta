@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,16 +17,16 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, describe, expect, it } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import type { WorkspaceDocumentState } from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import type { WorkspaceDocumentState } from "../document/stores.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
 import {
   captureSectionGroupingFocus,
   focusSectionAfterEscape,
   resolveSectionFocusAfterRemoval,
   restoreFocusAfterSectionGrouping,
   restoreFocusAfterSectionRemoval,
-} from "./sectionFocus";
+} from "./sectionFocus.js";
 
 function makeState(): WorkspaceDocumentState {
   return {

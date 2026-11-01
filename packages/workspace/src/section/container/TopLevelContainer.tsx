@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { useDraggable, useDroppable } from "../../dnd/adapter";
-import { useDndMode, useDndState } from "../../dnd/dndState";
-import { useDndProps } from "../../dnd/useDndUtils";
-import { DndSlotAndDndWatcher } from "./ContainerWrappers";
+import { useDraggable, useDroppable } from "../../dnd/adapter/index.js";
+import { useDndMode, useDndState } from "../../dnd/dndState.js";
+import { useDndProps } from "../../dnd/useDndUtils.js";
+import { DndSlotAndDndWatcher } from "./ContainerWrappers.js";
 
 export function TopLevelContainer({
   dimmed,

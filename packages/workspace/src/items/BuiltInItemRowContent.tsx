@@ -1,11 +1,11 @@
-import { BuiltInItemNameEditor } from "../controls/name/ItemNameEditor";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
-import { setItemLabel } from "../document/itemPresentationMutations";
-import { BuiltInItemValueControl } from "./BuiltInItemValueControl";
-import type { ItemRowRenderContext } from "./ItemListContext";
-import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { BuiltInItemNameEditor } from "../controls/name/ItemNameEditor.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { hasWorkspaceItemPresentation } from "../document/itemPresentation.js";
+import { setItemLabel } from "../document/itemPresentationMutations.js";
+import { BuiltInItemValueControl } from "./BuiltInItemValueControl.js";
+import type { ItemRowRenderContext } from "./ItemListContext.js";
+import { WorkspaceItemLabel } from "./WorkspaceItemLabel.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export function BuiltInItemRowContent({
   context,

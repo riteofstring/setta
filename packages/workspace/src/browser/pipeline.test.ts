@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBrowserPipeline } from "./client";
-import { executeBrowserPipeline, validateBrowserPipeline } from "./execute";
-import { exposeBrowserPipeline } from "./worker";
+import { createBrowserPipeline } from "./client.js";
+import { executeBrowserPipeline, validateBrowserPipeline } from "./execute.js";
+import { exposeBrowserPipeline } from "./worker.js";
 import type {
   BrowserPipelineWorker,
   BrowserPipelineWorkerScope,
   BrowserStageProgress,
-} from "./types";
+} from "./types.js";
 
 class TestWorker extends EventTarget implements BrowserPipelineWorker {
   sent: unknown[] = [];

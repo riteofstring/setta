@@ -1,20 +1,20 @@
 import type { ReactNode } from "react";
-import { setItemControlConfiguration } from "../document/itemPresentationMutations";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { setItemControlConfiguration } from "../document/itemPresentationMutations.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import type {
   WorkspaceItemControlConfiguration,
   WorkspaceItemTextLanguage,
-} from "../document/types";
+} from "../document/types.js";
 import {
   ColorConfigurationEditor,
   ColorParameterConfigurationEditor,
   DropdownConfigurationEditor,
   DropdownParameterConfigurationEditor,
-} from "./WorkspaceItemChoiceConfiguration";
+} from "./WorkspaceItemChoiceConfiguration.js";
 import {
   DateConfigurationEditor,
   TimeConfigurationEditor,
-} from "./WorkspaceItemDateTimeConfiguration";
+} from "./WorkspaceItemDateTimeConfiguration.js";
 import {
   BooleanConfigurationRow,
   DraftNumberConfigurationRow,
@@ -27,7 +27,7 @@ import {
   type ConfigurationEditorProps,
   type ConfigurationOption,
   type WorkspaceItemValueControl,
-} from "./workspaceItemConfigurationFields";
+} from "./workspaceItemConfigurationFields.js";
 
 type WorkspaceItemConfigurationEditorProps = {
   sectionId: string;

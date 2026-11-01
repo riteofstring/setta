@@ -1,10 +1,10 @@
-import { getActiveSectionIds } from "../document/activeSections";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getNodes } from "./nodeInternals";
-import { updateNodePositionsAndCommit } from "./nodeInternalsActions";
-import { getWorkspaceOptionsStore } from "./options";
-import { getReactFlowStore } from "./store";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getNodes } from "./nodeInternals.js";
+import { updateNodePositionsAndCommit } from "./nodeInternalsActions.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import { getReactFlowStore } from "./store.js";
 
 export const updatePositions = (
   host: WorkspaceHost,

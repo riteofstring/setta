@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import type { SectionDragListeners } from "./ContainerCore";
-import { DndSlotAndDndWatcher } from "./ContainerWrappers";
-import { TopLevelContainer } from "./TopLevelContainer";
+import type { SectionDragListeners } from "./ContainerCore.js";
+import { DndSlotAndDndWatcher } from "./ContainerWrappers.js";
+import { TopLevelContainer } from "./TopLevelContainer.js";
 
 export function ContainerSwitch({
   dimmed,

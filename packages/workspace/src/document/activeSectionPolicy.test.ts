@@ -3,7 +3,7 @@ import {
   resolveActiveSectionChange,
   type ActiveSectionPolicyContext,
   type ActiveSectionPolicyResult,
-} from "./activeSectionPolicy";
+} from "./activeSectionPolicy.js";
 
 type PolicyCase = {
   context: ActiveSectionPolicyContext;

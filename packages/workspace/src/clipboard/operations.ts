@@ -1,36 +1,36 @@
-import { getWorkspacePointerLocation } from "../canvas/pointerLocation";
-import { screenToFlowPosition } from "../canvas/viewportPosition";
-import { getActiveSectionIds } from "../document/activeSections";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { GROUP_SECTION_KIND } from "../document/documentSelectors";
-import { commitWorkspaceDocumentMutation } from "../document/loadWorkspaceDocument";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceHostActive } from "../workspaceHostInternals";
+import { getWorkspacePointerLocation } from "../canvas/pointerLocation.js";
+import { screenToFlowPosition } from "../canvas/viewportPosition.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { GROUP_SECTION_KIND } from "../document/documentSelectors.js";
+import { commitWorkspaceDocumentMutation } from "../document/loadWorkspaceDocument.js";
+import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceHostActive } from "../workspaceHostInternals.js";
 import {
   assertWorkspaceClipboardLocalItemCount,
   captureWorkspaceClipboardSelection,
   createWorkspaceLocalClipboardPayload,
   getWorkspaceClipboardSelectionRootIds,
   WorkspaceClipboardItemCountLimitError,
-} from "./capture";
+} from "./capture.js";
 import {
   parseWorkspaceClipboardEnvelope,
   serializeWorkspaceClipboardEnvelope,
-} from "./envelope";
+} from "./envelope.js";
 import {
   assertWorkspaceClipboardJsonValue,
   cloneFrozenWorkspaceClipboardJsonValue,
-} from "./json";
-import { parseWorkspaceLocalClipboardPayload } from "./localPayload";
-import { planWorkspaceLocalClipboardPaste } from "./planner";
+} from "./json.js";
+import { parseWorkspaceLocalClipboardPayload } from "./localPayload.js";
+import { planWorkspaceLocalClipboardPaste } from "./planner.js";
 import {
   beginWorkspaceClipboardOperation,
   getWorkspaceClipboardAuthorityMetadata,
   getWorkspaceClipboardRuntimeState,
-} from "./registry";
+} from "./registry.js";
 import type {
   JsonValue,
   WorkspaceClipboardAuthority,
@@ -44,7 +44,7 @@ import type {
   WorkspaceClipboardPastePlacement,
   WorkspaceClipboardPasteRequest,
   WorkspaceClipboardPrepareCopyRequest,
-} from "./types";
+} from "./types.js";
 
 type WorkspaceClipboardOperation = "copy" | "duplicate" | "paste";
 

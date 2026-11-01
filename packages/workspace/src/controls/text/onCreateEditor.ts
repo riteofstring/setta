@@ -1,6 +1,6 @@
 import type { EditorView } from "@codemirror/view";
-import { getReactFlowStore } from "../../canvas/store";
-import type { WorkspaceHost } from "../../workspaceHost";
+import { getReactFlowStore } from "../../canvas/store.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
 
 export type TextValueActivationEvent =
   "tab" | { clientX: number; clientY: number };

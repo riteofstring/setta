@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getDndStateStore } from "../../dnd/dndState";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { getReactFlowStore } from "../store";
-import type { WorkspaceInteractionOptions } from "../options";
-import { clamp, isMacOs } from "../utils";
+import { getDndStateStore } from "../../dnd/dndState.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { getReactFlowStore } from "../store.js";
+import type { WorkspaceInteractionOptions } from "../options.js";
+import { clamp, isMacOs } from "../utils.js";
 import {
   isPinchZoomWheelEvent,
   isWorkspaceWindowOverlayWheelEvent,
   resolvePanOnScrollDelta,
   resolveWheelTargetDisposition,
   wheelDelta,
-} from "../wheelPolicy";
-import type { WorkspaceXyflowViewport } from "./types";
-import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime";
+} from "../wheelPolicy.js";
+import type { WorkspaceXyflowViewport } from "./types.js";
+import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime.js";
 
 const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
   "data-viewport-interaction-active";

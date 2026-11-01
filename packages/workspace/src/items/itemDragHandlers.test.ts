@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -21,34 +21,37 @@ import type {
   DragMoveEvent,
   DragStartEvent,
   SettaCollision,
-} from "../dnd/adapter/types";
-import { useItemDndChildren } from "../dnd/itemDndChildren";
+} from "../dnd/adapter/types.js";
+import { useItemDndChildren } from "../dnd/itemDndChildren.js";
 import {
   getItemDndId,
   getTempItemDndId,
   useItemDndState,
-} from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+} from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   activateItemSelect,
   useItemSelectionMode,
-} from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionItemTree } from "../document/types";
+} from "../document/stores.js";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
 import {
   handleItemDragCancel,
   handleItemDragEnd,
   handleItemDragMove,
   handleItemDragStart,
   resetItemDragState,
-} from "./itemDragHandlers";
-import { registerItemListView, resetItemListViews } from "./itemListRegistry";
+} from "./itemDragHandlers.js";
+import {
+  registerItemListView,
+  resetItemListViews,
+} from "./itemListRegistry.js";
 
 const LIST_KEY = "main";
 const ACTIVE_DND_ID = getItemDndId("item-a", LIST_KEY);

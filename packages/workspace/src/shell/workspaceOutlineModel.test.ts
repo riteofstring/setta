@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_SECTION_KIND } from "../document/documentSelectors";
-import type { WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
+import { GROUP_SECTION_KIND } from "../document/documentSelectors.js";
+import type { WorkspaceDocumentState } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
 import {
   createWorkspaceOutlineTree,
   filterWorkspaceOutlineTree,
@@ -9,7 +9,7 @@ import {
   getValidWorkspaceOutlineCollapsedGroupIds,
   getWorkspaceOutlineVisibleEntries,
   resolveWorkspaceOutlineFocus,
-} from "./workspaceOutlineModel";
+} from "./workspaceOutlineModel.js";
 
 function createSection(
   id: string,

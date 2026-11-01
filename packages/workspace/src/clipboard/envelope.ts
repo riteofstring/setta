@@ -3,12 +3,12 @@ import {
   WORKSPACE_CLIPBOARD_MAX_SECTION_COUNT,
   WORKSPACE_CLIPBOARD_SCHEMA_ID,
   WORKSPACE_CLIPBOARD_SCHEMA_VERSION,
-} from "./types";
+} from "./types.js";
 import {
   assertWorkspaceClipboardJsonValue,
   cloneFrozenWorkspaceClipboardJsonValue,
   getWorkspaceClipboardUtf8ByteLength,
-} from "./json";
+} from "./json.js";
 import type {
   JsonValue,
   WorkspaceClipboardAuthorityMetadata,
@@ -19,7 +19,7 @@ import type {
   WorkspaceClipboardFragment,
   WorkspaceClipboardSection,
   WorkspaceClipboardTopLevelLayout,
-} from "./types";
+} from "./types.js";
 
 type UnknownRecord = Record<string, unknown>;
 

@@ -8,16 +8,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useWorkspaceDocument } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceWindowRenderers } from "./WorkspaceWindowManagerParts";
-import { reconcileWorkspaceSectionWindowBindings } from "./workspaceSectionWindowing";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceWindowRenderers } from "./WorkspaceWindowManagerParts.js";
+import { reconcileWorkspaceSectionWindowBindings } from "./workspaceSectionWindowing.js";
 import type {
   WorkspaceWindowBoundaryInsets,
   WorkspaceWindowingState,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
-import { areWorkspaceWindowViewportsEqual } from "./workspaceWindowManagerInteractions";
+} from "./windowingTypes.js";
+import { areWorkspaceWindowViewportsEqual } from "./workspaceWindowManagerInteractions.js";
 
 export type WorkspaceShellWindowingConfiguration = {
   state: WorkspaceWindowingState;

@@ -1,7 +1,7 @@
 import type { UseDraggableInput } from "@dnd-kit/react";
 import { useDraggable as useDndKitDraggable } from "@dnd-kit/react";
 import { useMemo } from "react";
-import type { DndData } from "./types";
+import type { DndData } from "./types.js";
 
 type UseDraggableArguments = Omit<
   UseDraggableInput<DndData>,

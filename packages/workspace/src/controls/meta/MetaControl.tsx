@@ -1,17 +1,17 @@
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { handleSectionControlEscape } from "../sectionFocus";
-import { MetaTextValueEditor } from "../text/TextValueEditor";
+import { useItemSelectionMode } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { handleSectionControlEscape } from "../sectionFocus.js";
+import { MetaTextValueEditor } from "../text/TextValueEditor.js";
 import type {
   ButtonMetaControl,
   MetaControlDefinition,
   TextAreaMetaControl,
   TextMetaControl,
-} from "./metaControlDefinitions";
-import { MetaControlTitleStack } from "./MetaControlTitleStack";
-import { assertMetaControlKind } from "./metaControlTypes";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { MetaValueControl } from "./MetaValueControl";
+} from "./metaControlDefinitions.js";
+import { MetaControlTitleStack } from "./MetaControlTitleStack.js";
+import { assertMetaControlKind } from "./metaControlTypes.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { MetaValueControl } from "./MetaValueControl.js";
 
 export type {
   ButtonMetaControl,
@@ -27,7 +27,7 @@ export type {
   TextAreaMetaControl,
   TextMetaControl,
   TimeMetaControl,
-} from "./metaControlDefinitions";
+} from "./metaControlDefinitions.js";
 
 export type MetaControlProps = {
   sectionId: string;

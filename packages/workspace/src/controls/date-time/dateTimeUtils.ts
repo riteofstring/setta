@@ -1,4 +1,4 @@
-import type { DateDisplayFormat, TimeDisplayFormat } from "./dateTimeTypes";
+import type { DateDisplayFormat, TimeDisplayFormat } from "./dateTimeTypes.js";
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
 const ISO_DATE_TIME_LOCAL_REGEX =

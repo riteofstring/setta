@@ -1,10 +1,10 @@
-import { getActiveSectionIds } from "../document/activeSections";
-import { insertIntoArray } from "../document/arrayUtils";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { insertIntoArray } from "../document/arrayUtils.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
 import {
   getSectionHasSelectedItems,
   getSectionItemTreeOrThrow,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   buildItemParentMap,
   buildItemTreeView,
@@ -13,16 +13,16 @@ import {
   getSharedItemParentId,
   resolveFullIndexForVisibleInsertion,
   type ItemTreeView,
-} from "../document/itemTree";
+} from "../document/itemTree.js";
 import {
   applyItemMoveToTree,
   commitSectionItemTree,
   type ItemTreeMove,
-} from "../document/moveItems";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceSectionItemTree } from "../document/types";
-import { getSectionItemVisibility } from "./itemListRegistry";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/moveItems.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
+import { getSectionItemVisibility } from "./itemListRegistry.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type ItemSelectionBase = {
   sectionId: string;

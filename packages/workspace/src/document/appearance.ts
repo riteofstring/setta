@@ -1,12 +1,12 @@
-import { reprojectNodeStylesForAppearance } from "./nodeProjection";
+import { reprojectNodeStylesForAppearance } from "./nodeProjection.js";
 import {
   getNodeInternalsStore,
   getWorkspaceAppearanceStore,
   getWorkspaceDocumentStore,
   type WorkspaceColorMode,
-} from "./stores";
-import type { WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
+} from "./stores.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
 
 const SYSTEM_DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
 

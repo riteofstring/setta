@@ -10,34 +10,34 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from "react";
-import { useReactFlow } from "../canvas/store";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import { BOUNDED_GROUP_SCROLL_CLASS_NAME } from "../interaction";
-import { getIsEditableTarget } from "../keybindings/editableTarget";
+import { useReactFlow } from "../canvas/store.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useNodeInternals, useWorkspaceDocument } from "../document/stores.js";
+import { BOUNDED_GROUP_SCROLL_CLASS_NAME } from "../interaction.js";
+import { getIsEditableTarget } from "../keybindings/editableTarget.js";
 import type {
   WorkspaceGraphEdge,
   WorkspaceGraphFamily,
   WorkspaceGraphPort,
   WorkspaceGraphPortSide,
-} from "./types";
+} from "./types.js";
 import {
   getWorkspaceGraphBundledPath,
   getWorkspaceGraphBundles,
   type WorkspaceGraphBundledEdge,
   type WorkspaceGraphTie,
-} from "./bundles";
+} from "./bundles.js";
 import {
   getWorkspaceGraphBezier,
   getWorkspaceGraphElementCenter,
   getWorkspaceGraphViewportPoint,
   type WorkspaceGraphPoint,
-} from "./geometry";
+} from "./geometry.js";
 import {
   getWorkspaceGraphFamilyStyle,
   getWorkspaceGraphPortSide,
-} from "./validation";
-import { useWorkspaceGraph } from "./WorkspaceGraphContext";
+} from "./validation.js";
+import { useWorkspaceGraph } from "./WorkspaceGraphContext.js";
 
 type ActiveWorkspaceGraph = NonNullable<ReturnType<typeof useWorkspaceGraph>>;
 

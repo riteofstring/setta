@@ -6,11 +6,11 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceSavedView } from "../document/types";
-import { setWorkspaceSavedViewEditing } from "../saved-views/editing";
-import { useWorkspaceSavedViewEditing } from "../saved-views/editingState";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { WorkspaceSavedView } from "../document/types.js";
+import { setWorkspaceSavedViewEditing } from "../saved-views/editing.js";
+import { useWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
 import {
   activateWorkspaceSavedView,
   createWorkspaceSavedView,
@@ -20,16 +20,16 @@ import {
   renameWorkspaceSavedView,
   reorderWorkspaceSavedView,
   setWorkspaceSavedViewTabVisibility,
-} from "../saved-views/operations";
-import { getOrderedWorkspaceSavedViews } from "../saved-views/state";
-import type { WorkspaceHost } from "../workspaceHost";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../saved-views/operations.js";
+import { getOrderedWorkspaceSavedViews } from "../saved-views/state.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   WorkspaceSavedViewsEditNotice,
   WorkspaceSavedViewsHeader,
   WorkspaceSavedViewsList,
   type WorkspaceSavedViewDisabledReasons,
-} from "./WorkspaceSavedViewsPaneParts";
+} from "./WorkspaceSavedViewsPaneParts.js";
 
 type WorkspaceSavedViewFocusControl = HTMLButtonElement | HTMLInputElement;
 

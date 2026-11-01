@@ -1,7 +1,7 @@
-import { insertIntoArray } from "../document/arrayUtils";
-import type { Position } from "../document/types";
-import type { DragEndEvent } from "./adapter";
-import { BehaviorDropTypeEnum, type BehaviorDropType } from "./dropTypes";
+import { insertIntoArray } from "../document/arrayUtils.js";
+import type { Position } from "../document/types.js";
+import type { DragEndEvent } from "./adapter/index.js";
+import { BehaviorDropTypeEnum, type BehaviorDropType } from "./dropTypes.js";
 
 type TopLevelSectionLayout = {
   x: number;

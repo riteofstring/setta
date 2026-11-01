@@ -1,8 +1,8 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { getCanvasGesturesStore } from "../canvas/gestureState";
-import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "../interaction";
-import type { WorkspaceHost } from "../workspaceHost";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { getCanvasGesturesStore } from "../canvas/gestureState.js";
+import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "../interaction.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function getOnSectionClick(host: WorkspaceHost, sectionId: string) {
   return (event: ReactMouseEvent) => {

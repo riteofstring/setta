@@ -6,16 +6,16 @@ import {
   createWorkspaceTestHost,
   WorkspaceTestProvider,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { getWorkspaceDocumentStore } from "../document/stores";
+} from "../../test/workspaceTestHost.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
 import {
   createWorkspaceSavedView,
   enableWorkspaceSavedViews,
   setWorkspaceSavedViewSectionVisibility,
-} from "../saved-views/operations";
-import { WorkspaceQuickStart } from "./WorkspaceQuickStart";
+} from "../saved-views/operations.js";
+import { WorkspaceQuickStart } from "./WorkspaceQuickStart.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

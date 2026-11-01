@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,8 +20,8 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceNavigator } from "./WorkspaceNavigator";
-import { openWorkspaceNavigator } from "./workspaceNavigatorState";
+import { WorkspaceNavigator } from "./WorkspaceNavigator.js";
+import { openWorkspaceNavigator } from "./workspaceNavigatorState.js";
 
 const { resolveWorkspaceFindResults, resolveWorkspacePaletteEntries } =
   vi.hoisted(() => ({
@@ -29,8 +29,8 @@ const { resolveWorkspaceFindResults, resolveWorkspacePaletteEntries } =
     resolveWorkspacePaletteEntries: vi.fn(),
   }));
 
-vi.mock("./workspaceFind", () => ({ resolveWorkspaceFindResults }));
-vi.mock("./workspacePalette", () => ({ resolveWorkspacePaletteEntries }));
+vi.mock("./workspaceFind.js", () => ({ resolveWorkspaceFindResults }));
+vi.mock("./workspacePalette.js", () => ({ resolveWorkspacePaletteEntries }));
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

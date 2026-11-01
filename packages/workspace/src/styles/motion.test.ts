@@ -5,7 +5,7 @@ import {
   prefersReducedWorkspaceMotion,
   resolveWorkspaceMotionDuration,
   WORKSPACE_REDUCED_MOTION_QUERY,
-} from "./motion";
+} from "./motion.js";
 
 const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
   window,

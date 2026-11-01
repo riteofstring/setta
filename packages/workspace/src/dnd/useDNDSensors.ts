@@ -7,16 +7,16 @@ import { useMemo } from "react";
 import {
   getWorkspaceCapabilitiesStore,
   useWorkspaceCapabilities,
-} from "../document/capabilities";
-import { getItemSelectionModeStore } from "../document/itemSelectionMode";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getDndStateStore } from "./dndState";
-import { setItemDndState } from "./itemDndState";
+} from "../document/capabilities.js";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getDndStateStore } from "./dndState.js";
+import { setItemDndState } from "./itemDndState.js";
 import {
   getSelectionDragHandle,
   getSelectionDragPrimaryId,
-} from "./selectionDragHandle";
+} from "./selectionDragHandle.js";
 
 type DndSource = {
   id: string | number;

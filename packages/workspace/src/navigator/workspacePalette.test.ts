@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,23 +17,23 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState } from "../canvas/store";
-import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
-import { setActiveSectionIds } from "../document/activeSections";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { setSelectedItems } from "../document/itemSelection";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState } from "../canvas/store.js";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry.js";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry.js";
+import { setActiveSectionIds } from "../document/activeSections.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { setSelectedItems } from "../document/itemSelection.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
-} from "../document/types";
+} from "../document/types.js";
 import {
   getWorkspaceKeyBindingChordLabel,
   registerWorkspaceKeyBindings,
-} from "../keybindings/workspaceKeyBindingRegistry";
-import { resolveWorkspacePaletteEntries } from "./workspacePalette";
+} from "../keybindings/workspaceKeyBindingRegistry.js";
+import { resolveWorkspacePaletteEntries } from "./workspacePalette.js";
 
 function createItemTree(
   selectedItemIds: Array<string> = [],

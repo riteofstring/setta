@@ -1,23 +1,23 @@
-import { getSectionContainerHandlers } from "./sectionContainerEvents";
-import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention";
-import { getSectionOrThrow } from "../../document/documentSelectors";
+import { getSectionContainerHandlers } from "./sectionContainerEvents.js";
+import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention.js";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
 import {
   canWorkspaceSectionOwnNestedSections,
   getMetaControlPresentation,
-} from "../../document/sectionKindRegistry";
+} from "../../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../../document/stores";
-import type { WorkspaceSection } from "../../document/types";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
-import { getSectionContainerShellClassName } from "../sectionChrome";
-import { useSectionRefAndInit } from "../sectionRefs";
-import { deriveSectionStyleTheme } from "../sectionStyleColors";
-import { resolveSectionStyleVars } from "../sectionStyleVars";
-import { SectionContainerContent } from "./SectionContainerContent";
+} from "../../document/stores.js";
+import type { WorkspaceSection } from "../../document/types.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts.js";
+import { getSectionContainerShellClassName } from "../sectionChrome.js";
+import { useSectionRefAndInit } from "../sectionRefs.js";
+import { deriveSectionStyleTheme } from "../sectionStyleColors.js";
+import { resolveSectionStyleVars } from "../sectionStyleVars.js";
+import { SectionContainerContent } from "./SectionContainerContent.js";
 
 function getSectionStyleTheme(
   isMetaControl: boolean,

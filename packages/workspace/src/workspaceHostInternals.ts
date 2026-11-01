@@ -1,4 +1,4 @@
-import type { WorkspaceHost } from "./workspaceHost";
+import type { WorkspaceHost } from "./workspaceHost.js";
 
 type WorkspaceHostInternals = {
   cleanup: Set<() => void>;

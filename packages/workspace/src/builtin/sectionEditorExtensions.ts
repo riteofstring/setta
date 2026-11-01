@@ -27,18 +27,18 @@ import {
   tooltips,
   type DecorationSet,
 } from "@codemirror/view";
-import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
-import { getTextValueLanguageExtensions } from "../controls/text/textValueLanguages";
+import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages.js";
+import { getTextValueLanguageExtensions } from "../controls/text/textValueLanguages.js";
 import type {
   WorkspaceCodeSectionDiagnostic,
   WorkspaceCodeSectionLanguage,
   WorkspaceGeneratedRegion,
-} from "./codeSectionData";
+} from "./codeSectionData.js";
 import type {
   WorkspaceCodeSectionCompletionOption,
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionResult,
-} from "./codeSectionCompletion";
+} from "./codeSectionCompletion.js";
 
 const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": { borderRight: "0" },

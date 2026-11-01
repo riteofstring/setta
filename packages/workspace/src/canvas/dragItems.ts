@@ -1,9 +1,9 @@
 import type { RefObject } from "react";
-import { getActiveSectionIds } from "../document/activeSections";
-import type { NodeInternalsState } from "../document/stores";
-import type { Position } from "../document/types";
-import type { NodeDragItem } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import type { NodeInternalsState } from "../document/stores.js";
+import type { Position } from "../document/types.js";
+import type { NodeDragItem } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function hasSelector(
   target: Element,

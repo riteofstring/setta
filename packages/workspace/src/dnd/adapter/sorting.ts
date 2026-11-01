@@ -1,5 +1,10 @@
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
-import type { ClientRect, Disabled, SortingStrategy, Transform } from "./types";
+import type {
+  ClientRect,
+  Disabled,
+  SortingStrategy,
+  Transform,
+} from "./types.js";
 
 const defaultScale = {
   scaleX: 1,

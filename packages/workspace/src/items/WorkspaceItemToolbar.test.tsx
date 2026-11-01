@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,18 +20,18 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { setItemDndState, useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionItemTree } from "../document/types";
-import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
-import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
+} from "../document/stores.js";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
+import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext.js";
+import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

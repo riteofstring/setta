@@ -3,7 +3,7 @@ import {
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   normalizeSectionTagColor,
   resolveSectionTagColorPalette,
-} from "./sectionTagColors";
+} from "./sectionTagColors.js";
 
 describe("section tag colors", () => {
   it("captures frozen main's immutable default categories", () => {

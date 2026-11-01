@@ -1,6 +1,6 @@
-export { createBrowserPipeline } from "./client";
-export { executeBrowserPipeline, validateBrowserPipeline } from "./execute";
-export { exposeBrowserPipeline } from "./worker";
+export { createBrowserPipeline } from "./client.js";
+export { executeBrowserPipeline, validateBrowserPipeline } from "./execute.js";
+export { exposeBrowserPipeline } from "./worker.js";
 export type {
   BrowserPipeline,
   BrowserPipelineSnapshot,
@@ -11,4 +11,4 @@ export type {
   BrowserStageContext,
   BrowserStageProgress,
   BrowserStageStatus,
-} from "./types";
+} from "./types.js";

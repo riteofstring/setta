@@ -1,4 +1,4 @@
-import type { SettaCollision } from "./types";
+import type { SettaCollision } from "./types.js";
 
 type CollisionSortableData = {
   sortable?: {

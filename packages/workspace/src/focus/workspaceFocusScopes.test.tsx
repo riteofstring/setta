@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,20 +20,20 @@ afterEachWorkspaceTestHost(() => {
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
+} from "../document/stores.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
 import {
   focusWorkspaceScope,
   getWorkspaceFocusScopeId,
   useWorkspaceFocusScope,
   type WorkspaceFocusScopeId,
-} from "./workspaceFocusScopes";
+} from "./workspaceFocusScopes.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

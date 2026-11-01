@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../../workspaceHost";
+import {
+  createWorkspaceHost,
+  type WorkspaceHost,
+} from "../../workspaceHost.js";
 import {
   getWorkspaceXyflowRuntime,
   registerWorkspaceXyflowInstance,
-} from "./workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./types";
+} from "./workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "./types.js";
 
 const hosts: Array<WorkspaceHost> = [];
 

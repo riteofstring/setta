@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,10 +16,10 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceSection } from "../document/types";
-import { initialCanvasState } from "./store";
-import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "./xyflow/types";
+import type { WorkspaceSection } from "../document/types.js";
+import { initialCanvasState } from "./store.js";
+import { registerWorkspaceXyflowInstance } from "./xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "./xyflow/types.js";
 import {
   fitWorkspaceViewportToBounds,
   focusWorkspaceSection,
@@ -32,7 +32,7 @@ import {
   shiftWorkspaceMapForLeadingPane,
   zoomIn,
   zoomOut,
-} from "./viewportHelpers";
+} from "./viewportHelpers.js";
 
 function setupXyflowRuntime(viewport = { x: 0, y: 0, zoom: 1 }) {
   const setViewport = vi.fn(() => Promise.resolve(true));

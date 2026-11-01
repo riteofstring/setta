@@ -8,8 +8,8 @@ import {
   getDroppedTextRejection,
   getDropzoneRemainingSlots,
   partitionDropzoneFiles,
-} from "./dropzonePolicy";
-import type { DropzoneAttachment, DropzonePolicy } from "./dropzoneTypes";
+} from "./dropzonePolicy.js";
+import type { DropzoneAttachment, DropzonePolicy } from "./dropzoneTypes.js";
 
 const POLICY: DropzonePolicy = {
   maxAttachments: 3,

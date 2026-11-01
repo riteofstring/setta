@@ -1,10 +1,10 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "./documentSelectors";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./documentSelectors.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function setItemColumnWidth(
   host: WorkspaceHost,

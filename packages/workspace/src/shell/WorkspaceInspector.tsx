@@ -12,39 +12,39 @@ import {
 } from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { HiChevronDown } from "react-icons/hi2";
-import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { isGroupSection } from "../document/documentSelectors";
+import { createSectionCommandContext } from "../commands/workspaceCommandContexts.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { isGroupSection } from "../document/documentSelectors.js";
 import {
   createWorkspaceInspectorContributionContext,
   getRegisteredSectionKindOrThrow,
-} from "../document/sectionKindRegistry";
+} from "../document/sectionKindRegistry.js";
 import {
   setSectionName,
   setSectionsPositionLocked,
   setSectionStyleColor,
   toggleGroupOrientation,
   toggleMinimized,
-} from "../document/sectionMutations";
-import { useActiveSections, useWorkspaceDocument } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { setGroupOverflowMode } from "../section/groupOverflowAction";
+} from "../document/sectionMutations.js";
+import { useActiveSections, useWorkspaceDocument } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { setGroupOverflowMode } from "../section/groupOverflowAction.js";
 import {
   resolveSectionTagColorPalette,
   type WorkspaceSectionTagColorPalette,
-} from "../section/sectionTagColors";
-import { SectionTagColorEditor } from "./SectionTagColorEditor";
-import { SectionSizeEditor } from "./SectionSizeEditor";
-import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
+} from "../section/sectionTagColors.js";
+import { SectionTagColorEditor } from "./SectionTagColorEditor.js";
+import { SectionSizeEditor } from "./SectionSizeEditor.js";
+import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions.js";
 import {
   getWorkspaceInspectorLockState,
   getWorkspaceInspectorSelection,
   getWorkspaceInspectorSelectionKey,
   getWorkspaceInspectorSelectionStatus,
   type WorkspaceInspectorSelection,
-} from "./workspaceInspectorModel";
-import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./workspaceInspectorModel.js";
+import { WorkspaceItemInspector } from "./WorkspaceItemInspector.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 type WorkspaceInspectorProps = {
   ariaLabel?: string;

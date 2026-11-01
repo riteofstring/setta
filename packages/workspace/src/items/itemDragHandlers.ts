@@ -2,13 +2,13 @@ import type { DragDropManager } from "@dnd-kit/dom";
 import {
   getCollisionTriggerDistCondition,
   resolveOverCollisionId,
-} from "../dnd/adapter/collisionCompare";
-import { rectFromBoundingRect } from "../dnd/adapter/rect";
+} from "../dnd/adapter/collisionCompare.js";
+import { rectFromBoundingRect } from "../dnd/adapter/rect.js";
 import type {
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
-} from "../dnd/adapter/types";
+} from "../dnd/adapter/types.js";
 import {
   addItemChild,
   getItemDndChildrenStore,
@@ -17,7 +17,7 @@ import {
   replaceItemsWithTemp,
   resetItemDndChildren,
   updateItemChildren,
-} from "../dnd/itemDndChildren";
+} from "../dnd/itemDndChildren.js";
 import {
   getItemDndId,
   getItemIdFromDndId,
@@ -26,11 +26,11 @@ import {
   setItemDndState,
   getItemDndStateStore,
   type ItemListKey,
-} from "../dnd/itemDndState";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
-import { selectOnlyItem } from "../document/itemSelection";
-import { getItemSelectionModeStore } from "../document/itemSelectionMode";
+} from "../dnd/itemDndState.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { getSectionItemTreeOrThrow } from "../document/documentSelectors.js";
+import { selectOnlyItem } from "../document/itemSelection.js";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode.js";
 import {
   buildItemParentMap,
   buildItemTreeView,
@@ -39,19 +39,19 @@ import {
   getSharedItemParentId,
   isDescendantOfItemSelection,
   resolveFullIndexForVisibleInsertion,
-} from "../document/itemTree";
-import { moveItems, orderItemIdsByParent } from "../document/moveItems";
-import { getWorkspaceDocumentStore } from "../document/stores";
+} from "../document/itemTree.js";
+import { moveItems, orderItemIdsByParent } from "../document/moveItems.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
 import {
   assertWorkspaceHostActive,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   filterCollisionsForListKey,
   resolveItemPlaceholderMovePlan,
-} from "./itemDndMonitorUtils";
-import { resolveItemListView } from "./itemListRegistry";
+} from "./itemDndMonitorUtils.js";
+import { resolveItemListView } from "./itemListRegistry.js";
 
 type ItemDragData = {
   type?: string;

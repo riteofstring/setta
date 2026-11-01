@@ -4,8 +4,8 @@ import type {
   HTMLAttributes,
   MouseEvent,
 } from "react";
-import type { PanelPosition } from "../canvas/types";
-import type { Node, Position } from "../document/types";
+import type { PanelPosition } from "../canvas/types.js";
+import type { Node, Position } from "../document/types.js";
 
 export type GetMiniMapNodeAttribute = (node: Node) => string;
 

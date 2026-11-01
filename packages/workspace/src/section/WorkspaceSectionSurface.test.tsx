@@ -3,19 +3,19 @@
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSection,
-} from "../document/types";
+} from "../document/types.js";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
-import { WorkspaceSectionSurface } from "./WorkspaceSectionSurface";
+} from "../../test/workspaceTestHost.js";
+import { WorkspaceSectionSurface } from "./WorkspaceSectionSurface.js";
 
 type WorkspaceSectionSurfaceProps = ComponentProps<
   typeof WorkspaceSectionSurface

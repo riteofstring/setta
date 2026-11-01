@@ -1,17 +1,17 @@
 import { useRef } from "react";
-import { createLiveSectionCommandContext } from "../../commands/workspaceCommandContexts";
-import { hasApplicableWorkspaceCommands } from "../../commands/workspaceCommandResolution";
-import { openWorkspaceSectionHeaderMenu } from "../../context-menu/workspaceMenuInvocation";
-import { getOwnerKeyboardMenuPoint } from "../../context-menu/workspaceMenuOwnership";
+import { createLiveSectionCommandContext } from "../../commands/workspaceCommandContexts.js";
+import { hasApplicableWorkspaceCommands } from "../../commands/workspaceCommandResolution.js";
+import { openWorkspaceSectionHeaderMenu } from "../../context-menu/workspaceMenuInvocation.js";
+import { getOwnerKeyboardMenuPoint } from "../../context-menu/workspaceMenuOwnership.js";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
   type WorkspaceMenuInitialFocus,
-} from "../../context-menu/workspaceMenuState";
-import { isGroupSection } from "../../document/documentSelectors";
-import { useWorkspaceDocument } from "../../document/stores";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { HeaderIcon } from "./HeaderIcon";
+} from "../../context-menu/workspaceMenuState.js";
+import { isGroupSection } from "../../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { HeaderIcon } from "./HeaderIcon.js";
 
 type MenuButtonProps = {
   sectionId: string;

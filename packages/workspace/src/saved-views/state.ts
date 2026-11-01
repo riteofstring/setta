@@ -4,7 +4,7 @@ import type {
   WorkspaceDocumentInput,
   WorkspaceSavedView,
   WorkspaceSavedViewsState,
-} from "../document/types";
+} from "../document/types.js";
 
 const UNSAFE_RECORD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 

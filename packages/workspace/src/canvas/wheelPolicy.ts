@@ -3,11 +3,11 @@ import {
   NATIVE_HORIZONTAL_WHEEL_CLASS_NAME,
   NATIVE_VERTICAL_WHEEL_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "../interaction";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceHostElement } from "../workspaceHostInternals";
-import type { PanOnScrollMode } from "./types";
-import { getWheelDelta, isMacOs } from "./utils";
+} from "../interaction.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceHostElement } from "../workspaceHostInternals.js";
+import type { PanOnScrollMode } from "./types.js";
+import { getWheelDelta, isMacOs } from "./utils.js";
 
 type PanOnScrollDelta = {
   deltaX: number;

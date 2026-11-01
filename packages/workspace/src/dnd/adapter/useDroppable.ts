@@ -2,8 +2,8 @@ import type { CollisionDetector } from "@dnd-kit/abstract";
 import type { UseDroppableInput } from "@dnd-kit/react";
 import { useDroppable as useDndKitDroppable } from "@dnd-kit/react";
 import { useMemo } from "react";
-import type { DndData } from "./types";
-import { useCollisionDetector } from "./useCollisionDetector";
+import type { DndData } from "./types.js";
+import { useCollisionDetector } from "./useCollisionDetector.js";
 
 type UseDroppableArguments = Omit<
   UseDroppableInput<DndData>,

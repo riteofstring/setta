@@ -4,14 +4,14 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
-import { SectionDndContext } from "../dnd/SectionDndContext";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
-import { WorkspaceSectionSurface } from "../section/WorkspaceSectionSurface";
-import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { SectionDndContext } from "../dnd/SectionDndContext.js";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { WorkspaceSectionSurface } from "../section/WorkspaceSectionSurface.js";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 type StandaloneWorkspaceSectionSurfaceHeaderProps = Omit<
   ComponentPropsWithoutRef<"header">,

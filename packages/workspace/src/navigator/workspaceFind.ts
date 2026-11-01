@@ -1,26 +1,26 @@
 import { matchSorter } from "match-sorter";
-import { getSectionRect } from "../canvas/graph";
-import { focusWorkspaceSection } from "../canvas/viewportHelpers";
-import { getReactFlowStore } from "../canvas/store";
-import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime";
+import { getSectionRect } from "../canvas/graph.js";
+import { focusWorkspaceSection } from "../canvas/viewportHelpers.js";
+import { getReactFlowStore } from "../canvas/store.js";
+import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime.js";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
   isWorkspaceSectionVisible,
-} from "../document/savedViewDisplay";
-import { getItemOrThrow } from "../document/itemTree";
+} from "../document/savedViewDisplay.js";
+import { getItemOrThrow } from "../document/itemTree.js";
 import {
   getWorkspaceItemSearchableText,
   getWorkspaceSectionSearchableText,
-} from "../document/sectionKindRegistry";
+} from "../document/sectionKindRegistry.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import type { WorkspaceItem, WorkspaceSection } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { WorkspaceNavigatorActivation } from "./workspaceNavigatorTypes";
-import { revealWorkspaceItem } from "./workspaceItemReveal";
+} from "../document/stores.js";
+import type { WorkspaceItem, WorkspaceSection } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { WorkspaceNavigatorActivation } from "./workspaceNavigatorTypes.js";
+import { revealWorkspaceItem } from "./workspaceItemReveal.js";
 
 type WorkspaceFindSectionResult = Readonly<{
   activate: () => WorkspaceNavigatorActivation;

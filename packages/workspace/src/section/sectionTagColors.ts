@@ -1,4 +1,4 @@
-import type { WorkspaceColorChoice } from "../document/types";
+import type { WorkspaceColorChoice } from "../document/types.js";
 
 const SECTION_TAG_COLOR_PATTERN = /^#[0-9a-f]{6}$/u;
 

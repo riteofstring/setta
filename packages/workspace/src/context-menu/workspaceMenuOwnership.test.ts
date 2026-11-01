@@ -1,11 +1,11 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import { NO_DRAG_CLASS_NAME } from "../interaction";
+import { NO_DRAG_CLASS_NAME } from "../interaction.js";
 import {
   isWorkspaceMenuKeyboardEvent,
   shouldRetainNativeContextMenu,
-} from "./workspaceMenuOwnership";
+} from "./workspaceMenuOwnership.js";
 
 describe("workspace context-menu ownership", () => {
   it("recognizes both authorized keyboard invocation paths", () => {

@@ -1,9 +1,9 @@
 import _ from "lodash";
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { isWorkspaceSavedViewSectionVisible } from "../saved-views/state";
-import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceHost } from "../workspaceHost";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import { isWorkspaceSavedViewSectionVisible } from "../saved-views/state.js";
+import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function getActiveSectionIds(host: WorkspaceHost): Array<string> {
   return getActiveSectionsStore(host).getState().activeIds;

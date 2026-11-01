@@ -1,16 +1,19 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
-import { reconcileWorkspaceSavedViewsState } from "../saved-views/state";
-import type { WorkspaceHost } from "../workspaceHost";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals.js";
+import { reconcileWorkspaceSavedViewsState } from "../saved-views/state.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import type {
   Node,
   TopLevelSectionLayout,
   Viewport,
   WorkspaceSection,
   WorkspaceSavedViewsState,
-} from "./types";
+} from "./types.js";
 
 export type WorkspaceDocumentState = {
   sections: Record<string, WorkspaceSection>;

@@ -1,6 +1,6 @@
-import type { Node } from "../document/types";
-import type { Rect } from "./types";
-import { boxToRect, getBoundsOfBoxes, rectToBox } from "./utils";
+import type { Node } from "../document/types.js";
+import type { Rect } from "./types.js";
+import { boxToRect, getBoundsOfBoxes, rectToBox } from "./utils.js";
 
 export const getNodesBounds = (
   nodes: Array<Pick<Node, "position" | "width" | "height">>,

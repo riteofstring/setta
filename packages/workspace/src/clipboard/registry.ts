@@ -1,13 +1,13 @@
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import { WORKSPACE_LOCAL_CLIPBOARD_PAYLOAD_VERSION } from "./types";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { WORKSPACE_LOCAL_CLIPBOARD_PAYLOAD_VERSION } from "./types.js";
 import type {
   WorkspaceClipboardAuthority,
   WorkspaceClipboardAuthorityMetadata,
   WorkspaceClipboardOperationLease,
   WorkspaceClipboardRuntimeListener,
   WorkspaceClipboardRuntimeState,
-} from "./types";
+} from "./types.js";
 
 type WorkspaceClipboardRuntime = {
   activeOperation: symbol | null;

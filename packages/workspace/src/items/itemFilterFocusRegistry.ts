@@ -1,4 +1,4 @@
-import type { WorkspaceHost } from "../workspaceHost";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export const FOCUS_ITEM_FILTER_BINDING_ID = "workspace.focus-item-filter";
 

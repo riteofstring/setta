@@ -1,16 +1,16 @@
 import type { ComponentType, ReactNode } from "react";
-import type { MetaControlKind } from "../controls/meta/metaControlTypes";
-import { GROUP_SECTION_KIND } from "./documentSelectors";
-import type { SectionSize, WorkspaceItem, WorkspaceSection } from "./types";
+import type { MetaControlKind } from "../controls/meta/metaControlTypes.js";
+import { GROUP_SECTION_KIND } from "./documentSelectors.js";
+import type { SectionSize, WorkspaceItem, WorkspaceSection } from "./types.js";
 import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
-} from "./workspaceSnapshot";
+} from "./workspaceSnapshot.js";
 import {
   getWorkspaceSectionSizeBounds,
   type WorkspaceSectionSizeConstraints,
-} from "../section/resize/sectionSizingBounds";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../section/resize/sectionSizingBounds.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export type MetaControlSectionPresentation = {
   type: "meta-control";

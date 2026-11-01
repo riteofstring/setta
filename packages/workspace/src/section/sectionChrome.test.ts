@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
-} from "./sectionChrome";
+} from "./sectionChrome.js";
 
 const SHELL_BASE =
   "group/card-section transition-radius relative dndline outline w-min border";

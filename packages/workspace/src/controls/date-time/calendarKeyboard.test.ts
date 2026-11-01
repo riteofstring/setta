@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveCalendarKeyboardDate,
   shiftCalendarDateByMonths,
-} from "./calendarKeyboard";
+} from "./calendarKeyboard.js";
 
 describe("calendar keyboard navigation", () => {
   it.each([

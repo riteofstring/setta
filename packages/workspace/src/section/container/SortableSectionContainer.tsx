@@ -5,19 +5,19 @@ import React, {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { useSortable } from "../../dnd/adapter";
-import type { Transform } from "../../dnd/adapter/types";
+import { useSortable } from "../../dnd/adapter/index.js";
+import type { Transform } from "../../dnd/adapter/types.js";
 import {
   applyZoomToTransform,
   transformToString,
-} from "../../dnd/adapter/zoom";
-import { isTempSection } from "../../dnd/dndIds";
-import { useDndState } from "../../dnd/dndState";
-import { TempDNDSection } from "../../dnd/DummySection";
-import { DRAG_PREVIEW_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers";
-import { useDndProps } from "../../dnd/useDndUtils";
-import type { SectionDragListeners } from "./ContainerCore";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../dnd/adapter/zoom.js";
+import { isTempSection } from "../../dnd/dndIds.js";
+import { useDndState } from "../../dnd/dndState.js";
+import { TempDNDSection } from "../../dnd/DummySection.js";
+import { DRAG_PREVIEW_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers.js";
+import { useDndProps } from "../../dnd/useDndUtils.js";
+import type { SectionDragListeners } from "./ContainerCore.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 export type SortableSectionRenderer = (
   sectionId: string,

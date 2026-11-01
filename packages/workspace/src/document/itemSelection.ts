@@ -1,13 +1,13 @@
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "./documentSelectors";
-import { getItemOrThrow } from "./itemTree";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceSection } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./documentSelectors.js";
+import { getItemOrThrow } from "./itemTree.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function toggleItemSelected(
   host: WorkspaceHost,

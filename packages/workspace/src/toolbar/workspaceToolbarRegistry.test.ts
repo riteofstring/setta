@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,17 +16,17 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   getWorkspaceCommands,
   registerWorkspaceCommands,
-} from "../commands/workspaceCommandRegistry";
-import type { WorkspaceCommandDefinition } from "../commands/workspaceCommandTypes";
-import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { getWorkspaceToolbarContributions } from "./workspaceToolbarContributions";
-import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
-import type { WorkspaceToolbarContribution } from "./workspaceToolbarTypes";
+} from "../commands/workspaceCommandRegistry.js";
+import type { WorkspaceCommandDefinition } from "../commands/workspaceCommandTypes.js";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { getWorkspaceToolbarContributions } from "./workspaceToolbarContributions.js";
+import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry.js";
+import type { WorkspaceToolbarContribution } from "./workspaceToolbarTypes.js";
 
 function Icon() {
   return null;

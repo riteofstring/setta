@@ -4,7 +4,7 @@ import {
   getWorkspaceGraphClientPoint,
   getWorkspaceGraphElementCenter,
   getWorkspaceGraphViewportPoint,
-} from "./geometry";
+} from "./geometry.js";
 
 describe("Workspace graph geometry", () => {
   it("maps client and viewport coordinates through pan and zoom", () => {

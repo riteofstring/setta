@@ -1,24 +1,24 @@
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay";
-import { commitWorkspaceDocumentMutation } from "../document/loadWorkspaceDocument";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay.js";
+import { commitWorkspaceDocumentMutation } from "../document/loadWorkspaceDocument.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   Node,
   TopLevelSectionLayout,
   WorkspaceDocument,
-} from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   planWorkspaceTopLevelAutoLayout,
   resolveWorkspaceTopLevelAutoLayoutGap,
   type WorkspaceTopLevelAutoLayoutOptions,
   type WorkspaceTopLevelAutoLayoutPlan,
   type WorkspaceTopLevelAutoLayoutRectangle,
-} from "./planner";
+} from "./planner.js";
 
 export type WorkspaceTopLevelAutoLayoutResult = "applied" | "unchanged";
 

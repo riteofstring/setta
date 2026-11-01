@@ -1,4 +1,4 @@
-import type { WorkspaceSectionItemTree } from "../document/types";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
 
 export const ITEM_COLUMN_CENTER_OFFSET_PX = 18;
 const MIN_ITEM_VALUE_COLUMN_WIDTH_PX = 100;

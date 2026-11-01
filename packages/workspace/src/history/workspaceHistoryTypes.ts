@@ -1,7 +1,7 @@
-import type { WorkspaceCapabilitiesState } from "../document/capabilities";
-import type { WorkspaceDocument } from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
-import type { WorkspaceHost } from "../workspaceHost";
+import type { WorkspaceCapabilitiesState } from "../document/capabilities.js";
+import type { WorkspaceDocument } from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export type WorkspaceHistoryChangeKind =
   | "section-create"

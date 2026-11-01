@@ -3,9 +3,9 @@ import type {
   Position,
   WorkspaceItem,
   WorkspaceSection,
-} from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export type WorkspaceCommandIconProps = {
   className?: string;

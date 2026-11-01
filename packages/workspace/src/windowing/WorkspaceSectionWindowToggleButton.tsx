@@ -1,6 +1,6 @@
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
-import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 const DEFAULT_BUTTON_CLASS_NAME =
   "nodrag me-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-setta-500 transition focus-visible:ring-2 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100";

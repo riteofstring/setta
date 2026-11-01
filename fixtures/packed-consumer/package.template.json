@@ -8,7 +8,7 @@
     "node": "26.10.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json --pretty false && vite build",
+    "build": "tsc -p tsconfig.json --pretty false && tsc -p tsconfig.nodenext.json --pretty false && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

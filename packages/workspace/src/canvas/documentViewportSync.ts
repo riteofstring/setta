@@ -1,14 +1,14 @@
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { Viewport } from "../document/types";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceOptionsStore } from "./options";
-import { getReactFlowStore } from "./store";
-import { clamp } from "./utils";
-import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { Viewport } from "../document/types.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import { getReactFlowStore } from "./store.js";
+import { clamp } from "./utils.js";
+import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
 
 export function getInitialCanvasViewport(host: WorkspaceHost): Viewport {
   const viewport = getWorkspaceDocumentStore(host).getState().viewport;

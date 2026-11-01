@@ -3,18 +3,18 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceSection } from "../document/types";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSection } from "../document/types.js";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 import {
   WorkspaceSectionWindowPlaceholder,
   type WorkspaceSectionWindowPlaceholderProps,
-} from "./WorkspaceSectionWindowPlaceholder";
+} from "./WorkspaceSectionWindowPlaceholder.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

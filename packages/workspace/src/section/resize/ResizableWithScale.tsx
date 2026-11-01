@@ -1,8 +1,8 @@
 import { Resizable } from "re-resizable";
 import type { ComponentProps, MouseEventHandler } from "react";
 import { useState } from "react";
-import { getReactFlowStore } from "../../canvas/store";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getReactFlowStore } from "../../canvas/store.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 type ResizableWithScaleProps = ComponentProps<typeof Resizable> & {
   id?: string;

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,45 +20,45 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState.js";
 import {
   replaceItemsWithTemp,
   updateItemChildren,
   useItemDndChildren,
-} from "../dnd/itemDndChildren";
-import { ItemDndContext } from "../dnd/ItemDndContext";
+} from "../dnd/itemDndChildren.js";
+import { ItemDndContext } from "../dnd/ItemDndContext.js";
 import {
   getItemDndId,
   getTempItemDndId,
   setItemDndState,
   useItemDndState,
-} from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+} from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   activateItemSelect,
   useItemSelectionMode,
-} from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceItem,
   WorkspaceSectionItemTree,
-} from "../document/types";
+} from "../document/types.js";
 import {
   disableWorkspaceTooltip,
   enableWorkspaceTooltip,
   useWorkspaceTooltip,
-} from "../tooltip/WorkspaceTooltip";
-import type { ItemRowRenderContext } from "./ItemListContext";
-import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
-import { WorkspaceItemList } from "./WorkspaceItemList";
+} from "../tooltip/WorkspaceTooltip.js";
+import type { ItemRowRenderContext } from "./ItemListContext.js";
+import { resetItemListViews, resolveItemListView } from "./itemListRegistry.js";
+import { WorkspaceItemList } from "./WorkspaceItemList.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

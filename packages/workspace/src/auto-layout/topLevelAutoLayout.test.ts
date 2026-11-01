@@ -1,23 +1,23 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSectionInput,
-} from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryTransaction,
-} from "../history/workspaceHistoryTypes";
+} from "../history/workspaceHistoryTypes.js";
 import {
   autoLayoutTopLevelSections,
   getWorkspaceTopLevelAutoLayoutDisabledReason,
-} from "./topLevelAutoLayout";
+} from "./topLevelAutoLayout.js";
 
 let activeHost: WorkspaceHost | null = null;
 

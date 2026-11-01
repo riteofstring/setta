@@ -1,6 +1,6 @@
 import { signal } from "@dnd-kit/state";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type SelectionDragHandleState = {
   handle: { value: Element | null };

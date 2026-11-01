@@ -8,7 +8,7 @@ import {
   type ConfigurationEditorProps,
   type ConfigurationOption,
   type WorkspaceItemValueControl,
-} from "./workspaceItemConfigurationFields";
+} from "./workspaceItemConfigurationFields.js";
 
 type DateControl = Extract<WorkspaceItemValueControl, { kind: "date" }>;
 type TimeControl = Extract<WorkspaceItemValueControl, { kind: "time" }>;

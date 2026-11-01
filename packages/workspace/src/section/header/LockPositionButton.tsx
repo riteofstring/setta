@@ -1,13 +1,13 @@
 import _ from "lodash";
-import { useWorkspaceCapabilities } from "../../document/capabilities";
+import { useWorkspaceCapabilities } from "../../document/capabilities.js";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../../document/documentSelectors";
-import { togglePositionLock } from "../../document/sectionMutations";
-import { useWorkspaceDocument } from "../../document/stores";
-import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../document/documentSelectors.js";
+import { togglePositionLock } from "../../document/sectionMutations.js";
+import { useWorkspaceDocument } from "../../document/stores.js";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 type LockPositionButtonStyleState = {
   canEditLayout: boolean;

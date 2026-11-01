@@ -1,29 +1,29 @@
-import { getItemDndStateStore } from "../dnd/itemDndState";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
+import { getItemDndStateStore } from "../dnd/itemDndState.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   prepareWorkspaceItemDeletion,
   prepareWorkspaceItemInsertion,
-} from "../document/itemAuthoring";
-import { getItemOrThrow } from "../document/itemTree";
-import { createWorkspaceItemFromFactory } from "../document/sectionKindRegistry";
+} from "../document/itemAuthoring.js";
+import { getItemOrThrow } from "../document/itemTree.js";
+import { createWorkspaceItemFromFactory } from "../document/sectionKindRegistry.js";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../document/types.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type ItemAuthoringFocusPlan = { sectionId: string };
 

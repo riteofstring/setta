@@ -1,21 +1,21 @@
 import { useId, useMemo, useState } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { ParameterConfigurationTypeCombobox } from "../controls/dropdown/DropdownValueControl";
-import { setItemPresentation } from "../document/itemPresentationMutations";
-import { useWorkspaceDocumentSnapshot } from "../document/useWorkspaceDocumentSnapshot";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { ParameterConfigurationTypeCombobox } from "../controls/dropdown/DropdownValueControl.js";
+import { setItemPresentation } from "../document/itemPresentationMutations.js";
+import { useWorkspaceDocumentSnapshot } from "../document/useWorkspaceDocumentSnapshot.js";
 import type {
   WorkspaceItem,
   WorkspaceItemControlPresentation,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
+} from "../document/types.js";
+import { getItemHandlerRegistration } from "../items/itemHandlerRegistry.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor.js";
 import {
   createWorkspaceInspectorItemControl,
   isWorkspaceInspectorItemControlKind,
   type WorkspaceInspectorItemControlKind,
-} from "./workspaceInspectorItemDefaults";
+} from "./workspaceInspectorItemDefaults.js";
 
 type WorkspaceParameterConfigurationViewProps = {
   sectionId: string;

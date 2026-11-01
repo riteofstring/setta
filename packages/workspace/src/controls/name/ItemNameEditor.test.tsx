@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -21,15 +21,15 @@ import { EditorView } from "@codemirror/view";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../../canvas/store";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { initialCanvasState, useReactFlow } from "../../canvas/store.js";
+import { useItemSelectionMode } from "../../document/itemSelectionMode.js";
 import {
   useActiveSections,
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../../document/stores";
-import { useSectionRefs } from "../../section/sectionRefs";
-import { ItemNameEditor, type ItemNameEditorProps } from "./ItemNameEditor";
+} from "../../document/stores.js";
+import { useSectionRefs } from "../../section/sectionRefs.js";
+import { ItemNameEditor, type ItemNameEditorProps } from "./ItemNameEditor.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

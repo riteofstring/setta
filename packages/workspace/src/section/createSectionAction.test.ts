@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,15 +17,15 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState } from "../canvas/store";
-import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { getActiveSectionIds } from "../document/activeSections";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceSectionInput } from "../document/types";
-import { createWorkspaceSectionFromCommand } from "./createSectionAction";
+import { initialCanvasState } from "../canvas/store.js";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
+import { createWorkspaceSectionFromCommand } from "./createSectionAction.js";
 
 const requestedPositions: Array<unknown> = [];
 

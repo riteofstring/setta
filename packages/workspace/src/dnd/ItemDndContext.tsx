@@ -1,20 +1,20 @@
 import { useMemo, type ReactNode } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { ItemDndMonitor } from "../items/ItemDndMonitor";
-import { filterCollisionsForListKey } from "../items/itemDndMonitorUtils";
-import { ItemDragOverlay } from "../items/ItemDragOverlay";
-import { DragDropProvider } from "./adapter";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { ItemDndMonitor } from "../items/ItemDndMonitor.js";
+import { filterCollisionsForListKey } from "../items/itemDndMonitorUtils.js";
+import { ItemDragOverlay } from "../items/ItemDragOverlay.js";
+import { DragDropProvider } from "./adapter/index.js";
 import {
   createCollisionTracker,
   type CollisionTracker,
-} from "./adapter/collision";
-import type { SettaCollision } from "./adapter/types";
-import { DragOperationShapeSync } from "./DragOperationShapeSync";
-import { getItemDndChildrenStore } from "./itemDndChildren";
-import { getItemDndStateStore, useItemDndState } from "./itemDndState";
-import { useItemDndSensors } from "./useDNDSensors";
+} from "./adapter/collision.js";
+import type { SettaCollision } from "./adapter/types.js";
+import { DragOperationShapeSync } from "./DragOperationShapeSync.js";
+import { getItemDndChildrenStore } from "./itemDndChildren.js";
+import { getItemDndStateStore, useItemDndState } from "./itemDndState.js";
+import { useItemDndSensors } from "./useDNDSensors.js";
 
 export function ItemDndContext({ children }: { children: ReactNode }) {
   const host = useWorkspaceHost();

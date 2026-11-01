@@ -10,14 +10,14 @@ import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-} from "../interaction";
+} from "../interaction.js";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
-} from "../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 export type WorkspaceDropdownMenuItem = Readonly<{
   disabled?: boolean;

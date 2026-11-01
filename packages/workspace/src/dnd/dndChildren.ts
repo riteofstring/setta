@@ -1,24 +1,27 @@
 import { createStore } from "zustand/vanilla";
-import { insertIntoArray } from "../document/arrayUtils";
+import { insertIntoArray } from "../document/arrayUtils.js";
 import {
   getSectionChildren,
   getSectionOrThrow,
   getTopLevelSectionIdsForDisplay,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   getVisibleSectionChildrenForDisplay,
   getVisibleTopLevelSectionIdsForDisplay,
-} from "../document/savedViewDisplay";
+} from "../document/savedViewDisplay.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { withResetFn } from "../state/storeUtils";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getDndSectionId, isTempSection } from "./dndIds";
+} from "../document/stores.js";
+import { withResetFn } from "../state/storeUtils.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getDndSectionId, isTempSection } from "./dndIds.js";
 
 type ZustandDndChildren = {
   x: Record<string, Array<string>>;

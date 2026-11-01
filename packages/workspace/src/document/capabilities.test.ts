@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createWorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost } from "../workspaceHost.js";
 import {
   getWorkspaceCapabilitiesStore,
   setWorkspaceCapabilities,
-} from "./capabilities";
+} from "./capabilities.js";
 
 describe("workspace capabilities", () => {
   it("configures edit authority for one host", () => {

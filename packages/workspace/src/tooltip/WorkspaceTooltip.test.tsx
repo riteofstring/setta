@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -31,8 +31,8 @@ import {
   incrementWorkspaceTooltipPage,
   useWorkspaceTooltip,
   WorkspaceTooltip,
-} from "./WorkspaceTooltip";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+} from "./WorkspaceTooltip.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

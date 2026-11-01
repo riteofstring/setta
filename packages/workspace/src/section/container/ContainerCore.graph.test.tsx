@@ -6,10 +6,10 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
-import type { WorkspaceSection } from "../../document/types";
-import { WorkspaceGraphProvider } from "../../graph/WorkspaceGraphContext";
-import { Container } from "./ContainerCore";
+} from "../../../test/workspaceTestHost.js";
+import type { WorkspaceSection } from "../../document/types.js";
+import { WorkspaceGraphProvider } from "../../graph/WorkspaceGraphContext.js";
+import { Container } from "./ContainerCore.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

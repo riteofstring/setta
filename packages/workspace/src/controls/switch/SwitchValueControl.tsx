@@ -1,8 +1,8 @@
 import * as Switch from "@radix-ui/react-switch";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME } from "../../interaction";
-import { focusSectionAfterEscape } from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME } from "../../interaction.js";
+import { focusSectionAfterEscape } from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 export type SwitchValueControlProps = {
   ariaLabel: string;

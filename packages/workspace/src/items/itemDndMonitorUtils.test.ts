@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { SettaCollision } from "../dnd/adapter/types";
+import type { SettaCollision } from "../dnd/adapter/types.js";
 import {
   filterCollisionsForListKey,
   isItemOverlayVisible,
   resolveItemPlaceholderMovePlan,
-} from "./itemDndMonitorUtils";
+} from "./itemDndMonitorUtils.js";
 
 describe("isItemOverlayVisible", () => {
   it("requires an active, unsuppressed item drag with overlay metrics", () => {

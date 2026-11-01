@@ -10,14 +10,14 @@ import {
   WorkspaceBottomDock,
   type WorkspaceBottomDockProps,
   type WorkspaceBottomDockRenderWindow,
-} from "./WorkspaceBottomDock";
-import type { WorkspaceWindowDockLayoutUpdate } from "./windowingState";
+} from "./WorkspaceBottomDock.js";
+import type { WorkspaceWindowDockLayoutUpdate } from "./windowingState.js";
 import {
   createWorkspaceFloatingWindow,
   type WorkspaceFloatingWindow,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

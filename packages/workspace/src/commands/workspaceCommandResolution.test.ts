@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,39 +17,39 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorkspaceTopLevelAutoLayoutDisabledReason } from "../auto-layout/topLevelAutoLayout";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
+import { getWorkspaceTopLevelAutoLayoutDisabledReason } from "../auto-layout/topLevelAutoLayout.js";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry.js";
 import {
   getWorkspaceCapabilitiesStore,
   useWorkspaceCapabilities,
-} from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { deleteSections } from "../document/sectionMutations";
+} from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { deleteSections } from "../document/sectionMutations.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   Node,
   WorkspaceSection,
   WorkspaceSectionInput,
-} from "../document/types";
-import { setWorkspaceSavedViewEditing } from "../saved-views/editing";
-import { enableWorkspaceSavedViews } from "../saved-views/operations";
+} from "../document/types.js";
+import { setWorkspaceSavedViewEditing } from "../saved-views/editing.js";
+import { enableWorkspaceSavedViews } from "../saved-views/operations.js";
 import {
   createPaneCommandContext,
   createSectionCommandContext,
-} from "./workspaceCommandContexts";
-import { createWorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceCommands } from "./workspaceCommandRegistry";
+} from "./workspaceCommandContexts.js";
+import { createWorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceCommands } from "./workspaceCommandRegistry.js";
 import {
   hasApplicableWorkspaceCommands,
   resolveWorkspaceCommandEntries,
   runWorkspaceCommandById,
-} from "./workspaceCommandResolution";
+} from "./workspaceCommandResolution.js";
 
 function createSection(
   id: string,

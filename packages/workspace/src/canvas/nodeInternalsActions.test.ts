@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,14 +16,14 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
-import type { Node, WorkspaceSection } from "../document/types";
+import { useNodeInternals, useWorkspaceDocument } from "../document/stores.js";
+import type { Node, WorkspaceSection } from "../document/types.js";
 import {
   commitTopLevelLayoutToDocument,
   raiseTempZIndex,
   updateNodeDimensionsFromXyflow,
   updateNodePositions,
-} from "./nodeInternalsActions";
+} from "./nodeInternalsActions.js";
 
 function createSection(
   id: string,

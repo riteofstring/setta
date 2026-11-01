@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,10 +17,10 @@ afterEachWorkspaceTestHost(() => {
 
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
-import { useReactFlow } from "../../canvas/store";
-import { useDndState } from "../dndState";
-import { createCollisionTracker } from "./collision";
-import type { ClientRect, SettaCollision } from "./types";
+import { useReactFlow } from "../../canvas/store.js";
+import { useDndState } from "../dndState.js";
+import { createCollisionTracker } from "./collision.js";
+import type { ClientRect, SettaCollision } from "./types.js";
 
 function createRect({
   top,

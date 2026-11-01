@@ -3,7 +3,7 @@ import type {
   BrowserPipelineMessage,
   BrowserPipelineSnapshot,
   BrowserPipelineWorker,
-} from "./types";
+} from "./types.js";
 
 export function createBrowserPipeline<
   Input,

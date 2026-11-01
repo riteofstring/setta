@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { IntegratedWorkspaceWindowManager } from "../windowing/IntegratedWorkspaceWindowManager";
+import { IntegratedWorkspaceWindowManager } from "../windowing/IntegratedWorkspaceWindowManager.js";
 import {
   WorkspaceWindowingContextProvider,
   type WorkspaceShellWindowingConfiguration,
-} from "../windowing/workspaceWindowingContext";
-import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes";
+} from "../windowing/workspaceWindowingContext.js";
+import type { WorkspaceWindowBoundaryInsets } from "../windowing/windowingTypes.js";
 
 type WorkspaceShellWindowingCompositionProps = {
   boundaryInsets: WorkspaceWindowBoundaryInsets | null;

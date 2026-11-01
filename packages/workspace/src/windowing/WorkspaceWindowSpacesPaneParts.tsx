@@ -8,8 +8,8 @@ import {
 import { FiEdit3, FiTrash2 } from "react-icons/fi";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import type { WorkspaceWindowSpacePending } from "./WorkspaceWindowSpacesPane";
-import type { WorkspaceWindowSpace } from "./windowSpaces";
+import type { WorkspaceWindowSpacePending } from "./WorkspaceWindowSpacesPane.js";
+import type { WorkspaceWindowSpace } from "./windowSpaces.js";
 
 function includesId(ids: readonly string[] | undefined, id: string): boolean {
   return ids?.includes(id) ?? false;

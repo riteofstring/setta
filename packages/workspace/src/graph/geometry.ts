@@ -1,5 +1,5 @@
 import { getBezierPath, Position } from "@xyflow/react";
-import type { WorkspaceGraphPortSide } from "./types";
+import type { WorkspaceGraphPortSide } from "./types.js";
 
 export type WorkspaceGraphPoint = Readonly<{
   x: number;

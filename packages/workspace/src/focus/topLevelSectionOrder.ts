@@ -1,8 +1,8 @@
-import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
-import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { isWorkspaceSavedViewEditing } from "../saved-views/editingState";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors.js";
+import { getVisibleTopLevelSectionIdsForDisplay } from "../document/savedViewDisplay.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { isWorkspaceSavedViewEditing } from "../saved-views/editingState.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function getOrderedTopLevelSectionIds(
   host: WorkspaceHost,

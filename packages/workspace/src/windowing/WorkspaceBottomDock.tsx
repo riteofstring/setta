@@ -7,17 +7,17 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { WorkspaceBottomDockPanelRow } from "./WorkspaceBottomDockPanelRow";
-import { WorkspaceBottomDockRecoveryStrip } from "./WorkspaceBottomDockRecoveryStrip";
+import { WorkspaceBottomDockPanelRow } from "./WorkspaceBottomDockPanelRow.js";
+import { WorkspaceBottomDockRecoveryStrip } from "./WorkspaceBottomDockRecoveryStrip.js";
 import {
   resolveWorkspaceBottomDockViewport,
   resolveWorkspaceBottomDockVisibility,
-} from "./workspaceBottomDockGeometry";
-import type { WorkspaceWindowDockLayoutUpdate } from "./windowingState";
+} from "./workspaceBottomDockGeometry.js";
+import type { WorkspaceWindowDockLayoutUpdate } from "./windowingState.js";
 import type {
   WorkspaceBottomDockRenderWindowOptions,
   WorkspaceBottomDockResizeDirection,
-} from "./workspaceBottomDockInternal";
+} from "./workspaceBottomDockInternal.js";
 import {
   resolveNextWorkspaceBottomDockPillDisplayMode,
   resolveWorkspaceBottomDockWindowWidthsToFit,
@@ -30,11 +30,11 @@ import {
   WORKSPACE_BOTTOM_DOCK_WINDOW_GAP_PX,
   WORKSPACE_BOTTOM_DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX,
   type WorkspaceBottomDockPillDisplayMode,
-} from "./workspaceBottomDockLayout";
+} from "./workspaceBottomDockLayout.js";
 import type {
   WorkspaceFloatingWindow,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const WORKSPACE_BOTTOM_DOCK_MIN_WINDOW_HEIGHT_PX = 220;
 const WORKSPACE_BOTTOM_DOCK_DEFAULT_HEIGHT_FRACTION = 0.7;

@@ -1,12 +1,12 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates, Rectangle } from "@dnd-kit/geometry";
 import type { DragDropEventHandlers } from "@dnd-kit/react";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { getDndChildrenStore } from "../dndChildren";
-import { getItemDndParentByChild } from "../itemDndChildren";
-import { getItemDndStateStore, type ItemListKey } from "../itemDndState";
-import { promoteBestCollision } from "./collisionCompare";
-import { coerceClientRect, rectFromBoundingRect } from "./rect";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { getDndChildrenStore } from "../dndChildren.js";
+import { getItemDndParentByChild } from "../itemDndChildren.js";
+import { getItemDndStateStore, type ItemListKey } from "../itemDndState.js";
+import { promoteBestCollision } from "./collisionCompare.js";
+import { coerceClientRect, rectFromBoundingRect } from "./rect.js";
 import type {
   DragCancelEvent,
   DragEndEvent,
@@ -14,7 +14,7 @@ import type {
   DragOverEvent,
   DragStartEvent,
   SettaCollision,
-} from "./types";
+} from "./types.js";
 
 export type DndEventHandlers = Partial<{
   onDragStart: (event: DragStartEvent) => void;

@@ -10,22 +10,22 @@ import {
   SiTypescript,
   SiYaml,
 } from "react-icons/si";
-import { getSectionOrThrow } from "../document/documentSelectors";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
 import type {
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
   WorkspaceSectionKindIconProps,
-} from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
-import type { SectionSize, WorkspaceSection } from "../document/types";
+} from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import type { SectionSize, WorkspaceSection } from "../document/types.js";
 import {
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_LANGUAGES,
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
-} from "./codeSectionData";
-import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion";
-import { WorkspaceCodeSectionBody } from "./WorkspaceCodeSectionBody";
+} from "./codeSectionData.js";
+import type { WorkspaceCodeSectionCompletionProvider } from "./codeSectionCompletion.js";
+import { WorkspaceCodeSectionBody } from "./WorkspaceCodeSectionBody.js";
 
 const WORKSPACE_CODE_SECTION_DEFAULT_SIZE: SectionSize = {
   width: 500,

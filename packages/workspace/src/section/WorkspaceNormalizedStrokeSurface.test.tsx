@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WorkspaceNormalizedStrokeSurface,
   type WorkspaceNormalizedStrokeSurfaceProps,
-} from "./WorkspaceNormalizedStrokeSurface";
+} from "./WorkspaceNormalizedStrokeSurface.js";
 
 function dispatchPointer(
   target: SVGSVGElement,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertCircle, FiAlertTriangle, FiInfo } from "react-icons/fi";
-import type { WorkspaceSectionItemTree } from "../document/types";
+import type { WorkspaceSectionItemTree } from "../document/types.js";
 import {
   getHighestWorkspaceItemDiagnosticSeverity,
   getWorkspaceItemDiagnosticCountSummary,
@@ -8,7 +8,7 @@ import {
   type WorkspaceItemDiagnostic,
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceItemDiagnosticSeverity,
-} from "./itemDiagnostics";
+} from "./itemDiagnostics.js";
 
 type DiagnosticAnnouncementEntry = WorkspaceItemDiagnostic & {
   diagnosticOccurrence: number;

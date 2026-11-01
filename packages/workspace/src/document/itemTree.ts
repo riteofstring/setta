@@ -1,4 +1,4 @@
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
+import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types.js";
 
 type ItemTreeFlatRow = {
   id: string;

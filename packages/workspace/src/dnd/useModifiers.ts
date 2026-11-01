@@ -3,10 +3,10 @@ import {
   RestrictToVerticalAxis,
 } from "@dnd-kit/abstract/modifiers";
 import _ from "lodash";
-import { getSectionIsHorizontalOrientation } from "../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { useDndState } from "./dndState";
+import { getSectionIsHorizontalOrientation } from "../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { useDndState } from "./dndState.js";
 
 export function useModifiers() {
   const host = useWorkspaceHost();

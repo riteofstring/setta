@@ -1,13 +1,13 @@
 import _ from "lodash";
 import React, { type CSSProperties, type ReactNode } from "react";
-import { useDndMode, useDndState } from "../../dnd/dndState";
-import { useHighlightDroppable } from "../../dnd/useDndUtils";
+import { useDndMode, useDndState } from "../../dnd/dndState.js";
+import { useHighlightDroppable } from "../../dnd/useDndUtils.js";
 import {
   Container,
   type SectionDragListeners,
   type SectionDragRef,
-} from "./ContainerCore";
-import { DndSlot } from "./DndSlot";
+} from "./ContainerCore.js";
+import { DndSlot } from "./DndSlot.js";
 
 type DndWatcherProps = {
   dimmed: boolean;

@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { ColorValueControl } from "../color/ColorValueControl";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction.js";
+import { ColorValueControl } from "../color/ColorValueControl.js";
 import {
   MetaDateValueControl,
   MetaTimeValueControl,
-} from "../date-time/DateTimeValueControl";
-import { MetaDropdownValueControl } from "../dropdown/DropdownValueControl";
-import { DropzoneValueControl } from "../dropzone/DropzoneValueControl";
-import { MetaPasswordValueControl } from "../password/PasswordValueControl";
-import { RotaryValueControl } from "../rotary/RotaryValueControl";
-import { MetaSliderValueControl } from "../slider/SliderValueControl";
-import { MetaSwitchValueControl } from "../switch/SwitchValueControl";
+} from "../date-time/DateTimeValueControl.js";
+import { MetaDropdownValueControl } from "../dropdown/DropdownValueControl.js";
+import { DropzoneValueControl } from "../dropzone/DropzoneValueControl.js";
+import { MetaPasswordValueControl } from "../password/PasswordValueControl.js";
+import { RotaryValueControl } from "../rotary/RotaryValueControl.js";
+import { MetaSliderValueControl } from "../slider/SliderValueControl.js";
+import { MetaSwitchValueControl } from "../switch/SwitchValueControl.js";
 import type {
   ColorMetaControl,
   DateMetaControl,
@@ -21,8 +21,8 @@ import type {
   SliderMetaControl,
   SwitchMetaControl,
   TimeMetaControl,
-} from "./metaControlDefinitions";
-import { MetaControlTitleStack } from "./MetaControlTitleStack";
+} from "./metaControlDefinitions.js";
+import { MetaControlTitleStack } from "./MetaControlTitleStack.js";
 
 type DirectMetaValueControl =
   | ColorMetaControl

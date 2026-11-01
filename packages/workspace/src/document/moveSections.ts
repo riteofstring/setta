@@ -1,20 +1,20 @@
-import { insertIntoArray } from "./arrayUtils";
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getSectionOrThrow } from "./documentSelectors";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { insertIntoArray } from "./arrayUtils.js";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
+import { getSectionOrThrow } from "./documentSelectors.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
 import {
   canWorkspaceSectionAcceptNestedSection,
   canWorkspaceSectionOwnNestedSections,
-} from "./sectionKindRegistry";
+} from "./sectionKindRegistry.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
   type WorkspaceDocumentState,
-} from "./stores";
-import type { Position, WorkspaceSection } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { Position, WorkspaceSection } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type MoveSectionsInput = {
   sectionIds: Array<string>;

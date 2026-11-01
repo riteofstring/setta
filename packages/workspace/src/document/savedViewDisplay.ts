@@ -1,9 +1,9 @@
 import {
   getSectionChildren,
   getTopLevelSectionIdsForDisplay,
-} from "./documentSelectors";
-import { isWorkspaceSavedViewSectionVisible } from "../saved-views/state";
-import type { WorkspaceDocumentState } from "./stores";
+} from "./documentSelectors.js";
+import { isWorkspaceSavedViewSectionVisible } from "../saved-views/state.js";
+import type { WorkspaceDocumentState } from "./stores.js";
 
 export function isWorkspaceSectionVisible(
   state: WorkspaceDocumentState,

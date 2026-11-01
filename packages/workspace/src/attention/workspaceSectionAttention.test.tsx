@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,16 +20,16 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState } from "../canvas/store";
-import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState } from "../canvas/store.js";
+import { registerWorkspaceXyflowInstance } from "../canvas/xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowInstance } from "../canvas/xyflow/types.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceDocumentInput,
   WorkspaceSavedViewsState,
   WorkspaceSection,
-} from "../document/types";
+} from "../document/types.js";
 import {
   fitWorkspaceSections,
   getWorkspaceSectionAttentionState,
@@ -37,7 +37,7 @@ import {
   useWorkspaceSectionAttentionHighlight,
   WORKSPACE_SECTION_ATTENTION_LINGER_DURATION,
   WORKSPACE_SECTION_FIT_DURATION,
-} from "./workspaceSectionAttention";
+} from "./workspaceSectionAttention.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

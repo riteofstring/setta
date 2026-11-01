@@ -1,5 +1,5 @@
-import type { WorkspaceCreationCommand } from "./workspaceMenuTypes";
-import type { WorkspaceHost } from "../workspaceHost";
+import type { WorkspaceCreationCommand } from "./workspaceMenuTypes.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const commandsByHost = new WeakMap<
   WorkspaceHost,

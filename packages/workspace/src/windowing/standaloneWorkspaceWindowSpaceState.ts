@@ -1,16 +1,16 @@
 import {
   buildWorkspaceFloatingSnapResizeBounds,
   type WorkspaceFloatingSnapResizeSeam,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import type {
   WorkspaceFloatingWindow,
   WorkspaceWindowBounds,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 import {
   restoreWorkspaceWindowSpaceWindow,
   type WorkspaceWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 
 const STANDALONE_WORKSPACE_WINDOW_MIN_WIDTH_PX = 220;
 const STANDALONE_WORKSPACE_WINDOW_MIN_HEIGHT_PX = 180;

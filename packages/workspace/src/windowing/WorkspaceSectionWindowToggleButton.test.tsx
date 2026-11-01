@@ -7,11 +7,11 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 import {
   WorkspaceSectionWindowToggleButton,
   type WorkspaceSectionWindowToggleButtonProps,
-} from "./WorkspaceSectionWindowToggleButton";
+} from "./WorkspaceSectionWindowToggleButton.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

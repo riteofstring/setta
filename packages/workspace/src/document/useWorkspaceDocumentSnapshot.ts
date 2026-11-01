@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
-import { useActiveSections, useWorkspaceDocument } from "./stores";
-import type { WorkspaceDocument } from "./types";
+import { useActiveSections, useWorkspaceDocument } from "./stores.js";
+import type { WorkspaceDocument } from "./types.js";
 
 export function useWorkspaceDocumentSnapshot(): WorkspaceDocument {
   const sections = useWorkspaceDocument((state) => state.sections);

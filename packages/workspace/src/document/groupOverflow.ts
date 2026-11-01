@@ -1,5 +1,5 @@
-import { isGroupSection } from "./documentSelectors";
-import type { WorkspaceSection } from "./types";
+import { isGroupSection } from "./documentSelectors.js";
+import type { WorkspaceSection } from "./types.js";
 
 function isValidOverflowSize(
   value: WorkspaceSection["size"]["width"],

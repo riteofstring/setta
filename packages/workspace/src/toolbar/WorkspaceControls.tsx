@@ -14,18 +14,18 @@ import {
   TbZoomReset,
 } from "react-icons/tb";
 import { shallow } from "zustand/shallow";
-import { onFitViewHandler } from "../canvas/fitView";
+import { onFitViewHandler } from "../canvas/fitView.js";
 import {
   toggleMiniMap,
   toggleMiniMapSide,
   toggleSnapToGrid,
   useWorkspaceOptions,
   type MiniMapSide,
-} from "../canvas/options";
-import { useReactFlow } from "../canvas/store";
-import { resetZoom, zoomIn, zoomOut } from "../canvas/viewportHelpers";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
+} from "../canvas/options.js";
+import { useReactFlow } from "../canvas/store.js";
+import { resetZoom, zoomIn, zoomOut } from "../canvas/viewportHelpers.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip.js";
 import {
   ACTIVE_CONTROL_CLASS_NAME,
   COMPACT_TOUCH_TARGET_PROPS,
@@ -33,9 +33,9 @@ import {
   getToggleControlClassName,
   INACTIVE_CONTROL_CLASS_NAME,
   TOGGLE_CONTROL_CLASS_NAME,
-} from "./workspaceControlStyles";
-import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./workspaceControlStyles.js";
+import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 function runZoomOnPointerDown(
   event: ReactPointerEvent<HTMLButtonElement>,

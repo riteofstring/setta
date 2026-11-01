@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -32,22 +32,22 @@ import {
   expect,
   it,
 } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { useItemDndChildren } from "../dnd/itemDndChildren";
-import { ItemDndContext } from "../dnd/ItemDndContext";
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { useItemDndChildren } from "../dnd/itemDndChildren.js";
+import { ItemDndContext } from "../dnd/ItemDndContext.js";
+import { useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { ItemRowRenderContext } from "./ItemListContext";
-import { resetItemListViews } from "./itemListRegistry";
-import { WorkspaceItemList } from "./WorkspaceItemList";
+} from "../document/stores.js";
+import type { ItemRowRenderContext } from "./ItemListContext.js";
+import { resetItemListViews } from "./itemListRegistry.js";
+import { WorkspaceItemList } from "./WorkspaceItemList.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -1,24 +1,24 @@
 import { useEffect } from "react";
-import { useReactFlow } from "../canvas/store";
+import { useReactFlow } from "../canvas/store.js";
 import {
   useWorkspaceCommandEntries,
   type WorkspaceCommandEntry,
-} from "../commands/workspaceCommandResolution";
-import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import { getWorkspaceCreationCommands } from "./creationCommandStore";
+} from "../commands/workspaceCommandResolution.js";
+import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { getWorkspaceCreationCommands } from "./creationCommandStore.js";
 import {
   WorkspaceActionMenu,
   type WorkspaceMenuEntry,
-} from "./WorkspaceMenuCore";
+} from "./WorkspaceMenuCore.js";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
   type WorkspaceMenuInvocation,
-} from "./workspaceMenuState";
-import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
+} from "./workspaceMenuState.js";
+import { WorkspacePaneMenu } from "./WorkspacePaneMenu.js";
 
 function toMenuEntry(
   host: WorkspaceHost,

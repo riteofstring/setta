@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,10 +16,13 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
-import { useWorkspaceAppearance, type WorkspaceDocumentState } from "./stores";
-import type { Node, WorkspaceSection } from "./types";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
+import {
+  useWorkspaceAppearance,
+  type WorkspaceDocumentState,
+} from "./stores.js";
+import type { Node, WorkspaceSection } from "./types.js";
 
 function makeSection(
   id: string,

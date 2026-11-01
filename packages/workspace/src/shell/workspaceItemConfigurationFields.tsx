@@ -6,12 +6,12 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { InspectorSwitchControl } from "../controls/switch/SwitchValueControl";
-import { assertWorkspaceItemControlConfiguration } from "../document/itemPresentation";
+import { InspectorSwitchControl } from "../controls/switch/SwitchValueControl.js";
+import { assertWorkspaceItemControlConfiguration } from "../document/itemPresentation.js";
 import type {
   WorkspaceItemControlConfiguration,
   WorkspaceItemControlPresentation,
-} from "../document/types";
+} from "../document/types.js";
 
 export type WorkspaceItemValueControl = Exclude<
   WorkspaceItemControlPresentation,

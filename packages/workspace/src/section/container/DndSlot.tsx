@@ -1,20 +1,20 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
-import { useReactFlow } from "../../canvas/store";
-import { clamp } from "../../canvas/utils";
+import { useReactFlow } from "../../canvas/store.js";
+import { clamp } from "../../canvas/utils.js";
 import {
   BehaviorDropTypeEnum,
   behaviorToPretty,
   type BehaviorDropType,
-} from "../../dnd/dropTypes";
-import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
+} from "../../dnd/dropTypes.js";
+import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers.js";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
-} from "../../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
-import { useSectionRefs } from "../sectionRefs";
+} from "../../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope.js";
+import { useSectionRefs } from "../sectionRefs.js";
 
 type DropIndicatorRect = {
   top: number;

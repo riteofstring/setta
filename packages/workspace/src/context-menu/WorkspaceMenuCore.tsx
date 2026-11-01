@@ -8,19 +8,19 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
-import type { WorkspaceTextDirection } from "../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes.js";
+import type { WorkspaceTextDirection } from "../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getWorkspaceHostDomId,
   registerWorkspaceHostElement,
-} from "../workspaceHostInternals";
+} from "../workspaceHostInternals.js";
 import {
   placeWorkspaceMenu,
   type WorkspaceMenuClientPoint,
-} from "./workspaceMenuGeometry";
-import { closeWorkspaceMenu } from "./workspaceMenuState";
+} from "./workspaceMenuGeometry.js";
+import { closeWorkspaceMenu } from "./workspaceMenuState.js";
 
 export type WorkspaceMenuEntry = {
   id: string;

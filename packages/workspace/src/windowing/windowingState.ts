@@ -2,7 +2,7 @@ import {
   buildWorkspaceFloatingSnapBounds,
   classifyWorkspaceFloatingSnapPreset,
   resolveWorkspaceWindowWorkArea,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   assertWorkspaceWindowingLayoutEditable,
   createWorkspaceFloatingWindow,
@@ -21,7 +21,7 @@ import {
   type WorkspaceWindowingState,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const WORKSPACE_FLOATING_WINDOW_DEFAULT_WIDTH_PX = 820;
 const WORKSPACE_FLOATING_WINDOW_DEFAULT_HEIGHT_VIEWPORT_FRACTION = 0.7;

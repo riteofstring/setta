@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,27 +20,27 @@ afterEachWorkspaceTestHost(() => {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerWorkspaceClipboardAuthority } from "../clipboard/registry";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { registerWorkspaceClipboardAuthority } from "../clipboard/registry.js";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionInput } from "../document/types";
-import { WorkspaceMenuLayer } from "./WorkspaceMenuLayer";
+} from "../document/stores.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
+import { WorkspaceMenuLayer } from "./WorkspaceMenuLayer.js";
 import {
   openWorkspaceItemMenu,
   openWorkspacePaneMenu,
   openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
-} from "./workspaceMenuInvocation";
-import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
-import { useWorkspaceMenuState } from "./workspaceMenuState";
+} from "./workspaceMenuInvocation.js";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry.js";
+import { useWorkspaceMenuState } from "./workspaceMenuState.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -3,14 +3,14 @@ import type { DragDropManager } from "@dnd-kit/dom";
 import { Accessibility, AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import { DragDropProvider as DndKitProvider } from "@dnd-kit/react";
 import { useMemo, type PropsWithChildren } from "react";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import type { CollisionTracker } from "./collision";
-import { DndProviderContext } from "./DndProviderContext";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import type { CollisionTracker } from "./collision.js";
+import { DndProviderContext } from "./DndProviderContext.js";
 import {
   createDragEventHandlers,
   type DndEventHandlers,
-} from "./dragEventMapping";
-import type { SettaCollision } from "./types";
+} from "./dragEventMapping.js";
+import type { SettaCollision } from "./types.js";
 
 type Props = PropsWithChildren<
   DndEventHandlers & {

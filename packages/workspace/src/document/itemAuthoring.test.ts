@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   prepareWorkspaceItemDeletion,
   prepareWorkspaceItemInsertion,
-} from "./itemAuthoring";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
+} from "./itemAuthoring.js";
+import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types.js";
 
 function makeTree(
   selectedItemIds: Array<string> = ["beta"],

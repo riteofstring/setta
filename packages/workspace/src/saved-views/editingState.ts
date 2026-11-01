@@ -1,7 +1,10 @@
 import { createStore } from "zustand/vanilla";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type WorkspaceSavedViewEditingState = {
   editing: boolean;

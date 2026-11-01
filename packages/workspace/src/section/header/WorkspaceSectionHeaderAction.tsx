@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 
 const DEFAULT_CLASS_NAME =
   "nodrag me-1 inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 transition focus-visible:ring-2 hover:bg-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300";

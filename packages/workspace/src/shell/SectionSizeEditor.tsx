@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useNodeInternals } from "../document/stores";
-import type { SectionSizeValue, WorkspaceSection } from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
-import { persistSectionSizeChange } from "../section/sectionSizes";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useNodeInternals } from "../document/stores.js";
+import type { SectionSizeValue, WorkspaceSection } from "../document/types.js";
+import { useSectionRefs } from "../section/sectionRefs.js";
+import { persistSectionSizeChange } from "../section/sectionSizes.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 function parseSectionSizeValue(
   rawValue: string,

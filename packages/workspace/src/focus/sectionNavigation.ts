@@ -1,15 +1,15 @@
-import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { movePaneToIncludeElement } from "../canvas/viewportHelpers";
-import { isGroupSection } from "../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceHostElement } from "../workspaceHostInternals";
-import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
+import { applyActiveSectionChange } from "../canvas/activeSectionController.js";
+import { movePaneToIncludeElement } from "../canvas/viewportHelpers.js";
+import { isGroupSection } from "../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceHostElement } from "../workspaceHostInternals.js";
+import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder.js";
 import {
   getWorkspaceFocusableElements,
   getWorkspaceFocusScopeId,
-} from "./workspaceFocusScopes";
+} from "./workspaceFocusScopes.js";
 
 function getFocusedCanvasSectionId(
   host: WorkspaceHost,

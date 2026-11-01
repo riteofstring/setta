@@ -1,27 +1,27 @@
 import { useRef } from "react";
-import { getReactFlowStore } from "../canvas/store";
-import { screenToFlowPosition } from "../canvas/viewportPosition";
-import { getActiveSectionIds } from "../document/activeSections";
-import { getSectionChildren } from "../document/documentSelectors";
-import { moveSections } from "../document/moveSections";
+import { getReactFlowStore } from "../canvas/store.js";
+import { screenToFlowPosition } from "../canvas/viewportPosition.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getSectionChildren } from "../document/documentSelectors.js";
+import { moveSections } from "../document/moveSections.js";
 import {
   getSharedParentId,
   isDescendantOfSectionSelection,
-} from "../document/sectionSelection";
+} from "../document/sectionSelection.js";
 import {
   getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { DragEndEvent } from "./adapter";
-import { getDndChildrenStore, manualDndChildrenReset } from "./dndChildren";
-import { getDndSectionId } from "./dndIds";
-import { forceDeactivateDnd, getDndStateStore } from "./dndState";
-import { getSortingOverState } from "./sortingOverState";
-import { getOverId } from "./useDropType";
-import { planFreeMove, planSortingMove } from "./useMoveSectionPlans";
+} from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { DragEndEvent } from "./adapter/index.js";
+import { getDndChildrenStore, manualDndChildrenReset } from "./dndChildren.js";
+import { getDndSectionId } from "./dndIds.js";
+import { forceDeactivateDnd, getDndStateStore } from "./dndState.js";
+import { getSortingOverState } from "./sortingOverState.js";
+import { getOverId } from "./useDropType.js";
+import { planFreeMove, planSortingMove } from "./useMoveSectionPlans.js";
 
 function onSortEnd(
   host: WorkspaceHost,

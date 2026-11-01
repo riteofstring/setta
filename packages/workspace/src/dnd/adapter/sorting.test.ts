@@ -10,8 +10,8 @@ import {
   rectSortingStrategy,
   resolveStrategyResult,
   verticalListSortingStrategy,
-} from "./sorting";
-import type { ClientRect, Transform } from "./types";
+} from "./sorting.js";
+import type { ClientRect, Transform } from "./types.js";
 
 function rect(
   left: number,

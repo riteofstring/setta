@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,13 +16,13 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   getWorkspaceCommandOrThrow,
   getWorkspaceCommands,
   registerWorkspaceCommands,
-} from "./workspaceCommandRegistry";
-import type { WorkspaceCommandDefinition } from "./workspaceCommandTypes";
+} from "./workspaceCommandRegistry.js";
+import type { WorkspaceCommandDefinition } from "./workspaceCommandTypes.js";
 
 function hostCommand(
   overrides: Partial<WorkspaceCommandDefinition> = {},

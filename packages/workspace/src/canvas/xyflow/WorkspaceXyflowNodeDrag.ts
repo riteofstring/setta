@@ -1,19 +1,19 @@
 import type { OnNodeDrag } from "@xyflow/react";
 import { useCallback, useEffect, useRef } from "react";
-import { createNodesMapFromDocumentChildren } from "../../document/nodeProjection";
+import { createNodesMapFromDocumentChildren } from "../../document/nodeProjection.js";
 import {
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
-} from "../../document/stores";
-import type { Position } from "../../document/types";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { getDragItems } from "../dragItems";
-import { getCanvasGesturesStore } from "../gestureState";
-import { updateNodePositions } from "../nodeInternalsActions";
-import { getReactFlowStore } from "../store";
-import type { NodeDragItem } from "../types";
-import { calcAutoPan, getEventPosition } from "../utils";
-import type { WorkspaceXyflowSectionNode } from "./types";
+} from "../../document/stores.js";
+import type { Position } from "../../document/types.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { getDragItems } from "../dragItems.js";
+import { getCanvasGesturesStore } from "../gestureState.js";
+import { updateNodePositions } from "../nodeInternalsActions.js";
+import { getReactFlowStore } from "../store.js";
+import type { NodeDragItem } from "../types.js";
+import { calcAutoPan, getEventPosition } from "../utils.js";
+import type { WorkspaceXyflowSectionNode } from "./types.js";
 
 type WorkspaceXyflowNodeDragOptions = {
   host: WorkspaceHost;

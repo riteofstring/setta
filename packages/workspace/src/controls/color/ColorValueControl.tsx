@@ -1,17 +1,17 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME } from "../../interaction";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode.js";
+import { NO_DRAG_CLASS_NAME } from "../../interaction.js";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
-} from "../../styles/textDirection";
-import { ControlPopover } from "../popover/ControlPopover";
+} from "../../styles/textDirection.js";
+import { ControlPopover } from "../popover/ControlPopover.js";
 import {
   focusSectionAfterEscape,
   handleSectionControlEscape,
-} from "../sectionFocus";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
+} from "../sectionFocus.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../../workspaceHostInternals.js";
 
 export type ColorValueChoice = {
   color: string;

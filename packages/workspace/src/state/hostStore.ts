@@ -1,5 +1,5 @@
-import type { WorkspaceHost } from "../workspaceHost";
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals.js";
 
 export function createHostStoreGetter<T extends object>(
   createStore: (host: WorkspaceHost) => T,

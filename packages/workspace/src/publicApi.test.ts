@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
-import * as workspace from "./index";
+import * as workspace from "./index.js";
 
 type IsExactly<Actual, Expected> =
   (<Value>() => Value extends Actual ? 1 : 2) extends <

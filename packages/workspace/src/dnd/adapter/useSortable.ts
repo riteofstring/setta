@@ -1,5 +1,5 @@
-import { useIsDragActive, useItemsHaveChanged } from "./useSortingState";
-import { rectFromBoundingRect } from "./rect";
+import { useIsDragActive, useItemsHaveChanged } from "./useSortingState.js";
+import { rectFromBoundingRect } from "./rect.js";
 import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import {
   RestrictToHorizontalAxis,
@@ -10,28 +10,28 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
-import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors";
-import { getWorkspaceDocumentStore } from "../../document/stores";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import type { WorkspaceHost } from "../../workspaceHost";
-import { useDndProviderContext } from "./DndProviderContext";
-import { Context } from "./SortableContext";
-import { rectSortingStrategy } from "./sorting";
+import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors.js";
+import { getWorkspaceDocumentStore } from "../../document/stores.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import type { WorkspaceHost } from "../../workspaceHost.js";
+import { useDndProviderContext } from "./DndProviderContext.js";
+import { Context } from "./SortableContext.js";
+import { rectSortingStrategy } from "./sorting.js";
 import type {
   ClientRect,
   Disabled,
   DndData,
   SettaCollision,
   SortingStrategy,
-} from "./types";
-import { useCollisionDetector } from "./useCollisionDetector";
+} from "./types.js";
+import { useCollisionDetector } from "./useCollisionDetector.js";
 import {
   DEFAULT_SORTABLE_TRANSITION,
   buildSortablePresentationState,
   normalizeLocalDisabled,
   toTransform,
   type SortableTransition,
-} from "./useSortableModel";
+} from "./useSortableModel.js";
 
 type UseSortableArguments = {
   id: UniqueIdentifier;

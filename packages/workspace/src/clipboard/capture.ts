@@ -1,8 +1,8 @@
 import {
   cloneFrozenWorkspaceClipboardJsonValue,
   cloneWorkspaceClipboardJsonValue,
-} from "./json";
-import { WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT } from "./types";
+} from "./json.js";
+import { WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT } from "./types.js";
 import type {
   JsonValue,
   WorkspaceClipboardCaptureInput,
@@ -13,14 +13,14 @@ import type {
   WorkspaceClipboardSource,
   WorkspaceClipboardTopLevelLayout,
   WorkspaceLocalClipboardPayload,
-} from "./types";
+} from "./types.js";
 import type {
   TopLevelSectionLayout,
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
+} from "../document/types.js";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
 
 const NESTED_ROOT_LAYOUT_CASCADE_OFFSET = 40;
 

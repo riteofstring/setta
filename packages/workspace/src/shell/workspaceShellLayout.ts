@@ -2,7 +2,7 @@ import type {
   WorkspaceShellPane,
   WorkspaceShellPaneViewState,
   WorkspaceShellViewState,
-} from "./workspaceShellTypes";
+} from "./workspaceShellTypes.js";
 
 export const WORKSPACE_SHELL_CLOSED_PANE_WIDTH = 40;
 export const WORKSPACE_OUTLINE_TAB_ID = "outline";

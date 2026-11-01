@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { afterEach, describe, expect, it } from "vitest";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { createHostStoreGetter } from "./hostStore";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { createHostStoreGetter } from "./hostStore.js";
 
 const hosts: WorkspaceHost[] = [];
 

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,26 +20,26 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry.js";
 import type {
   WorkspaceCommandDefinition,
   WorkspacePaneCommandContext,
-} from "../commands/workspaceCommandTypes";
-import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
-import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { getActiveSectionIds } from "../document/activeSections";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../commands/workspaceCommandTypes.js";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry.js";
+import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSectionInput } from "../document/types";
-import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
-import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
+} from "../document/stores.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
+import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup.js";
+import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

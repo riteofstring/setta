@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,12 +20,12 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
-import { useSectionRefs } from "../../section/sectionRefs";
+import { useItemSelectionMode } from "../../document/itemSelectionMode.js";
+import { useSectionRefs } from "../../section/sectionRefs.js";
 import {
   PasswordValueControl,
   type PasswordValueControlProps,
-} from "./PasswordValueControl";
+} from "./PasswordValueControl.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

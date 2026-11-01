@@ -6,10 +6,10 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { getElementTextDirection } from "../../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { getWorkspaceSectionResizableId } from "../../section/sectionDomIds";
+import { getElementTextDirection } from "../../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { getWorkspaceSectionResizableId } from "../../section/sectionDomIds.js";
 
 type BubblePosition = {
   top: number;

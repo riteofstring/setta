@@ -1,4 +1,4 @@
-import type { Node, Position } from "../document/types";
+import type { Node, Position } from "../document/types.js";
 
 export type Transform = [number, number, number];
 

@@ -3,7 +3,7 @@ import {
   clientPointToWorkspacePosition,
   getKeyboardWorkspaceMenuPoint,
   placeWorkspaceMenu,
-} from "./workspaceMenuGeometry";
+} from "./workspaceMenuGeometry.js";
 
 describe("workspace menu geometry", () => {
   it.each([

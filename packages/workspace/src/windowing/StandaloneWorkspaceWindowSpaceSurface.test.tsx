@@ -3,11 +3,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { StandaloneWorkspaceWindowSpaceSurface } from "./StandaloneWorkspaceWindowSpaceSurface";
+import { StandaloneWorkspaceWindowSpaceSurface } from "./StandaloneWorkspaceWindowSpaceSurface.js";
 import {
   createWorkspaceWindowSpace,
   type WorkspaceWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

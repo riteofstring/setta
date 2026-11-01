@@ -1,30 +1,30 @@
-export { createWorkspaceHost } from "./workspaceHost";
-export type { WorkspaceHost, WorkspaceHostOptions } from "./workspaceHost";
+export { createWorkspaceHost } from "./workspaceHost.js";
+export type { WorkspaceHost, WorkspaceHostOptions } from "./workspaceHost.js";
 export {
   DEFAULT_WORKSPACE_TOP_LEVEL_AUTO_LAYOUT_GAP,
   planWorkspaceTopLevelAutoLayout,
-} from "./auto-layout/planner";
+} from "./auto-layout/planner.js";
 export type {
   WorkspaceTopLevelAutoLayoutOptions,
   WorkspaceTopLevelAutoLayoutPlan,
   WorkspaceTopLevelAutoLayoutRectangle,
-} from "./auto-layout/planner";
+} from "./auto-layout/planner.js";
 export {
   autoLayoutTopLevelSections,
   getWorkspaceTopLevelAutoLayoutDisabledReason,
-} from "./auto-layout/topLevelAutoLayout";
-export type { WorkspaceTopLevelAutoLayoutResult } from "./auto-layout/topLevelAutoLayout";
+} from "./auto-layout/topLevelAutoLayout.js";
+export type { WorkspaceTopLevelAutoLayoutResult } from "./auto-layout/topLevelAutoLayout.js";
 export {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,
   pasteWorkspaceClipboard,
-} from "./clipboard/operations";
+} from "./clipboard/operations.js";
 export type {
   WorkspaceClipboardAvailability,
   WorkspaceClipboardOperationResult,
-} from "./clipboard/operations";
-export { registerWorkspaceClipboardAuthority } from "./clipboard/registry";
+} from "./clipboard/operations.js";
+export { registerWorkspaceClipboardAuthority } from "./clipboard/registry.js";
 export type {
   JsonValue,
   WorkspaceClipboardAuthority,
@@ -38,14 +38,14 @@ export type {
   WorkspaceClipboardSectionDataCloneContext,
   WorkspaceDelegatedClipboardAuthority,
   WorkspaceLocalClipboardAuthority,
-} from "./clipboard/types";
+} from "./clipboard/types.js";
 export {
   getWorkspaceHistoryState,
   recordWorkspaceHistoryEntry,
   redoWorkspace,
   subscribeWorkspaceHistory,
   undoWorkspace,
-} from "./history/workspaceHistory";
+} from "./history/workspaceHistory.js";
 export type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryChangeKind,
@@ -53,12 +53,12 @@ export type {
   WorkspaceHistoryState,
   WorkspaceHistorySynchronization,
   WorkspaceHistoryTransaction,
-} from "./history/workspaceHistoryTypes";
-export { WorkspaceProvider, useWorkspaceHost } from "./workspaceHostContext";
+} from "./history/workspaceHistoryTypes.js";
+export { WorkspaceProvider, useWorkspaceHost } from "./workspaceHostContext.js";
 export {
   getWorkspaceCodeSectionData,
   setWorkspaceCodeSectionData,
-} from "./builtin/codeSectionActions";
+} from "./builtin/codeSectionActions.js";
 export {
   WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH,
   WORKSPACE_CODE_SECTION_KIND,
@@ -67,7 +67,7 @@ export {
   WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
   WORKSPACE_CODE_SECTION_MODES,
   createWorkspaceCodeSectionData,
-} from "./builtin/codeSectionData";
+} from "./builtin/codeSectionData.js";
 export type {
   WorkspaceCodeSectionData,
   WorkspaceCodeSectionDataOverrides,
@@ -76,19 +76,19 @@ export type {
   WorkspaceCodeSectionLanguage,
   WorkspaceCodeSectionMode,
   WorkspaceGeneratedRegion,
-} from "./builtin/codeSectionData";
-export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
-export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";
+} from "./builtin/codeSectionData.js";
+export { createWorkspaceCodeSection } from "./builtin/codeSectionKind.js";
+export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind.js";
 export type {
   WorkspaceCodeSectionCompletionOption,
   WorkspaceCodeSectionCompletionProvider,
   WorkspaceCodeSectionCompletionRequest,
   WorkspaceCodeSectionCompletionResult,
-} from "./builtin/codeSectionCompletion";
+} from "./builtin/codeSectionCompletion.js";
 export {
   getWorkspaceTextSectionData,
   setWorkspaceTextSectionData,
-} from "./builtin/textSectionActions";
+} from "./builtin/textSectionActions.js";
 export {
   WORKSPACE_TEXT_SECTION_DEFAULT_FONT_SIZE,
   WORKSPACE_TEXT_SECTION_DISPLAY_MODES,
@@ -97,41 +97,41 @@ export {
   WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
   WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE,
   createWorkspaceTextSectionData,
-} from "./builtin/textSectionData";
+} from "./builtin/textSectionData.js";
 export type {
   WorkspaceTextSectionData,
   WorkspaceTextSectionDisplayMode,
   WorkspaceTextSectionFormat,
-} from "./builtin/textSectionData";
-export { createWorkspaceTextSection } from "./builtin/textSectionKind";
-export type { WorkspaceTextSectionRegistration } from "./builtin/textSectionKind";
+} from "./builtin/textSectionData.js";
+export { createWorkspaceTextSection } from "./builtin/textSectionKind.js";
+export type { WorkspaceTextSectionRegistration } from "./builtin/textSectionKind.js";
 export {
   setWorkspaceMiniMapVisibility,
   useWorkspaceOptions,
-} from "./canvas/options";
-export { subscribeWorkspaceCanvasPanScrolling } from "./canvas/store";
-export { useIsScrollable } from "./useIsScrollable";
+} from "./canvas/options.js";
+export { subscribeWorkspaceCanvasPanScrolling } from "./canvas/store.js";
+export { useIsScrollable } from "./useIsScrollable.js";
 export type {
   MiniMapSide,
   WorkspaceGridPattern,
   WorkspaceInteractionOptions,
-} from "./canvas/options";
+} from "./canvas/options.js";
 
-export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
-export type { WorkspaceCanvasConfiguration } from "./canvas/configuration";
+export type { PanOnScrollMode, SelectionMode } from "./canvas/types.js";
+export type { WorkspaceCanvasConfiguration } from "./canvas/configuration.js";
 export type {
   WorkspaceExternalDropCallback,
   WorkspaceExternalDropCanDrop,
   WorkspaceExternalDropConfiguration,
-} from "./canvas/external-drop/types";
+} from "./canvas/external-drop/types.js";
 export {
   fitWorkspaceSections,
   setWorkspaceSectionAttention,
-} from "./attention/workspaceSectionAttention";
-export type { WorkspaceSectionFitOptions } from "./attention/workspaceSectionAttention";
-export { focusWorkspaceSection } from "./canvas/viewportHelpers";
-export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
-export type { WorkspaceCanvasProps } from "./canvas/WorkspaceCanvas";
+} from "./attention/workspaceSectionAttention.js";
+export type { WorkspaceSectionFitOptions } from "./attention/workspaceSectionAttention.js";
+export { focusWorkspaceSection } from "./canvas/viewportHelpers.js";
+export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas.js";
+export type { WorkspaceCanvasProps } from "./canvas/WorkspaceCanvas.js";
 export type {
   WorkspaceGraphConfiguration,
   WorkspaceGraphConnection,
@@ -146,8 +146,8 @@ export type {
   WorkspaceGraphPortType,
   WorkspaceGraphReconnect,
   WorkspaceGraphReconnectValidator,
-} from "./graph/types";
-export { registerWorkspaceCommands } from "./commands/workspaceCommandRegistry";
+} from "./graph/types.js";
+export { registerWorkspaceCommands } from "./commands/workspaceCommandRegistry.js";
 export type {
   WorkspaceCommandContext,
   WorkspaceCommandDefinition,
@@ -157,23 +157,23 @@ export type {
   WorkspaceItemCommandContext,
   WorkspacePaneCommandContext,
   WorkspaceSectionCommandContext,
-} from "./commands/workspaceCommandTypes";
-export { registerWorkspaceCreationCommands } from "./context-menu/workspaceMenuRegistry";
+} from "./commands/workspaceCommandTypes.js";
+export { registerWorkspaceCreationCommands } from "./context-menu/workspaceMenuRegistry.js";
 export type {
   WorkspaceCreationCommand,
   WorkspaceCreationContext,
-} from "./context-menu/workspaceMenuTypes";
-export { WorkspaceDropdownMenu } from "./context-menu/WorkspaceDropdownMenu";
+} from "./context-menu/workspaceMenuTypes.js";
+export { WorkspaceDropdownMenu } from "./context-menu/WorkspaceDropdownMenu.js";
 export type {
   WorkspaceDropdownMenuGroup,
   WorkspaceDropdownMenuItem,
   WorkspaceDropdownMenuProps,
-} from "./context-menu/WorkspaceDropdownMenu";
-export { ColorValueControl } from "./controls/color/ColorValueControl";
+} from "./context-menu/WorkspaceDropdownMenu.js";
+export { ColorValueControl } from "./controls/color/ColorValueControl.js";
 export type {
   ColorValueChoice,
   ColorValueControlProps,
-} from "./controls/color/ColorValueControl";
+} from "./controls/color/ColorValueControl.js";
 export type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -184,16 +184,16 @@ export type {
   TimeDisplayFont,
   TimeDisplayFormat,
   TimeValueControlProps,
-} from "./controls/date-time/dateTimeTypes";
+} from "./controls/date-time/dateTimeTypes.js";
 export {
   DateValueControl,
   TimeValueControl,
-} from "./controls/date-time/DateTimeValueControl";
-export { DropdownValueControl } from "./controls/dropdown/DropdownValueControl";
+} from "./controls/date-time/DateTimeValueControl.js";
+export { DropdownValueControl } from "./controls/dropdown/DropdownValueControl.js";
 export type {
   DropdownValueChoiceGroup,
   DropdownValueControlProps,
-} from "./controls/dropdown/DropdownValueControl";
+} from "./controls/dropdown/DropdownValueControl.js";
 export type {
   DropzoneAcceptedResult,
   DropzoneAttachment,
@@ -204,9 +204,9 @@ export type {
   DropzoneServerPickerRequest,
   DropzoneTextRejection,
   DropzoneValueControlProps,
-} from "./controls/dropzone/dropzoneTypes";
-export { DropzoneValueControl } from "./controls/dropzone/DropzoneValueControl";
-export { MetaControl } from "./controls/meta/MetaControl";
+} from "./controls/dropzone/dropzoneTypes.js";
+export { DropzoneValueControl } from "./controls/dropzone/DropzoneValueControl.js";
+export { MetaControl } from "./controls/meta/MetaControl.js";
 export type {
   ButtonMetaControl,
   ColorMetaControl,
@@ -222,49 +222,49 @@ export type {
   TextAreaMetaControl,
   TextMetaControl,
   TimeMetaControl,
-} from "./controls/meta/MetaControl";
+} from "./controls/meta/MetaControl.js";
 export {
   DEFAULT_META_CONTROL_SIZE,
   DROPZONE_META_CONTROL_SIZE,
   TEXTAREA_META_CONTROL_SIZE,
-} from "./controls/meta/metaControlTypes";
-export type { MetaControlKind } from "./controls/meta/metaControlTypes";
-export { ItemNameEditor } from "./controls/name/ItemNameEditor";
-export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
-export { PasswordValueControl } from "./controls/password/PasswordValueControl";
+} from "./controls/meta/metaControlTypes.js";
+export type { MetaControlKind } from "./controls/meta/metaControlTypes.js";
+export { ItemNameEditor } from "./controls/name/ItemNameEditor.js";
+export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor.js";
+export { PasswordValueControl } from "./controls/password/PasswordValueControl.js";
 export type {
   PasswordSavedValueAction,
   PasswordValueControlProps,
-} from "./controls/password/PasswordValueControl";
-export { RotaryValueControl } from "./controls/rotary/RotaryValueControl";
-export type { RotaryValueControlProps } from "./controls/rotary/RotaryValueControl";
-export { SliderValueControl } from "./controls/slider/SliderValueControl";
-export type { SliderValueControlProps } from "./controls/slider/SliderValueControl";
-export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
-export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
-export { TextValueEditor } from "./controls/text/TextValueEditor";
+} from "./controls/password/PasswordValueControl.js";
+export { RotaryValueControl } from "./controls/rotary/RotaryValueControl.js";
+export type { RotaryValueControlProps } from "./controls/rotary/RotaryValueControl.js";
+export { SliderValueControl } from "./controls/slider/SliderValueControl.js";
+export type { SliderValueControlProps } from "./controls/slider/SliderValueControl.js";
+export { SwitchValueControl } from "./controls/switch/SwitchValueControl.js";
+export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl.js";
+export { TextValueEditor } from "./controls/text/TextValueEditor.js";
 export type {
   TextValueEditorPresentation,
   TextValueEditorProps,
-} from "./controls/text/TextValueEditor";
+} from "./controls/text/TextValueEditor.js";
 export type {
   TextValueCompletionOption,
   TextValueCompletionProvider,
   TextValueCompletionRequest,
   TextValueCompletionResult,
-} from "./controls/text/textValueCompletion";
-export type { TextValueLanguage } from "./controls/text/editorLanguages";
-export { ItemDndContext } from "./dnd/ItemDndContext";
-export { setWorkspaceColorMode } from "./document/appearance";
+} from "./controls/text/textValueCompletion.js";
+export type { TextValueLanguage } from "./controls/text/editorLanguages.js";
+export { ItemDndContext } from "./dnd/ItemDndContext.js";
+export { setWorkspaceColorMode } from "./document/appearance.js";
 export {
   setWorkspaceCapabilities,
   useWorkspaceCapabilities,
-} from "./document/capabilities";
-export type { WorkspaceCapabilitiesState } from "./document/capabilities";
-export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
-export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot";
-export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument";
-export { insertWorkspaceSection } from "./document/insertWorkspaceSection";
+} from "./document/capabilities.js";
+export type { WorkspaceCapabilitiesState } from "./document/capabilities.js";
+export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback.js";
+export { useWorkspaceDocumentSnapshot } from "./document/useWorkspaceDocumentSnapshot.js";
+export { commitWorkspaceDocument } from "./document/loadWorkspaceDocument.js";
+export { insertWorkspaceSection } from "./document/insertWorkspaceSection.js";
 export {
   activateWorkspaceSavedView,
   createWorkspaceSavedView,
@@ -276,37 +276,37 @@ export {
   reorderWorkspaceSavedView,
   setWorkspaceSavedViewSectionVisibility,
   setWorkspaceSavedViewTabVisibility,
-} from "./saved-views/operations";
+} from "./saved-views/operations.js";
 export {
   createWorkspaceSavedViewsState,
   getOrderedWorkspaceSavedViews,
   isWorkspaceSavedViewSectionVisible,
   parseWorkspaceSavedViewsState,
   projectWorkspaceDocumentSavedViews,
-} from "./saved-views/state";
+} from "./saved-views/state.js";
 export type {
   WorkspaceSavedViewCreateInput,
   WorkspaceSavedViewsEnableInput,
   WorkspaceSavedViewsOperation,
   WorkspaceSavedViewsOperationResult,
-} from "./saved-views/types";
-export { GROUP_SECTION_KIND } from "./document/documentSelectors";
-export { setItemData } from "./document/itemData";
+} from "./saved-views/types.js";
+export { GROUP_SECTION_KIND } from "./document/documentSelectors.js";
+export { setItemData } from "./document/itemData.js";
 export {
   setItemControlConfiguration,
   setItemHelpText,
   setItemLabel,
   setItemPresentation,
   setItemValue,
-} from "./document/itemPresentationMutations";
+} from "./document/itemPresentationMutations.js";
 export {
   activateItemSelect,
   deactivateItemSelect,
   useItemSelectionMode,
-} from "./document/itemSelectionMode";
-export type { ItemSelectionModeState } from "./document/itemSelectionMode";
-export { setSectionData } from "./document/sectionData";
-export { registerSectionKinds } from "./document/sectionKindRegistry";
+} from "./document/itemSelectionMode.js";
+export type { ItemSelectionModeState } from "./document/itemSelectionMode.js";
+export { setSectionData } from "./document/sectionData.js";
+export { registerSectionKinds } from "./document/sectionKindRegistry.js";
 export type {
   MetaControlSectionPresentation,
   SectionKindDefinition,
@@ -319,21 +319,21 @@ export type {
   WorkspaceItemToolbarMode,
   WorkspaceSectionSearchableText,
   WorkspaceSectionKindIconProps,
-} from "./document/sectionKindRegistry";
-export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds";
-export { WorkspaceSectionHeaderAction } from "./section/header/WorkspaceSectionHeaderAction";
-export { WorkspaceCarousel } from "./section/WorkspaceCarousel";
+} from "./document/sectionKindRegistry.js";
+export type { WorkspaceSectionSizeConstraints } from "./section/resize/sectionSizingBounds.js";
+export { WorkspaceSectionHeaderAction } from "./section/header/WorkspaceSectionHeaderAction.js";
+export { WorkspaceCarousel } from "./section/WorkspaceCarousel.js";
 export type {
   WorkspaceCarouselItem,
   WorkspaceCarouselProps,
-} from "./section/WorkspaceCarousel";
-export type { WorkspaceSectionHeaderActionProps } from "./section/header/WorkspaceSectionHeaderAction";
-export { setWorkspaceSectionSize } from "./section/sectionSizes";
-export { useWorkspaceAppearance } from "./document/stores";
+} from "./section/WorkspaceCarousel.js";
+export type { WorkspaceSectionHeaderActionProps } from "./section/header/WorkspaceSectionHeaderAction.js";
+export { setWorkspaceSectionSize } from "./section/sectionSizes.js";
+export { useWorkspaceAppearance } from "./document/stores.js";
 export type {
   WorkspaceAppearanceState,
   WorkspaceColorMode,
-} from "./document/stores";
+} from "./document/stores.js";
 export type {
   Position,
   SectionSize,
@@ -371,7 +371,7 @@ export type {
   WorkspaceTextAreaItemControlConfiguration,
   WorkspaceTextItemControlConfiguration,
   WorkspaceTimeItemControlConfiguration,
-} from "./document/types";
+} from "./document/types.js";
 export {
   MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
@@ -379,94 +379,94 @@ export {
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "./interaction";
+} from "./interaction.js";
 export {
   deleteLastWorkspaceItem,
   deleteSelectedWorkspaceItems,
   deleteWorkspaceItems,
   insertWorkspaceItem,
-} from "./items/itemAuthoringActions";
+} from "./items/itemAuthoringActions.js";
 export type {
   WorkspaceItemDiagnostic,
   WorkspaceItemDiagnosticRegistry,
   WorkspaceItemDiagnosticSeverity,
-} from "./items/itemDiagnostics";
-export { registerItemHandlers } from "./items/itemHandlerRegistry";
+} from "./items/itemDiagnostics.js";
+export { registerItemHandlers } from "./items/itemHandlerRegistry.js";
 export type {
   WorkspaceDropzoneItemHandlerRegistration,
   WorkspaceItemHandlerRegistration,
   WorkspacePasswordItemHandlerRegistration,
-} from "./items/itemHandlerRegistry";
-export type { ItemRowRenderContext } from "./items/ItemListContext";
-export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
-export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
-export { WorkspaceItemList } from "./items/WorkspaceItemList";
-export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
-export { WorkspaceNavigator } from "./navigator/WorkspaceNavigator";
+} from "./items/itemHandlerRegistry.js";
+export type { ItemRowRenderContext } from "./items/ItemListContext.js";
+export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel.js";
+export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel.js";
+export { WorkspaceItemList } from "./items/WorkspaceItemList.js";
+export type { WorkspaceItemListProps } from "./items/WorkspaceItemList.js";
+export { WorkspaceNavigator } from "./navigator/WorkspaceNavigator.js";
 export {
   closeWorkspaceNavigator,
   openWorkspaceNavigator,
-} from "./navigator/workspaceNavigatorState";
+} from "./navigator/workspaceNavigatorState.js";
 export type {
   WorkspaceNavigatorConfiguration,
   WorkspaceNavigatorMode,
   WorkspaceNavigatorProps,
-} from "./navigator/workspaceNavigatorTypes";
-export { WorkspaceParameterConfigurationView } from "./shell/WorkspaceParameterConfigurationView";
+} from "./navigator/workspaceNavigatorTypes.js";
+export { WorkspaceParameterConfigurationView } from "./shell/WorkspaceParameterConfigurationView.js";
 export {
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
   registerWorkspaceKeyBindings,
-} from "./keybindings/workspaceKeyBindingRegistry";
+} from "./keybindings/workspaceKeyBindingRegistry.js";
 export type {
   WorkspaceKeyBinding,
   WorkspaceKeyBindingConflict,
   WorkspaceKeyBindingDescriptor,
-} from "./keybindings/workspaceKeyBindingTypes";
-export { setGroupOverflowMode } from "./section/groupOverflowAction";
-export { WorkspaceNormalizedStrokeSurface } from "./section/WorkspaceNormalizedStrokeSurface";
+} from "./keybindings/workspaceKeyBindingTypes.js";
+export { setGroupOverflowMode } from "./section/groupOverflowAction.js";
+export { WorkspaceNormalizedStrokeSurface } from "./section/WorkspaceNormalizedStrokeSurface.js";
 export type {
   WorkspaceNormalizedPoint,
   WorkspaceNormalizedStroke,
   WorkspaceNormalizedStrokeSurfaceProps,
-} from "./section/WorkspaceNormalizedStrokeSurface";
-export { DEFAULT_SECTION_TAG_COLOR_PALETTE } from "./section/sectionTagColors";
+} from "./section/WorkspaceNormalizedStrokeSurface.js";
+export { DEFAULT_SECTION_TAG_COLOR_PALETTE } from "./section/sectionTagColors.js";
 export type {
   WorkspaceSectionTagColorChoice,
   WorkspaceSectionTagColorPalette,
-} from "./section/sectionTagColors";
-export { setSectionTagColor } from "./section/tagColorAction";
-export { ungroupSections } from "./section/ungroupAction";
-export { WorkspaceShell } from "./shell/WorkspaceShell";
+} from "./section/sectionTagColors.js";
+export { setSectionTagColor } from "./section/tagColorAction.js";
+export { ungroupSections } from "./section/ungroupAction.js";
+export { WorkspaceShell } from "./shell/WorkspaceShell.js";
 export {
   WorkspaceParameterConfigurationIcon,
   WorkspaceSavedViewsIcon,
   WorkspaceSectionSettingsIcon,
-} from "./shell/WorkspaceShellIcons";
-export { WorkspaceSavedViewsPane } from "./shell/WorkspaceSavedViewsPane";
+} from "./shell/WorkspaceShellIcons.js";
+export { WorkspaceSavedViewsPane } from "./shell/WorkspaceSavedViewsPane.js";
 export {
   WorkspaceQuickStart,
   WorkspaceQuickStartIcon,
-} from "./shell/WorkspaceQuickStart";
+} from "./shell/WorkspaceQuickStart.js";
 export type {
   WorkspaceQuickStartProps,
   WorkspaceQuickStartStep,
-} from "./shell/WorkspaceQuickStart";
-export type { WorkspaceSavedViewsPaneProps } from "./shell/WorkspaceSavedViewsPane";
+} from "./shell/WorkspaceQuickStart.js";
+export type { WorkspaceSavedViewsPaneProps } from "./shell/WorkspaceSavedViewsPane.js";
 export {
   WorkspaceInspectorSettingsGroup,
   WorkspaceSectionEditor,
-} from "./shell/WorkspaceInspector";
+} from "./shell/WorkspaceInspector.js";
 export type {
   WorkspaceInspectorSettingsGroupProps,
   WorkspaceSectionEditorProps,
-} from "./shell/WorkspaceInspector";
+} from "./shell/WorkspaceInspector.js";
 export {
   WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
   WORKSPACE_SAVED_VIEWS_TAB_ID,
   createWorkspaceShellViewState,
-} from "./shell/workspaceShellLayout";
+} from "./shell/workspaceShellLayout.js";
 export type {
   WorkspaceShellOutlineViewState,
   WorkspaceShellPane,
@@ -476,31 +476,31 @@ export type {
   WorkspaceShellTabDefinition,
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
-} from "./shell/workspaceShellTypes";
+} from "./shell/workspaceShellTypes.js";
 export {
   loadWorkspaceSavedViews,
   loadWorkspaceShellViewState,
   saveWorkspaceSavedViews,
   saveWorkspaceShellViewState,
-} from "./shell/workspaceBrowserStorage";
+} from "./shell/workspaceBrowserStorage.js";
 export type {
   LoadWorkspaceShellViewStateOptions,
   WorkspaceBrowserStorage,
   WorkspaceBrowserStorageOptions,
-} from "./shell/workspaceBrowserStorage";
-export type { WorkspaceShellWindowingConfiguration } from "./windowing/workspaceWindowingContext";
-export { WorkspaceWindowManager } from "./windowing/WorkspaceWindowManager";
+} from "./shell/workspaceBrowserStorage.js";
+export type { WorkspaceShellWindowingConfiguration } from "./windowing/workspaceWindowingContext.js";
+export { WorkspaceWindowManager } from "./windowing/WorkspaceWindowManager.js";
 export type {
   WorkspaceWindowManagerProps,
   WorkspaceWindowRenderer,
   WorkspaceWindowRenderers,
-} from "./windowing/WorkspaceWindowManager";
-export { WorkspaceWindowSurface } from "./windowing/WorkspaceWindowSurface";
+} from "./windowing/WorkspaceWindowManager.js";
+export { WorkspaceWindowSurface } from "./windowing/WorkspaceWindowSurface.js";
 export type {
   WorkspaceWindowSurfaceAction,
   WorkspaceWindowSurfaceActionTone,
   WorkspaceWindowSurfaceProps,
-} from "./windowing/WorkspaceWindowSurface";
+} from "./windowing/WorkspaceWindowSurface.js";
 export {
   buildWorkspaceFloatingSnapBounds,
   buildWorkspaceFloatingSnapResizeBounds,
@@ -511,14 +511,14 @@ export {
   normalizeWorkspaceWindowBounds,
   resolveWorkspaceFloatingSnapPresetFromPointer,
   resolveWorkspaceWindowWorkArea,
-} from "./windowing/windowingSnapLayout";
+} from "./windowing/windowingSnapLayout.js";
 export type {
   ResolveWorkspaceFloatingSnapPresetFromPointerInput,
   WorkspaceFloatingSnapResizeSeam,
   WorkspaceNormalizedWindowBounds,
   WorkspaceSnappedWindow,
   WorkspaceWindowWorkArea,
-} from "./windowing/windowingSnapLayout";
+} from "./windowing/windowingSnapLayout.js";
 export {
   closeWorkspaceWindow,
   dockWorkspaceWindow,
@@ -537,21 +537,21 @@ export {
   showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
   undockWorkspaceWindow,
-} from "./windowing/windowingState";
+} from "./windowing/windowingState.js";
 export type {
   OpenWorkspaceFloatingWindowInput,
   ShowWorkspaceSectionInFloatingWindowInput,
   WorkspaceWindowBoundsUpdate,
   WorkspaceWindowDockLayoutUpdate,
   WorkspaceWindowPosition,
-} from "./windowing/windowingState";
+} from "./windowing/windowingState.js";
 export {
   createWorkspaceFloatingWindow,
   createWorkspaceWindowBounds,
   createWorkspaceWindowingState,
   createWorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowing/windowingTypes";
+} from "./windowing/windowingTypes.js";
 export type {
   WorkspaceFloatingSnapPreset,
   WorkspaceFloatingWindow,
@@ -568,34 +568,34 @@ export type {
   WorkspaceWindowPlacement,
   WorkspaceWindowRestorePlacement,
   WorkspaceWindowViewport,
-} from "./windowing/windowingTypes";
+} from "./windowing/windowingTypes.js";
 export {
   canSnapshotWorkspaceWindowSpace,
   createWorkspaceWindowSpace,
   restoreWorkspaceWindowSpace,
   snapshotWorkspaceWindowSpace,
-} from "./windowing/windowSpaces";
+} from "./windowing/windowSpaces.js";
 export type {
   WorkspaceWindowSpace,
   WorkspaceWindowSpaceInput,
   WorkspaceWindowSpaceMetadata,
   WorkspaceWindowSpaceRestoreResult,
   WorkspaceWindowSpaceWindow,
-} from "./windowing/windowSpaces";
-export { WorkspaceWindowSpacesPane } from "./windowing/WorkspaceWindowSpacesPane";
+} from "./windowing/windowSpaces.js";
+export { WorkspaceWindowSpacesPane } from "./windowing/WorkspaceWindowSpacesPane.js";
 export type {
   WorkspaceWindowSpaceErrors,
   WorkspaceWindowSpacePending,
   WorkspaceWindowSpacesPaneProps,
-} from "./windowing/WorkspaceWindowSpacesPane";
-export { StandaloneWorkspaceWindowSpaceSurface } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
-export type { StandaloneWorkspaceWindowSpaceSurfaceProps } from "./windowing/StandaloneWorkspaceWindowSpaceSurface";
-export { StandaloneWorkspaceSectionSurface } from "./standalone/StandaloneWorkspaceSectionSurface";
-export type { StandaloneWorkspaceSectionSurfaceProps } from "./standalone/StandaloneWorkspaceSectionSurface";
-export { WorkspaceControls } from "./toolbar/WorkspaceControls";
-export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry";
+} from "./windowing/WorkspaceWindowSpacesPane.js";
+export { StandaloneWorkspaceWindowSpaceSurface } from "./windowing/StandaloneWorkspaceWindowSpaceSurface.js";
+export type { StandaloneWorkspaceWindowSpaceSurfaceProps } from "./windowing/StandaloneWorkspaceWindowSpaceSurface.js";
+export { StandaloneWorkspaceSectionSurface } from "./standalone/StandaloneWorkspaceSectionSurface.js";
+export type { StandaloneWorkspaceSectionSurfaceProps } from "./standalone/StandaloneWorkspaceSectionSurface.js";
+export { WorkspaceControls } from "./toolbar/WorkspaceControls.js";
+export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry.js";
 export type {
   WorkspaceToolbarContribution,
   WorkspaceToolbarPlacement,
-} from "./toolbar/workspaceToolbarTypes";
-export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip";
+} from "./toolbar/workspaceToolbarTypes.js";
+export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip.js";

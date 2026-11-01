@@ -1,5 +1,5 @@
 import type { Rectangle } from "@dnd-kit/geometry";
-import type { ClientRect } from "./types";
+import type { ClientRect } from "./types.js";
 
 type RectLike = Partial<{
   top: number;

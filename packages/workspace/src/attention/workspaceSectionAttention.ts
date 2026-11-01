@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { createStore } from "zustand/vanilla";
-import { getSectionRect } from "../canvas/graph";
+import { getSectionRect } from "../canvas/graph.js";
 import {
   fitWorkspaceViewportToBounds,
   type WorkspaceViewportBoundsFitOptions,
-} from "../canvas/viewportHelpers";
-import { getReactFlowStore } from "../canvas/store";
+} from "../canvas/viewportHelpers.js";
+import { getReactFlowStore } from "../canvas/store.js";
 import {
   getWorkspaceXyflowRuntime,
   subscribeWorkspaceXyflowRuntime,
-} from "../canvas/xyflow/workspaceXyflowRuntime";
-import { isWorkspaceSectionVisible } from "../document/savedViewDisplay";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import { getSectionRefsStore } from "../section/sectionRefs";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+} from "../canvas/xyflow/workspaceXyflowRuntime.js";
+import { isWorkspaceSectionVisible } from "../document/savedViewDisplay.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import { getSectionRefsStore } from "../section/sectionRefs.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
 import {
   assertWorkspaceHostActive,
   registerWorkspaceHostCleanup,
-} from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { Rect } from "../canvas/types";
+} from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { Rect } from "../canvas/types.js";
 
 export const WORKSPACE_SECTION_ATTENTION_LINGER_DURATION = 650;
 export const WORKSPACE_SECTION_FIT_DURATION = 500;

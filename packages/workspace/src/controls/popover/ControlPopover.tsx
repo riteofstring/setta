@@ -1,10 +1,10 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { getReactFlowStore } from "../../canvas/store";
-import type { WorkspaceTextDirection } from "../../styles/textDirection";
-import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
-import { useWorkspaceHost } from "../../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../../workspaceHostInternals";
+import { getReactFlowStore } from "../../canvas/store.js";
+import type { WorkspaceTextDirection } from "../../styles/textDirection.js";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../../workspaceHostInternals.js";
 
 const ARROW_CLASS_NAME =
   "[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]";

@@ -6,7 +6,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,22 +17,22 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
-import type { WorkspaceSectionInput } from "../document/types";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
 import {
   closeWorkspaceNavigator,
   getWorkspaceNavigatorStore,
   registerWorkspaceNavigatorSurface,
-} from "../navigator/workspaceNavigatorState";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+} from "../navigator/workspaceNavigatorState.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
 import {
   getResolvedWorkspaceKeyBindings,
   getWorkspaceKeyBindingChordLabel,
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
   registerWorkspaceKeyBindings,
-} from "./workspaceKeyBindingRegistry";
-import { runWorkspaceKeyBindings } from "./workspaceKeyBindingDispatch";
+} from "./workspaceKeyBindingRegistry.js";
+import { runWorkspaceKeyBindings } from "./workspaceKeyBindingDispatch.js";
 
 const creationSection: WorkspaceSectionInput = {
   id: "created",
@@ -62,8 +62,8 @@ function registerCreationCommand(chord: string | null) {
 }
 
 let mockIsMacOs = false;
-vi.mock("../canvas/utils", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../canvas/utils")>();
+vi.mock("../canvas/utils.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../canvas/utils.js")>();
   return { ...original, isMacOs: () => mockIsMacOs };
 });
 

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceItem, WorkspaceSection } from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { filterWorkspaceSectionItems } from "./itemFiltering";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceItem, WorkspaceSection } from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { filterWorkspaceSectionItems } from "./itemFiltering.js";
 
 let host: WorkspaceHost;
 

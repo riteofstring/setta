@@ -1,12 +1,15 @@
 import _ from "lodash";
 import { createStore } from "zustand/vanilla";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { Disabled } from "./adapter";
-import { manualDndChildrenReset } from "./dndChildren";
-import type { BehaviorDropType } from "./dropTypes";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { Disabled } from "./adapter/index.js";
+import { manualDndChildrenReset } from "./dndChildren.js";
+import type { BehaviorDropType } from "./dropTypes.js";
 
 type DragRect = {
   top: number;

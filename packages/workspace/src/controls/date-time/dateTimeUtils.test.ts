@@ -9,7 +9,7 @@ import {
   normalizeDateToIso,
   normalizeTimeTo24Hour,
   splitIsoDateAndTimeParts,
-} from "./dateTimeUtils";
+} from "./dateTimeUtils.js";
 
 describe("dateTimeUtils", () => {
   it("normalizes 12-hour time input to 24-hour storage format", () => {

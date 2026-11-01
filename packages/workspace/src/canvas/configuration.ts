@@ -1,6 +1,6 @@
-import type { WorkspaceGraphConfiguration } from "../graph/types";
-import { assertWorkspaceExternalDropConfiguration } from "./external-drop/handlers";
-import type { WorkspaceExternalDropConfiguration } from "./external-drop/types";
+import type { WorkspaceGraphConfiguration } from "../graph/types.js";
+import { assertWorkspaceExternalDropConfiguration } from "./external-drop/handlers.js";
+import type { WorkspaceExternalDropConfiguration } from "./external-drop/types.js";
 
 export type WorkspaceCanvasConfiguration = Readonly<{
   externalDrop?: WorkspaceExternalDropConfiguration;

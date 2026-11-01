@@ -6,16 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WorkspaceWindowSpacesPane,
   type WorkspaceWindowSpacesPaneProps,
-} from "./WorkspaceWindowSpacesPane";
+} from "./WorkspaceWindowSpacesPane.js";
 import {
   createWorkspaceWindowingState,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 import {
   createWorkspaceWindowSpace,
   type WorkspaceWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,30 +20,30 @@ afterEachWorkspaceTestHost(() => {
 import { act, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
-import { getActiveSectionIds } from "../document/activeSections";
-import { GROUP_SECTION_KIND } from "../document/documentSelectors";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
+import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { GROUP_SECTION_KIND } from "../document/documentSelectors.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
 import {
   registerSectionKinds,
   type WorkspaceSectionKindIconProps,
-} from "../document/sectionKindRegistry";
-import { deleteSection, setSectionName } from "../document/sectionMutations";
+} from "../document/sectionKindRegistry.js";
+import { deleteSection, setSectionName } from "../document/sectionMutations.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { Node, WorkspaceSection } from "../document/types";
-import { WorkspaceOutline } from "./WorkspaceOutline";
-import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes";
+} from "../document/stores.js";
+import type { Node, WorkspaceSection } from "../document/types.js";
+import { WorkspaceOutline } from "./WorkspaceOutline.js";
+import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes.js";
 
 const { focusWorkspaceSection } = vi.hoisted(() => ({
   focusWorkspaceSection: vi.fn(),
 }));
 
-vi.mock("../canvas/viewportHelpers", () => ({ focusWorkspaceSection }));
+vi.mock("../canvas/viewportHelpers.js", () => ({ focusWorkspaceSection }));
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

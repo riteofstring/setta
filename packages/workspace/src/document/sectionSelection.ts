@@ -1,5 +1,5 @@
-import { getSectionChildren } from "./documentSelectors";
-import type { WorkspaceDocumentState } from "./stores";
+import { getSectionChildren } from "./documentSelectors.js";
+import type { WorkspaceDocumentState } from "./stores.js";
 
 type RootSectionSelection = {
   rootIds: Array<string>;

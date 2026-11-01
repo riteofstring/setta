@@ -6,37 +6,37 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import type { ItemListKey } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
-import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
-import { useWorkspaceDocument } from "../document/stores";
+import type { ItemListKey } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { getSectionItemTreeOrThrow } from "../document/documentSelectors.js";
+import { buildItemTreeView, getItemOrThrow } from "../document/itemTree.js";
+import { useWorkspaceDocument } from "../document/stores.js";
 import type {
   WorkspaceItem,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { NATIVE_VERTICAL_WHEEL_CLASS_NAME } from "../interaction";
-import { useIsScrollable } from "../useIsScrollable";
+} from "../document/types.js";
+import { NATIVE_VERTICAL_WHEEL_CLASS_NAME } from "../interaction.js";
+import { useIsScrollable } from "../useIsScrollable.js";
 import {
   ItemListProvider,
   useItemDndChildrenForParent,
   type ItemRowRenderContext,
-} from "./ItemListContext";
-import { ItemRow } from "./ItemRow";
-import { WorkspaceItemDiagnosticAnnouncer } from "./WorkspaceItemDiagnostics";
-import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
+} from "./ItemListContext.js";
+import { ItemRow } from "./ItemRow.js";
+import { WorkspaceItemDiagnosticAnnouncer } from "./WorkspaceItemDiagnostics.js";
+import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext.js";
 import {
   normalizeWorkspaceItemDiagnosticRegistry,
   type WorkspaceItemDiagnosticRegistry,
-} from "./itemDiagnostics";
+} from "./itemDiagnostics.js";
 import {
   isItemListViewRegistered,
   registerItemListView,
   unregisterItemListView,
   updateItemListView,
-} from "./itemListRegistry";
-import { useItemColumnWidth } from "./useItemColumnWidth";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./itemListRegistry.js";
+import { useItemColumnWidth } from "./useItemColumnWidth.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 export type WorkspaceItemListProps = {
   sectionId: string;

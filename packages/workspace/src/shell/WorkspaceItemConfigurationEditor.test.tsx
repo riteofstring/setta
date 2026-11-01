@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -28,18 +28,18 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { useWorkspaceDocument } from "../document/stores";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { useWorkspaceDocument } from "../document/stores.js";
 import type {
   WorkspaceDocument,
   WorkspaceItemControlPresentation,
-} from "../document/types";
-import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
+} from "../document/types.js";
+import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor.js";
 import {
   createWorkspaceInspectorItemControl,
   WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS,
-} from "./workspaceInspectorItemDefaults";
+} from "./workspaceInspectorItemDefaults.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

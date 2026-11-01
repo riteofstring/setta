@@ -7,15 +7,15 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 import type {
   Node as WorkspaceNode,
   WorkspaceSection,
-} from "../../document/types";
-import { getCanvasGesturesStore } from "../gestureState";
-import { WorkspaceXyflowAdapter } from "./WorkspaceXyflowAdapter";
-import type { WorkspaceXyflowSectionNode } from "./types";
-import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime";
+} from "../../document/types.js";
+import { getCanvasGesturesStore } from "../gestureState.js";
+import { WorkspaceXyflowAdapter } from "./WorkspaceXyflowAdapter.js";
+import type { WorkspaceXyflowSectionNode } from "./types.js";
+import { getWorkspaceXyflowRuntime } from "./workspaceXyflowRuntime.js";
 
 const capturedReactFlow = vi.hoisted(() => ({
   nodesInitialized: false,
@@ -48,12 +48,12 @@ vi.mock("@xyflow/react", () => ({
   },
 }));
 
-vi.mock("./WorkspaceXyflowNodesSelection", () => ({
+vi.mock("./WorkspaceXyflowNodesSelection.js", () => ({
   WorkspaceXyflowNodesSelectionDragHandleWrapper: () => null,
   WorkspaceXyflowNodesSelectionWrapper: () => null,
 }));
 
-vi.mock("../../section/container/SectionContainer", () => ({
+vi.mock("../../section/container/SectionContainer.js", () => ({
   SectionContainer: ({
     isTopLevel,
     sectionId,

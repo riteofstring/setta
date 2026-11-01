@@ -1,10 +1,10 @@
-import { getIsEditableTarget } from "./editableTarget";
-import { matchesWorkspaceChord } from "./workspaceChords";
+import { getIsEditableTarget } from "./editableTarget.js";
+import { matchesWorkspaceChord } from "./workspaceChords.js";
 import {
   getResolvedWorkspaceKeyBindings,
   type ResolvedWorkspaceKeyBinding,
-} from "./workspaceKeyBindingRegistry";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./workspaceKeyBindingRegistry.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function runMatchedBinding(
   event: KeyboardEvent,

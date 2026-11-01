@@ -6,9 +6,9 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../../test/workspaceTestHost";
-import type { Node, WorkspaceSection } from "../../document/types";
-import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection";
+} from "../../../test/workspaceTestHost.js";
+import type { Node, WorkspaceSection } from "../../document/types.js";
+import { WorkspaceXyflowSelection } from "./WorkspaceXyflowSelection.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

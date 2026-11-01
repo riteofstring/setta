@@ -1,28 +1,28 @@
 import { type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { FiMaximize2, FiMinimize2, FiMinus, FiX } from "react-icons/fi";
 import { MdFlipToFront, MdVerticalAlignBottom } from "react-icons/md";
-import { WorkspaceSectionSurface } from "../section/WorkspaceSectionSurface";
+import { WorkspaceSectionSurface } from "../section/WorkspaceSectionSurface.js";
 import {
   WORKSPACE_WINDOW_FREE_RESIZE_DIRECTIONS,
   type WorkspaceFreeResizeDirection,
   type WorkspaceWindowSnapPreview,
-} from "./workspaceWindowManagerInteractions";
+} from "./workspaceWindowManagerInteractions.js";
 import {
   WorkspaceWindowActionButton,
   WorkspaceWindowSurface,
   type WorkspaceWindowSurfaceAction,
-} from "./WorkspaceWindowSurface";
+} from "./WorkspaceWindowSurface.js";
 import {
   classifyWorkspaceFloatingSnapPreset,
   resolveWorkspaceWindowWorkArea,
   type WorkspaceFloatingSnapResizeSeam,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import {
   type WorkspaceFloatingSnapPreset,
   type WorkspaceFloatingWindow,
   type WorkspaceWindowBounds,
   type WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const SNAP_RESIZE_HIT_SIZE_PX = 8;
 

@@ -1,10 +1,10 @@
 import { FiX } from "react-icons/fi";
-import { useActiveSections } from "../document/stores";
-import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry";
-import { FOCUS_ITEM_FILTER_BINDING_ID } from "./itemFilterFocusRegistry";
-import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../workspaceHostInternals";
+import { useActiveSections } from "../document/stores.js";
+import { getWorkspaceKeyBindingChordLabel } from "../keybindings/workspaceKeyBindingRegistry.js";
+import { FOCUS_ITEM_FILTER_BINDING_ID } from "./itemFilterFocusRegistry.js";
+import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals.js";
 
 function formatCount(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;

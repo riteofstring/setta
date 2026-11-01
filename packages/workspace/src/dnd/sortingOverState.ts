@@ -1,5 +1,5 @@
-import { assertWorkspaceHostActive } from "../workspaceHostInternals";
-import type { WorkspaceHost } from "../workspaceHost";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 type SortingOverState = {
   overId: string | null;

@@ -1,5 +1,5 @@
-import { assertRecord, assertKnownFields } from "../validation";
-import type { WorkspaceItem } from "../document/types";
+import { assertRecord, assertKnownFields } from "../validation.js";
+import type { WorkspaceItem } from "../document/types.js";
 
 export type WorkspaceItemDiagnosticSeverity = "error" | "warning" | "info";
 

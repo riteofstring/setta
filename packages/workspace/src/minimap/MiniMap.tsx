@@ -8,27 +8,31 @@ import {
   type RefObject,
 } from "react";
 import { shallow } from "zustand/shallow";
-import Panel from "../canvas/Panel";
-import { getNodesBounds, getPaneRect } from "../canvas/graph";
-import { getReactFlowStore, useReactFlow } from "../canvas/store";
-import type { CoordinateExtent, ReactFlowState, Rect } from "../canvas/types";
-import { getBoundsOfRects } from "../canvas/utils";
-import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime";
-import type { WorkspaceXyflowViewport } from "../canvas/xyflow/types";
+import Panel from "../canvas/Panel.js";
+import { getNodesBounds, getPaneRect } from "../canvas/graph.js";
+import { getReactFlowStore, useReactFlow } from "../canvas/store.js";
+import type {
+  CoordinateExtent,
+  ReactFlowState,
+  Rect,
+} from "../canvas/types.js";
+import { getBoundsOfRects } from "../canvas/utils.js";
+import { getWorkspaceXyflowRuntime } from "../canvas/xyflow/workspaceXyflowRuntime.js";
+import type { WorkspaceXyflowViewport } from "../canvas/xyflow/types.js";
 import {
   getActiveSectionsStore,
   useNodeInternals,
   type NodeInternalsState,
-} from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import type { WorkspaceHost } from "../workspaceHost";
-import type { Node, Position } from "../document/types";
+} from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import type { Node, Position } from "../document/types.js";
 import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
-} from "./MiniMapNodes";
-import type { MiniMapNodesType, MiniMapProps } from "./types";
+} from "./MiniMapNodes.js";
+import type { MiniMapNodesType, MiniMapProps } from "./types.js";
 
 const defaultWidth = 200;
 const defaultHeight = 150;

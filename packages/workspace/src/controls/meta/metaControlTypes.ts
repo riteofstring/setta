@@ -1,4 +1,4 @@
-import type { SectionSize } from "../../document/types";
+import type { SectionSize } from "../../document/types.js";
 
 export type MetaControlKind =
   | "button"

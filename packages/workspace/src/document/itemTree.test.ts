@@ -7,8 +7,8 @@ import {
   getSharedItemParentId,
   isDescendantOfItemSelection,
   resolveFullIndexForVisibleInsertion,
-} from "./itemTree";
-import type { WorkspaceSectionItemTree } from "./types";
+} from "./itemTree.js";
+import type { WorkspaceSectionItemTree } from "./types.js";
 
 function makeItemTree(
   childrenById: Record<string, Array<string>>,

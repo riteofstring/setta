@@ -1,9 +1,9 @@
 import { memo } from "react";
-import { useWorkspaceAppearance } from "../document/stores";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { getWorkspaceHostDomId } from "../workspaceHostInternals";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { useWorkspaceAppearance } from "../document/stores.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { getWorkspaceHostDomId } from "../workspaceHostInternals.js";
+import { useWorkspaceOptions } from "./options.js";
+import { useReactFlow } from "./store.js";
 
 const PATTERN_OFFSET_DIVISOR = 2;
 

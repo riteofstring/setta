@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,8 +16,8 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { registerSectionKinds } from "./sectionKindRegistry";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   deleteSection,
   deleteSections,
@@ -28,13 +28,13 @@ import {
   toggleGroupOrientation,
   toggleMinimized,
   togglePositionLock,
-} from "./sectionMutations";
+} from "./sectionMutations.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
-import type { WorkspaceSection } from "./types";
+} from "./stores.js";
+import type { WorkspaceSection } from "./types.js";
 
 function makeSection(
   id: string,

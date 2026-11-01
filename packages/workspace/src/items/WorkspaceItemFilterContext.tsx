@@ -9,14 +9,14 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { getSectionOrThrow } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
-import { filterWorkspaceSectionItems } from "./itemFiltering";
+import { getSectionOrThrow } from "../document/documentSelectors.js";
+import { useWorkspaceDocument } from "../document/stores.js";
+import { filterWorkspaceSectionItems } from "./itemFiltering.js";
 import {
   registerItemFilterFocusTarget,
   unregisterItemFilterFocusTarget,
-} from "./itemFilterFocusRegistry";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./itemFilterFocusRegistry.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 type WorkspaceItemFilterContextValue = {
   clearAndFocus: () => void;

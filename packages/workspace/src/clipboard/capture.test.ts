@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { captureWorkspaceClipboardSelection } from "./capture";
-import type { WorkspaceClipboardCaptureInput } from "./types";
-import type { WorkspaceSection } from "../document/types";
+import { captureWorkspaceClipboardSelection } from "./capture.js";
+import type { WorkspaceClipboardCaptureInput } from "./types.js";
+import type { WorkspaceSection } from "../document/types.js";
 
 function createSection(
   id: string,

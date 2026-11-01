@@ -1,18 +1,18 @@
 import { HiOutlineDocumentText, HiOutlinePencil } from "react-icons/hi";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import type { WorkspaceSection } from "../document/types";
-import { useWorkspaceHost } from "../workspaceHostContext";
-import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
+import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip.js";
 import {
   getWorkspaceTextSectionData,
   setWorkspaceTextSectionData,
-} from "./textSectionActions";
+} from "./textSectionActions.js";
 import {
   parseWorkspaceTextSectionData,
   type WorkspaceTextSectionChoices,
   type WorkspaceTextSectionDisplayMode,
   type WorkspaceTextSectionFormat,
-} from "./textSectionData";
+} from "./textSectionData.js";
 
 const FORMAT_LABELS: Record<WorkspaceTextSectionFormat, string> = {
   plaintext: "text",

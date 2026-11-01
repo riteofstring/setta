@@ -1,4 +1,4 @@
-import type { Dimensions, Rect, ViewportInsets } from "./types";
+import type { Dimensions, Rect, ViewportInsets } from "./types.js";
 
 export const EMPTY_VIEWPORT_INSETS: ViewportInsets = {
   bottom: 0,

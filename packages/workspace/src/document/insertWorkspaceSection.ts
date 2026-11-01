@@ -1,15 +1,15 @@
-import { getWorkspaceCapabilitiesStore } from "./capabilities";
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { resolveAndValidateWorkspaceSections } from "./loadWorkspaceDocument";
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { getWorkspaceCapabilitiesStore } from "./capabilities.js";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
+import { resolveAndValidateWorkspaceSections } from "./loadWorkspaceDocument.js";
+import { createNodesMapFromDocumentChildren } from "./nodeProjection.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
-} from "./stores";
-import type { Position, WorkspaceSectionInput } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./stores.js";
+import type { Position, WorkspaceSectionInput } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function assertFinitePosition(position: Position): void {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {

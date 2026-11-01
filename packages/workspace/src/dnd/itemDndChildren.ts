@@ -1,15 +1,18 @@
 import { createStore } from "zustand/vanilla";
-import { insertIntoArray } from "../document/arrayUtils";
-import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
-import { createHostStoreGetter } from "../state/hostStore";
-import type { WorkspaceHost } from "../workspaceHost";
+import { insertIntoArray } from "../document/arrayUtils.js";
+import { withResetFn } from "../state/storeUtils.js";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../workspaceHostContext.js";
+import { createHostStoreGetter } from "../state/hostStore.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 import {
   getItemDndId,
   getTempItemDndId,
   isTempItem,
   type ItemListKey,
-} from "./itemDndState";
+} from "./itemDndState.js";
 
 type ItemDndChildrenState = {
   x: Record<string, Array<string>>;

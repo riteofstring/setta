@@ -1,19 +1,19 @@
 import { useMemo, type PointerEvent } from "react";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "../interaction";
-import type { WorkspaceGraphPort } from "./types";
+} from "../interaction.js";
+import type { WorkspaceGraphPort } from "./types.js";
 import {
   evaluateWorkspaceGraphConnection,
   getWorkspaceGraphFamilyStyle,
   getWorkspaceGraphPortPosition,
   getWorkspaceGraphPortSide,
-} from "./validation";
-import { useWorkspaceGraph } from "./WorkspaceGraphContext";
+} from "./validation.js";
+import { useWorkspaceGraph } from "./WorkspaceGraphContext.js";
 
 type WorkspaceGraphPortConnectionState = "idle" | "invalid" | "valid";
 

@@ -1,5 +1,5 @@
 import { MdOutlineWindow } from "react-icons/md";
-import type { WorkspaceFloatingWindow } from "./windowingTypes";
+import type { WorkspaceFloatingWindow } from "./windowingTypes.js";
 
 type WorkspaceBottomDockManagerProps = {
   readonly layoutEditable: boolean;

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WorkspaceWindowSurface,
   type WorkspaceWindowSurfaceProps,
-} from "./WorkspaceWindowSurface";
+} from "./WorkspaceWindowSurface.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

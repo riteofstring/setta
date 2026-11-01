@@ -1,9 +1,9 @@
 import { matchSorter } from "match-sorter";
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { TbSortAZ } from "react-icons/tb";
-import { getReactFlowStore } from "../canvas/store";
-import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { getReactFlowStore } from "../canvas/store.js";
+import { insertWorkspaceSection } from "../document/insertWorkspaceSection.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getFilterEditingKey,
   getFilterInputState,
@@ -11,7 +11,7 @@ import {
   isMenuNavigationKey,
   shouldDispatchFilterInputEvent,
   shouldEditableTargetHandleMenuKey,
-} from "./paneMenuKeyboard";
+} from "./paneMenuKeyboard.js";
 import {
   WorkspaceMenuCore,
   WorkspaceMenuEntryDescriptions,
@@ -20,13 +20,13 @@ import {
   WorkspaceMenuLabel,
   WorkspaceMenuSeparator,
   type WorkspaceMenuEntry,
-} from "./WorkspaceMenuCore";
-import type { WorkspaceMenuInvocation } from "./workspaceMenuState";
-import { closeWorkspaceMenu } from "./workspaceMenuState";
+} from "./WorkspaceMenuCore.js";
+import type { WorkspaceMenuInvocation } from "./workspaceMenuState.js";
+import { closeWorkspaceMenu } from "./workspaceMenuState.js";
 import type {
   WorkspaceCreationCommand,
   WorkspaceCreationContext,
-} from "./workspaceMenuTypes";
+} from "./workspaceMenuTypes.js";
 
 type PaneInvocation = Extract<WorkspaceMenuInvocation, { kind: "pane" }>;
 

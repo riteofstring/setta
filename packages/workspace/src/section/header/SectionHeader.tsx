@@ -1,29 +1,32 @@
 import type { ComponentPropsWithoutRef, CSSProperties, ReactNode } from "react";
-import { getSectionOrThrow } from "../../document/documentSelectors";
+import { getSectionOrThrow } from "../../document/documentSelectors.js";
 import {
   getSectionKindDeleteActionLabel,
   getSectionKindHeaderControls,
-} from "../../document/sectionKindRegistry";
-import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
-import { DeleteOrHideButton } from "./DeleteOrHideButton";
-import { LockPositionButton } from "./LockPositionButton";
-import { MenuButton } from "./MenuButton";
-import { MinimizeButton } from "./MinimizeButton";
-import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+} from "../../document/sectionKindRegistry.js";
+import {
+  useActiveSections,
+  useWorkspaceDocument,
+} from "../../document/stores.js";
+import { DeleteOrHideButton } from "./DeleteOrHideButton.js";
+import { LockPositionButton } from "./LockPositionButton.js";
+import { MenuButton } from "./MenuButton.js";
+import { MinimizeButton } from "./MinimizeButton.js";
+import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 import {
   allocateWorkspaceSectionWindowId,
   canWorkspaceSectionOpenInWindow,
   createWorkspaceSectionWindowContentId,
   getExternalWorkspaceSectionWindowBinding,
   getWorkspaceSectionWindowBinding,
-} from "../../windowing/workspaceSectionWindowing";
+} from "../../windowing/workspaceSectionWindowing.js";
 import {
   moveWorkspaceWindowToCanvasSection,
   showWorkspaceSectionInFloatingWindow,
-} from "../../windowing/windowingState";
-import { WorkspaceSectionWindowToggleButton } from "../../windowing/WorkspaceSectionWindowToggleButton";
-import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext";
+} from "../../windowing/windowingState.js";
+import { WorkspaceSectionWindowToggleButton } from "../../windowing/WorkspaceSectionWindowToggleButton.js";
+import { useOptionalWorkspaceWindowing } from "../../windowing/workspaceWindowingContext.js";
 
 const sectionHeaderBaseClassName =
   "section-title mx-2 flex flex-row items-center";

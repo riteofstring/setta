@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -16,25 +16,25 @@ afterEachWorkspaceTestHost(() => {
 });
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { initialCanvasState, useReactFlow } from "../canvas/store.js";
 import {
   selectOnlyItem,
   toggleItemSelected,
   unselectAllItems,
-} from "./itemSelection";
+} from "./itemSelection.js";
 import {
   activateItemSelect,
   deactivateItemSelect,
   useItemSelectionMode,
-} from "./itemSelectionMode";
-import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
-import { registerSectionKinds } from "./sectionKindRegistry";
+} from "./itemSelectionMode.js";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument.js";
+import { registerSectionKinds } from "./sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "./stores";
-import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
+} from "./stores.js";
+import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types.js";
 
 function makeItemTree(
   topLevelItemIds: Array<string>,

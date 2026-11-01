@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../../test/workspaceTestHost";
+} from "../../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,19 +17,19 @@ afterEachWorkspaceTestHost(() => {
 
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
-import { useDndChildren } from "../dndChildren";
-import { updateItemChildren, useItemDndChildren } from "../itemDndChildren";
+import { useDndChildren } from "../dndChildren.js";
+import { updateItemChildren, useItemDndChildren } from "../itemDndChildren.js";
 import {
   getItemDndId,
   setItemDndState,
   useItemDndState,
-} from "../itemDndState";
+} from "../itemDndState.js";
 import {
   createDragEventHandlers,
   mapDragEvent,
   mapDragStartEvent,
-} from "./dragEventMapping";
-import type { DragEndEvent, SettaCollision } from "./types";
+} from "./dragEventMapping.js";
+import type { DragEndEvent, SettaCollision } from "./types.js";
 
 type RectInput = {
   top: number;

@@ -4,19 +4,19 @@ import {
   createWorkspaceWindowSpace,
   restoreWorkspaceWindowSpace,
   snapshotWorkspaceWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaces.js";
 import {
   buildWorkspaceFloatingSnapBounds,
   classifyWorkspaceFloatingSnapPreset,
-} from "./windowingSnapLayout";
-import { focusWorkspaceWindow } from "./windowingState";
+} from "./windowingSnapLayout.js";
+import { focusWorkspaceWindow } from "./windowingState.js";
 import {
   createWorkspaceWindowingState,
   WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   type WorkspaceFloatingWindowInput,
   type WorkspaceWindowViewport,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const viewport: WorkspaceWindowViewport = {
   width: 1_000,

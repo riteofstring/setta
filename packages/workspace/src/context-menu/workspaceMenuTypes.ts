@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
-import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
-import type { Position, WorkspaceSectionInput } from "../document/types";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes.js";
+import type { Position, WorkspaceSectionInput } from "../document/types.js";
 
 export type WorkspaceCreationContext = Readonly<{
   workspacePosition: Readonly<Position> | null;

@@ -20,7 +20,7 @@ import {
   showWorkspaceSectionInFloatingWindow,
   snapWorkspaceFloatingWindow,
   undockWorkspaceWindow,
-} from "./windowingState";
+} from "./windowingState.js";
 import {
   createWorkspaceFloatingWindow,
   createWorkspaceWindowingState,
@@ -29,7 +29,7 @@ import {
   type WorkspaceWindowViewport,
   WORKSPACE_SECTION_WINDOW_SURFACE_KIND,
   WorkspaceWindowingError,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const viewport: WorkspaceWindowViewport = {
   width: 1_440,

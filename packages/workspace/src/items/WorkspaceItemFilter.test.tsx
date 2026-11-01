@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,39 +20,39 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DragStartEvent } from "../dnd/adapter/types";
-import { useItemDndChildren } from "../dnd/itemDndChildren";
-import { ItemDndContext } from "../dnd/ItemDndContext";
-import { getItemDndId, useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import type { DragStartEvent } from "../dnd/adapter/types.js";
+import { useItemDndChildren } from "../dnd/itemDndChildren.js";
+import { ItemDndContext } from "../dnd/ItemDndContext.js";
+import { getItemDndId, useItemDndState } from "../dnd/itemDndState.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import {
   activateItemSelect,
   useItemSelectionMode,
-} from "../document/itemSelectionMode";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
+} from "../document/itemSelectionMode.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
 import {
   registerSectionKinds,
   type WorkspaceItemSearchContext,
-} from "../document/sectionKindRegistry";
+} from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
+} from "../document/stores.js";
 import type {
   WorkspaceItem,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch";
-import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry";
-import { handleItemDragStart, resetItemDragState } from "./itemDragHandlers";
-import { registerItemFilterFocusTarget } from "./itemFilterFocusRegistry";
-import type { ItemRowRenderContext } from "./ItemListContext";
-import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
-import { moveSelectedItemsDown } from "./selectedItemMoves";
-import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
-import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
-import { WorkspaceItemList } from "./WorkspaceItemList";
+} from "../document/types.js";
+import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch.js";
+import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry.js";
+import { handleItemDragStart, resetItemDragState } from "./itemDragHandlers.js";
+import { registerItemFilterFocusTarget } from "./itemFilterFocusRegistry.js";
+import type { ItemRowRenderContext } from "./ItemListContext.js";
+import { resetItemListViews, resolveItemListView } from "./itemListRegistry.js";
+import { moveSelectedItemsDown } from "./selectedItemMoves.js";
+import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar.js";
+import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext.js";
+import { WorkspaceItemList } from "./WorkspaceItemList.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

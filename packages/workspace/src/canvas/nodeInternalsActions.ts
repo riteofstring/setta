@@ -1,12 +1,12 @@
-import { publishNodeInternalsWithTopLevelLayout } from "../document/topLevelLayoutPublication";
-import { normalizeNodeZIndices } from "../document/sectionZIndices";
-import { getNodeInternalsStore } from "../document/stores";
-import type { Node } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import { fitView } from "./fitView";
-import { getReactFlowStore } from "./store";
-import type { NodeDragItem } from "./types";
-import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types";
+import { publishNodeInternalsWithTopLevelLayout } from "../document/topLevelLayoutPublication.js";
+import { normalizeNodeZIndices } from "../document/sectionZIndices.js";
+import { getNodeInternalsStore } from "../document/stores.js";
+import type { Node } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { fitView } from "./fitView.js";
+import { getReactFlowStore } from "./store.js";
+import type { NodeDragItem } from "./types.js";
+import type { WorkspaceXyflowNodeDimensions } from "./xyflow/types.js";
 
 export function updateNodePositions(
   host: WorkspaceHost,

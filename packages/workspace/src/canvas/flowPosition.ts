@@ -1,6 +1,6 @@
-import type { Position } from "../document/types";
-import type { WorkspaceInteractionOptions } from "./options";
-import type { ReactFlowState, Transform } from "./types";
+import type { Position } from "../document/types.js";
+import type { WorkspaceInteractionOptions } from "./options.js";
+import type { ReactFlowState, Transform } from "./types.js";
 
 function pointToRendererPoint(
   { x, y }: Position,

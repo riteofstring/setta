@@ -1,33 +1,33 @@
 import {
   applyLoadedDocumentViewport,
   armLoadedDocumentFitView,
-} from "../canvas/documentViewportSync";
-import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
-import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
+} from "../canvas/documentViewportSync.js";
+import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions.js";
+import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState.js";
 import {
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
-} from "../document/documentChangeCallback";
-import { createNodesMapFromDocumentChildren } from "../document/nodeProjection";
+} from "../document/documentChangeCallback.js";
+import { createNodesMapFromDocumentChildren } from "../document/nodeProjection.js";
 import {
   getActiveSectionsStore,
   getNodeInternalsStore,
   getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
   type WorkspaceDocumentState,
-} from "../document/stores";
-import { forceDeactivateDnd } from "../dnd/dndState";
-import { manualDndChildrenReset } from "../dnd/dndChildren";
-import { resetItemDragState } from "../items/itemDragHandlers";
+} from "../document/stores.js";
+import { forceDeactivateDnd } from "../dnd/dndState.js";
+import { manualDndChildrenReset } from "../dnd/dndChildren.js";
+import { resetItemDragState } from "../items/itemDragHandlers.js";
 import type {
   TopLevelSectionLayout,
   Viewport,
   WorkspaceSavedView,
   WorkspaceSavedViewsState,
-} from "../document/types";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import type { WorkspaceHost } from "../workspaceHost";
-import { isWorkspaceSavedViewEditing } from "./editingState";
+} from "../document/types.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { isWorkspaceSavedViewEditing } from "./editingState.js";
 import {
   assertWorkspaceSavedViewsStateForDocument,
   createWorkspaceSavedViewsState,
@@ -35,13 +35,13 @@ import {
   isWorkspaceSavedViewSectionVisible,
   parseWorkspaceSavedViewsState,
   reconcileWorkspaceSavedViewsState,
-} from "./state";
+} from "./state.js";
 import type {
   WorkspaceSavedViewCreateInput,
   WorkspaceSavedViewsEnableInput,
   WorkspaceSavedViewsOperation,
   WorkspaceSavedViewsOperationResult,
-} from "./types";
+} from "./types.js";
 
 const SAVED_VIEWS_DISABLED_REASON =
   "Saved views are not enabled for this workspace.";

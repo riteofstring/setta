@@ -1,7 +1,7 @@
 import type {
   WorkspaceCodeSectionLanguage,
   WorkspaceGeneratedRegion,
-} from "./codeSectionData";
+} from "./codeSectionData.js";
 
 export type WorkspaceCodeSectionCompletionRequest = Readonly<{
   sectionId: string;

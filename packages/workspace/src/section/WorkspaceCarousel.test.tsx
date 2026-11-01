@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   WorkspaceCarousel,
   type WorkspaceCarouselItem,
-} from "./WorkspaceCarousel";
+} from "./WorkspaceCarousel.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }

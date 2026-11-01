@@ -3,32 +3,32 @@ import {
   createItemCommandContext,
   createPaneCommandContext,
   createSectionCommandContext,
-} from "../commands/workspaceCommandContexts";
+} from "../commands/workspaceCommandContexts.js";
 import {
   getWorkspaceCommands,
   type RegisteredWorkspaceCommand,
-} from "../commands/workspaceCommandRegistry";
-import { resolveWorkspaceCommandEntries } from "../commands/workspaceCommandResolution";
+} from "../commands/workspaceCommandRegistry.js";
+import { resolveWorkspaceCommandEntries } from "../commands/workspaceCommandResolution.js";
 import type {
   WorkspaceCommandContext,
   WorkspaceCommandIconProps,
   WorkspaceCommandScope,
-} from "../commands/workspaceCommandTypes";
+} from "../commands/workspaceCommandTypes.js";
 import {
   getWorkspaceCreationCommand,
   getWorkspaceCreationCommands,
-} from "../context-menu/creationCommandStore";
+} from "../context-menu/creationCommandStore.js";
 import type {
   WorkspaceCreationCommand,
   WorkspaceCreationContext,
-} from "../context-menu/workspaceMenuTypes";
-import { getActiveSectionIds } from "../document/activeSections";
-import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
-import { getWorkspaceDocumentStore } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { getWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry";
-import { createWorkspaceSectionFromCommand } from "../section/createSectionAction";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "../context-menu/workspaceMenuTypes.js";
+import { getActiveSectionIds } from "../document/activeSections.js";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
+import { getWorkspaceDocumentStore } from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { getWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry.js";
+import { createWorkspaceSectionFromCommand } from "../section/createSectionAction.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 const PALETTE_CREATION_CONTEXT: WorkspaceCreationContext = Object.freeze({
   workspacePosition: null,

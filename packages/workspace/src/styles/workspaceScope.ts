@@ -1,4 +1,4 @@
-import { useWorkspaceAppearance } from "../document/stores";
+import { useWorkspaceAppearance } from "../document/stores.js";
 
 const WORKSPACE_SCOPE_CLASS_NAME = "setta-workspace";
 

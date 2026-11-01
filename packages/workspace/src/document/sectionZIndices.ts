@@ -1,7 +1,7 @@
 import _ from "lodash";
-import { getNodeInternalsStore, type NodeInternalsState } from "./stores";
-import { publishNodeInternalsWithTopLevelLayout } from "./topLevelLayoutPublication";
-import type { WorkspaceHost } from "../workspaceHost";
+import { getNodeInternalsStore, type NodeInternalsState } from "./stores.js";
+import { publishNodeInternalsWithTopLevelLayout } from "./topLevelLayoutPublication.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function shouldNormalizeZIndices(
   nodeInternals: NodeInternalsState["x"],

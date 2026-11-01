@@ -1,12 +1,12 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "./documentSelectors";
-import { getItemOrThrow } from "./itemTree";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceSectionData } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./documentSelectors.js";
+import { getItemOrThrow } from "./itemTree.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceSectionData } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function setItemData(
   host: WorkspaceHost,

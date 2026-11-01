@@ -7,7 +7,7 @@ import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
   WorkspaceTestProvider,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -20,17 +20,17 @@ afterEachWorkspaceTestHost(() => {
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import { resetItemListViews } from "../items/itemListRegistry";
-import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
-import { useCanvasKeyActivations } from "./keyActivations";
-import { initialCanvasState } from "./store";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import { resetItemListViews } from "../items/itemListRegistry.js";
+import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip.js";
+import { useCanvasKeyActivations } from "./keyActivations.js";
+import { initialCanvasState } from "./store.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
 
 let mockIsMacOs = false;
-vi.mock("./utils", async (importOriginal) => {
-  const original = await importOriginal<typeof import("./utils")>();
+vi.mock("./utils.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./utils.js")>();
   return { ...original, isMacOs: () => mockIsMacOs };
 });
 

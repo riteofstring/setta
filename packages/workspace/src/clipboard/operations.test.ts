@@ -3,16 +3,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getWorkspaceHistoryState,
   undoWorkspace,
-} from "../history/workspaceHistory";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+} from "../history/workspaceHistory.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import type {
   WorkspaceDocument,
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionItemTree,
-} from "../document/types";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { registerWorkspaceClipboardAuthority } from "./registry";
+} from "../document/types.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import { registerWorkspaceClipboardAuthority } from "./registry.js";
 import {
   WORKSPACE_CLIPBOARD_MAX_TEXT_BYTES,
   WORKSPACE_CLIPBOARD_MAX_ITEM_COUNT,
@@ -20,13 +20,13 @@ import {
   type WorkspaceClipboardCopyabilityRequest,
   type WorkspaceClipboardPasteRequest,
   type WorkspaceClipboardPrepareCopyRequest,
-} from "./types";
+} from "./types.js";
 import {
   copyWorkspaceSelection,
   duplicateWorkspaceSelection,
   getWorkspaceClipboardAvailability,
   pasteWorkspaceClipboard,
-} from "./operations";
+} from "./operations.js";
 
 type ClipboardMock = {
   readText: ReturnType<typeof vi.fn<() => Promise<string>>>;

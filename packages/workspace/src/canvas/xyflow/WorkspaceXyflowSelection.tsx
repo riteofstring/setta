@@ -1,17 +1,17 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { shallow } from "zustand/shallow";
-import { applyActiveSectionChange } from "../activeSectionController";
-import { getNodesInside } from "../graph";
-import { getWorkspaceOptionsStore } from "../options";
-import { getReactFlowStore, useReactFlow } from "../store";
-import type { ReactFlowState } from "../types";
-import { getEventPosition } from "../utils";
-import { useWorkspaceHost } from "../../workspaceHostContext";
+import { applyActiveSectionChange } from "../activeSectionController.js";
+import { getNodesInside } from "../graph.js";
+import { getWorkspaceOptionsStore } from "../options.js";
+import { getReactFlowStore, useReactFlow } from "../store.js";
+import type { ReactFlowState } from "../types.js";
+import { getEventPosition } from "../utils.js";
+import { useWorkspaceHost } from "../../workspaceHostContext.js";
 import {
   WorkspaceXyflowNodesSelectionDragHandleWrapper,
   WorkspaceXyflowNodesSelectionWrapper,
-} from "./WorkspaceXyflowNodesSelection";
+} from "./WorkspaceXyflowNodesSelection.js";
 
 function WorkspaceXyflowUserSelection() {
   const { userSelectionActive, userSelectionRect } = useReactFlow(

@@ -1,8 +1,8 @@
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
-import { getSectionOrThrow } from "./documentSelectors";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceSectionData } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
+import { getSectionOrThrow } from "./documentSelectors.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceSectionData } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export function setSectionData(
   host: WorkspaceHost,

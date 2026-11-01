@@ -4,14 +4,14 @@ import { RiArrowRightSLine, RiLock2Line, RiSubtractLine } from "react-icons/ri";
 import {
   GROUP_SECTION_KIND,
   isGroupSection,
-} from "../document/documentSelectors";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
-import type { WorkspaceSection } from "../document/types";
+} from "../document/documentSelectors.js";
+import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSection } from "../document/types.js";
 import type {
   WorkspaceOutlineEntry,
   WorkspaceOutlineNode,
-} from "./workspaceOutlineModel";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "./workspaceOutlineModel.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 
 type OutlineRowStyle = CSSProperties & {
   "--setta-workspace-outline-depth": string;

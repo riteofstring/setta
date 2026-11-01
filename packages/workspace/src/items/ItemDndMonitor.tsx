@@ -1,11 +1,11 @@
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useEffect } from "react";
-import { useDndMonitor } from "../dnd/adapter";
-import { useItemDndState } from "../dnd/itemDndState";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useWorkspaceHost } from "../workspaceHostContext";
+import { useDndMonitor } from "../dnd/adapter/index.js";
+import { useItemDndState } from "../dnd/itemDndState.js";
+import { useItemSelectionMode } from "../document/itemSelectionMode.js";
+import { useWorkspaceCapabilities } from "../document/capabilities.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   deferItemDragReset,
   handleItemDragCancel,
@@ -14,7 +14,7 @@ import {
   handleItemDragOver,
   handleItemDragStart,
   resetItemDragState,
-} from "./itemDragHandlers";
+} from "./itemDragHandlers.js";
 
 export function ItemDndMonitor() {
   const host = useWorkspaceHost();

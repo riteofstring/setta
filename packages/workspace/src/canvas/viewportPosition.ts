@@ -1,8 +1,8 @@
-import type { Position } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import { resolveScreenToFlowPosition } from "./flowPosition";
-import { getWorkspaceOptionsStore } from "./options";
-import { getReactFlowStore } from "./store";
+import type { Position } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { resolveScreenToFlowPosition } from "./flowPosition.js";
+import { getWorkspaceOptionsStore } from "./options.js";
+import { getReactFlowStore } from "./store.js";
 
 export function screenToFlowPosition(
   host: WorkspaceHost,

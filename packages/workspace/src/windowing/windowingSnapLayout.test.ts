@@ -9,11 +9,11 @@ import {
   resolveWorkspaceFloatingSnapPresetFromPointer,
   resolveWorkspaceWindowWorkArea,
   type WorkspaceSnappedWindow,
-} from "./windowingSnapLayout";
+} from "./windowingSnapLayout.js";
 import type {
   WorkspaceFloatingSnapPreset,
   WorkspaceWindowViewport,
-} from "./windowingTypes";
+} from "./windowingTypes.js";
 
 const viewport: WorkspaceWindowViewport = {
   width: 1_000,

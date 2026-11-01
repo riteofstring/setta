@@ -1,17 +1,17 @@
-import { insertIntoArray } from "./arrayUtils";
-import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
+import { insertIntoArray } from "./arrayUtils.js";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback.js";
 import {
   getSectionItemTreeOrThrow,
   getSectionOrThrow,
-} from "./documentSelectors";
+} from "./documentSelectors.js";
 import {
   buildItemParentMap,
   getItemOrThrow,
   isDescendantOfItemSelection,
-} from "./itemTree";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./itemTree.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 export type ItemTreeMove = {
   itemIds: Array<string>;

@@ -2,30 +2,30 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import {
   getSectionOrThrow,
   isGroupSection,
-} from "../document/documentSelectors";
+} from "../document/documentSelectors.js";
 import {
   canWorkspaceSectionOwnNestedSections,
   getRegisteredSectionKindOrThrow,
   type SectionKindDefinition,
-} from "../document/sectionKindRegistry";
+} from "../document/sectionKindRegistry.js";
 import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceHost } from "../workspaceHost";
-import { useWorkspaceHost } from "../workspaceHostContext";
+} from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
-} from "./sectionChrome";
-import { DEFAULT_SECTION_BG_COLOR } from "./sectionColors";
-import { deriveSectionStyleTheme } from "./sectionStyleColors";
-import { resolveSectionStyleVars } from "./sectionStyleVars";
-import { MaybeManyNestedSections } from "./container/ManyNestedSections";
-import { renderNestedSectionContainer } from "./container/SectionContainer";
-import { WorkspaceSectionBodyContent } from "./container/SectionContainerContent";
-import { SectionHeader } from "./header/SectionHeader";
+} from "./sectionChrome.js";
+import { DEFAULT_SECTION_BG_COLOR } from "./sectionColors.js";
+import { deriveSectionStyleTheme } from "./sectionStyleColors.js";
+import { resolveSectionStyleVars } from "./sectionStyleVars.js";
+import { MaybeManyNestedSections } from "./container/ManyNestedSections.js";
+import { renderNestedSectionContainer } from "./container/SectionContainer.js";
+import { WorkspaceSectionBodyContent } from "./container/SectionContainerContent.js";
+import { SectionHeader } from "./header/SectionHeader.js";
 
 type WorkspaceSectionSurfaceHeaderProps = Omit<
   ComponentPropsWithoutRef<"header">,

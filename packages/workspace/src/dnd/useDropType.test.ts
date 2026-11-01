@@ -5,7 +5,7 @@ import {
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
-} from "../../test/workspaceTestHost";
+} from "../../test/workspaceTestHost.js";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
@@ -17,19 +17,19 @@ afterEachWorkspaceTestHost(() => {
 
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GROUP_SECTION_KIND } from "../document/documentSelectors";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import { GROUP_SECTION_KIND } from "../document/documentSelectors.js";
+import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceDocument,
-} from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { updateDndChildren, useDndChildren } from "./dndChildren";
-import { useDndState } from "./dndState";
-import { BehaviorDropTypeEnum } from "./dropTypes";
-import { getBehaviorDropType, getOverId } from "./useDropType";
+} from "../document/stores.js";
+import type { WorkspaceSection } from "../document/types.js";
+import { updateDndChildren, useDndChildren } from "./dndChildren.js";
+import { useDndState } from "./dndState.js";
+import { BehaviorDropTypeEnum } from "./dropTypes.js";
+import { getBehaviorDropType, getOverId } from "./useDropType.js";
 
 type SectionSpec = {
   id: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coerceClientRect, rectFromBoundingRect } from "./rect";
+import { coerceClientRect, rectFromBoundingRect } from "./rect.js";
 
 describe("rect adapter utilities", () => {
   it("converts dnd-kit bounding rectangles to client rects", () => {

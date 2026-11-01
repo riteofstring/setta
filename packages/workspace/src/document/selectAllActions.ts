@@ -1,15 +1,15 @@
-import { getSectionItemVisibility } from "../items/itemListRegistry";
-import { getActiveSectionIds, setActiveSectionIds } from "./activeSections";
-import { isGroupSection } from "./documentSelectors";
+import { getSectionItemVisibility } from "../items/itemListRegistry.js";
+import { getActiveSectionIds, setActiveSectionIds } from "./activeSections.js";
+import { isGroupSection } from "./documentSelectors.js";
 import {
   getVisibleTopLevelSectionIdsForDisplay,
   isWorkspaceSectionVisible,
-} from "./savedViewDisplay";
-import { setSelectedItems } from "./itemSelection";
-import { getItemOrThrow } from "./itemTree";
-import { getWorkspaceDocumentStore } from "./stores";
-import type { WorkspaceSectionItemTree } from "./types";
-import type { WorkspaceHost } from "../workspaceHost";
+} from "./savedViewDisplay.js";
+import { setSelectedItems } from "./itemSelection.js";
+import { getItemOrThrow } from "./itemTree.js";
+import { getWorkspaceDocumentStore } from "./stores.js";
+import type { WorkspaceSectionItemTree } from "./types.js";
+import type { WorkspaceHost } from "../workspaceHost.js";
 
 function listVisibleItemIdsInTreeOrder(
   itemTree: WorkspaceSectionItemTree,

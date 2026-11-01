@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WorkspaceSection } from "../document/types";
+import type { WorkspaceSection } from "../document/types.js";
 import type {
   WorkspaceGraphConfiguration,
   WorkspaceGraphConnection,
   WorkspaceGraphPort,
   WorkspaceGraphReconnect,
-} from "./types";
+} from "./types.js";
 import {
   createWorkspaceGraphConnection,
   evaluateWorkspaceGraphConnection,
   getWorkspaceGraphPortPosition,
   getWorkspaceGraphPortSide,
   validateWorkspaceGraphConfiguration,
-} from "./validation";
+} from "./validation.js";
 
 function createSection(id: string): WorkspaceSection {
   return {

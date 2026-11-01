@@ -2,17 +2,23 @@
 import { act, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useCanvasKeyActivations } from "../canvas/keyActivations";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
-import type { WorkspaceSectionInput } from "../document/types";
-import { recordWorkspaceHistoryEntry } from "../history/workspaceHistory";
-import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
-import { useWorkspaceHost, WorkspaceProvider } from "../workspaceHostContext";
-import { registerWorkspaceHostElement } from "../workspaceHostInternals";
-import type { WorkspaceGraphConfiguration, WorkspaceGraphEdge } from "./types";
-import { WorkspaceGraphProvider } from "./WorkspaceGraphContext";
-import { WorkspaceGraphLayer } from "./WorkspaceGraphLayer";
-import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts";
+import { useCanvasKeyActivations } from "../canvas/keyActivations.js";
+import { registerSectionKinds } from "../document/sectionKindRegistry.js";
+import type { WorkspaceSectionInput } from "../document/types.js";
+import { recordWorkspaceHistoryEntry } from "../history/workspaceHistory.js";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost.js";
+import {
+  useWorkspaceHost,
+  WorkspaceProvider,
+} from "../workspaceHostContext.js";
+import { registerWorkspaceHostElement } from "../workspaceHostInternals.js";
+import type {
+  WorkspaceGraphConfiguration,
+  WorkspaceGraphEdge,
+} from "./types.js";
+import { WorkspaceGraphProvider } from "./WorkspaceGraphContext.js";
+import { WorkspaceGraphLayer } from "./WorkspaceGraphLayer.js";
+import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts.js";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
