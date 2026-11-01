@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { IconsManifest } from "react-icons";
 import type { Plugin } from "vite";
 
 const manifest = JSON.parse(
@@ -65,11 +66,28 @@ function packageNotice(directory: string): { identity: string; text: string } {
   };
 }
 
-export function bundledEditorNotices(): Plugin {
+function iconSetNotice(setIds: ReadonlySet<string>): string[] {
+  const sets = IconsManifest.filter((set) => setIds.has(set.id));
+  if (sets.length !== setIds.size)
+    throw new Error(`Missing react-icons license metadata for ${[...setIds]}`);
+  return sets.length
+    ? [
+        `react-icons bundled icon sets\n\n${sets
+          .map(
+            (set) =>
+              `${set.name} (${set.projectUrl})\nLicense: ${set.license} (${set.licenseUrl})`,
+          )
+          .join("\n\n")}`,
+      ]
+    : [];
+}
+
+export function bundledDependencyNotices(): Plugin {
   return {
-    name: "setta-editor-notices",
+    name: "setta-dependency-notices",
     generateBundle() {
       const directories = new Set<string>();
+      const iconSets = new Set<string>();
       for (const id of this.getModuleIds()) {
         if (
           path.isAbsolute(id) &&
@@ -77,15 +95,19 @@ export function bundledEditorNotices(): Plugin {
           !this.getModuleInfo(id)?.isExternal
         ) {
           directories.add(packageDirectory(id));
+          const iconSet =
+            /\/node_modules\/react-icons\/([^/]+)\/index\.m?js$/u.exec(id);
+          if (iconSet && iconSet[1] !== "lib") iconSets.add(iconSet[1]!);
         }
       }
       const notices = [...directories]
         .map(packageNotice)
-        .sort((a, b) => a.identity.localeCompare(b.identity));
+        .sort((a, b) => a.identity.localeCompare(b.identity))
+        .map((notice) => notice.text);
       this.emitFile({
         type: "asset",
-        fileName: "EDITOR-NOTICES.txt",
-        source: `Setta bundled editor dependency notices\n\n${notices.map((notice) => notice.text).join("\n\n" + "=".repeat(72) + "\n\n")}\n`,
+        fileName: "THIRD-PARTY-NOTICES.txt",
+        source: `Setta bundled dependency notices\n\n${[...notices, ...iconSetNotice(iconSets)].join("\n\n" + "=".repeat(72) + "\n\n")}\n`,
       });
     },
   };

@@ -2,17 +2,17 @@ import {
   RestrictToHorizontalAxis,
   RestrictToVerticalAxis,
 } from "@dnd-kit/abstract/modifiers";
-import _ from "lodash";
 import { getSectionIsHorizontalOrientation } from "../document/documentSelectors.js";
 import { getWorkspaceDocumentStore } from "../document/stores.js";
 import { useWorkspaceHost } from "../workspaceHostContext.js";
 import { useDndState } from "./dndState.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export function useModifiers() {
   const host = useWorkspaceHost();
   const { isSorting, activeId } = useDndState((x) => {
     return { isSorting: x.isSorting, activeId: x.activeId };
-  }, _.isEqual);
+  }, deepEqual);
 
   const modifiers = getModifiers(host, isSorting, activeId);
 

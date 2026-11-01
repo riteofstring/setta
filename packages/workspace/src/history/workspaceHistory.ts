@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import _ from "lodash";
 import { getWorkspaceCapabilitiesStore } from "../document/capabilities.js";
 import {
   cloneFrozenWorkspaceSnapshot,
@@ -27,6 +26,7 @@ import type {
   WorkspaceHostOptions,
 } from "./workspaceHistoryTypes.js";
 import { createWorkspaceHistoryReplayDocument } from "./workspaceHistoryReplay.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 declare const workspaceHistoryBatchToken: unique symbol;
 
@@ -498,7 +498,7 @@ function hasChangedSectionChildren(
 }
 
 function areWorkspaceValuesEqual(left: unknown, right: unknown): boolean {
-  return _.isEqual(left, right);
+  return deepEqual(left, right);
 }
 
 function createHistoryTransaction(

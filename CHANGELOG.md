@@ -17,7 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Apache-2.0 attribution for Kevin Musgrave and Jeff Musgrave and bundled dependency notices.
 - Source setup instructions and hosted frontend, browser, and security checks.
 - Browser `localStorage` helpers that restore workspace shell pane layout and saved views.
-- A bundled CodeMirror editor stack, so consumers install no editor packages, and type
+- Bundled CodeMirror editors and React Icons, so consumers install neither, and type
   declarations that resolve under Bundler, Node10 and NodeNext module resolution.
 
 ### Changed

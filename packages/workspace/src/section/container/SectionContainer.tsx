@@ -1,4 +1,3 @@
-import _ from "lodash";
 import React from "react";
 import {
   getSectionOrThrow,
@@ -23,6 +22,7 @@ import type { SectionDragListeners } from "./ContainerCore.js";
 import { ContainerSwitch } from "./ContainerSwitch.js";
 import { MaybeManyNestedSections } from "./ManyNestedSections.js";
 import { SectionContainerCore } from "./SectionContainerCore.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 type SectionAttachedContentRenderer = NonNullable<
   Extract<
@@ -124,7 +124,7 @@ function SectionContainerComponent({
 }
 
 export const SectionContainer = React.memo(SectionContainerComponent, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
+  deepEqual(p.dragListeners, n.dragListeners),
 );
 
 export function renderNestedSectionContainer(

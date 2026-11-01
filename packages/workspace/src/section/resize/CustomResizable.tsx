@@ -1,4 +1,3 @@
-import _ from "lodash";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { getCanvasGesturesStore } from "../../canvas/gestureState.js";
@@ -40,6 +39,7 @@ import {
 import { ResizableWithScale } from "./ResizableWithScale.js";
 import { setSectionResizeEvent } from "./resizeEvents.js";
 import { useSectionMinMaxDims } from "./sizingPolicy.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {
@@ -111,7 +111,7 @@ export function CustomResizable({
   const { isMinimized, size } = useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     return { isMinimized: section.isMinimized, size: section.size };
-  }, _.isEqual);
+  }, deepEqual);
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const disablePointerEvents = useShouldDisablePointerEvents();
   const snapGrid = useWorkspaceOptions((x) => x.snapGrid);

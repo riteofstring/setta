@@ -1501,7 +1501,7 @@ Consumers install the compiled package: the `exports` map serves ESM with a sour
 (`@riteofstring/setta/styles.css`). `pnpm --filter @riteofstring/setta build` produces `dist/` —
 `vite build` bundles the workspace and its private editor runtime, keeping React and other declared
 dependencies external. The editor ships as one CodeMirror runtime so consumers need no aliases or
-dependency overrides; its third-party notices are included in `dist/EDITOR-NOTICES.txt`.
+dependency overrides; its third-party notices are included in `dist/THIRD-PARTY-NOTICES.txt`.
 `tsc -p tsconfig.build.json`
 emits declarations, the Tailwind CLI compiles the stylesheet from package source alone, and
 `scripts/check-package-boundary.mjs --built` verifies the artifact

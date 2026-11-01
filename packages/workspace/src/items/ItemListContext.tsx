@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   createContext,
   useContext,
@@ -20,6 +19,7 @@ import {
 } from "../dnd/itemDndState.js";
 import type { WorkspaceItem } from "../document/types.js";
 import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export type ItemRowRenderContext = {
   sectionId: string;
@@ -61,7 +61,7 @@ export function useItemDndChildrenForParent(
       sectionId: state.sectionId,
       listKey: state.listKey,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const isActiveList = Boolean(
     context &&
@@ -71,7 +71,7 @@ export function useItemDndChildrenForParent(
   );
   const tempChildren = useItemDndChildren(
     (state) => (isActiveList ? (state.x[parentId] ?? null) : null),
-    _.isEqual,
+    deepEqual,
   );
   return tempChildren ?? fallback;
 }
@@ -126,7 +126,7 @@ export function ItemListProvider({
       sectionId: state.sectionId,
       listKey: state.listKey,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const isActiveList =
     Boolean(activeInfo.activeId) &&
@@ -134,7 +134,7 @@ export function ItemListProvider({
     activeInfo.listKey === listKey;
   const tempChildren = useItemDndChildren(
     (state) => (isActiveList ? state.x : null),
-    _.isEqual,
+    deepEqual,
   );
 
   const items = useMemo(() => {

@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback.js";
 import { getWorkspaceDocumentStore } from "../document/stores.js";
@@ -9,6 +8,7 @@ import { getWorkspaceOptionsStore } from "./options.js";
 import { getReactFlowStore } from "./store.js";
 import { clamp } from "./utils.js";
 import { getWorkspaceXyflowRuntime } from "./xyflow/workspaceXyflowRuntime.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export function getInitialCanvasViewport(host: WorkspaceHost): Viewport {
   const viewport = getWorkspaceDocumentStore(host).getState().viewport;
@@ -49,7 +49,7 @@ export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
       getWorkspaceDocumentStore(host).setState({ viewport: { x, y, zoom } });
       notifyWorkspaceDocumentChange(host, null);
     },
-    { equalityFn: _.isEqual },
+    { equalityFn: deepEqual },
   );
 }
 
@@ -63,7 +63,7 @@ function syncCanvasViewportTransform(
     viewport.y,
     viewport.zoom,
   ];
-  if (_.isEqual(reactFlowStore.getState().transform, transform)) {
+  if (deepEqual(reactFlowStore.getState().transform, transform)) {
     return;
   }
   reactFlowStore.setState({ transform });

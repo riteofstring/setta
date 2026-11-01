@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { TbGripVertical } from "react-icons/tb";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../interaction.js";
 import React, {
@@ -63,6 +62,7 @@ import {
   getWorkspaceItemDiagnosticRowClassName,
   type WorkspaceItemDiagnosticSeverity,
 } from "./itemDiagnostics.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 
@@ -83,7 +83,7 @@ function _ItemRow(props: ItemRowProps) {
   return <RealItemRow {...props} />;
 }
 
-export const ItemRow = React.memo(_ItemRow, _.isEqual);
+export const ItemRow = React.memo(_ItemRow, deepEqual);
 
 function omitRoleAttribute(attributes: Record<string, unknown>) {
   if (!("role" in attributes)) {
@@ -108,7 +108,7 @@ function useTempItemPlaceholderStyle() {
       placeholderWidth: state.placeholderWidth,
       placeholderHeight: state.placeholderHeight,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const zoom = useReactFlow((state) => state.transform[2]);
 
@@ -456,7 +456,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       isSelected: itemTree.selectedItemIds.includes(itemId),
       styleColor,
     };
-  }, _.isEqual);
+  }, deepEqual);
 
   const hasSectionStyleTheme = Boolean(
     rowState.styleColor &&

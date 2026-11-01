@@ -56,9 +56,11 @@ editor even when the application builds. Bundling the locked editor graph preser
 identity without asking consumers for resolution aliases or overrides. Consumers own final
 application minification, and the built-package boundary check verifies emitted imports.
 
-The build emits `EDITOR-NOTICES.txt` from the installed packages that contribute bundled modules.
-Exact source-linked license supplements cover UIW releases that omit license text from their npm
-archives.
+The build emits `THIRD-PARTY-NOTICES.txt` from the installed packages that contribute bundled
+modules. Exact source-linked license supplements cover UIW releases that omit license text from
+their npm archives. React Icons is bundled the same way so consumers do not install every icon set;
+the notices add the name, license, and license link of each icon set the build includes, taken
+from the package's own icon manifest.
 
 The `@uiw` CodeMirror packages have no exports map. Vitest's node-style resolution otherwise lands
 on their CommonJS main files while workspace source imports the ESM CodeMirror packages. That

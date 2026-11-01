@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { getWorkspaceDocumentStore } from "../document/stores.js";
 import { isWorkspaceSectionVisible } from "../document/savedViewDisplay.js";
 import type { Position } from "../document/types.js";
@@ -42,9 +41,48 @@ function getZoomRuntime(host: WorkspaceHost) {
   return { runtime, viewport };
 }
 
+type Throttled<Args extends unknown[]> = ((...args: Args) => void) & {
+  cancel: () => void;
+};
+
+function throttle<Args extends unknown[]>(
+  run: (...args: Args) => void,
+  waitMs: number,
+): Throttled<Args> {
+  let lastRun = -Infinity;
+  let pending: Args | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    timer = undefined;
+    if (pending) {
+      const args = pending;
+      pending = null;
+      lastRun = Date.now();
+      run(...args);
+    }
+  };
+  const throttled = (...args: Args) => {
+    const remaining = lastRun + waitMs - Date.now();
+    if (remaining <= 0 && timer === undefined) {
+      lastRun = Date.now();
+      run(...args);
+      return;
+    }
+    pending = args;
+    timer ??= setTimeout(flush, Math.max(remaining, 0));
+  };
+  return Object.assign(throttled, {
+    cancel: () => {
+      clearTimeout(timer);
+      timer = undefined;
+      pending = null;
+    },
+  });
+}
+
 type ZoomThrottleState = {
-  zoomIn: ReturnType<typeof _.throttle>;
-  zoomOut: ReturnType<typeof _.throttle>;
+  zoomIn: Throttled<[TransitionOptions?]>;
+  zoomOut: Throttled<[TransitionOptions?]>;
 };
 
 const throttleStatesByHost = new WeakMap<WorkspaceHost, ZoomThrottleState>();
@@ -55,13 +93,13 @@ function getZoomThrottleState(host: WorkspaceHost): ZoomThrottleState {
     return existing;
   }
   const state = {
-    zoomIn: _.throttle((options?: TransitionOptions) => {
+    zoomIn: throttle((options?: TransitionOptions) => {
       const { runtime, viewport } = getZoomRuntime(host);
       void runtime.zoomTo(viewport.zoom * 1.2, {
         duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),
       });
     }, 50),
-    zoomOut: _.throttle((options?: TransitionOptions) => {
+    zoomOut: throttle((options?: TransitionOptions) => {
       const { runtime, viewport } = getZoomRuntime(host);
       void runtime.zoomTo(viewport.zoom / 1.2, {
         duration: resolveWorkspaceMotionDuration(options?.duration ?? 0),

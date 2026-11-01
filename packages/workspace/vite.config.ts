@@ -1,11 +1,11 @@
 import { defineConfig } from "vitest/config";
 import {
-  bundledEditorNotices,
+  bundledDependencyNotices,
   externalWorkspaceDependency,
 } from "./editorBuild";
 
 export default defineConfig({
-  plugins: [bundledEditorNotices()],
+  plugins: [bundledDependencyNotices()],
   build: {
     lib: {
       entry: { index: "src/index.ts", browser: "src/browser/index.ts" },

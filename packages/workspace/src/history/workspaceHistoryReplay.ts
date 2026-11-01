@@ -1,4 +1,3 @@
-import _ from "lodash";
 import type {
   TopLevelSectionLayout,
   WorkspaceDocument,
@@ -7,6 +6,7 @@ import type {
   WorkspaceSectionItemTree,
 } from "../document/types.js";
 import type { WorkspaceSnapshot } from "../document/workspaceSnapshot.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export function createWorkspaceHistoryReplayDocument({
   live,
@@ -187,5 +187,5 @@ function preserveLiveWorkspaceChange<Value>(
   source: WorkspaceSnapshot<Value>,
   live: Value,
 ): Value {
-  return _.isEqual(live, source) ? target : structuredClone(live);
+  return deepEqual(live, source) ? target : structuredClone(live);
 }

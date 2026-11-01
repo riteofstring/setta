@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect } from "react";
 import {
   getWorkspaceDocumentStore,
@@ -9,6 +8,7 @@ import { useDndMonitor, type Disabled } from "./adapter/index.js";
 import { useDndChildren } from "./dndChildren.js";
 import { getDndStateStore, setDndDisabled, useDndState } from "./dndState.js";
 import { BehaviorDropTypeEnum } from "./dropTypes.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export function useHasTempNested(sectionId: string) {
   return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
@@ -37,7 +37,7 @@ export function useHighlightDroppable({
             }
           : {},
     };
-  }, _.isEqual);
+  }, deepEqual);
 }
 
 const defaultDisabledState: Disabled = { draggable: false, droppable: true };
@@ -141,7 +141,7 @@ export function useDndProps({
         ? section.positionAndSizeLocked
         : undefined,
     };
-  }, _.isEqual);
+  }, deepEqual);
 
   return {
     id: sectionId,

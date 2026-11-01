@@ -1,4 +1,3 @@
-import _ from "lodash";
 import type {
   ActiveSectionPolicyContext,
   ActiveSectionPolicyResult,
@@ -17,6 +16,7 @@ import { setZIndices } from "../document/sectionZIndices.js";
 import { getWorkspaceDocumentStore } from "../document/stores.js";
 import type { WorkspaceHost } from "../workspaceHost.js";
 import { getReactFlowStore } from "./store.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 type SectionClickIntent = {
   interaction: "section-click";
@@ -137,7 +137,7 @@ export function applyActiveSectionChange(
     multiSelectionActive,
   );
   const decision = resolveActiveSectionChange(context);
-  const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
+  const activeIdsChanged = !deepEqual(activeIds, decision.nextActiveIds);
 
   setActiveSectionIds(host, decision.nextActiveIds);
 

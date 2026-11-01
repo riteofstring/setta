@@ -4,7 +4,6 @@ import {
   type UseComboboxState,
   type UseComboboxStateChangeTypes,
 } from "downshift";
-import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import {
   useLayoutEffect,
@@ -13,6 +12,7 @@ import {
   type DependencyList,
   type EffectCallback,
 } from "react";
+import { deepEqual } from "../../state/deepEqual.js";
 
 export type ComboboxItem = {
   id: string;
@@ -49,7 +49,7 @@ function getHighlightedIndex(
   if (selectedItem) {
     let idx = 0;
     for (const group of items) {
-      const currIdx = _.findIndex(group.items, (item) => item === selectedItem);
+      const currIdx = group.items.findIndex((item) => item === selectedItem);
       if (currIdx !== -1) {
         return { highlightedIndex: idx + currIdx };
       }
@@ -84,9 +84,7 @@ function getExactMatch(
   latestItems: Array<ComboboxItemGroup>,
   value: string | null,
 ): ComboboxItem | null {
-  return (
-    _.find(flattenedItems(latestItems), (item) => item.id === value) ?? null
-  );
+  return flattenedItems(latestItems).find((item) => item.id === value) ?? null;
 }
 
 function getFirstMatch(latestItems: Array<ComboboxItemGroup>) {
@@ -147,7 +145,7 @@ function useDeepCompareLayoutEffect(
   const dependenciesRef = useRef<DependencyList>([]);
   const signalRef = useRef(0);
 
-  if (!_.isEqual(dependenciesRef.current, dependencies)) {
+  if (!deepEqual(dependenciesRef.current, dependencies)) {
     dependenciesRef.current = dependencies;
     signalRef.current += 1;
   }
@@ -186,7 +184,7 @@ export function useComboboxStateReducerWithFilteredItems(
       type === changeTypes.InputClick ||
       type === changeTypes.ToggleButtonClick
     ) {
-      if (!_.isEqual(allItems, filteredItems)) {
+      if (!deepEqual(allItems, filteredItems)) {
         latestItems = allItems;
         setFilteredItems(latestItems);
       }

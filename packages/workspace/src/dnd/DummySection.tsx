@@ -1,6 +1,5 @@
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
-import _ from "lodash";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 import { TbDragDrop } from "react-icons/tb";
@@ -11,6 +10,7 @@ import {
   type DragRectLike,
 } from "./dragRectBounds.js";
 import { DRAG_PREVIEW_Z_INDEX } from "./layers.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 export function TempDNDSection({ ref }: { ref?: Ref<HTMLDivElement> }) {
   const { width, height } = useDndState(
@@ -18,7 +18,7 @@ export function TempDNDSection({ ref }: { ref?: Ref<HTMLDivElement> }) {
       width: x.width,
       height: x.height,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const placeholderStyle = { width: `${width}px`, height: `${height}px` };
   const placeholderClassName =
@@ -123,7 +123,7 @@ export function DummyDragOverlay({ ref }: { ref?: Ref<HTMLDivElement> }) {
       activeRect: state.activeRect,
       draggingIds: state.draggingIds,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const overlayState = useComputed(
     () => resolveDragOverlayState(manager),

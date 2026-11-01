@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { getNodeInternalsStore, type NodeInternalsState } from "./stores.js";
 import { publishNodeInternalsWithTopLevelLayout } from "./topLevelLayoutPublication.js";
 import type { WorkspaceHost } from "../workspaceHost.js";
@@ -25,7 +24,9 @@ export function normalizeNodeZIndices(
     (x) => !sectionIds.includes(x.id),
   );
   excludingInputIds.sort((a, b) => a.zIndex - b.zIndex);
-  const newValues = _.cloneDeep(nodeInternals);
+  const newValues = new Map(
+    Array.from(nodeInternals, ([id, node]) => [id, { ...node }]),
+  );
   for (const [index, node] of excludingInputIds.entries()) {
     const curr = newValues.get(node.id);
     if (!curr) {

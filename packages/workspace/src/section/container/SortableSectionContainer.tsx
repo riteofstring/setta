@@ -1,4 +1,3 @@
-import _ from "lodash";
 import React, {
   useEffect,
   useState,
@@ -18,6 +17,7 @@ import { DRAG_PREVIEW_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers.js";
 import { useDndProps } from "../../dnd/useDndUtils.js";
 import type { SectionDragListeners } from "./ContainerCore.js";
 import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 export type SortableSectionRenderer = (
   sectionId: string,
@@ -207,5 +207,5 @@ const SortableCore = React.memo(
     p.transition === n.transition &&
     p.isDragging === n.isDragging &&
     p.renderSection === n.renderSection &&
-    _.isEqual(p.listeners, n.listeners),
+    deepEqual(p.listeners, n.listeners),
 );

@@ -80,7 +80,7 @@ const requiredTarballEntries = [
   "package/dist/index.js",
   "package/dist/index.js.map",
   "package/dist/styles.css",
-  "package/dist/EDITOR-NOTICES.txt",
+  "package/dist/THIRD-PARTY-NOTICES.txt",
   "package/dist/types/index.d.ts",
   "package/src/canvas/LICENSE",
   "package/src/dnd/LICENSE",

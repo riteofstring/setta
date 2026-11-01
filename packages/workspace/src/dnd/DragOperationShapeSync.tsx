@@ -2,12 +2,12 @@ import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { effects } from "@dnd-kit/state";
-import _ from "lodash";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { useDndProviderContext } from "./adapter/DndProviderContext.js";
 import { useDndState } from "./dndState.js";
 import { resolveRectBoundsById, type DragRectLike } from "./dragRectBounds.js";
 import { useItemDndState } from "./itemDndState.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 type DragOperationShapeSyncProps = {
   enabled?: boolean;
@@ -28,7 +28,7 @@ export function DragOperationShapeSync({
       draggingIds: x.draggingIds,
       draggingRectsById: x.draggingRectsById,
     }),
-    _.isEqual,
+    deepEqual,
   );
   const itemActiveRect = useItemDndState((x) => x.activeRect);
   const activeDragType = useComputed(() => {

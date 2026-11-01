@@ -1,5 +1,4 @@
 import { getSectionContainerHandlers } from "./sectionContainerEvents.js";
-import _ from "lodash";
 import React, { type CSSProperties, type ReactNode } from "react";
 import { useWorkspaceSectionAttentionHighlight } from "../../attention/workspaceSectionAttention.js";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents.js";
@@ -29,6 +28,7 @@ import { getOutlineColor } from "../sectionColors.js";
 import { useSectionRefAndInit } from "../sectionRefs.js";
 import { deriveSectionStyleTheme } from "../sectionStyleColors.js";
 import { resolveSectionStyleVars } from "../sectionStyleVars.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 export type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
 export type SectionDragRef = (element: Element | null) => void;
@@ -88,7 +88,7 @@ function ContainerComponent({
   );
 }
 
-export const Container = React.memo(ContainerComponent, _.isEqual);
+export const Container = React.memo(ContainerComponent, deepEqual);
 
 type GroupCommonProps = SectionDragListeners & {
   ref: (element: HTMLDivElement | null) => void;

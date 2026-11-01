@@ -1,5 +1,4 @@
 import cc from "classcat";
-import _ from "lodash";
 import React, { useEffect, useRef, type KeyboardEvent } from "react";
 import { openWorkspaceSelectionMenu } from "../../context-menu/workspaceMenuInvocation.js";
 import {
@@ -24,6 +23,7 @@ import { useReactFlow } from "../store.js";
 import type { Rect } from "../types.js";
 import { updatePositions } from "../useUpdateNodePositions.js";
 import { useWorkspaceXyflowNodesSelectionDrag } from "./useWorkspaceXyflowNodesSelectionDrag.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 const arrowKeyDiffs: Record<string, Position> = {
   ArrowUp: { x: 0, y: -1 },
@@ -42,11 +42,11 @@ function WorkspaceXyflowNodesSelectionComponent({ x, y, width, height }: Rect) {
   const canEditLayout = useWorkspaceCapabilities(
     (state) => state.canEditLayout,
   );
-  const activeIds = useActiveSections((state) => state.activeIds, _.isEqual);
+  const activeIds = useActiveSections((state) => state.activeIds, deepEqual);
   const activeNames = useWorkspaceDocument(
     (state) =>
       activeIds.map((sectionId) => getSectionOrThrow(state, sectionId).name),
-    _.isEqual,
+    deepEqual,
   );
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
@@ -201,7 +201,7 @@ const WorkspaceXyflowNodesSelectionDragHandle = React.memo(
 function WorkspaceXyflowNodesSelectionWrapperComponent() {
   const nodesSelectionDims = useReactFlow(
     (state) => state.nodesSelectionDims,
-    _.isEqual,
+    deepEqual,
   );
   return (
     nodesSelectionDims && (
@@ -217,7 +217,7 @@ export const WorkspaceXyflowNodesSelectionWrapper = React.memo(
 function WorkspaceXyflowNodesSelectionDragHandleWrapperComponent() {
   const nodesSelectionDims = useReactFlow(
     (state) => state.nodesSelectionDims,
-    _.isEqual,
+    deepEqual,
   );
   const { isMovingFree } = useDndMode();
   const canEditLayout = useWorkspaceCapabilities(

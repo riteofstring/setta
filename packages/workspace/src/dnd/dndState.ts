@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils.js";
 import {
@@ -10,6 +9,7 @@ import type { WorkspaceHost } from "../workspaceHost.js";
 import type { Disabled } from "./adapter/index.js";
 import { manualDndChildrenReset } from "./dndChildren.js";
 import type { BehaviorDropType } from "./dropTypes.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 type DragRect = {
   top: number;
@@ -159,6 +159,6 @@ export function useDndMode() {
       isSorting: x.isSorting,
       isMovingFree: x.isMovingFree,
     }),
-    _.isEqual,
+    deepEqual,
   );
 }

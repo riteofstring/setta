@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   getMetaControlHeightSizeMode,
   getMetaControlMinimumSize,
@@ -17,6 +16,7 @@ import {
   SECTION_SIZING_POLICY,
   type WorkspaceSectionSizeConstraints,
 } from "./sectionSizingBounds.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 export { SECTION_SIZING_POLICY } from "./sectionSizingBounds.js";
 
@@ -94,5 +94,5 @@ export function useSectionMinMaxDims(sectionId: string): SectionMinMaxDims {
       sizeConstraints: sizeConstraints ?? undefined,
       heightSizeMode,
     });
-  }, _.isEqual);
+  }, deepEqual);
 }

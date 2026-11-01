@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useWorkspaceCapabilities } from "../../document/capabilities.js";
 import {
   getSectionOrThrow,
@@ -8,6 +7,7 @@ import { togglePositionLock } from "../../document/sectionMutations.js";
 import { useWorkspaceDocument } from "../../document/stores.js";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip.js";
 import { useWorkspaceHost } from "../../workspaceHostContext.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 type LockPositionButtonStyleState = {
   canEditLayout: boolean;
@@ -118,7 +118,7 @@ export function LockPositionButton({
       isGroup: isGroupSection(section),
       positionAndSizeLocked: section.positionAndSizeLocked,
     };
-  }, _.isEqual);
+  }, deepEqual);
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
   const label = positionAndSizeLocked

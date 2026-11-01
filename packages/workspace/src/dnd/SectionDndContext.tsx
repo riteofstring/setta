@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useMemo, type ReactNode } from "react";
 import {
   getWorkspaceDocumentStore,
@@ -21,6 +20,7 @@ import { useSectionDndSensors } from "./useDNDSensors.js";
 import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType.js";
 import { useModifiers } from "./useModifiers.js";
 import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 function useDndChildrenDocumentSync() {
   const host = useWorkspaceHost();
@@ -36,7 +36,7 @@ function useDndChildrenDocumentSync() {
     updateDndChildren(host, lastChildren);
     return getWorkspaceDocumentStore(host).subscribe((state) => {
       const nextChildren = projectChildren(state);
-      if (_.isEqual(nextChildren, lastChildren)) {
+      if (deepEqual(nextChildren, lastChildren)) {
         return;
       }
       lastChildren = nextChildren;

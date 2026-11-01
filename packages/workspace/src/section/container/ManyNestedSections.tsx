@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController.js";
 import { focusWorkspaceSection } from "../../canvas/viewportHelpers.js";
 import { useDndChildren } from "../../dnd/dndChildren.js";
@@ -14,6 +13,7 @@ import {
   SortableSectionContainer,
   type SortableSectionRenderer,
 } from "./SortableSectionContainer.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 export function MaybeManyNestedSections({
   isGroup,
@@ -47,7 +47,7 @@ function ManyNestedSections({
   renderSection: SortableSectionRenderer;
   sectionId: string;
 }) {
-  const childIds = useDndChildren((x) => x.x[sectionId] ?? [], _.isEqual);
+  const childIds = useDndChildren((x) => x.x[sectionId] ?? [], deepEqual);
   const isHorizontalOrientation = useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     return isGroupSection(section) && section.isHorizontalOrientation;

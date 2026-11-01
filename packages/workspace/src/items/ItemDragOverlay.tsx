@@ -1,7 +1,6 @@
 import type { DragDropManager } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
-import _ from "lodash";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useDndMonitor } from "../dnd/adapter/index.js";
@@ -9,6 +8,7 @@ import type { DragStartEvent } from "../dnd/adapter/types.js";
 import { useItemDndState } from "../dnd/itemDndState.js";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope.js";
 import { isItemOverlayVisible } from "./itemDndMonitorUtils.js";
+import { deepEqual } from "../state/deepEqual.js";
 
 type ItemDragEventData = { current?: { type?: string } };
 
@@ -90,7 +90,7 @@ function useItemDragOverlayState(
         placeholderHeight: state.placeholderHeight,
         activeRect: state.activeRect,
       }),
-      _.isEqual,
+      deepEqual,
     );
   const dragTransform = useComputed(() => {
     if (!manager) {

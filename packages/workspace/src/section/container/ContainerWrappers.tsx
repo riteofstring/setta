@@ -1,4 +1,3 @@
-import _ from "lodash";
 import React, { type CSSProperties, type ReactNode } from "react";
 import { useDndMode, useDndState } from "../../dnd/dndState.js";
 import { useHighlightDroppable } from "../../dnd/useDndUtils.js";
@@ -8,6 +7,7 @@ import {
   type SectionDragRef,
 } from "./ContainerCore.js";
 import { DndSlot } from "./DndSlot.js";
+import { deepEqual } from "../../state/deepEqual.js";
 
 type DndWatcherProps = {
   dimmed: boolean;
@@ -62,7 +62,7 @@ export const DndSlotAndDndWatcher = React.memo(
   (p, n) =>
     p.isGroup === n.isGroup &&
     p.children === n.children &&
-    _.isEqual(p.dragListeners, n.dragListeners),
+    deepEqual(p.dragListeners, n.dragListeners),
 );
 
 function DndWatcherAndContainerComponent({
@@ -81,7 +81,7 @@ function DndWatcherAndContainerComponent({
       isDraggingSelection:
         state.activeId !== null && state.draggingIds.includes(sectionId),
     }),
-    _.isEqual,
+    deepEqual,
   );
   const { isSorting, isMovingFree } = useDndMode();
   const wrappedDragListeners = React.useMemo(() => {
@@ -145,5 +145,5 @@ function maybeGetOpacityStyle(
 
 const DndWatcherAndContainer = React.memo(
   DndWatcherAndContainerComponent,
-  _.isEqual,
+  deepEqual,
 );
