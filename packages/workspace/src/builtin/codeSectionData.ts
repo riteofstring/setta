@@ -1,4 +1,4 @@
-import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
+import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
 import type { WorkspaceSectionData } from "../document/types";
 
 export const WORKSPACE_CODE_SECTION_KIND = "setta.code";

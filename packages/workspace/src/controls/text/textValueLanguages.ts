@@ -12,20 +12,10 @@ import { shell as shellMode } from "@codemirror/legacy-modes/mode/shell";
 import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import type { Extension } from "@codemirror/state";
 import type { highlightTree } from "@lezer/highlight";
+import type { WorkspaceEditorLanguage } from "./editorLanguages";
 
 const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 const SHELL_LANGUAGE = StreamLanguage.define(shellMode);
-
-export type TextValueLanguage =
-  | "python"
-  | "typescript"
-  | "javascript"
-  | "json"
-  | "yaml"
-  | "toml"
-  | "markdown";
-
-export type WorkspaceEditorLanguage = TextValueLanguage | "bash";
 
 export type TextValueParserLike = {
   parse: (input: string) => Parameters<typeof highlightTree>[0];

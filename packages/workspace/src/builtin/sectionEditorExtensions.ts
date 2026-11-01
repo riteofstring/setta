@@ -27,10 +27,8 @@ import {
   tooltips,
   type DecorationSet,
 } from "@codemirror/view";
-import {
-  getTextValueLanguageExtensions,
-  type WorkspaceEditorLanguage,
-} from "../controls/text/textValueLanguages";
+import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
+import { getTextValueLanguageExtensions } from "../controls/text/textValueLanguages";
 import type {
   WorkspaceCodeSectionDiagnostic,
   WorkspaceCodeSectionLanguage,
