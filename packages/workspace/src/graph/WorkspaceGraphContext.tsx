@@ -25,6 +25,22 @@ type WorkspaceGraphClientPoint = Readonly<{
   y: number;
 }>;
 
+function isGestureAvailable(
+  gesture: WorkspaceGraphGesture,
+  snapshot: ReturnType<typeof validateWorkspaceGraphConfiguration>,
+) {
+  if (!snapshot?.portsById.has(gesture.originPortId)) {
+    return false;
+  }
+  if (gesture.kind === "connect") {
+    return true;
+  }
+  return (
+    snapshot.portsById.has(gesture.fixedPortId) &&
+    snapshot.edgesById.has(gesture.edgeId)
+  );
+}
+
 type WorkspaceGraphGesture =
   | Readonly<{
       kind: "connect";
@@ -133,7 +149,9 @@ export function WorkspaceGraphProvider({
   const [gesture, setGesture] = useState<WorkspaceGraphGesture | null>(null);
 
   useEffect(() => {
-    setGesture(null);
+    setGesture((current) =>
+      current && isGestureAvailable(current, snapshot) ? current : null,
+    );
   }, [snapshot]);
 
   const cancelGesture = useCallback(() => {

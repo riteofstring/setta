@@ -103,7 +103,9 @@ New connections use the host's required synchronous connection validator. Replac
 may depend on which controlled edge is being replaced, so an optional reconnect validator receives
 both that edge ID and the detached candidate connection during hover and drop. Without it,
 reconnects retain the new-connection policy. Workspace does not speculate about target occupancy or
-mutate the controlled edge set before the host accepts the replacement.
+mutate the controlled edge set before the host accepts the replacement. A connect or reconnect
+gesture survives configuration updates, such as status overlays changing while the user drags,
+and is cancelled only when its origin port, fixed port, or replaced edge disappears.
 
 Port families are host vocabulary, not package vocabulary. The host declares each family's color
 and edge pattern in the graph configuration, and validation rejects ports or edges naming an

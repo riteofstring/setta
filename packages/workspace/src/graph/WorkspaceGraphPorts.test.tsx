@@ -225,6 +225,39 @@ describe("WorkspaceGraphPorts", () => {
     expect(Object.isFrozen(callbackConnection)).toBe(true);
   });
 
+  it("keeps a connection gesture across configuration updates that retain its port", async () => {
+    const onConnect = vi.fn();
+    const render = (configuration: WorkspaceGraphConfiguration) =>
+      act(async () => {
+        root.render(
+          <WorkspaceTestProvider workspace={workspace}>
+            <GraphPortsHarness configuration={configuration} />
+          </WorkspaceTestProvider>,
+        );
+      });
+    await render(createConfiguration(onConnect));
+    const source = getPort(host, "source-output");
+    setPortRect(source, 100, 40);
+    setPortRect(getPort(host, "target-input"), 300, 40);
+    await dispatchPointer(source, "pointerdown");
+    await render({
+      ...createConfiguration(onConnect),
+      families: { mod: { color: "#c4b5fd", pattern: "dotted" } },
+    });
+    await dispatchPointer(getPort(host, "target-input"), "pointerup");
+    expect(onConnect).toHaveBeenCalledTimes(1);
+
+    await dispatchPointer(getPort(host, "source-output"), "pointerdown");
+    const withoutSource = createConfiguration(onConnect);
+    await render({
+      ...withoutSource,
+      ports: withoutSource.ports.filter((port) => port.id !== "source-output"),
+    });
+    await render(createConfiguration(onConnect));
+    await dispatchPointer(getPort(host, "target-input"), "pointerup");
+    expect(onConnect).toHaveBeenCalledTimes(1);
+  });
+
   it("shows invalid feedback and does not publish rejected connections", async () => {
     const onConnect = vi.fn();
     await act(async () => {
