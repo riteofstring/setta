@@ -212,3 +212,22 @@ override when it ages. The existing Vite and Vitest assessments retain their ind
 dates above. KaTeX's fixed line and postcss-selector-parser 7 require broader version changes;
 their documented input prerequisites remain absent. The parser's same-major 6.1.5 patch was
 published October 19 and becomes eligible November 18.
+
+## Addendum, 2026-11-05: Vite 6.4.4 and KaTeX removal
+
+Assessor: Claude. KaTeX, rehype-katex and remark-math are removed from the library, so
+GHSA-238p-pmpm-9mq7 no longer applies and its assessment is retired.
+
+[Vite 6.4.4](https://registry.npmjs.org/vite/6.4.4), published October 6, 2026 at 05:49 UTC,
+passed the 30-day admission minimum on November 5 and fixes the five 6.4.3 advisories above, which
+are retired. The library manifest, the private packed-consumer source, and the packed-consumer
+template move to it together; the lock resolves no other Vite release.
+
+6.4.4 is itself listed by GHSA-8g5g-mxqh-grgj (medium): `server.fs.deny` can be bypassed with
+`?raw`-style queries because the 6.4.4 backport omitted vitejs/vite#22160. Exposure requires a
+Vite development server reachable over the network through `--host` or `server.host`. The
+repository runs Vite only as `vite build`, Vitest's in-process server, which never listens on a
+socket here, and the browser checks' fixed Node file server; no command starts a development
+server or sets a host. The advisory's request path is therefore absent. The fix, 6.4.5, was
+published October 21, 2026 at 05:35 UTC and becomes admissible on November 20; review it then. The
+assessment expires November 21, 2026.
