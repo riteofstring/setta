@@ -6,54 +6,97 @@ const workspaceGraphStyles = readFileSync(
   "utf8",
 );
 
-function getRuleBody(selectorPattern: RegExp): string {
-  const match = workspaceGraphStyles.match(
-    new RegExp(`${selectorPattern.source}\\s*\\{([^}]*)\\}`, "su"),
-  );
-  if (!match?.[1]) {
-    throw new Error(`No graph rule matched ${selectorPattern.source}.`);
-  }
-  return match[1];
-}
-
 describe("workspace graph stylesheet contract", () => {
-  it("paints edges, ports, and previews from the host family color", () => {
-    const familyColor = "var(--setta-workspace-graph-family-color)";
-    expect(
-      getRuleBody(/\.setta-workspace \.setta-workspace-graph-edge-path/u),
-    ).toContain(`stroke: ${familyColor}`);
-    expect(
-      getRuleBody(/\.setta-workspace \.setta-workspace-graph-port-dot/u),
-    ).toContain(`background: ${familyColor}`);
-    expect(
-      getRuleBody(
-        /\.setta-workspace \.setta-workspace-graph-connection-preview/u,
-      ),
-    ).toContain(`stroke: ${familyColor}`);
+  it("keeps data edges on main's default and selected treatment", () => {
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-edge--data\s+\.setta-workspace-graph-edge-path\s*\{[^}]*stroke: var\(--setta-wire-color, #b1b1b7\);[^}]*stroke-width: 1;/su,
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-edge--data\.setta-workspace-graph-edge--selected\s+\.setta-workspace-graph-edge-path\s*\{[^}]*stroke: #3b82f6;[^}]*\}/su,
+    );
   });
 
-  it("marks missing edges red in both themes", () => {
-    expect(
-      getRuleBody(
-        /\.setta-workspace\s+\.setta-workspace-graph-edge\.setta-workspace-graph-edge--missing\s+\.setta-workspace-graph-edge-path/u,
-      ),
-    ).toMatch(/stroke: #ef4444;[^}]*stroke-dasharray/su);
-    expect(
-      getRuleBody(
-        /\.setta-workspace\.setta-workspace-dark\s+\.setta-workspace-graph-edge\.setta-workspace-graph-edge--missing\s+\.setta-workspace-graph-edge-path/u,
-      ),
-    ).toContain("stroke: #f87171");
+  it("keeps agentic and workflow edge tokens aligned with main", () => {
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-edge--agentic\s+\.setta-workspace-graph-edge-path\s*\{[^}]*stroke: #60a5fa;[^}]*stroke-width: 1\.7;[^}]*stroke-dasharray: 7 5;/su,
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-edge--workflow\s+\.setta-workspace-graph-edge-path\s*\{[^}]*stroke: #f59e0b;[^}]*stroke-width: 2\.2;/su,
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace\.setta-workspace-dark\s+\.setta-workspace-graph-edge--workflow\.setta-workspace-graph-edge--selected\s+\.setta-workspace-graph-edge-path\s*\{[^}]*stroke: #fb923c;[^}]*drop-shadow\(0 0 5px rgb\(251 146 60 \/ 0\.28\)\)/su,
+    );
+    expect(workspaceGraphStyles).not.toMatch(
+      /setta-workspace-graph-edge--(?:agentic|workflow):(?:hover|focus)/u,
+    );
   });
 
-  it("animates running edge flow only when motion is allowed", () => {
-    const animationDeclarations = [
-      ...workspaceGraphStyles.matchAll(/animation:[^;]*;/gu),
-    ];
-    expect(animationDeclarations).toHaveLength(1);
-    const motionBlock = workspaceGraphStyles.match(
-      /@media \(prefers-reduced-motion: no-preference\) \{.*?\n\}/su,
+  it("uses main's neutral solid connection preview", () => {
+    const previewBlock = workspaceGraphStyles.match(
+      /\.setta-workspace-graph-connection-preview\s*\{[^}]*\}/su,
     )?.[0];
-    expect(motionBlock).toContain("setta-workspace-graph-edge--running");
-    expect(motionBlock).toContain("setta-workspace-graph-edge-flow");
+    expect(previewBlock).toContain("stroke: var(--setta-wire-color, #b1b1b7)");
+    expect(previewBlock).toContain("stroke-width: 1");
+    expect(previewBlock).not.toContain("stroke-dasharray");
+    expect(previewBlock).not.toContain("filter");
+  });
+
+  it("uses main's port dimensions, spacing, fade cadence, and theme colors", () => {
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-render-size: 10px",
+    );
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-side-offset: -6px",
+    );
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-render-size: 14px",
+    );
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-safe-height: 42px",
+    );
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-safe-width: 32px",
+    );
+    expect(workspaceGraphStyles).toContain("transition: opacity 80ms ease-out");
+    expect(workspaceGraphStyles).toContain("transition-duration: 70ms");
+    expect(workspaceGraphStyles).toContain("z-index: 40");
+    expect(workspaceGraphStyles).toContain("z-index: 160");
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-port--workflow\s*\{[^}]*--setta-workspace-graph-port-color: #d97706;/su,
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace\.setta-workspace-dark\s+\.setta-workspace-graph-port--workflow\s*\{[^}]*--setta-workspace-graph-port-color: #f59e0b;/su,
+    );
+  });
+
+  it("keeps source ports filled, target ports hollow, and only specialized disabled ports subdued", () => {
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-port--source\s+\.setta-workspace-graph-port-dot\s*\{[^}]*border-width: 0;[^}]*background: var\(--setta-workspace-graph-port-color\);/su,
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /\.setta-workspace-graph-port--target\s+\.setta-workspace-graph-port-dot\s*\{[^}]*border-width: 2px;[^}]*background: transparent;/su,
+    );
+    expect(workspaceGraphStyles).not.toMatch(
+      /\.setta-workspace-graph-port--data\.setta-workspace-graph-port--disabled\s*\{[^}]*opacity/su,
+    );
+    expect(workspaceGraphStyles).not.toContain(
+      ".setta-workspace-graph-port-safe-zone--disabled",
+    );
+  });
+
+  it("uses main's themed port variables and data-port color transitions", () => {
+    expect(workspaceGraphStyles).toContain(
+      "--setta-workspace-graph-port-color: var(--setta-section-style-arg-handle)",
+    );
+    expect(workspaceGraphStyles).toMatch(
+      /--setta-workspace-graph-port-color:\s*var\(\s*--setta-section-style-agentic-handle\s*\)/su,
+    );
+    expect(workspaceGraphStyles).toContain("background-color 80ms ease-out");
+    expect(workspaceGraphStyles).not.toContain(
+      ".setta-workspace-graph-port--candidate-valid\n  .setta-workspace-graph-port-dot",
+    );
+    expect(workspaceGraphStyles).not.toContain(
+      ".setta-workspace-graph-port--candidate-invalid\n  .setta-workspace-graph-port-dot",
+    );
   });
 });

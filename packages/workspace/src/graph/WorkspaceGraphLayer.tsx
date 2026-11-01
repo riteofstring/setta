@@ -15,8 +15,8 @@ import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import { getIsEditableTarget } from "../keybindings/editableTarget";
 import type {
   WorkspaceGraphEdge,
-  WorkspaceGraphFamily,
   WorkspaceGraphPort,
+  WorkspaceGraphPortFamily,
   WorkspaceGraphPortSide,
 } from "./types";
 import {
@@ -25,10 +25,7 @@ import {
   getWorkspaceGraphViewportPoint,
   type WorkspaceGraphPoint,
 } from "./geometry";
-import {
-  getWorkspaceGraphFamilyStyle,
-  getWorkspaceGraphPortSide,
-} from "./validation";
+import { getWorkspaceGraphPortSide } from "./validation";
 import { useWorkspaceGraph } from "./WorkspaceGraphContext";
 
 type ActiveWorkspaceGraph = NonNullable<ReturnType<typeof useWorkspaceGraph>>;
@@ -48,6 +45,12 @@ const EMPTY_GRAPH_GEOMETRY: WorkspaceGraphGeometry = {
   height: 0,
   ports: new Map(),
   width: 0,
+};
+
+const EDGE_INTERACTION_WIDTH: Record<WorkspaceGraphPortFamily, number> = {
+  data: 16,
+  agentic: 16,
+  workflow: 18,
 };
 
 type WorkspaceGraphLabelBounds = Readonly<{
@@ -119,18 +122,14 @@ function getOppositeSide(side: WorkspaceGraphPortSide): WorkspaceGraphPortSide {
 
 function getWorkspaceGraphEdgeClassName({
   edge,
-  family,
   selected,
 }: {
   edge: WorkspaceGraphEdge;
-  family: WorkspaceGraphFamily | undefined;
   selected: boolean;
 }): string {
   return [
     "setta-workspace-graph-edge",
-    family?.pattern && family.pattern !== "solid"
-      ? `setta-workspace-graph-edge--${family.pattern}`
-      : null,
+    `setta-workspace-graph-edge--${edge.family}`,
     selected ? "setta-workspace-graph-edge--selected" : null,
     edge.status && edge.status !== "idle"
       ? `setta-workspace-graph-edge--${edge.status}`
@@ -184,12 +183,12 @@ function isWorkspaceGraphKeyboardTarget(
   return rootElement.contains(event.target) && !getIsEditableTarget(event);
 }
 
-function WorkspaceGraphEdgeLabel({
+function WorkspaceGraphMeasuredEdgeLabel({
   label,
   x,
   y,
 }: {
-  label: string | undefined;
+  label: string;
   x: number;
   y: number;
 }) {
@@ -206,9 +205,6 @@ function WorkspaceGraphEdgeLabel({
     setBounds({ height: nextBounds.height, width: nextBounds.width });
   }, [label]);
 
-  if (!label) {
-    return null;
-  }
   return (
     <g
       className="setta-workspace-graph-edge-label"
@@ -236,6 +232,59 @@ function WorkspaceGraphEdgeLabel({
   );
 }
 
+function WorkspaceGraphWorkflowEdgeLabel({
+  label,
+  x,
+  y,
+}: {
+  label: string;
+  x: number;
+  y: number;
+}) {
+  const width = Math.max(80, label.length * 6 + 12);
+  return (
+    <g
+      className="setta-workspace-graph-edge-label"
+      transform={`translate(${x - width / 2} ${y - 10})`}
+    >
+      <rect
+        className="setta-workspace-graph-edge-label-background"
+        height={20}
+        rx={10}
+        ry={10}
+        width={width}
+      />
+      <text
+        className="setta-workspace-graph-edge-label-text"
+        textAnchor="middle"
+        x={width / 2}
+        y={13}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function WorkspaceGraphEdgeLabel({
+  edge,
+  x,
+  y,
+}: {
+  edge: WorkspaceGraphEdge;
+  x: number;
+  y: number;
+}) {
+  if (!edge.label) {
+    return null;
+  }
+  return edge.family === "workflow" ? (
+    <WorkspaceGraphWorkflowEdgeLabel label={edge.label} x={x} y={y} />
+  ) : (
+    <WorkspaceGraphMeasuredEdgeLabel label={edge.label} x={x} y={y} />
+  );
+}
+
 function WorkspaceGraphEdgePath({
   edge,
   geometry,
@@ -259,7 +308,6 @@ function WorkspaceGraphEdgePath({
   const sourceGeometry = source;
   const targetGeometry = target;
   const selected = activeGraph.snapshot.selectedEdgeIds.has(edge.id);
-  const family = activeGraph.snapshot.families.get(edge.family);
   const bezier = getWorkspaceGraphBezier(
     sourceGeometry.point,
     sourceGeometry.side,
@@ -329,14 +377,12 @@ function WorkspaceGraphEdgePath({
   return (
     <g
       aria-label={getWorkspaceGraphEdgeLabel(edge)}
-      className={getWorkspaceGraphEdgeClassName({ edge, family, selected })}
-      data-edge-family={edge.family}
+      className={getWorkspaceGraphEdgeClassName({ edge, selected })}
       data-edge-id={edge.id}
       data-testid={`workspace-graph-edge-${edge.id}`}
       onClick={onClick}
       onKeyDown={onKeyDown}
       role={canSelect ? "button" : undefined}
-      style={getWorkspaceGraphFamilyStyle(family)}
       tabIndex={canSelect ? 0 : -1}
     >
       <path
@@ -349,10 +395,10 @@ function WorkspaceGraphEdgePath({
         d={bezier.path}
         fill="none"
         stroke="transparent"
-        strokeWidth={16}
+        strokeWidth={EDGE_INTERACTION_WIDTH[edge.family]}
       />
       <WorkspaceGraphEdgeLabel
-        label={edge.label}
+        edge={edge}
         x={bezier.labelX}
         y={bezier.labelY}
       />
@@ -524,9 +570,6 @@ function WorkspaceGraphConnectionPreview({
       d={bezier.path}
       data-testid="workspace-graph-connection-preview"
       fill="none"
-      style={getWorkspaceGraphFamilyStyle(
-        graph.snapshot.families.get(originPort.family),
-      )}
     />
   );
 }

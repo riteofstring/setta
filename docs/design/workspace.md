@@ -105,27 +105,18 @@ both that edge ID and the detached candidate connection during hover and drop. W
 reconnects retain the new-connection policy. Workspace does not speculate about target occupancy or
 mutate the controlled edge set before the host accepts the replacement.
 
-Port families are host vocabulary, not package vocabulary. The host declares each family's color
-and edge pattern in the graph configuration, and validation rejects ports or edges naming an
-undeclared family so a typo fails before presentation. Workspace applies the family color as a CSS
-custom property on each port and edge, so one generic stylesheet paints every family; theming a
-family across light and dark is the host's choice of color value. Selection, hover, focus,
-connection preview, and the `running` and `missing` status overlays are family-independent
-treatments layered on that color. Source ports are filled and target ports hollow. Running flow
-animation is limited to patterned edges and is disabled under reduced motion. Each visible port dot
-owns its measured graph endpoint; its larger hover target owns interaction only.
-
-Viewport compositor promotion targets explicit section shells so it cannot replace a port's
-centering transform while panning. XYFlow mounts no background, controls, minimap, attribution,
-theme, or dependency stylesheet. All projected sections remain mounted, including offscreen
-sections, because editor state, terminal state, measurement, focus, saved-view behavior, and graph
-geometry depend on that continuity.
-
-Edge selection stays host-controlled, but a selected ID whose edge is gone is stale presentation,
-not an invariant violation: hosts remove edges for reasons Workspace cannot observe, such as
-deleting the section that owns a port. Validation therefore drops unmatched selected IDs instead of
-throwing, and the delete gesture reports the emptied selection after `onDelete` so hosts that only
-apply the deletion still converge.
+The graph presentation preserves the local main branch's established `data`, `agentic`, and
+`workflow` families, source/target port treatment, connection preview, selection, reconnect, and
+delete behavior. Main is the UX and behavior reference, while this package expresses that behavior
+through the current upstream-renderer architecture rather than copying main's application stores or
+vendored renderer fork. Default edge colors and weights plus port color, size, spacing, fill, ring,
+and reveal cadence follow that reference in light and dark themes. Each visible port dot owns its
+measured graph endpoint; any larger family hover target owns interaction only. Viewport compositor
+promotion targets explicit section shells so it cannot replace a port's centering transform while
+panning. XYFlow mounts no background, controls, minimap, attribution, theme, or dependency
+stylesheet. All projected sections remain mounted, including offscreen sections, because editor
+state, terminal state, measurement, focus, saved-view behavior, and graph geometry depend on that
+continuity.
 
 Native external drag data crosses one explicit canvas ingress boundary. Acceptance is synchronous
 and limited to an exact bare-pane target; after acceptance Workspace translates the screen point

@@ -38,33 +38,27 @@ const sections = {
 
 const ports = [
   {
-    family: "audio",
+    family: "data",
     id: "source-output",
     label: "Source output",
     sectionId: "source",
     type: "source",
   },
   {
-    family: "audio",
+    family: "data",
     id: "target-input",
     label: "Target input",
     sectionId: "target",
     type: "target",
   },
   {
-    family: "mod",
-    id: "nested-mod-input",
-    label: "Nested mod input",
+    family: "agentic",
+    id: "nested-agent-input",
+    label: "Nested agent input",
     sectionId: "nested",
     type: "target",
   },
 ] as const satisfies ReadonlyArray<WorkspaceGraphPort>;
-
-const families = {
-  audio: { color: "#22d3ee" },
-  mod: { color: "#a78bfa", pattern: "dotted" },
-  notes: { color: "#f59e0b", pattern: "dashed" },
-} as const satisfies WorkspaceGraphConfiguration["families"];
 
 function createConfiguration(
   overrides: Partial<WorkspaceGraphConfiguration> = {},
@@ -73,13 +67,12 @@ function createConfiguration(
     canConnect: () => true,
     edges: [
       {
-        family: "audio",
+        family: "data",
         id: "data-edge",
         source: { portId: "source-output", sectionId: "source" },
         target: { portId: "target-input", sectionId: "target" },
       },
     ],
-    families,
     ports,
     selectedEdgeIds: new Set(["data-edge"]),
     ...overrides,
@@ -92,13 +85,13 @@ describe("Workspace graph validation", () => {
       createConfiguration({
         edges: [
           {
-            family: "audio",
+            family: "data",
             id: "second",
             source: { portId: "source-output", sectionId: "source" },
             target: { portId: "target-input", sectionId: "target" },
           },
           {
-            family: "audio",
+            family: "data",
             id: "first",
             source: { portId: "source-output", sectionId: "source" },
             target: { portId: "target-input", sectionId: "target" },
@@ -122,11 +115,6 @@ describe("Workspace graph validation", () => {
     expect(getWorkspaceGraphPortPosition(source)).toBe(0.5);
     expect(snapshot.edges.map((edge) => edge.id)).toEqual(["second", "first"]);
     expect(snapshot.selectedEdgeIds).toEqual(new Set(["first"]));
-    expect(snapshot.families.get("mod")).toEqual({
-      color: "#a78bfa",
-      pattern: "dotted",
-    });
-    expect(snapshot.families.get("audio")?.pattern).toBe("solid");
     expect(Object.isFrozen(snapshot.ports[0])).toBe(true);
     expect(Object.isFrozen(snapshot.edges[0])).toBe(true);
   });
@@ -168,7 +156,7 @@ describe("Workspace graph validation", () => {
         createConfiguration({
           edges: [
             {
-              family: "notes",
+              family: "workflow",
               id: "wrong-family",
               source: { portId: "source-output", sectionId: "source" },
               target: { portId: "target-input", sectionId: "target" },
@@ -185,7 +173,7 @@ describe("Workspace graph validation", () => {
         createConfiguration({
           edges: [
             {
-              family: "audio",
+              family: "data",
               id: "wrong-direction",
               source: { portId: "target-input", sectionId: "target" },
               target: { portId: "source-output", sectionId: "source" },
@@ -196,70 +184,13 @@ describe("Workspace graph validation", () => {
         sections,
       ),
     ).toThrow('source port "target-input" must be a source port');
-  });
-
-  it("ignores selected edge ids that no longer match a controlled edge", () => {
-    const snapshot = validateWorkspaceGraphConfiguration(
-      createConfiguration({
-        edges: [],
-        selectedEdgeIds: new Set(["data-edge"]),
-      }),
-      sections,
-    );
-    expect(snapshot?.selectedEdgeIds).toEqual(new Set());
-  });
-
-  it("requires every port and edge family to be declared by the host", () => {
-    expect(() =>
-      validateWorkspaceGraphConfiguration(
-        createConfiguration({
-          edges: [],
-          ports: [{ ...ports[0], family: "control" }],
-          selectedEdgeIds: new Set(),
-        }),
-        sections,
-      ),
-    ).toThrow(
-      'Workspace graph port at index 0 family "control" is not declared in Workspace graph families.',
-    );
 
     expect(() =>
       validateWorkspaceGraphConfiguration(
-        createConfiguration({ families: { mod: families.mod } }),
+        createConfiguration({ selectedEdgeIds: new Set(["unknown-edge"]) }),
         sections,
       ),
-    ).toThrow('family "audio" is not declared');
-
-    expect(() =>
-      validateWorkspaceGraphConfiguration(
-        {
-          ...createConfiguration(),
-          families: undefined,
-        } as unknown as WorkspaceGraphConfiguration,
-        sections,
-      ),
-    ).toThrow("families must be a record");
-
-    expect(() =>
-      validateWorkspaceGraphConfiguration(
-        createConfiguration({
-          families: { ...families, audio: { color: " " } },
-        }),
-        sections,
-      ),
-    ).toThrow(
-      'Workspace graph family "audio" color must be a non-empty string',
-    );
-
-    expect(() =>
-      validateWorkspaceGraphConfiguration(
-        {
-          ...createConfiguration(),
-          families: { ...families, audio: { color: "red", pattern: "wavy" } },
-        } as unknown as WorkspaceGraphConfiguration,
-        sections,
-      ),
-    ).toThrow("pattern must be solid, dashed, or dotted");
+    ).toThrow('selected edge id "unknown-edge" does not exist');
   });
 
   it("rejects malformed callback and placement input", () => {
@@ -281,35 +212,24 @@ describe("Workspace graph validation", () => {
         sections,
       ),
     ).toThrow("position must be a finite number from 0 through 1");
-  });
 
-  it("accepts status overlays on any declared family", () => {
-    const snapshot = validateWorkspaceGraphConfiguration(
-      createConfiguration({
-        edges: [
-          {
-            family: "audio",
-            id: "running-audio",
-            source: { portId: "source-output", sectionId: "source" },
-            status: "running",
-            target: { portId: "target-input", sectionId: "target" },
-          },
-          {
-            family: "audio",
-            id: "missing-audio",
-            source: { portId: "source-output", sectionId: "source" },
-            status: "missing",
-            target: { portId: "target-input", sectionId: "target" },
-          },
-        ],
-        selectedEdgeIds: new Set(),
-      }),
-      sections,
-    );
-    expect(snapshot?.edges.map((edge) => edge.status)).toEqual([
-      "running",
-      "missing",
-    ]);
+    expect(() =>
+      validateWorkspaceGraphConfiguration(
+        createConfiguration({
+          edges: [
+            {
+              family: "data",
+              id: "non-agentic-status",
+              source: { portId: "source-output", sectionId: "source" },
+              status: "running",
+              target: { portId: "target-input", sectionId: "target" },
+            },
+          ],
+          selectedEdgeIds: new Set(),
+        }),
+        sections,
+      ),
+    ).toThrow("status overlays require the agentic family");
   });
 
   it("normalizes target-originated drags and passes detached connections to validation", () => {
@@ -317,7 +237,7 @@ describe("Workspace graph validation", () => {
     const target = ports[1];
     const connection = createWorkspaceGraphConnection(target, source);
     expect(connection).toEqual({
-      family: "audio",
+      family: "data",
       source: { portId: "source-output", sectionId: "source" },
       target: { portId: "target-input", sectionId: "target" },
     });
@@ -369,7 +289,7 @@ describe("Workspace graph validation", () => {
     expect(canConnect).not.toHaveBeenCalled();
     expect(canReconnect).toHaveBeenCalledWith({
       connection: {
-        family: "audio",
+        family: "data",
         source: { portId: "source-output", sectionId: "source" },
         target: { portId: "target-input", sectionId: "target" },
       },
@@ -386,14 +306,14 @@ describe("Workspace graph validation", () => {
   it("uses a synchronous host policy for self-connections", () => {
     const selfPorts: ReadonlyArray<WorkspaceGraphPort> = [
       {
-        family: "notes",
+        family: "workflow",
         id: "loop-source",
         label: "Loop source",
         sectionId: "source",
         type: "source",
       },
       {
-        family: "notes",
+        family: "workflow",
         id: "loop-target",
         label: "Loop target",
         sectionId: "source",
@@ -417,7 +337,7 @@ describe("Workspace graph validation", () => {
       evaluateWorkspaceGraphConnection(snapshot, "loop-source", "loop-target"),
     ).toEqual({
       connection: {
-        family: "notes",
+        family: "workflow",
         source: { portId: "loop-source", sectionId: "source" },
         target: { portId: "loop-target", sectionId: "source" },
       },

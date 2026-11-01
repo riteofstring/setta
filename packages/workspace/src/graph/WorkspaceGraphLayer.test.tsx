@@ -1,5 +1,5 @@
 /* @vitest-environment jsdom */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ import {
   WorkspaceTestProvider,
 } from "../../test/workspaceTestHost";
 import type { WorkspaceSection } from "../document/types";
-import type { WorkspaceGraphConfiguration, WorkspaceGraphEdge } from "./types";
+import type { WorkspaceGraphConfiguration } from "./types";
 import {
   WorkspaceGraphProvider,
   useWorkspaceGraph,
@@ -26,13 +26,13 @@ type PortRect = Readonly<{
 }>;
 
 const initialPortRects: Readonly<Record<string, PortRect>> = {
-  "mod-source": { left: 200, top: 190 },
-  "mod-target": { left: 500, top: 270 },
+  "agent-source": { left: 200, top: 190 },
+  "agent-target": { left: 500, top: 270 },
   "data-source": { left: 200, top: 130 },
   "data-target": { left: 500, top: 130 },
   "replacement-source": { left: 350, top: 360 },
-  "notes-source": { left: 200, top: 250 },
-  "notes-target": { left: 500, top: 360 },
+  "workflow-source": { left: 200, top: 250 },
+  "workflow-target": { left: 500, top: 360 },
 };
 
 const portRects: Record<string, PortRect> = { ...initialPortRects };
@@ -60,77 +60,72 @@ function createConfiguration(
     canConnect: () => true,
     edges: [
       {
-        family: "audio",
+        family: "data",
         id: "data-edge",
         label: "Data",
         source: { portId: "data-source", sectionId: "source" },
         target: { portId: "data-target", sectionId: "target" },
       },
       {
-        family: "mod",
-        id: "mod-edge",
-        source: { portId: "mod-source", sectionId: "source" },
+        family: "agentic",
+        id: "agent-edge",
+        source: { portId: "agent-source", sectionId: "source" },
         status: "running",
-        target: { portId: "mod-target", sectionId: "target" },
+        target: { portId: "agent-target", sectionId: "target" },
       },
       {
-        family: "notes",
-        id: "notes-edge",
+        family: "workflow",
+        id: "workflow-edge",
         label: "Ready",
-        source: { portId: "notes-source", sectionId: "source" },
-        target: { portId: "notes-target", sectionId: "nested" },
+        source: { portId: "workflow-source", sectionId: "source" },
+        target: { portId: "workflow-target", sectionId: "nested" },
       },
     ],
-    families: {
-      audio: { color: "#22d3ee" },
-      mod: { color: "#a78bfa", pattern: "dotted" },
-      notes: { color: "#f59e0b", pattern: "dashed" },
-    },
     ports: [
       {
-        family: "audio",
+        family: "data",
         id: "data-source",
         label: "Data source",
         sectionId: "source",
         type: "source",
       },
       {
-        family: "audio",
+        family: "data",
         id: "data-target",
         label: "Data target",
         sectionId: "target",
         type: "target",
       },
       {
-        family: "mod",
-        id: "mod-source",
-        label: "Mod source",
+        family: "agentic",
+        id: "agent-source",
+        label: "Agent source",
         sectionId: "source",
         type: "source",
       },
       {
-        family: "mod",
-        id: "mod-target",
-        label: "Mod target",
+        family: "agentic",
+        id: "agent-target",
+        label: "Agent target",
         sectionId: "target",
         type: "target",
       },
       {
-        family: "notes",
-        id: "notes-source",
-        label: "Notes source",
+        family: "workflow",
+        id: "workflow-source",
+        label: "Workflow source",
         sectionId: "source",
         type: "source",
       },
       {
-        family: "notes",
-        id: "notes-target",
-        label: "Notes target",
+        family: "workflow",
+        id: "workflow-target",
+        label: "Workflow target",
         sectionId: "nested",
         type: "target",
       },
       {
-        family: "audio",
+        family: "data",
         id: "replacement-source",
         label: "Replacement source",
         sectionId: "nested",
@@ -245,36 +240,6 @@ function GraphLayerHarness({
   );
 }
 
-function ControlledEdgeDeletionHost({
-  onSelectedEdgeIdsChange,
-}: {
-  onSelectedEdgeIdsChange: (edgeIds: ReadonlySet<string>) => void;
-}) {
-  const [edges, setEdges] = useState<ReadonlyArray<WorkspaceGraphEdge>>(
-    () => createConfiguration().edges,
-  );
-  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const configuration = useMemo(
-    () =>
-      createConfiguration({
-        edges,
-        onDelete: (edgeIds) =>
-          setEdges((current) =>
-            current.filter((edge) => !edgeIds.includes(edge.id)),
-          ),
-        onSelectedEdgeIdsChange: (edgeIds) => {
-          onSelectedEdgeIdsChange(edgeIds);
-          setSelectedEdgeIds(edgeIds);
-        },
-        selectedEdgeIds,
-      }),
-    [edges, onSelectedEdgeIdsChange, selectedEdgeIds],
-  );
-  return <GraphLayerHarness configuration={configuration} />;
-}
-
 function getEdge(host: HTMLElement, edgeId: string): SVGGElement {
   const edge = host.querySelector<SVGGElement>(`[data-edge-id="${edgeId}"]`);
   if (!edge) {
@@ -341,7 +306,7 @@ describe("WorkspaceGraphLayer", () => {
     workspace.host.dispose();
   });
 
-  it("renders host-declared families with measured nested endpoint geometry", async () => {
+  it("renders all supported families with measured nested endpoint geometry", async () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={workspace}>
@@ -351,27 +316,12 @@ describe("WorkspaceGraphLayer", () => {
     });
 
     const dataEdge = getEdge(host, "data-edge");
-    const modEdge = getEdge(host, "mod-edge");
-    const notesEdge = getEdge(host, "notes-edge");
-    expect(dataEdge.getAttribute("data-edge-family")).toBe("audio");
-    expect(
-      dataEdge.style.getPropertyValue("--setta-workspace-graph-family-color"),
-    ).toBe("#22d3ee");
-    expect(
-      modEdge.style.getPropertyValue("--setta-workspace-graph-family-color"),
-    ).toBe("#a78bfa");
-    expect(dataEdge.classList).not.toContain(
-      "setta-workspace-graph-edge--dashed",
-    );
-    expect(modEdge.classList).toContain("setta-workspace-graph-edge--dotted");
-    expect(modEdge.classList).toContain("setta-workspace-graph-edge--running");
-    expect(notesEdge.classList).toContain("setta-workspace-graph-edge--dashed");
-    expect(modEdge.getAttribute("aria-label")).toBe("mod edge");
-    expect(notesEdge.getAttribute("aria-label")).toBe("notes edge: Ready");
-    expect(
-      notesEdge.querySelector(".setta-workspace-graph-edge-label-text")
-        ?.textContent,
-    ).toBe("Ready");
+    const agentEdge = getEdge(host, "agent-edge");
+    const workflowEdge = getEdge(host, "workflow-edge");
+    expect(dataEdge.className.baseVal).toContain("--data");
+    expect(agentEdge.className.baseVal).toContain("--agentic");
+    expect(agentEdge.className.baseVal).toContain("--running");
+    expect(workflowEdge.className.baseVal).toContain("--workflow");
     expect(
       getEdgeElementAttribute(
         dataEdge,
@@ -381,11 +331,73 @@ describe("WorkspaceGraphLayer", () => {
     ).toContain("M42.5,27.5");
     expect(
       getEdgeElementAttribute(
-        notesEdge,
+        workflowEdge,
         ".setta-workspace-graph-edge-path",
         "d",
       ),
     ).toContain("192.5,142.5");
+    expect(
+      getEdgeElementAttribute(
+        dataEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
+    ).toBe("16");
+    expect(
+      getEdgeElementAttribute(
+        agentEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
+    ).toBe("16");
+    expect(
+      getEdgeElementAttribute(
+        workflowEdge,
+        ".setta-workspace-graph-edge-interaction",
+        "stroke-width",
+      ),
+    ).toBe("18");
+    const workflowLabel = workflowEdge.querySelector(
+      ".setta-workspace-graph-edge-label",
+    );
+    if (!workflowLabel) {
+      throw new Error("Workspace graph workflow label did not render.");
+    }
+    expect(
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "width",
+      ),
+    ).toBe("80");
+    expect(
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "height",
+      ),
+    ).toBe("20");
+    expect(
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-background",
+        "rx",
+      ),
+    ).toBe("10");
+    expect(
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-text",
+        "x",
+      ),
+    ).toBe("40");
+    expect(
+      getEdgeElementAttribute(
+        workflowLabel,
+        ".setta-workspace-graph-edge-label-text",
+        "y",
+      ),
+    ).toBe("13");
   });
 
   it("keeps edge geometry fixed in workspace coordinates while the viewport pans", async () => {
@@ -397,7 +409,7 @@ describe("WorkspaceGraphLayer", () => {
       );
     });
 
-    const before = getEdge(host, "mod-edge")
+    const before = getEdge(host, "agent-edge")
       .querySelector(".setta-workspace-graph-edge-path")
       ?.getAttribute("d");
     for (const [portId, rect] of Object.entries(portRects)) {
@@ -408,7 +420,7 @@ describe("WorkspaceGraphLayer", () => {
       await Promise.resolve();
     });
 
-    const after = getEdge(host, "mod-edge")
+    const after = getEdge(host, "agent-edge")
       .querySelector(".setta-workspace-graph-edge-path")
       ?.getAttribute("d");
     expect(after).toBe(before);
@@ -421,13 +433,13 @@ describe("WorkspaceGraphLayer", () => {
         <WorkspaceTestProvider workspace={workspace}>
           <GraphLayerHarness
             configuration={configuration}
-            hiddenPortIds={new Set(["notes-target"])}
+            hiddenPortIds={new Set(["workflow-target"])}
           />
         </WorkspaceTestProvider>,
       );
     });
 
-    expect(host.querySelector('[data-edge-id="notes-edge"]')).toBeNull();
+    expect(host.querySelector('[data-edge-id="workflow-edge"]')).toBeNull();
     expect(host.querySelector('[data-edge-id="data-edge"]')).not.toBeNull();
   });
 
@@ -440,7 +452,7 @@ describe("WorkspaceGraphLayer", () => {
       );
     });
 
-    const before = getEdge(host, "notes-edge")
+    const before = getEdge(host, "workflow-edge")
       .querySelector(".setta-workspace-graph-edge-path")
       ?.getAttribute("d");
     const nestedLayout = host.querySelector<HTMLElement>(
@@ -449,7 +461,7 @@ describe("WorkspaceGraphLayer", () => {
     if (!nestedLayout) {
       throw new Error("Workspace graph nested layout did not render.");
     }
-    portRects["notes-target"] = { left: 560, top: 360 };
+    portRects["workflow-target"] = { left: 560, top: 360 };
     await act(async () => {
       nestedLayout.style.transform = "translateX(60px)";
       await Promise.resolve();
@@ -458,7 +470,7 @@ describe("WorkspaceGraphLayer", () => {
       });
     });
 
-    const after = getEdge(host, "notes-edge")
+    const after = getEdge(host, "workflow-edge")
       .querySelector(".setta-workspace-graph-edge-path")
       ?.getAttribute("d");
     expect(before).toContain("192.5,142.5");
@@ -499,7 +511,7 @@ describe("WorkspaceGraphLayer", () => {
 
     await dispatchPointer(target, "pointerup");
     expect(onConnect).toHaveBeenCalledWith({
-      family: "audio",
+      family: "data",
       source: { portId: "data-source", sectionId: "source" },
       target: { portId: "data-target", sectionId: "target" },
     });
@@ -527,12 +539,12 @@ describe("WorkspaceGraphLayer", () => {
     });
 
     await act(async () => {
-      getEdge(host, "mod-edge").dispatchEvent(
+      getEdge(host, "agent-edge").dispatchEvent(
         new MouseEvent("click", { bubbles: true, ctrlKey: true }),
       );
     });
     expect(onSelectedEdgeIdsChange).toHaveBeenCalledWith(
-      new Set(["data-edge", "mod-edge"]),
+      new Set(["data-edge", "agent-edge"]),
     );
     expect(workspace.activeSections.getState().activeIds).toEqual([]);
 
@@ -546,69 +558,6 @@ describe("WorkspaceGraphLayer", () => {
       );
     });
     expect(onDelete).toHaveBeenCalledWith(["data-edge"]);
-  });
-
-  it("keeps a host mounted when the deleted edge leaves its selection behind", async () => {
-    const onSelectedEdgeIdsChange = vi.fn();
-    await act(async () => {
-      root.render(
-        <WorkspaceTestProvider workspace={workspace}>
-          <ControlledEdgeDeletionHost
-            onSelectedEdgeIdsChange={onSelectedEdgeIdsChange}
-          />
-        </WorkspaceTestProvider>,
-      );
-    });
-
-    await act(async () => {
-      getEdge(host, "data-edge").dispatchEvent(
-        new MouseEvent("click", { bubbles: true }),
-      );
-    });
-    expect(getEdge(host, "data-edge").classList).toContain(
-      "setta-workspace-graph-edge--selected",
-    );
-    await act(async () => {
-      getEdge(host, "data-edge").dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          cancelable: true,
-          key: "Backspace",
-        }),
-      );
-    });
-
-    expect(host.querySelector('[data-edge-id="data-edge"]')).toBeNull();
-    expect(getEdge(host, "mod-edge")).not.toBeNull();
-    expect(onSelectedEdgeIdsChange).toHaveBeenLastCalledWith(new Set());
-  });
-
-  it("ignores selected ids for edges the host removed", async () => {
-    const onSelectedEdgeIdsChange = vi.fn();
-    const configuration = createConfiguration();
-    await act(async () => {
-      root.render(
-        <WorkspaceTestProvider workspace={workspace}>
-          <GraphLayerHarness
-            configuration={createConfiguration({
-              edges: configuration.edges.filter(
-                (edge) => edge.id !== "data-edge",
-              ),
-              onSelectedEdgeIdsChange,
-              selectedEdgeIds: new Set(["data-edge"]),
-            })}
-          />
-        </WorkspaceTestProvider>,
-      );
-    });
-
-    expect(host.querySelector('[data-edge-id="data-edge"]')).toBeNull();
-    await act(async () => {
-      getEdge(host, "mod-edge").dispatchEvent(
-        new MouseEvent("click", { bubbles: true, ctrlKey: true }),
-      );
-    });
-    expect(onSelectedEdgeIdsChange).toHaveBeenCalledWith(new Set(["mod-edge"]));
   });
 
   it("allows read-only hosts to select while retaining destructive capability gates", async () => {
@@ -630,7 +579,7 @@ describe("WorkspaceGraphLayer", () => {
     });
 
     await act(async () => {
-      getEdge(host, "mod-edge").dispatchEvent(
+      getEdge(host, "agent-edge").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       getEdge(host, "data-edge").dispatchEvent(
@@ -641,7 +590,9 @@ describe("WorkspaceGraphLayer", () => {
         }),
       );
     });
-    expect(onSelectedEdgeIdsChange).toHaveBeenCalledWith(new Set(["mod-edge"]));
+    expect(onSelectedEdgeIdsChange).toHaveBeenCalledWith(
+      new Set(["agent-edge"]),
+    );
     expect(onDelete).not.toHaveBeenCalled();
   });
 
@@ -739,7 +690,7 @@ describe("WorkspaceGraphLayer", () => {
 
     expect(onReconnect).toHaveBeenCalledWith({
       connection: {
-        family: "audio",
+        family: "data",
         source: { portId: "replacement-source", sectionId: "nested" },
         target: { portId: "data-target", sectionId: "target" },
       },
@@ -748,7 +699,7 @@ describe("WorkspaceGraphLayer", () => {
     expect(canConnect).not.toHaveBeenCalled();
     expect(canReconnect).toHaveBeenCalledWith({
       connection: {
-        family: "audio",
+        family: "data",
         source: { portId: "replacement-source", sectionId: "nested" },
         target: { portId: "data-target", sectionId: "target" },
       },

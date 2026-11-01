@@ -203,11 +203,6 @@ const canvas = useMemo<WorkspaceCanvasConfiguration>(
       canReconnect: ({ connection, edgeId }) =>
         validateReplacement(edgeId, connection),
       edges,
-      families: {
-        audio: { color: "#22d3ee" },
-        mod: { color: "var(--host-mod-color)", pattern: "dotted" },
-        notes: { color: "#f59e0b", pattern: "dotted" },
-      },
       onConnect: (connection) =>
         setEdges((value) => addEdge(value, connection)),
       onDelete: (edgeIds) => setEdges((value) => removeEdges(value, edgeIds)),
@@ -231,17 +226,11 @@ Workspace UI stay with those surfaces. The host owns MIME parsing, authorization
 creation, persistence, errors, and notifications; `DataTransfer` never enters
 `WorkspaceDocument`.
 
-The graph is a complete controlled projection. The host declares its port families in `families`,
-each with a CSS `color` (any color value, including a `var()` the host themes for light and dark)
-and an optional edge `pattern` of `solid` (default), `dashed`, or `dotted`. Ports name a section,
-direction, and a declared family; edges reference those ports and share their family. Workspace
-validates the whole configuration, rejecting undeclared families, before presenting ports and
-edges in their family color, connection previews, selection, reconnect handles, and delete
-gestures. Any edge may carry a `running` status, which emphasizes it and animates dashed or dotted
-flow unless reduced motion is requested, or a `missing` status, which draws it red and dashed.
-Selected IDs that no longer match an edge are ignored, and the delete gesture reports the cleared
-selection through `onSelectedEdgeIdsChange` after `onDelete`. The host remains the edge authority
-and must apply every callback to its controlled input. `canEditStructure` gates connect, reconnect, and
+The graph is a complete controlled projection. Ports name a section, direction, and one of the
+`data`, `agentic`, or `workflow` families; edges reference those ports. Workspace validates the
+whole configuration before presenting family-specific ports and edges, connection previews,
+selection, reconnect handles, and delete gestures. The host remains the edge authority and must
+apply every callback to its controlled input. `canEditStructure` gates connect, reconnect, and
 delete while read-only edge selection remains available. Nested-section ports are supported.
 Workspace graph types deliberately contain no XYFlow types, and graph state is not stored in the
 workspace document.

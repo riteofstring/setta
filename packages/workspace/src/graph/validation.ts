@@ -1,15 +1,15 @@
 import type { WorkspaceSection } from "../document/types";
 import {
-  WORKSPACE_GRAPH_EDGE_PATTERNS,
   WORKSPACE_GRAPH_EDGE_STATUSES,
+  WORKSPACE_GRAPH_PORT_FAMILIES,
   WORKSPACE_GRAPH_PORT_SIDES,
   WORKSPACE_GRAPH_PORT_TYPES,
   type WorkspaceGraphConfiguration,
   type WorkspaceGraphConnection,
   type WorkspaceGraphEdge,
   type WorkspaceGraphEdgeStatus,
-  type WorkspaceGraphFamily,
   type WorkspaceGraphPort,
+  type WorkspaceGraphPortFamily,
   type WorkspaceGraphPortReference,
   type WorkspaceGraphPortSide,
   type WorkspaceGraphPortType,
@@ -20,7 +20,6 @@ type WorkspaceGraphSnapshot = Readonly<{
   canReconnect: WorkspaceGraphConfiguration["canReconnect"];
   edges: ReadonlyArray<WorkspaceGraphEdge>;
   edgesById: ReadonlyMap<string, WorkspaceGraphEdge>;
-  families: ReadonlyMap<string, WorkspaceGraphFamily>;
   onConnect: WorkspaceGraphConfiguration["onConnect"];
   onDelete: WorkspaceGraphConfiguration["onDelete"];
   onReconnect: WorkspaceGraphConfiguration["onReconnect"];
@@ -79,38 +78,13 @@ function assertPortType(
   }
 }
 
-function assertDeclaredFamily(
+function assertPortFamily(
   value: unknown,
   role: string,
-  families: ReadonlyMap<string, WorkspaceGraphFamily>,
-): asserts value is string {
-  assertNonEmptyString(value, role);
-  if (!families.has(value)) {
-    throw new Error(
-      `${role} ${JSON.stringify(value)} is not declared in Workspace graph families.`,
-    );
+): asserts value is WorkspaceGraphPortFamily {
+  if (!isOneOf(value, WORKSPACE_GRAPH_PORT_FAMILIES)) {
+    throw new Error(`${role} must be data, agentic, or workflow.`);
   }
-}
-
-function freezeFamily(value: unknown, name: string): WorkspaceGraphFamily {
-  const role = `Workspace graph family ${JSON.stringify(name)}`;
-  if (name.trim().length === 0) {
-    throw new Error("Workspace graph family names must be non-empty strings.");
-  }
-  if (!isRecord(value)) {
-    throw new Error(`${role} must be an object.`);
-  }
-  assertNonEmptyString(value.color, `${role} color`);
-  if (
-    value.pattern !== undefined &&
-    !isOneOf(value.pattern, WORKSPACE_GRAPH_EDGE_PATTERNS)
-  ) {
-    throw new Error(`${role} pattern must be solid, dashed, or dotted.`);
-  }
-  return Object.freeze({
-    color: value.color,
-    pattern: value.pattern ?? "solid",
-  });
 }
 
 function assertPortSide(
@@ -191,7 +165,6 @@ function assertWorkspaceGraphPort(
   value: unknown,
   index: number,
   knownSectionIds: ReadonlySet<string>,
-  families: ReadonlyMap<string, WorkspaceGraphFamily>,
 ): asserts value is WorkspaceGraphPort {
   const role = `Workspace graph port at index ${index}`;
   if (!isRecord(value)) {
@@ -205,7 +178,7 @@ function assertWorkspaceGraphPort(
     );
   }
   assertPortType(value.type, `${role} type`);
-  assertDeclaredFamily(value.family, `${role} family`, families);
+  assertPortFamily(value.family, `${role} family`);
   assertNonEmptyString(value.label, `${role} label`);
   assertOptionalBoolean(value.disabled, `${role} disabled`);
   if (value.side !== undefined) {
@@ -219,14 +192,13 @@ function assertWorkspaceGraphPort(
 function assertWorkspaceGraphEdge(
   value: unknown,
   index: number,
-  families: ReadonlyMap<string, WorkspaceGraphFamily>,
 ): asserts value is WorkspaceGraphEdge {
   const role = `Workspace graph edge at index ${index}`;
   if (!isRecord(value)) {
     throw new Error(`${role} must be an object.`);
   }
   assertNonEmptyString(value.id, `${role} id`);
-  assertDeclaredFamily(value.family, `${role} family`, families);
+  assertPortFamily(value.family, `${role} family`);
   assertPortReference(value.source, `${role} source`);
   assertPortReference(value.target, `${role} target`);
   assertOptionalBoolean(value.hidden, `${role} hidden`);
@@ -243,9 +215,6 @@ function assertWorkspaceGraphConfigurationShape(
 ): asserts configuration is WorkspaceGraphConfiguration {
   if (!isRecord(configuration)) {
     throw new Error("Workspace graph configuration must be an object.");
-  }
-  if (!isRecord(configuration.families)) {
-    throw new Error("Workspace graph configuration families must be a record.");
   }
   if (!Array.isArray(configuration.ports)) {
     throw new Error("Workspace graph configuration ports must be an array.");
@@ -314,18 +283,17 @@ function assertWorkspaceGraphEdgeEndpoints(
 ): void {
   assertEdgeEndpoint(edge, "source", portsById);
   assertEdgeEndpoint(edge, "target", portsById);
+  if ((edge.status ?? "idle") !== "idle" && edge.family !== "agentic") {
+    throw new Error(
+      `Workspace graph edge ${JSON.stringify(edge.id)} status overlays require the agentic family.`,
+    );
+  }
 }
 
 export function getWorkspaceGraphPortSide(
   port: WorkspaceGraphPort,
 ): WorkspaceGraphPortSide {
   return port.side ?? (port.type === "source" ? "right" : "left");
-}
-
-export function getWorkspaceGraphFamilyStyle(
-  family: WorkspaceGraphFamily | undefined,
-): Record<`--setta-workspace-graph-${string}`, string> | undefined {
-  return family && { "--setta-workspace-graph-family-color": family.color };
 }
 
 export function getWorkspaceGraphPortPosition(
@@ -374,18 +342,12 @@ export function validateWorkspaceGraphConfiguration(
   }
   assertWorkspaceGraphConfigurationShape(configuration);
   const knownSectionIds = new Set(Object.keys(sections));
-  const families = new Map(
-    Object.entries(configuration.families).map(([name, family]) => [
-      name,
-      freezeFamily(family, name),
-    ]),
-  );
   const portsById = new Map<string, WorkspaceGraphPort>();
   const portsBySectionId = new Map<string, Array<WorkspaceGraphPort>>();
   const ports: Array<WorkspaceGraphPort> = [];
 
   configuration.ports.forEach((port, index) => {
-    assertWorkspaceGraphPort(port, index, knownSectionIds, families);
+    assertWorkspaceGraphPort(port, index, knownSectionIds);
     if (portsById.has(port.id)) {
       throw new Error(
         `Workspace graph has duplicate port id ${JSON.stringify(port.id)}.`,
@@ -402,7 +364,7 @@ export function validateWorkspaceGraphConfiguration(
   const edgesById = new Map<string, WorkspaceGraphEdge>();
   const edges: Array<WorkspaceGraphEdge> = [];
   configuration.edges.forEach((edge, index) => {
-    assertWorkspaceGraphEdge(edge, index, families);
+    assertWorkspaceGraphEdge(edge, index);
     if (edgesById.has(edge.id)) {
       throw new Error(
         `Workspace graph has duplicate edge id ${JSON.stringify(edge.id)}.`,
@@ -417,9 +379,12 @@ export function validateWorkspaceGraphConfiguration(
   const selectedEdgeIds = new Set<string>();
   for (const edgeId of configuration.selectedEdgeIds) {
     assertNonEmptyString(edgeId, "Workspace graph selected edge id");
-    if (edgesById.has(edgeId)) {
-      selectedEdgeIds.add(edgeId);
+    if (!edgesById.has(edgeId)) {
+      throw new Error(
+        `Workspace graph selected edge id ${JSON.stringify(edgeId)} does not exist.`,
+      );
     }
+    selectedEdgeIds.add(edgeId);
   }
 
   return Object.freeze({
@@ -427,7 +392,6 @@ export function validateWorkspaceGraphConfiguration(
     canReconnect: configuration.canReconnect,
     edges: Object.freeze(edges),
     edgesById,
-    families,
     onConnect: configuration.onConnect,
     onDelete: configuration.onDelete,
     onReconnect: configuration.onReconnect,

@@ -67,11 +67,10 @@ describe("Container group graph ports", () => {
             configuration={{
               canConnect: () => true,
               edges: [],
-              families: { control: { color: "#f59e0b" } },
               onConnect: vi.fn(),
               ports: [
                 {
-                  family: "control",
+                  family: "workflow",
                   id: "group-output",
                   label: "Group output",
                   position: 0.25,
@@ -104,8 +103,13 @@ describe("Container group graph ports", () => {
       groupShell?.getAttribute("data-workspace-section-style-themed"),
     ).toBe("true");
     expect(
-      port?.style.getPropertyValue("--setta-workspace-graph-family-color"),
-    ).toBe("#f59e0b");
+      groupShell?.style.getPropertyValue("--setta-section-style-arg-handle"),
+    ).toBe("#bad3fc");
+    expect(
+      groupShell?.style.getPropertyValue(
+        "--setta-section-style-agentic-handle",
+      ),
+    ).toBe("#80aef9");
     expect(groupShell?.contains(port)).toBe(true);
     expect(port?.getAttribute("data-port-side")).toBe("right");
     expect(port?.style.top).toBe("25%");

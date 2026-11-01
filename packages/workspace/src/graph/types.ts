@@ -1,16 +1,11 @@
-export const WORKSPACE_GRAPH_EDGE_PATTERNS = [
-  "solid",
-  "dashed",
-  "dotted",
+export const WORKSPACE_GRAPH_PORT_FAMILIES = [
+  "data",
+  "agentic",
+  "workflow",
 ] as const;
 
-export type WorkspaceGraphEdgePattern =
-  (typeof WORKSPACE_GRAPH_EDGE_PATTERNS)[number];
-
-export type WorkspaceGraphFamily = Readonly<{
-  color: string;
-  pattern?: WorkspaceGraphEdgePattern;
-}>;
+export type WorkspaceGraphPortFamily =
+  (typeof WORKSPACE_GRAPH_PORT_FAMILIES)[number];
 
 export const WORKSPACE_GRAPH_PORT_TYPES = ["source", "target"] as const;
 
@@ -33,7 +28,7 @@ export type WorkspaceGraphEdgeStatus =
 
 export type WorkspaceGraphPort = Readonly<{
   disabled?: boolean;
-  family: string;
+  family: WorkspaceGraphPortFamily;
   id: string;
   label: string;
   position?: number;
@@ -48,13 +43,13 @@ export type WorkspaceGraphPortReference = Readonly<{
 }>;
 
 export type WorkspaceGraphConnection = Readonly<{
-  family: string;
+  family: WorkspaceGraphPortFamily;
   source: WorkspaceGraphPortReference;
   target: WorkspaceGraphPortReference;
 }>;
 
 export type WorkspaceGraphEdge = Readonly<{
-  family: string;
+  family: WorkspaceGraphPortFamily;
   hidden?: boolean;
   id: string;
   label?: string;
@@ -80,7 +75,6 @@ export type WorkspaceGraphConfiguration = Readonly<{
   canConnect: WorkspaceGraphConnectionValidator;
   canReconnect?: WorkspaceGraphReconnectValidator;
   edges: ReadonlyArray<WorkspaceGraphEdge>;
-  families: Readonly<Record<string, WorkspaceGraphFamily>>;
   onConnect?: (connection: WorkspaceGraphConnection) => void;
   onDelete?: (edgeIds: ReadonlyArray<string>) => void;
   onReconnect?: (reconnect: WorkspaceGraphReconnect) => void;
