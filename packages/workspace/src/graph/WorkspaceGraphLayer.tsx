@@ -107,6 +107,73 @@ function getPortHolesPath(
   return path;
 }
 
+const CONTROL_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[contenteditable]:not([contenteditable='false'])",
+  ".cm-editor",
+  "[data-workspace-graph-port-id]",
+  ...[
+    "button",
+    "checkbox",
+    "combobox",
+    "menuitem",
+    "option",
+    "slider",
+    "switch",
+    "tab",
+    "textbox",
+  ].map((role) => `[role='${role}']`),
+].join(",");
+
+function isControlUnderGraph(
+  layer: Element,
+  rootElement: HTMLElement,
+  x: number,
+  y: number,
+): boolean {
+  const below = document
+    .elementsFromPoint(x, y)
+    .find((element) => !layer.contains(element));
+  const control = below?.closest(CONTROL_SELECTOR);
+  return (
+    control !== null && control !== undefined && rootElement.contains(control)
+  );
+}
+
+function yieldGraphToControls(
+  rootElement: HTMLElement,
+  getLayer: () => SVGSVGElement | null,
+): () => void {
+  let frame: number | null = null;
+  let point: WorkspaceGraphPoint = { x: 0, y: 0 };
+  const evaluate = () => {
+    frame = null;
+    const layer = getLayer();
+    layer?.toggleAttribute(
+      "data-workspace-graph-yield",
+      isControlUnderGraph(layer, rootElement, point.x, point.y),
+    );
+  };
+  const onPointerMove = (event: globalThis.PointerEvent) => {
+    if (event.buttons !== 0) {
+      return;
+    }
+    point = { x: event.clientX, y: event.clientY };
+    frame ??= window.requestAnimationFrame(evaluate);
+  };
+  rootElement.addEventListener("pointermove", onPointerMove, true);
+  return () => {
+    rootElement.removeEventListener("pointermove", onPointerMove, true);
+    if (frame !== null) {
+      window.cancelAnimationFrame(frame);
+    }
+  };
+}
+
 function isOutsideBoundedGroupScroll(
   element: Element,
   center: WorkspaceGraphPoint,
@@ -252,6 +319,26 @@ function isWorkspaceGraphKeyboardTarget(
   return rootElement.contains(event.target) && !getIsEditableTarget(event);
 }
 
+function deleteGraphEdgesKeepingFocus(
+  graph: ActiveWorkspaceGraph,
+  rootElement: HTMLElement,
+  target: EventTarget | null,
+): void {
+  const focusedEdgeId =
+    target instanceof SVGElement
+      ? target.closest<SVGElement>("[data-edge-id]")?.dataset.edgeId
+      : undefined;
+  const deletesFocus =
+    focusedEdgeId !== undefined &&
+    graph.snapshot.selectedEdgeIds.has(focusedEdgeId);
+  graph.deleteSelectedEdges();
+  if (deletesFocus) {
+    (
+      rootElement.querySelector<HTMLElement>(".react-flow__pane") ?? rootElement
+    ).focus({ preventScroll: true });
+  }
+}
+
 function WorkspaceGraphEdgeLabel({
   label,
   x,
@@ -356,30 +443,11 @@ function WorkspaceGraphEdgePath({
   }
 
   function onKeyDown(event: KeyboardEvent<SVGGElement>) {
-    if (isGraphEdgeActivationKey(event.key)) {
-      if (!canSelect) {
-        return;
-      }
-      consumeGraphKeyboardEvent(event);
-      activeGraph.selectEdge(edge.id, event.metaKey || event.ctrlKey);
-      return;
-    }
-    if (event.key === "Escape") {
-      if (!canClearGraphEdgeSelection(activeGraph, canSelect)) {
-        return;
-      }
-      consumeGraphKeyboardEvent(event);
-      activeGraph.clearSelection();
-      return;
-    }
-    if (
-      !isGraphEdgeDeletionKey(event.key) ||
-      !canDeleteGraphEdgeSelection(activeGraph, canEditStructure)
-    ) {
+    if (!isGraphEdgeActivationKey(event.key) || !canSelect) {
       return;
     }
     consumeGraphKeyboardEvent(event);
-    activeGraph.deleteSelectedEdges();
+    activeGraph.selectEdge(edge.id, event.metaKey || event.ctrlKey);
   }
 
   function onReconnectPointerDown(
@@ -742,12 +810,21 @@ export function WorkspaceGraphLayer({
         return;
       }
       consumeGraphKeyboardEvent(event);
-      graph.deleteSelectedEdges();
+      deleteGraphEdgesKeepingFocus(graph, rootElement, event.target);
     };
     rootElement.addEventListener("keydown", onKeyDown);
     return () => rootElement.removeEventListener("keydown", onKeyDown);
   }, [canEditStructure, graph, rootElement]);
 
+  const layerRef = useRef<SVGSVGElement>(null);
+  const hasGraph = graph !== null;
+  useEffect(
+    () =>
+      hasGraph && rootElement
+        ? yieldGraphToControls(rootElement, () => layerRef.current)
+        : undefined,
+    [hasGraph, rootElement],
+  );
   const clipId = `setta-workspace-graph-${useId().replace(/[^\w-]/gu, "")}`;
   const clips = useMemo<WorkspaceGraphClips>(
     () => ({ hit: `url(#${clipId}-hit)`, paint: `url(#${clipId}-paint)` }),
@@ -778,6 +855,7 @@ export function WorkspaceGraphLayer({
   return (
     <svg
       aria-label="Workspace graph"
+      ref={layerRef}
       className="setta-workspace-graph-layer"
       height={geometry.height}
       role="group"

@@ -170,7 +170,7 @@ function graphDocument(): WorkspaceDocumentInput {
         isHorizontalOrientation: true,
         children: ["filter", "amp"],
       },
-      filter: module("filter"),
+      filter: { ...module("filter"), kind: "control-module" },
       amp: module("amp"),
       rack: {
         ...leaf("rack"),
@@ -226,6 +226,21 @@ const GRAPH_EDGES: ReadonlyArray<WorkspaceGraphEdge> = [
     target: port(target!),
   };
 });
+
+function ControlModule() {
+  const [presses, setPresses] = useState(0);
+  return (
+    <button
+      data-presses={presses}
+      data-testid="graph-module-control"
+      onClick={() => setPresses((value) => value + 1)}
+      style={{ width: "100%", height: 48 }}
+      type="button"
+    >
+      Cutoff
+    </button>
+  );
+}
 
 function GraphFixture() {
   const [edges, setEdges] = useState(GRAPH_EDGES);
@@ -357,6 +372,7 @@ export function mountBrowserFixture(root: HTMLElement, mode: string): void {
       ),
       itemArea: { toolbar: "hidden" },
     },
+    "control-module": { renderContent: () => <ControlModule /> },
     leaf: {
       renderContent: (section) => <p>{section.name}</p>,
       defaultSize: { width: 200, height: 122 },

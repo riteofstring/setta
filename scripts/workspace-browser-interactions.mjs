@@ -426,8 +426,18 @@ async function readGraphLayering(client) {
       if (!(path instanceof SVGPathElement) || !(filter instanceof HTMLElement)) {
         return null;
       }
-      const middle = path.getPointAtLength(path.getTotalLength() / 2);
-      const crossing = new DOMPoint(middle.x, middle.y).matrixTransform(path.getScreenCTM());
+      const toScreen = (length) => {
+        const point = path.getPointAtLength(length);
+        return new DOMPoint(point.x, point.y).matrixTransform(path.getScreenCTM());
+      };
+      const below = (point) =>
+        document.elementsFromPoint(point.x, point.y).find((element) => !element.closest(".setta-workspace-graph-layer"));
+      const samples = Array.from({ length: 200 }, (_, index) => toScreen((path.getTotalLength() * index) / 200));
+      const overControl = samples.find((point) =>
+        below(point)?.closest('[data-testid="graph-module-control"]'));
+      const overGroupBackground = samples.find((point) =>
+        below(point)?.closest('[data-workspace-section-shell="true"]')?.dataset.sectionId === "chain");
+      const crossing = toScreen(path.getTotalLength() / 2);
       const bounds = filter.getBoundingClientRect();
       const ports = {};
       for (const anchor of document.querySelectorAll("[data-workspace-graph-port-anchor]")) {
@@ -443,12 +453,37 @@ async function readGraphLayering(client) {
           crossing.x > bounds.left && crossing.x < bounds.right &&
           crossing.y > bounds.top && crossing.y < bounds.bottom,
         hiddenEndpointDrawn: document.querySelector('[data-edge-id="env-amp"]') !== null,
+        overControl: overControl && { x: overControl.x, y: overControl.y },
+        overGroupBackground: overGroupBackground && { x: overGroupBackground.x, y: overGroupBackground.y },
+        presses: Number(document.querySelector('[data-testid="graph-module-control"]')?.dataset.presses),
         ports,
         selected: document.querySelector('[data-edge-id="drift-amp"]')
           .classList.contains("setta-workspace-graph-edge--selected"),
       };
     })()`,
   );
+}
+
+async function clickGraphPoint(client, point) {
+  for (const offset of [12, 6, 0]) {
+    await client.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x - offset,
+      y: point.y,
+    });
+    await evaluate(
+      client,
+      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))",
+    );
+  }
+  for (const type of ["mousePressed", "mouseReleased"]) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      clickCount: 1,
+      type,
+      ...point,
+    });
+  }
 }
 
 async function verifyGraphLayering(client, url) {
@@ -489,14 +524,23 @@ async function verifyGraphLayering(client, url) {
     false,
     "A cable to a port scrolled out of its bounded group was drawn.",
   );
-  for (const type of ["mousePressed", "mouseReleased"]) {
-    await client.send("Input.dispatchMouseEvent", {
-      button: "left",
-      clickCount: 1,
-      type,
-      ...layering.crossing,
-    });
-  }
+  assert.ok(
+    layering.overControl && layering.overGroupBackground,
+    "The crossing cable must cross a control and bare group background.",
+  );
+  await clickGraphPoint(client, layering.overControl);
+  const pressed = await readGraphLayering(client);
+  assert.equal(
+    pressed?.presses,
+    layering.presses + 1,
+    "A cable crossing a control swallowed the control's click.",
+  );
+  assert.equal(
+    pressed?.selected,
+    false,
+    "Clicking a control under a cable selected the cable.",
+  );
+  await clickGraphPoint(client, layering.overGroupBackground);
   await evaluate(
     client,
     `(() => {

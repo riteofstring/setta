@@ -255,7 +255,9 @@ and must apply every callback to its controlled input. `canEditStructure` gates 
 delete while read-only edge selection remains available. Nested-section ports are supported.
 Edges draw above section shells, including sections nested in groups. Only a narrow stroke along
 each edge takes pointer events, ports stay above their cables for hover and connection gestures,
-and resting edges are lighter than hovered or selected ones. A port scrolled out of a bounded group
+and resting edges are lighter than hovered or selected ones. Buttons, inputs, sliders, editors, and
+other controls under a cable keep their clicks; the cable stays selectable everywhere else. Deleting
+a focused edge leaves focus on the canvas, so `Mod+Z` can undo it at once. A port scrolled out of a bounded group
 or hidden by the active saved view draws no edges.
 Workspace graph types deliberately contain no XYFlow types, and graph state is not stored in the
 workspace document.

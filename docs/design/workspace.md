@@ -126,6 +126,16 @@ even-odd rule, and its outer extent stays near the ports because Chrome stopped 
 at very large clip coordinates. Resting edges use reduced stroke opacity; hover, focus, selection,
 and status treatments restore full strength.
 
+Controls under a cable take precedence over it. A capture-phase pointer-move listener, throttled to
+one animation frame, hit-tests beneath the overlay; when the topmost non-graph element is a native
+or ARIA control, editable content, CodeMirror, or a port, the overlay stops taking pointer events
+until the pointer leaves that control. The state never changes while a button is held, so a press
+that started on a control or a cable keeps its target for the whole gesture. Touch has no hover
+before a press, so a tap still goes to whatever the overlay presents at that moment.
+
+Deleting the focused edge moves keyboard focus to the canvas pane before the host removes the edge,
+so focus stays inside the Workspace and an immediate `Mod+Z` reaches the history bindings.
+
 An edge is drawn only between ports on the canvas. Sections hidden by the active saved view render
 no ports, and a port scrolled outside its bounded group's scroll area contributes no endpoint, so
 neither leaves a cable over unrelated content; scrolling refreshes the geometry. Minimized sections

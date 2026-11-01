@@ -853,4 +853,55 @@ describe("WorkspaceGraphLayer", () => {
     });
     expect(host.querySelector('[data-edge-id="notes-edge"]')).not.toBeNull();
   });
+
+  it("yields cable hit-testing to a control under the pointer outside a press", async () => {
+    const button = document.createElement("button");
+    const background = document.createElement("div");
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={workspace}>
+          <GraphLayerHarness configuration={createConfiguration()} />
+        </WorkspaceTestProvider>,
+      );
+    });
+    const layer = host.querySelector("svg");
+    const stroke = host.querySelector(
+      ".setta-workspace-graph-edge-interaction",
+    );
+    const canvas = layer?.parentElement;
+    if (!layer || !stroke || !canvas) {
+      throw new Error("Workspace graph layer did not render.");
+    }
+    canvas.append(button, background);
+    let under: Element = button;
+    Object.defineProperty(document, "elementsFromPoint", {
+      configurable: true,
+      value: () => [stroke, under, canvas],
+    });
+    const move = async (buttons: number) => {
+      await act(async () => {
+        canvas.dispatchEvent(
+          new MouseEvent("pointermove", { bubbles: true, buttons }),
+        );
+        await new Promise<void>((resolve) => {
+          window.requestAnimationFrame(() => resolve());
+        });
+      });
+    };
+
+    await move(0);
+    expect(layer.hasAttribute("data-workspace-graph-yield")).toBe(true);
+    under = background;
+    await move(1);
+    expect(layer.hasAttribute("data-workspace-graph-yield")).toBe(true);
+    await move(0);
+    expect(layer.hasAttribute("data-workspace-graph-yield")).toBe(false);
+    under = button;
+    document.body.append(button);
+    await move(0);
+    expect(layer.hasAttribute("data-workspace-graph-yield")).toBe(false);
+    button.remove();
+    background.remove();
+    Reflect.deleteProperty(document, "elementsFromPoint");
+  });
 });

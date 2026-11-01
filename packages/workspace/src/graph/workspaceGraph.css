@@ -137,6 +137,15 @@
   cursor: crosshair;
 }
 
+.setta-workspace
+  .setta-workspace-graph-layer[data-workspace-graph-yield]
+  :is(
+    .setta-workspace-graph-edge-interaction,
+    [data-workspace-graph-reconnect]
+  ) {
+  pointer-events: none;
+}
+
 .setta-workspace .setta-workspace-graph-connection-preview {
   stroke: var(--setta-workspace-graph-family-color);
   stroke-width: 2;

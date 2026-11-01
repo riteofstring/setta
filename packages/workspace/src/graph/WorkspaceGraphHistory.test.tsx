@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 import { act, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasKeyActivations } from "../canvas/keyActivations";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import type { WorkspaceSectionInput } from "../document/types";
@@ -11,6 +11,7 @@ import { useWorkspaceHost, WorkspaceProvider } from "../workspaceHostContext";
 import { registerWorkspaceHostElement } from "../workspaceHostInternals";
 import type { WorkspaceGraphConfiguration, WorkspaceGraphEdge } from "./types";
 import { WorkspaceGraphProvider } from "./WorkspaceGraphContext";
+import { WorkspaceGraphLayer } from "./WorkspaceGraphLayer";
 import { WorkspaceGraphPorts } from "./WorkspaceGraphPorts";
 
 (
@@ -32,15 +33,44 @@ function leaf(id: string): WorkspaceSectionInput {
   };
 }
 
-function PatchBay() {
+const DRIFT_FILTER: WorkspaceGraphEdge = {
+  family: "audio",
+  id: "drift-filter",
+  source: { portId: "drift-out", sectionId: "drift" },
+  target: { portId: "filter-in", sectionId: "filter" },
+};
+
+function PatchBay({
+  initialEdges,
+  rootElement,
+}: {
+  initialEdges: ReadonlyArray<WorkspaceGraphEdge>;
+  rootElement: HTMLElement;
+}) {
   const host = useWorkspaceHost();
   useCanvasKeyActivations();
-  const [edges, setEdges] = useState<ReadonlyArray<WorkspaceGraphEdge>>([]);
+  const [edges, setEdges] = useState(initialEdges);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const configuration = useMemo<WorkspaceGraphConfiguration>(
     () => ({
       canConnect: () => true,
       edges,
       families: { audio: { color: "#22d3ee" } },
+      onDelete: (edgeIds) => {
+        const removed = edges.filter((edge) => edgeIds.includes(edge.id));
+        const remove = () =>
+          setEdges((current) =>
+            current.filter((edge) => !edgeIds.includes(edge.id)),
+          );
+        remove();
+        recordWorkspaceHistoryEntry(host, {
+          redo: remove,
+          undo: () => setEdges((current) => [...current, ...removed]),
+        });
+      },
+      onSelectedEdgeIdsChange: setSelectedEdgeIds,
       onConnect: (connection) => {
         const edge = { ...connection, id: "drift-filter" };
         const add = () => setEdges((current) => [...current, edge]);
@@ -69,15 +99,16 @@ function PatchBay() {
           type: "target",
         },
       ],
-      selectedEdgeIds: new Set(),
+      selectedEdgeIds,
     }),
-    [edges, host],
+    [edges, host, selectedEdgeIds],
   );
   return (
     <WorkspaceGraphProvider configuration={configuration}>
       <WorkspaceGraphPorts sectionId="drift" />
       <WorkspaceGraphPorts sectionId="filter" />
       <output data-testid="cables">{edges.map((edge) => edge.id)}</output>
+      <WorkspaceGraphLayer rootElement={rootElement} />
     </WorkspaceGraphProvider>
   );
 }
@@ -88,7 +119,7 @@ describe("host-owned graph history", () => {
   let root: Root;
   let unregister: () => void;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     host = createWorkspaceHost({ history: { kind: "local" } });
     registerSectionKinds(host, { leaf: { renderContent: () => null } });
     host.loadDocument({
@@ -106,14 +137,19 @@ describe("host-owned graph history", () => {
     document.body.appendChild(container);
     unregister = registerWorkspaceHostElement(host, container);
     root = createRoot(container);
+  });
+
+  async function renderPatchBay(
+    initialEdges: ReadonlyArray<WorkspaceGraphEdge>,
+  ): Promise<void> {
     await act(async () => {
       root.render(
         <WorkspaceProvider host={host}>
-          <PatchBay />
+          <PatchBay initialEdges={initialEdges} rootElement={container} />
         </WorkspaceProvider>,
       );
     });
-  });
+  }
 
   afterEach(async () => {
     await act(async () => {
@@ -122,6 +158,7 @@ describe("host-owned graph history", () => {
     unregister();
     container.remove();
     host.dispose();
+    vi.restoreAllMocks();
   });
 
   async function dispatch(target: EventTarget, event: Event): Promise<Event> {
@@ -133,7 +170,7 @@ describe("host-owned graph history", () => {
 
   async function pressChord(shiftKey: boolean): Promise<Event> {
     const event = await dispatch(
-      container,
+      document.activeElement ?? document.body,
       new KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
@@ -155,6 +192,8 @@ describe("host-owned graph history", () => {
   }
 
   it("undoes and redoes a recorded connection with the history chords", async () => {
+    await renderPatchBay([]);
+    container.focus();
     const pointer = { bubbles: true, button: 0, cancelable: true };
     await dispatch(
       container.querySelector('[data-workspace-graph-port-id="drift-out"]')!,
@@ -169,6 +208,34 @@ describe("host-owned graph history", () => {
     expect((await pressChord(false)).defaultPrevented).toBe(true);
     expect(getCables()).toBe("");
     expect((await pressChord(true)).defaultPrevented).toBe(true);
+    expect(getCables()).toBe("drift-filter");
+  });
+
+  it("keeps focus in the workspace after deleting the focused edge so Mod+Z restores it", async () => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 100, 100),
+    );
+    await renderPatchBay([DRIFT_FILTER]);
+    const edge = container.querySelector<SVGGElement>(
+      '[data-edge-id="drift-filter"]',
+    );
+    if (!edge) {
+      throw new Error("Workspace graph edge did not render.");
+    }
+    await dispatch(edge, new MouseEvent("click", { bubbles: true }));
+    edge.focus();
+    await dispatch(
+      edge,
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Backspace",
+      }),
+    );
+    expect(getCables()).toBe("");
+    expect(container.contains(document.activeElement)).toBe(true);
+
+    expect((await pressChord(false)).defaultPrevented).toBe(true);
     expect(getCables()).toBe("drift-filter");
   });
 });
