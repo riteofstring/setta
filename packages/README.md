@@ -1,15 +1,10 @@
-# Shared packages
+# Shared package
 
-Setta publishes two packages:
+Setta publishes [`@riteofstring/setta`](workspace/): the React workspace, interaction model,
+browser pipelines, and visual foundation.
 
-- [`workspace`](workspace/) is the React workspace, interaction model, browser pipelines, and visual
-  foundation.
-- [`local-backend`](local-backend/) provides application-neutral Go infrastructure for local HTTP
-  servers, files, revisioned state, live updates, and process boundaries.
-
-Applications depend on these packages; the packages import no product code, and product-specific
+Applications depend on this package; it imports no product code, and product-specific
 schemas, routes, projections, and workflows stay with the application.
 
 The public browser demo lives in the separate `setta-site` repository. Private package regression
-fixtures live in [`fixtures/packed-consumer`](../fixtures/packed-consumer/); `local-backend` is
-exercised through package tests.
+fixtures live in [`fixtures/packed-consumer`](../fixtures/packed-consumer/).

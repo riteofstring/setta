@@ -7,7 +7,7 @@ records.
 ## Hosted verification
 
 Package checks run on GitHub-hosted Linux for source and toolchain changes. They cover the
-Workspace and local-backend boundary suites and the Workspace browser interactions.
+Workspace boundary suite and browser interactions.
 The browser script receives the runner's explicit Chrome path and isolates its own profile. The
 job builds Workspace's public declarations before checking imports. These workflows publish
 nothing.
@@ -58,7 +58,7 @@ application minification, and the built-package boundary check verifies emitted 
 
 The build emits `EDITOR-NOTICES.txt` from the installed packages that contribute bundled modules.
 Exact source-linked license supplements cover UIW releases that omit license text from their npm
-archives. The supplements retain the same upstream notices used by the native distribution.
+archives.
 
 The `@uiw` CodeMirror packages have no exports map. Vitest's node-style resolution otherwise lands
 on their CommonJS main files while workspace source imports the ESM CodeMirror packages. That

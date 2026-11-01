@@ -1,7 +1,7 @@
 # Browser pipelines
 
 `@riteofstring/setta/browser` runs application-owned computations in a Web Worker. It works on
-static hosting without a Go server, Python, React, or the workspace UI at runtime. The
+static hosting without a server, React, or the workspace UI at runtime. The
 [Gaussian splat playground](https://setta.dev) uses it for local photo reconstruction, model-download
 progress, surface sampling, Gaussian validation, and GPU packing.
 
@@ -83,7 +83,7 @@ The client factory must return a dedicated worker that the pipeline is allowed t
 
 This library runs trusted application code. A Web Worker is not a sandbox for untrusted programs.
 It does not provide Python execution, persistent projects, networking, or application-specific
-effects. Those remain application decisions; the Go library is available for local native tools.
+effects. Those remain application decisions.
 
 ## GPU scenes and other expensive computations
 

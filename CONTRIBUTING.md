@@ -8,7 +8,7 @@ are welcome.
 Use an issue to describe substantial behavior or architecture changes before investing in an
 implementation. Small, well-scoped fixes can go directly to a pull request.
 
-Setta is a monorepo with its published packages under `packages/` and private browser fixtures under
+Setta is a monorepo with its published package under `packages/` and private browser fixtures under
 `fixtures/`. Read the relevant design note in [`docs/design`](docs/design/) before
 changing an established boundary.
 
@@ -16,11 +16,10 @@ changing an established boundary.
 
 Clone this repository, enter its root, and install these pinned tools:
 
-| Tool    | Version                                       |
-| ------- | --------------------------------------------- |
-| Node.js | 26.10.0 (`.node-version`)                     |
-| pnpm    | 10.23.0 (`package.json`)                      |
-| Go      | 1.26.9 (`packages/local-backend/.go-version`) |
+| Tool    | Version                   |
+| ------- | ------------------------- |
+| Node.js | 26.10.0 (`.node-version`) |
+| pnpm    | 10.23.0 (`package.json`)  |
 
 The supported targets are macOS 13+ on Intel and Apple Silicon, Linux on amd64 and arm64, and
 Windows amd64.

@@ -2,7 +2,7 @@
   "version": 4,
   "project": {
     "kind": "application",
-    "capabilities": ["backend", "frontend", "ui"]
+    "capabilities": ["frontend", "ui"]
   },
   "documentation": {
     "design": [
@@ -27,10 +27,6 @@
           "fixtures/packed-consumer/src/consumer.css",
           "fixtures/packed-consumer/index.html"
         ]
-      },
-      {
-        "path": "docs/design/local-backend.md",
-        "module": "local-backend"
       },
       {
         "path": "docs/design/workspace.md",
@@ -71,10 +67,6 @@
     {
       "name": "workspace",
       "paths": ["packages/workspace/**", "scripts/**", "fixtures/**"]
-    },
-    {
-      "name": "local-backend",
-      "paths": ["packages/local-backend/**"]
     }
   ],
   "checks": [
@@ -95,35 +87,16 @@
       "timeoutSeconds": 900
     },
     {
-      "name": "local-backend-build",
-      "provides": ["build"],
-      "argv": ["go", "build", "./..."],
-      "cwd": "packages/local-backend",
-      "modules": ["local-backend"],
-      "runOn": ["build"],
-      "timeoutSeconds": 300
-    },
-    {
       "name": "workspace-package-policy",
       "provides": ["workspace-policy"],
       "argv": ["node", "scripts/check-workspace-policy.mjs"],
       "modules": ["workspace"],
       "runOn": ["supply-chain"],
       "timeoutSeconds": 300
-    },
-    {
-      "name": "local-backend-go-lock-sync",
-      "provides": ["lock-sync"],
-      "argv": ["go", "mod", "tidy", "-diff"],
-      "cwd": "packages/local-backend",
-      "modules": ["local-backend"],
-      "runOn": ["supply-chain"],
-      "timeoutSeconds": 300
     }
   ],
   "tests": {
     "paths": [
-      "packages/local-backend/**/*_test.go",
       "packages/workspace/src/**/*.test.ts",
       "packages/workspace/src/**/*.test.tsx"
     ],
@@ -135,27 +108,10 @@
         ],
         "module": "workspace",
         "focusedSuite": "workspace-focused"
-      },
-      {
-        "paths": ["packages/local-backend/**/*_test.go"],
-        "module": "local-backend",
-        "focusedSuite": "local-backend-focused"
       }
     ],
     "requiredKinds": ["component", "browser", "contract"],
     "suites": [
-      {
-        "name": "local-backend-focused",
-        "kind": "unit",
-        "scope": "module",
-        "cost": "quick",
-        "modules": ["local-backend"],
-        "paths": ["packages/local-backend/**/*_test.go"],
-        "argv": ["go", "test", "./..."],
-        "cwd": "packages/local-backend",
-        "runOn": ["focused", "recommended", "full"],
-        "timeoutSeconds": 300
-      },
       {
         "name": "workspace-focused",
         "kind": "component",
@@ -233,26 +189,6 @@
         "name": "workspace-node",
         "versionFile": ".node-version",
         "source": "node-runtime"
-      },
-      {
-        "name": "local-backend-go",
-        "versionFile": "packages/local-backend/.go-version",
-        "source": "go-toolchain"
-      }
-    ],
-    "releaseAgeAssessments": [
-      {
-        "id": "local-backend-go-1-26-9-security",
-        "ecosystem": "artifact",
-        "package": "local-backend-go",
-        "version": "1.26.9",
-        "scope": "packages/local-backend/.go-version",
-        "category": "security-fix",
-        "evidence": "https://go.dev/cl/847305",
-        "reason": "GO-2026-6604 reaches project directory creation on Windows. No aged fix or race-free small mitigation suffices; admit the official patch with bounded native validation. Risk comparison and provenance: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md).",
-        "owner": "Codex",
-        "reviewed": "2026-10-09",
-        "expires": "2026-11-07"
       }
     ],
     "vulnerabilityAssessments": [

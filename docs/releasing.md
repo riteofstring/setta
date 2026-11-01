@@ -1,18 +1,17 @@
 # Releasing Setta
 
-Release the two libraries.
+Release the `@riteofstring/setta` library.
 The website is an independent static consumer in `setta-site`; promotional sources live in
 `rite-of-string-videos/setta`. The retired docs site is replaced by the guides in this repository.
 
 ## Versions and artifacts
 
-| Distribution              | Version source                    | Release artifact                |
-| ------------------------- | --------------------------------- | ------------------------------- |
-| npm `@riteofstring/setta` | `packages/workspace/package.json` | `riteofstring-setta-0.1.0.tgz`  |
-| Go local backend          | nested Git tag                    | `packages/local-backend/v0.1.0` |
-| setta.dev                 | `setta-site` commit               | Static `dist/` directory        |
+| Distribution              | Version source                    | Release artifact               |
+| ------------------------- | --------------------------------- | ------------------------------ |
+| npm `@riteofstring/setta` | `packages/workspace/package.json` | `riteofstring-setta-0.1.0.tgz` |
+| setta.dev                 | `setta-site` commit               | Static `dist/` directory       |
 
-The npm library supports React 19 and ESM package exports. Go requires 1.26.9+.
+The npm library supports React 19 and ESM package exports.
 
 ## Local verification
 
@@ -46,8 +45,7 @@ preparation does not execute them.
    and push the verified local `main`. Confirm links and repository permissions after the transfer.
 2. Publish the reviewed npm tarball under the `@riteofstring` scope, using an account with access:
    `npm publish dist/riteofstring-setta-0.1.0.tgz --access public`.
-3. Tag the same library tree with `packages/local-backend/v0.1.0` and push that tag so the Go proxy
-   can resolve the nested module. Create the main `v0.1.0` release with the changelog and artifacts.
+3. Tag the verified library tree with `v0.1.0` and create the release with the changelog and artifacts.
 4. Deploy `setta-site/dist/` to Cloudflare Pages for setta.dev, following that repository's README.
    Verify object proposals and positive/negative selection prompts, cutout controls, WebGPU
    generation, model integrity and cache behavior, cancellation, field slicing, extraction controls,
@@ -58,6 +56,6 @@ preparation does not execute them.
    with redirects to the repository guides where useful; the old site configuration is not in
    this checkout.
 
-The website needs no backend credentials, Go server, database, or Cloudflare
+The website needs no backend credentials, application server, database, or Cloudflare
 Worker. Package publication, GitHub pushes, DNS changes, and website deployment remain maintainer
 operations.

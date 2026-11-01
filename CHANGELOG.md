@@ -9,7 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- Publishable `@riteofstring/setta` React library and standalone Go backend library.
+- Publishable `@riteofstring/setta` React library.
 - Browser worker pipelines with dependent stages, bounded latest-input queuing, cancellation,
   timeout recovery, and retained successful output.
 - Browser-only print studio at setta.dev, using the same public APIs as downstream consumers.
@@ -17,19 +17,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Apache-2.0 attribution for Kevin Musgrave and Jeff Musgrave and bundled dependency notices.
 - Source setup instructions and hosted frontend, browser, and security checks.
 - Browser `localStorage` helpers that restore workspace shell pane layout and saved views.
-- `revisionstore` Go package: one durable JSON state file with revision conflicts, cross-process
-  locking, and live updates.
-
-### Fixed
-
-- Require Go 1.26.9 for Windows directory confinement and HTTP range fixes.
 
 ### Changed
 
 - Upgrade the pinned Code Polishy release to 0.29.3.
-- Use canonical `riteofstring/setta` repository and Go module paths.
+- Use the canonical `riteofstring/setta` repository path.
 
 ### Removed
 
-- The four example applications and the `setta` Python package. The libraries are the product;
+- The four example applications and the `setta` Python package. The library is the product;
   setta.dev is the showcase.
