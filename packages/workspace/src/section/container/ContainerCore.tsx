@@ -13,7 +13,10 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../../document/stores";
-import { NO_WHEEL_CLASS_NAME } from "../../interaction";
+import {
+  BOUNDED_GROUP_SCROLL_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "../../interaction";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 import { WorkspaceGraphPorts } from "../../graph/WorkspaceGraphPorts";
 import { useIsScrollable } from "../../useIsScrollable";
@@ -199,8 +202,7 @@ function getContentClassName(
   if (!overflowMode) {
     return "z-10";
   }
-  const className =
-    "setta-workspace-bounded-group-scroll z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
+  const className = `${BOUNDED_GROUP_SCROLL_CLASS_NAME} z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto`;
   return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
 }
 

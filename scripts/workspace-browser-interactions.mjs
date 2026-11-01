@@ -411,6 +411,110 @@ async function readCompletedSelection(client) {
   );
 }
 
+async function readGraphLayering(client) {
+  return evaluate(
+    client,
+    `(() => {
+      const hitAt = (x, y) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit?.closest("[data-edge-id]")?.dataset.edgeId ??
+          hit?.closest("[data-workspace-graph-port-id]")?.dataset.workspaceGraphPortId ??
+          null;
+      };
+      const path = document.querySelector('[data-edge-id="drift-amp"] .setta-workspace-graph-edge-interaction');
+      const filter = document.querySelector('[data-workspace-section-shell="true"][data-section-id="filter"]');
+      if (!(path instanceof SVGPathElement) || !(filter instanceof HTMLElement)) {
+        return null;
+      }
+      const middle = path.getPointAtLength(path.getTotalLength() / 2);
+      const crossing = new DOMPoint(middle.x, middle.y).matrixTransform(path.getScreenCTM());
+      const bounds = filter.getBoundingClientRect();
+      const ports = {};
+      for (const anchor of document.querySelectorAll("[data-workspace-graph-port-anchor]")) {
+        const rect = anchor.getBoundingClientRect();
+        ports[anchor.closest("[data-workspace-graph-port-id]").dataset.workspaceGraphPortId] =
+          hitAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      }
+      return {
+        besideCrossing: hitAt(crossing.x, crossing.y + 8),
+        crossing: { x: crossing.x, y: crossing.y },
+        crossingHit: hitAt(crossing.x, crossing.y),
+        crossingInsideNestedSection:
+          crossing.x > bounds.left && crossing.x < bounds.right &&
+          crossing.y > bounds.top && crossing.y < bounds.bottom,
+        hiddenEndpointDrawn: document.querySelector('[data-edge-id="env-amp"]') !== null,
+        ports,
+        selected: document.querySelector('[data-edge-id="drift-amp"]')
+          .classList.contains("setta-workspace-graph-edge--selected"),
+      };
+    })()`,
+  );
+}
+
+async function verifyGraphLayering(client, url) {
+  const loaded = client.waitForEvent("Page.loadEventFired", READY_TIMEOUT_MS);
+  await client.send("Page.navigate", { url: `${url}?fixture=graph` });
+  await loaded;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let layering = await readGraphLayering(client);
+  while (layering === null && Date.now() < deadline) {
+    await delay(50);
+    layering = await readGraphLayering(client);
+  }
+  assert.ok(layering, "The graph fixture did not render its cables.");
+  assert.equal(
+    layering.crossingInsideNestedSection,
+    true,
+    "The crossing cable must pass over a section nested in a group.",
+  );
+  assert.equal(
+    layering.crossingHit,
+    "drift-amp",
+    "A cable over a nested section is hidden or unclickable.",
+  );
+  assert.notEqual(
+    layering.besideCrossing,
+    "drift-amp",
+    "The cable hit stroke swallows clicks beside the cable.",
+  );
+  for (const portId of ["drift-out", "filter-in", "amp-in", "amp-cv"]) {
+    assert.equal(
+      layering.ports[portId],
+      portId,
+      `Cable hit-testing covers port ${portId}.`,
+    );
+  }
+  assert.equal(
+    layering.hiddenEndpointDrawn,
+    false,
+    "A cable to a port scrolled out of its bounded group was drawn.",
+  );
+  for (const type of ["mousePressed", "mouseReleased"]) {
+    await client.send("Input.dispatchMouseEvent", {
+      button: "left",
+      clickCount: 1,
+      type,
+      ...layering.crossing,
+    });
+  }
+  await evaluate(
+    client,
+    `(() => {
+      const scroller = document.querySelector('[data-section-id="rack"] .setta-workspace-bounded-group-scroll');
+      scroller.scrollTop = scroller.scrollHeight;
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))));
+    })()`,
+  );
+  const after = await readGraphLayering(client);
+  assert.equal(after?.selected, true, "Clicking the cable did not select it.");
+  assert.equal(
+    after?.hiddenEndpointDrawn,
+    true,
+    "Scrolling the bounded group did not restore the cable.",
+  );
+  return { crossing: layering.crossing, ports: layering.ports };
+}
+
 async function configureClient(client) {
   await Promise.all([
     client.send("Log.enable"),
@@ -818,6 +922,7 @@ async function main() {
       sectionDragPath.key,
       false,
     );
+    const graphLayering = await verifyGraphLayering(client, url);
     assert.deepEqual(
       issues,
       [],
@@ -834,6 +939,7 @@ async function main() {
           cancelledSort,
           completedSort,
           floatingWindowSamples: checklistSamples.length,
+          graphLayering,
           gestureSamples: samples.length,
           pointerOwnedSectionDelta: {
             x: sectionDrag.after.bounds.left - sectionDragPath.nodeBounds.left,

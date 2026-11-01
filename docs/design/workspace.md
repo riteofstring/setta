@@ -115,6 +115,24 @@ treatments layered on that color. Source ports are filled and target ports hollo
 animation is limited to patterned edges and is disabled under reduced motion. Each visible port dot
 owns its measured graph endpoint; its larger hover target owns interaction only.
 
+The graph overlay stacks above section shells, the way patch cables lie over modules. Nested
+sections are DOM descendants of group bodies, so an overlay below them hid and blocked every edge
+that entered a group. Section content stays usable because only a narrow transparent stroke along
+each edge takes pointer events; the visible path, labels, and connection preview never do. Two
+port-hole clips keep ports above their cables: painting stops at each dot's rim, and hit-testing
+excludes each port's whole hover target, so no edge hides a port or captures a gesture starting on
+it. Each clip is one union of holes so adjacent ports cannot cancel each other's hole under the
+even-odd rule, and its outer extent stays near the ports because Chrome stopped painting the holes
+at very large clip coordinates. Resting edges use reduced stroke opacity; hover, focus, selection,
+and status treatments restore full strength.
+
+An edge is drawn only between ports on the canvas. Sections hidden by the active saved view render
+no ports, and a port scrolled outside its bounded group's scroll area contributes no endpoint, so
+neither leaves a cable over unrelated content; scrolling refreshes the geometry. Minimized sections
+and sections whose body moved to a managed window keep their canvas shell and its ports, so their
+edges stay attached there. Managed windows, panels, and the minimap stack above the renderer
+viewport, so cables never paint over them.
+
 Viewport compositor promotion targets explicit section shells so it cannot replace a port's
 centering transform while panning. XYFlow mounts no background, controls, minimap, attribution,
 theme, or dependency stylesheet. All projected sections remain mounted, including offscreen

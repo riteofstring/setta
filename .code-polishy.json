@@ -177,6 +177,7 @@
         "cost": "standard",
         "paths": [
           "packages/workspace/src/canvas/**",
+          "packages/workspace/src/graph/**",
           "packages/workspace/src/windowing/**",
           "scripts/lib/cdp-client.mjs",
           "scripts/lib/headless-chrome.mjs",

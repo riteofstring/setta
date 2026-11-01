@@ -6,7 +6,7 @@
 .setta-workspace .setta-workspace-graph-layer {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   overflow: visible;
   pointer-events: none;
 }
@@ -22,6 +22,18 @@
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.setta-workspace
+  .setta-workspace-graph-edge:not(
+    :hover,
+    :focus-visible,
+    .setta-workspace-graph-edge--selected,
+    .setta-workspace-graph-edge--running,
+    .setta-workspace-graph-edge--missing
+  )
+  .setta-workspace-graph-edge-path {
+  stroke-opacity: 0.7;
 }
 
 .setta-workspace

@@ -41,6 +41,7 @@ export function startHeadlessChrome(explicitBinaryPath = null) {
       "--disable-backgrounding-occluded-windows",
       "--disable-extensions",
       "--disable-renderer-backgrounding",
+      "--mute-audio",
       "--no-default-browser-check",
       "--no-first-run",
       "--remote-debugging-port=0",

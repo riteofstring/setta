@@ -10,6 +10,9 @@ export const MANUAL_WHEEL_CLASS_NAME = "setta-manual-wheel";
 
 export const NO_PAN_CLASS_NAME = "nopan";
 
+export const BOUNDED_GROUP_SCROLL_CLASS_NAME =
+  "setta-workspace-bounded-group-scroll";
+
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 

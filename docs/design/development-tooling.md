@@ -33,7 +33,8 @@ providers deferred by pre-install dependency review execute against the installe
 Browser checks build the private `fixtures/packed-consumer` application from public package exports.
 Its default route exercises the unrelated-consumer contract; `?fixture=interactions` contains only
 the editor, text-control drag target, nested sorting group, selection targets, and floating window needed by browser
-regressions. `?fixture=performance` contains the fixed 256-section workload.
+regressions. `?fixture=graph` contains cabled top-level, grouped, and bounded-group sections for
+graph layering and hit-testing. `?fixture=performance` contains the fixed 256-section workload.
 
 The interaction, performance, and packed-consumer checks share one static server. It reads the built
 HTML and assets into a closed file map, binds an ephemeral loopback port, and serves only those

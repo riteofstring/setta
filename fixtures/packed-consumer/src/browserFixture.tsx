@@ -15,10 +15,13 @@ import {
   WorkspaceShell,
   WorkspaceTooltip,
   WORKSPACE_CODE_SECTION_KIND,
+  type WorkspaceCanvasConfiguration,
   type WorkspaceDocumentInput,
+  type WorkspaceGraphEdge,
+  type WorkspaceGraphPort,
   type WorkspaceSectionInput,
 } from "@riteofstring/setta";
-import { StrictMode, useState } from "react";
+import { StrictMode, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 function leaf(id: string): WorkspaceSectionInput {
@@ -153,6 +156,107 @@ function performanceDocument(): WorkspaceDocumentInput {
   };
 }
 
+function graphDocument(): WorkspaceDocumentInput {
+  const module = (id: string) => ({
+    ...leaf(id),
+    size: { width: 180, height: 122 },
+  });
+  return {
+    sections: {
+      drift: module("drift"),
+      chain: {
+        ...leaf("chain"),
+        kind: "group",
+        isHorizontalOrientation: true,
+        children: ["filter", "amp"],
+      },
+      filter: module("filter"),
+      amp: module("amp"),
+      rack: {
+        ...leaf("rack"),
+        kind: "group",
+        overflowMode: true,
+        size: { width: 280, height: 220 },
+        children: ["lfo", "env"],
+      },
+      lfo: module("lfo"),
+      env: module("env"),
+    },
+    topLevelSections: {
+      drift: { x: 40, y: 60, w: 180, h: 122, zIndex: 0 },
+      chain: { x: 320, y: 40, w: 520, h: 200, zIndex: 1 },
+      rack: { x: 600, y: 320, w: 280, h: 220, zIndex: 2 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+    savedViews: null,
+  };
+}
+
+const GRAPH_PORTS: ReadonlyArray<WorkspaceGraphPort> = [
+  ["drift-out", "drift", "source"],
+  ["filter-in", "filter", "target"],
+  ["filter-out", "filter", "source"],
+  ["amp-in", "amp", "target"],
+  ["amp-cv", "amp", "target", 0.8],
+  ["env-out", "env", "source"],
+].map(([id, sectionId, type, position]) => ({
+  family: "audio",
+  id: String(id),
+  label: String(id),
+  position: typeof position === "number" ? position : 0.5,
+  sectionId: String(sectionId),
+  type: type as WorkspaceGraphPort["type"],
+}));
+
+const GRAPH_EDGES: ReadonlyArray<WorkspaceGraphEdge> = [
+  ["drift-filter", "drift-out", "filter-in"],
+  ["filter-amp", "filter-out", "amp-in"],
+  ["drift-amp", "drift-out", "amp-cv"],
+  ["env-amp", "env-out", "amp-in"],
+].map(([id, source, target]) => {
+  const port = (portId: string) => ({
+    portId,
+    sectionId: GRAPH_PORTS.find((value) => value.id === portId)!.sectionId,
+  });
+  return {
+    family: "audio",
+    id: id!,
+    source: port(source!),
+    target: port(target!),
+  };
+});
+
+function GraphFixture() {
+  const [edges, setEdges] = useState(GRAPH_EDGES);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const canvas = useMemo<WorkspaceCanvasConfiguration>(
+    () => ({
+      graph: {
+        canConnect: () => true,
+        edges,
+        families: { audio: { color: "#0891b2" } },
+        onConnect: (connection) =>
+          setEdges((current) => [
+            ...current,
+            { ...connection, id: `edge-${current.length}` },
+          ]),
+        onSelectedEdgeIdsChange: setSelectedEdgeIds,
+        ports: GRAPH_PORTS,
+        selectedEdgeIds,
+      },
+    }),
+    [edges, selectedEdgeIds],
+  );
+  return (
+    <main className="browser-interaction-fixture">
+      <WorkspaceCanvas configuration={canvas} />
+    </main>
+  );
+}
+
 function TextControl({ sectionId }: { sectionId: string }) {
   const [value, setValue] = useState("");
   return (
@@ -230,7 +334,7 @@ function PerformanceFixture() {
 }
 
 export function mountBrowserFixture(root: HTMLElement, mode: string): void {
-  if (mode !== "interactions" && mode !== "performance") {
+  if (mode !== "interactions" && mode !== "performance" && mode !== "graph") {
     throw new Error(`Unknown browser fixture ${mode}.`);
   }
   const host = createWorkspaceHost();
@@ -270,16 +374,22 @@ export function mountBrowserFixture(root: HTMLElement, mode: string): void {
     [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
   });
   host.loadDocument(
-    mode === "performance" ? performanceDocument() : interactionDocument(),
+    {
+      graph: graphDocument,
+      interactions: interactionDocument,
+      performance: performanceDocument,
+    }[mode](),
   );
   createRoot(root).render(
     <StrictMode>
       <WorkspaceProvider host={host}>
-        {mode === "performance" ? (
-          <PerformanceFixture />
-        ) : (
-          <InteractionFixture />
-        )}
+        {
+          {
+            graph: <GraphFixture />,
+            interactions: <InteractionFixture />,
+            performance: <PerformanceFixture />,
+          }[mode]
+        }
       </WorkspaceProvider>
     </StrictMode>,
   );

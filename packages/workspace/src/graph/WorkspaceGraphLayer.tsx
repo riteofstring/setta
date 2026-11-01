@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,6 +13,7 @@ import {
 import { useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import { BOUNDED_GROUP_SCROLL_CLASS_NAME } from "../interaction";
 import { getIsEditableTarget } from "../keybindings/editableTarget";
 import type {
   WorkspaceGraphEdge,
@@ -59,6 +61,72 @@ const EMPTY_LABEL_BOUNDS: WorkspaceGraphLabelBounds = {
   height: 0,
   width: 0,
 };
+
+type WorkspaceGraphClips = Readonly<{
+  hit: string;
+  paint: string;
+}>;
+
+const PORT_DOT_HALF_SIZE = 5;
+const PORT_TARGET_HALF_SIZE = 8;
+const CLIP_MARGIN = 1e5;
+const BOUNDED_GROUP_SCROLL_SELECTOR = `.${BOUNDED_GROUP_SCROLL_CLASS_NAME}`;
+
+function getPortHolesPath(
+  ports: ReadonlyMap<string, WorkspaceGraphPortGeometry>,
+  halfSize: number,
+): string {
+  const points = [...ports.values()].map(({ point }) => point);
+  const bands = [
+    ...new Set(points.flatMap(({ y }) => [y - halfSize, y + halfSize])),
+  ].sort((left, right) => left - right);
+  const extent =
+    Math.max(0, ...points.flatMap(({ x, y }) => [Math.abs(x), Math.abs(y)])) +
+    CLIP_MARGIN;
+  let path = `M${-extent},${-extent}H${extent}V${extent}H${-extent}Z`;
+  for (let band = 1; band < bands.length; band += 1) {
+    const top = bands[band - 1]!;
+    const bottom = bands[band]!;
+    const centers = points
+      .filter(({ y }) => y - halfSize <= top && y + halfSize >= bottom)
+      .map(({ x }) => x)
+      .sort((left, right) => left - right);
+    for (let index = 0; index < centers.length;) {
+      const left = centers[index]! - halfSize;
+      let right = centers[index]! + halfSize;
+      for (
+        index += 1;
+        index < centers.length && centers[index]! - halfSize <= right;
+        index += 1
+      ) {
+        right = centers[index]! + halfSize;
+      }
+      path += `M${left},${top}H${right}V${bottom}H${left}Z`;
+    }
+  }
+  return path;
+}
+
+function isOutsideBoundedGroupScroll(
+  element: Element,
+  center: WorkspaceGraphPoint,
+  tolerance: number,
+): boolean {
+  const scroller = element.parentElement?.closest(
+    BOUNDED_GROUP_SCROLL_SELECTOR,
+  );
+  if (!scroller) {
+    return false;
+  }
+  const rect = scroller.getBoundingClientRect();
+  return (
+    center.x < rect.left - tolerance ||
+    center.x > rect.right + tolerance ||
+    center.y < rect.top - tolerance ||
+    center.y > rect.bottom + tolerance ||
+    isOutsideBoundedGroupScroll(scroller, center, tolerance)
+  );
+}
 
 function getRootRect(rootElement: HTMLElement): DOMRect {
   return rootElement.getBoundingClientRect();
@@ -237,9 +305,11 @@ function WorkspaceGraphEdgeLabel({
 }
 
 function WorkspaceGraphEdgePath({
+  clips,
   edge,
   geometry,
 }: {
+  clips: WorkspaceGraphClips;
   edge: WorkspaceGraphEdge;
   geometry: WorkspaceGraphGeometry;
 }) {
@@ -341,15 +411,17 @@ function WorkspaceGraphEdgePath({
     >
       <path
         className="setta-workspace-graph-edge-path"
+        clipPath={clips.paint}
         d={bezier.path}
         fill="none"
       />
       <path
         className="setta-workspace-graph-edge-interaction"
+        clipPath={clips.hit}
         d={bezier.path}
         fill="none"
         stroke="transparent"
-        strokeWidth={16}
+        strokeWidth={10}
       />
       <WorkspaceGraphEdgeLabel
         label={edge.label}
@@ -359,6 +431,7 @@ function WorkspaceGraphEdgePath({
       {canReconnect ? (
         <>
           <circle
+            clipPath={clips.hit}
             cx={sourceGeometry.point.x}
             cy={sourceGeometry.point.y}
             data-workspace-graph-reconnect="source"
@@ -368,6 +441,7 @@ function WorkspaceGraphEdgePath({
             stroke="transparent"
           />
           <circle
+            clipPath={clips.hit}
             cx={targetGeometry.point.x}
             cy={targetGeometry.point.y}
             data-workspace-graph-reconnect="target"
@@ -476,9 +550,11 @@ function getConnectionPreviewEndpoints(
 }
 
 function WorkspaceGraphConnectionPreview({
+  clipPath,
   geometry,
   rootElement,
 }: {
+  clipPath: string;
   geometry: WorkspaceGraphGeometry;
   rootElement: HTMLElement;
 }) {
@@ -521,6 +597,7 @@ function WorkspaceGraphConnectionPreview({
   return (
     <path
       className="setta-workspace-graph-connection-preview"
+      clipPath={clipPath}
       d={bezier.path}
       data-testid="workspace-graph-connection-preview"
       fill="none"
@@ -540,15 +617,22 @@ function getWorkspaceGraphGeometry(
   const ports = new Map<string, WorkspaceGraphPortGeometry>();
   for (const port of graph.snapshot.ports) {
     const element = getWorkspaceGraphPortElement(rootElement, port.id);
-    if (!element) {
+    const center = element
+      ? getWorkspaceGraphElementCenter(element.getBoundingClientRect())
+      : null;
+    if (
+      !element ||
+      !center ||
+      isOutsideBoundedGroupScroll(
+        element,
+        center,
+        PORT_DOT_HALF_SIZE * transform[2],
+      )
+    ) {
       continue;
     }
     ports.set(port.id, {
-      point: getWorkspaceGraphViewportPoint(
-        getWorkspaceGraphElementCenter(element.getBoundingClientRect()),
-        rootRect,
-        transform,
-      ),
+      point: getWorkspaceGraphViewportPoint(center, rootRect, transform),
       side: getWorkspaceGraphPortSide(port),
     });
   }
@@ -622,10 +706,12 @@ export function WorkspaceGraphLayer({
       subtree: true,
     });
     window.addEventListener("resize", scheduleGeometryRefresh);
+    rootElement.addEventListener("scroll", scheduleGeometryRefresh, true);
     return () => {
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener("resize", scheduleGeometryRefresh);
+      rootElement.removeEventListener("scroll", scheduleGeometryRefresh, true);
       if (animationFrame !== null) {
         window.cancelAnimationFrame(animationFrame);
       }
@@ -662,12 +748,29 @@ export function WorkspaceGraphLayer({
     return () => rootElement.removeEventListener("keydown", onKeyDown);
   }, [canEditStructure, graph, rootElement]);
 
+  const clipId = `setta-workspace-graph-${useId().replace(/[^\w-]/gu, "")}`;
+  const clips = useMemo<WorkspaceGraphClips>(
+    () => ({ hit: `url(#${clipId}-hit)`, paint: `url(#${clipId}-paint)` }),
+    [clipId],
+  );
+  const holes = useMemo(
+    () => ({
+      hit: getPortHolesPath(geometry.ports, PORT_TARGET_HALF_SIZE),
+      paint: getPortHolesPath(geometry.ports, PORT_DOT_HALF_SIZE),
+    }),
+    [geometry.ports],
+  );
   const renderedEdges = useMemo(
     () =>
       graph?.snapshot.edges.map((edge) => (
-        <WorkspaceGraphEdgePath edge={edge} geometry={geometry} key={edge.id} />
+        <WorkspaceGraphEdgePath
+          clips={clips}
+          edge={edge}
+          geometry={geometry}
+          key={edge.id}
+        />
       )) ?? [],
-    [geometry, graph],
+    [clips, geometry, graph],
   );
   if (!graph || !rootElement || geometry.width <= 0 || geometry.height <= 0) {
     return null;
@@ -680,8 +783,17 @@ export function WorkspaceGraphLayer({
       role="group"
       width={geometry.width}
     >
+      <defs>
+        <clipPath id={`${clipId}-paint`}>
+          <path clipRule="evenodd" d={holes.paint} />
+        </clipPath>
+        <clipPath id={`${clipId}-hit`}>
+          <path clipRule="evenodd" d={holes.hit} />
+        </clipPath>
+      </defs>
       {renderedEdges}
       <WorkspaceGraphConnectionPreview
+        clipPath={clips.paint}
         geometry={geometry}
         rootElement={rootElement}
       />

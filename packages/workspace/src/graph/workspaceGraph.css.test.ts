@@ -32,6 +32,14 @@ describe("workspace graph stylesheet contract", () => {
     ).toContain(`stroke: ${familyColor}`);
   });
 
+  it("stacks the edge layer above section shells", () => {
+    const zIndex = (pattern: RegExp) =>
+      Number(getRuleBody(pattern).match(/z-index: (\d+)/u)?.[1]);
+    expect(
+      zIndex(/\.setta-workspace \.setta-workspace-graph-layer/u),
+    ).toBeGreaterThan(zIndex(/\.setta-workspace \.react-flow__nodes/u));
+  });
+
   it("marks missing edges red in both themes", () => {
     expect(
       getRuleBody(

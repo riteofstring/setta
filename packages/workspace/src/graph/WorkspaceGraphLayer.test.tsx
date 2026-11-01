@@ -195,9 +195,11 @@ function GraphGestureTrigger() {
 function GraphLayerHarness({
   configuration,
   hiddenPortIds = new Set<string>(),
+  nestedClassName,
 }: {
   configuration: WorkspaceGraphConfiguration;
   hiddenPortIds?: ReadonlySet<string>;
+  nestedClassName?: string;
 }) {
   const [rootElement, setRootElement] = useState<HTMLDivElement | null>(null);
   const rootRef = useCallback((element: HTMLDivElement | null) => {
@@ -229,7 +231,10 @@ function GraphLayerHarness({
           .map((port) => (
             <GraphPortElement key={port.id} portId={port.id} />
           ))}
-        <div data-testid="workspace-graph-nested-layout">
+        <div
+          className={nestedClassName}
+          data-testid="workspace-graph-nested-layout"
+        >
           {configuration.ports
             .filter(
               (port) =>
@@ -293,6 +298,27 @@ function getEdgeElementAttribute(
     throw new Error(`Workspace graph element ${selector} did not render.`);
   }
   return element.getAttribute(attribute);
+}
+
+function isPaintedByClip(
+  edge: ParentNode,
+  selector: string,
+  x: number,
+  y: number,
+): boolean {
+  const reference = getEdgeElementAttribute(edge, selector, "clip-path");
+  const clipId = reference?.match(/^url\(#(.+)\)$/u)?.[1] ?? "";
+  const d =
+    document.getElementById(clipId)?.querySelector("path")?.getAttribute("d") ??
+    "";
+  const rectangles = [
+    ...d.matchAll(/M(-?[\d.]+),(-?[\d.]+)H(-?[\d.]+)V(-?[\d.]+)H-?[\d.]+Z/gu),
+  ].map((match) => match.slice(1).map(Number));
+  const containing = rectangles.filter(
+    ([left = 0, top = 0, right = 0, bottom = 0]) =>
+      x >= left && x <= right && y >= top && y <= bottom,
+  );
+  return containing.length % 2 === 1;
 }
 
 async function dispatchPointer(
@@ -756,5 +782,75 @@ describe("WorkspaceGraphLayer", () => {
     });
     const reconnect = onReconnect.mock.calls[0]?.[0];
     expect(Object.isFrozen(reconnect.connection)).toBe(true);
+  });
+
+  it("keeps cable paint and hit-testing off every measured port", async () => {
+    portRects["replacement-source"] = { left: 506, top: 360 };
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={workspace}>
+          <GraphLayerHarness configuration={createConfiguration()} />
+        </WorkspaceTestProvider>,
+      );
+    });
+
+    const dataEdge = getEdge(host, "data-edge");
+    const paint = ".setta-workspace-graph-edge-path";
+    const hit = ".setta-workspace-graph-edge-interaction";
+    expect(isPaintedByClip(dataEdge, paint, 42.5, 27.5)).toBe(false);
+    expect(isPaintedByClip(dataEdge, paint, 49, 27.5)).toBe(true);
+    expect(isPaintedByClip(dataEdge, hit, 49, 27.5)).toBe(false);
+    expect(isPaintedByClip(dataEdge, hit, 52, 27.5)).toBe(true);
+    expect(isPaintedByClip(dataEdge, hit, 194, 142.5)).toBe(false);
+    expect(isPaintedByClip(dataEdge, paint, 194, 142.5)).toBe(false);
+  });
+
+  it("drops edges whose port is scrolled out of a bounded group and restores them on scroll", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={workspace}>
+          <GraphLayerHarness
+            configuration={createConfiguration()}
+            nestedClassName="setta-workspace-bounded-group-scroll"
+          />
+        </WorkspaceTestProvider>,
+      );
+    });
+    const scroller = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-graph-nested-layout"]',
+    );
+    if (!scroller) {
+      throw new Error("Workspace graph nested layout did not render.");
+    }
+    let scrollerTop = 380;
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      configurable: true,
+      value: () =>
+        ({
+          bottom: scrollerTop + 100,
+          height: 100,
+          left: 400,
+          right: 600,
+          top: scrollerTop,
+          width: 200,
+        }) as DOMRect,
+    });
+    await act(async () => {
+      scroller.dispatchEvent(new Event("scroll"));
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+    expect(host.querySelector('[data-edge-id="notes-edge"]')).toBeNull();
+    expect(host.querySelector('[data-edge-id="data-edge"]')).not.toBeNull();
+
+    scrollerTop = 300;
+    await act(async () => {
+      scroller.dispatchEvent(new Event("scroll"));
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+    expect(host.querySelector('[data-edge-id="notes-edge"]')).not.toBeNull();
   });
 });
