@@ -24,6 +24,7 @@ import {
   cancelWorkspaceHistoryBatch,
   completeWorkspaceHistoryBatch,
   getWorkspaceHistoryState,
+  recordWorkspaceHistoryEntry,
   redoWorkspace,
   subscribeWorkspaceHistory,
   undoWorkspace,
@@ -361,6 +362,116 @@ describe("local Workspace history", () => {
     unsubscribe();
     expect(redoWorkspace(host)).toBe(true);
     expect(host.getSnapshot().sections["a"]?.name).toBe("Renamed");
+  });
+});
+
+describe("host-owned Workspace history entries", () => {
+  function recordCable(host: WorkspaceHost, cables: Set<string>, id: string) {
+    cables.add(id);
+    recordWorkspaceHistoryEntry(host, {
+      redo: () => cables.add(id),
+      undo: () => cables.delete(id),
+    });
+  }
+
+  function moveA(host: WorkspaceHost, x: number) {
+    moveSections(host, {
+      newIndex: null,
+      newParentId: null,
+      positionsById: { a: { x, y: 0 } },
+      sectionIds: ["a"],
+    });
+  }
+
+  it("interleaves host entries with structural edits in one stack", () => {
+    const host = ownHost(createLoadedLocalHost());
+    const cables = new Set<string>();
+    moveA(host, 100);
+    recordCable(host, cables, "drift-filter");
+    moveA(host, 200);
+
+    expect(undoWorkspace(host)).toBe(true);
+    expect(host.getSnapshot().topLevelSections["a"]?.x).toBe(100);
+    expect(cables.has("drift-filter")).toBe(true);
+    expect(undoWorkspace(host)).toBe(true);
+    expect(cables.has("drift-filter")).toBe(false);
+    expect(host.getSnapshot().topLevelSections["a"]?.x).toBe(100);
+    expect(undoWorkspace(host)).toBe(true);
+    expect(host.getSnapshot().topLevelSections["a"]?.x).toBe(0);
+
+    expect(redoWorkspace(host)).toBe(true);
+    expect(redoWorkspace(host)).toBe(true);
+    expect(cables.has("drift-filter")).toBe(true);
+    expect(host.getSnapshot().topLevelSections["a"]?.x).toBe(100);
+
+    recordCable(host, cables, "filter-amp");
+    expect(getWorkspaceHistoryState(host).canRedo).toBe(false);
+    expect(undoWorkspace(host)).toBe(true);
+    expect(cables).toEqual(new Set(["drift-filter"]));
+  });
+
+  it("obeys the limit and is cleared by loads and projections", () => {
+    const host = ownHost(createLoadedLocalHost(2));
+    const cables = new Set<string>();
+    recordCable(host, cables, "first");
+    recordCable(host, cables, "second");
+    recordCable(host, cables, "third");
+    expect(undoWorkspace(host)).toBe(true);
+    expect(undoWorkspace(host)).toBe(true);
+    expect(undoWorkspace(host)).toBe(false);
+    expect(cables).toEqual(new Set(["first"]));
+
+    recordCable(host, cables, "loaded");
+    host.loadDocument(makeDocument());
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(false);
+    recordCable(host, cables, "projected");
+    commitWorkspaceDocument(host, host.getSnapshot());
+    expect(undoWorkspace(host)).toBe(false);
+    expect(cables.has("projected")).toBe(true);
+  });
+
+  it("keeps a failed host entry in place and rejects recording during replay", () => {
+    const host = ownHost(createLoadedLocalHost());
+    const undo = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error("Cable store is offline.");
+      })
+      .mockImplementationOnce(() =>
+        recordWorkspaceHistoryEntry(host, { redo: vi.fn(), undo: vi.fn() }),
+      );
+    recordWorkspaceHistoryEntry(host, { redo: vi.fn(), undo });
+
+    expect(() => undoWorkspace(host)).toThrow(/offline/u);
+    expect(getWorkspaceHistoryState(host).canUndo).toBe(true);
+    expect(() => undoWorkspace(host)).toThrow(/during undo or redo/u);
+    expect(() =>
+      recordWorkspaceHistoryEntry(host, { redo: vi.fn() } as never),
+    ).toThrow(/require undo\(\) and redo\(\)/u);
+  });
+
+  it("fails loudly without local history", () => {
+    const entry = { redo: vi.fn(), undo: vi.fn() };
+    const authority: WorkspaceHistoryAuthority = {
+      getState: () => ({ canRedo: false, canUndo: false }),
+      record: vi.fn(),
+      redo: vi.fn(),
+      subscribe: () => () => undefined,
+      synchronize: vi.fn(),
+      undo: vi.fn(),
+    };
+    const delegated = ownHost(
+      createWorkspaceHost({ history: { authority, kind: "delegated" } }),
+    );
+    const disabled = ownHost(createWorkspaceHost());
+
+    expect(() => recordWorkspaceHistoryEntry(delegated, entry)).toThrow(
+      /require local workspace history/u,
+    );
+    expect(() => recordWorkspaceHistoryEntry(disabled, entry)).toThrow(
+      /require local workspace history/u,
+    );
+    expect(authority.record).not.toHaveBeenCalled();
   });
 });
 

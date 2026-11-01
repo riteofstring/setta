@@ -1084,6 +1084,26 @@ presentation, and derived geometry while restoring the recorded selection.
 `host.loadDocument(...)` and `commitWorkspaceDocument(...)` clear local history because both
 establish a new external document authority.
 
+Host-owned changes, such as graph edges, can join the same local stack:
+
+```ts
+onConnect: (connection) => {
+  const edge = { ...connection, id: createEdgeId() };
+  const add = () => setEdges((value) => [...value, edge]);
+  add();
+  recordWorkspaceHistoryEntry(host, {
+    undo: () => setEdges((value) => removeEdges(value, [edge.id])),
+    redo: add,
+  });
+},
+```
+
+`recordWorkspaceHistoryEntry(host, { undo, redo })` interleaves with structural entries for `Mod+Z`
+and `Mod+Shift+Z`, counts toward the limit, discards pending redo, and is cleared by
+`host.loadDocument` and `commitWorkspaceDocument`. Callbacks must change only host-owned state and
+cannot record entries themselves. It throws unless the host uses local history; a delegated
+authority records host changes itself.
+
 Applications with a backend or product-wide history can delegate authority instead:
 
 ```ts

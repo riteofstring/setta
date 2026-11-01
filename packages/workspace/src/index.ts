@@ -41,6 +41,7 @@ export type {
 } from "./clipboard/types";
 export {
   getWorkspaceHistoryState,
+  recordWorkspaceHistoryEntry,
   redoWorkspace,
   subscribeWorkspaceHistory,
   undoWorkspace,
@@ -48,6 +49,7 @@ export {
 export type {
   WorkspaceHistoryAuthority,
   WorkspaceHistoryChangeKind,
+  WorkspaceHistoryEntry,
   WorkspaceHistoryState,
   WorkspaceHistorySynchronization,
   WorkspaceHistoryTransaction,

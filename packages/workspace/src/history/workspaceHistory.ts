@@ -19,6 +19,7 @@ import type {
   WorkspaceHistoryCapability,
   WorkspaceHistoryChangeKind,
   WorkspaceHistoryDocumentAccess,
+  WorkspaceHistoryEntry,
   WorkspaceHistoryListener,
   WorkspaceHistoryState,
   WorkspaceHistorySynchronization,
@@ -40,11 +41,13 @@ type ResolvedWorkspaceHistoryState = Readonly<{
   undoDisabledReason: string | null;
 }>;
 
+type LocalHistoryEntry = WorkspaceHistoryTransaction | WorkspaceHistoryEntry;
+
 type LocalHistoryRuntime = {
-  future: Array<WorkspaceHistoryTransaction>;
+  future: Array<LocalHistoryEntry>;
   kind: "local";
   limit: number;
-  past: Array<WorkspaceHistoryTransaction>;
+  past: Array<LocalHistoryEntry>;
 };
 
 type DelegatedHistoryRuntime = {
@@ -77,8 +80,8 @@ type WorkspaceHistoryBatchState = {
 };
 
 type LocalWorkspaceHistoryReplay = {
-  destination: Array<WorkspaceHistoryTransaction>;
-  source: Array<WorkspaceHistoryTransaction>;
+  destination: Array<LocalHistoryEntry>;
+  source: Array<LocalHistoryEntry>;
   sourceDocument: WorkspaceSnapshot<WorkspaceDocument>;
   target: WorkspaceSnapshot<WorkspaceDocument>;
   transaction: WorkspaceHistoryTransaction;
@@ -289,6 +292,18 @@ function getCapabilityDisabledReason(
     : `${operation} requires permission to edit workspace layout.`;
 }
 
+function isWorkspaceHostHistoryEntry(
+  entry: LocalHistoryEntry,
+): entry is WorkspaceHistoryEntry {
+  return "undo" in entry;
+}
+
+function getEntryCapabilities(
+  entry: LocalHistoryEntry,
+): ReadonlyArray<WorkspaceHistoryCapability> {
+  return isWorkspaceHostHistoryEntry(entry) ? [] : entry.requiredCapabilities;
+}
+
 function getLocalHistoryState(
   host: WorkspaceHost,
   runtime: WorkspaceHistoryRuntime & LocalHistoryRuntime,
@@ -299,14 +314,14 @@ function getLocalHistoryState(
     ? getCapabilityDisabledReason(
         host,
         "undo",
-        undoTransaction.requiredCapabilities,
+        getEntryCapabilities(undoTransaction),
       )
     : "There is nothing to undo.";
   const redoDisabledReason = redoTransaction
     ? getCapabilityDisabledReason(
         host,
         "redo",
-        redoTransaction.requiredCapabilities,
+        getEntryCapabilities(redoTransaction),
       )
     : "There is nothing to redo.";
   return createResolvedHistoryState({
@@ -501,7 +516,7 @@ function createHistoryTransaction(
 
 function recordLocalTransaction(
   runtime: WorkspaceHistoryRuntime & LocalHistoryRuntime,
-  transaction: WorkspaceHistoryTransaction,
+  transaction: LocalHistoryEntry,
 ): void {
   runtime.past.push(transaction);
   if (runtime.past.length > runtime.limit) {
@@ -578,6 +593,10 @@ function replayLocalTransaction(
   if (batchStateByHost.get(host)?.active) {
     return false;
   }
+  const entry = (direction === "undo" ? runtime.past : runtime.future).at(-1);
+  if (entry && isWorkspaceHostHistoryEntry(entry)) {
+    return replayWorkspaceHostHistoryEntry(host, runtime, direction, entry);
+  }
   const replay = prepareLocalWorkspaceHistoryReplay(runtime, direction);
   if (!replay) {
     return false;
@@ -623,6 +642,26 @@ function replayLocalTransaction(
   return true;
 }
 
+function replayWorkspaceHostHistoryEntry(
+  host: WorkspaceHost,
+  runtime: WorkspaceHistoryRuntime & LocalHistoryRuntime,
+  direction: "redo" | "undo",
+  entry: WorkspaceHistoryEntry,
+): boolean {
+  const apply = direction === "undo" ? entry.undo : entry.redo;
+  runtime.replayDepth += 1;
+  try {
+    apply();
+  } finally {
+    runtime.replayDepth -= 1;
+  }
+  (direction === "undo" ? runtime.past : runtime.future).pop();
+  (direction === "undo" ? runtime.future : runtime.past).push(entry);
+  runtime.observedDocument = toFrozenDocument(runtime.access.getDocument(host));
+  notifyHistoryStateListeners(host, runtime);
+  return true;
+}
+
 function prepareLocalWorkspaceHistoryReplay(
   runtime: WorkspaceHistoryRuntime & LocalHistoryRuntime,
   direction: "redo" | "undo",
@@ -630,7 +669,7 @@ function prepareLocalWorkspaceHistoryReplay(
   const source = direction === "undo" ? runtime.past : runtime.future;
   const destination = direction === "undo" ? runtime.future : runtime.past;
   const transaction = source.at(-1);
-  if (!transaction) {
+  if (!transaction || isWorkspaceHostHistoryEntry(transaction)) {
     return null;
   }
   return {
@@ -860,6 +899,31 @@ export function synchronizeWorkspaceHistory(
       Object.freeze({ document: snapshot, source }),
     );
   }
+  notifyHistoryStateListeners(host, runtime);
+}
+
+export function recordWorkspaceHistoryEntry(
+  host: WorkspaceHost,
+  entry: WorkspaceHistoryEntry,
+): void {
+  const runtime = getRuntime(host);
+  if (runtime?.kind !== "local") {
+    throw new Error(
+      "Host history entries require local workspace history; a delegated authority records its own.",
+    );
+  }
+  if (typeof entry?.undo !== "function" || typeof entry.redo !== "function") {
+    throw new Error("Workspace history entries require undo() and redo().");
+  }
+  if (runtime.replayDepth > 0) {
+    throw new Error(
+      "Workspace history entries cannot be recorded during undo or redo.",
+    );
+  }
+  recordLocalTransaction(
+    runtime,
+    Object.freeze({ redo: entry.redo, undo: entry.undo }),
+  );
   notifyHistoryStateListeners(host, runtime);
 }
 

@@ -149,6 +149,7 @@ const RUNTIME_EXPORTS = [
   "registerWorkspaceToolbarContributions",
   "renameWorkspaceWindow",
   "reopenWorkspaceWindow",
+  "recordWorkspaceHistoryEntry",
   "redoWorkspace",
   "renameWorkspaceSavedView",
   "resizeWorkspaceFloatingWindow",

@@ -38,6 +38,11 @@ export type WorkspaceHistoryState = Readonly<{
   undoDisabledReason?: string | null;
 }>;
 
+export type WorkspaceHistoryEntry = Readonly<{
+  redo: () => void;
+  undo: () => void;
+}>;
+
 export type WorkspaceHistoryListener = (state: WorkspaceHistoryState) => void;
 
 export type WorkspaceHistoryAuthority = Readonly<{

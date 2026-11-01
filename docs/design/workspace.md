@@ -364,6 +364,16 @@ explicit load/projection synchronization events, owns availability and navigatio
 to persist inverses, revisions, conflicts, or broader product history. Workspace forwards a
 delegated undo or redo request and never applies that authority's document itself.
 
+Host-owned state such as graph edges lives outside `WorkspaceDocument`, yet users expect one undo
+stack. `recordWorkspaceHistoryEntry` pushes detached host `undo` and `redo` callbacks onto the local
+stack, where they share ordering, the limit, redo invalidation, and synchronization clearing with
+structural entries. Host entries need no Workspace capability because the host authorizes its own
+state. Replay runs the callback inside the replay boundary, so document changes it causes are
+observed rather than recorded, and recording from inside a callback fails. A throwing callback
+leaves its entry in place. A delegated authority already owns product history and can record host
+changes in its own vocabulary, so the call fails loudly there instead of widening the authority
+contract with a second entry kind; it also fails when history is disabled.
+
 The package-owned palette commands and default `Mod+Z` and `Mod+Shift+Z` bindings read the live
 history authority. They decline without consuming the chord when unavailable and yield to editable
 targets so native controls and CodeMirror keep their own history.
