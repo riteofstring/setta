@@ -873,8 +873,8 @@ components, so React 18 and below are not supported. All other runtime dependenc
 exact-pinned under the repository dependency policy.
 
 The upstream `@xyflow/react` runtime is a direct private implementation dependency. Workspace owns
-its projection and interaction adapters, presentation, and public contract; applications such as
-Python Canvas receive no XYFlow types or renderer instance.
+its projection and interaction adapters, presentation, and public contract; host applications
+receive no XYFlow types or renderer instance.
 
 The menu primitive is exact-pinned at `@radix-ui/react-dropdown-menu 2.1.15`. Frozen main uses
 `2.1.2`, but that release resolves `react-remove-scroll 2.6.0`, whose peer range excludes the
@@ -1530,7 +1530,7 @@ resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
 The npm package is `@riteofstring/setta`, licensed under Apache-2.0. The independent `/browser`
 entry is ESM with no React or workspace runtime imports; its inputs and outputs use structured clone.
 Run `pnpm consumer:check` from the repository root to build an unrelated consumer of the packed artifact
-and verify its editors in isolated headless Chrome. On Linux, set `PYTHON_CANVAS_CHROME_BINARY` to the
+and verify its editors in isolated headless Chrome. On Linux, set `CHROME_BINARY` to the
 Chrome executable; macOS can use the installed Chrome or that explicit path.
 
 ## Quick-start pane

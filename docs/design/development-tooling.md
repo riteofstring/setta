@@ -116,7 +116,9 @@ review it alongside the command's interaction result:
 pnpm workspace:browser:test -- --screenshot /tmp/setta-browser-fixture.png
 ```
 
-`--skip-build` reuses an existing local build; `--chrome-binary` selects an explicit Chrome binary.
+`--skip-build` reuses an existing local build. Every headless browser script selects Chrome from
+`--chrome-binary`, then the `CHROME_BINARY` environment variable, and on macOS falls back to the
+installed Google Chrome.
 The fixture imports compiled package exports, so rebuild after library or fixture changes.
 
 ## Historical renderer evidence

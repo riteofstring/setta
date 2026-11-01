@@ -8,10 +8,11 @@ import { setTimeout as delay } from "node:timers/promises";
 const DEFAULT_START_TIMEOUT_MS = 15_000;
 const DEFAULT_STOP_TIMEOUT_MS = 2_000;
 
-function resolveHeadlessChromeBinary(explicitPath = null) {
+function resolveHeadlessChromeBinary(flagPath) {
+  const explicitPath = flagPath ?? process.env.CHROME_BINARY ?? null;
   if (explicitPath !== null) {
     if (!path.isAbsolute(explicitPath)) {
-      throw new Error("--chrome-binary must be an absolute path.");
+      throw new Error("The Chrome binary must be an absolute path.");
     }
     if (!existsSync(explicitPath)) {
       throw new Error(`Chrome binary does not exist: ${explicitPath}.`);
@@ -19,7 +20,9 @@ function resolveHeadlessChromeBinary(explicitPath = null) {
     return explicitPath;
   }
   if (process.platform !== "darwin") {
-    throw new Error("Non-macOS headless inspection requires --chrome-binary.");
+    throw new Error(
+      "Non-macOS headless inspection requires --chrome-binary or CHROME_BINARY.",
+    );
   }
   const defaultPath =
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

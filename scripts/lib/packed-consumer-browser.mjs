@@ -32,9 +32,7 @@ export async function verifyPackedConsumerBrowser(root) {
   let client;
   const errors = [];
   try {
-    browser = startHeadlessChrome(
-      process.env.PYTHON_CANVAS_CHROME_BINARY ?? null,
-    );
+    browser = startHeadlessChrome();
     ({ client } = await createCdpPage(await waitForHeadlessChrome(browser)));
     client.on("Runtime.exceptionThrown", (event) =>
       errors.push(

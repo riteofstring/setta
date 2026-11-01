@@ -151,7 +151,7 @@
         "scope": "repository",
         "cost": "expensive",
         "argv": ["pnpm", "run", "consumer:check"],
-        "environment": ["PYTHON_CANVAS_CHROME_BINARY"],
+        "environment": ["CHROME_BINARY"],
         "runOn": ["full"],
         "timeoutSeconds": 1800
       },
