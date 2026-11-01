@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useCodeMirrorTooltipParent } from "../canvas/codeMirrorTooltipParent";
-import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
+import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
 import { useTextValueTheme } from "../controls/text/textValueTheme";
 import {
   NO_DRAG_CLASS_NAME,

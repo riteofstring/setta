@@ -15,9 +15,7 @@ const externalPackages = new Set(
   Object.keys({
     ...manifest.dependencies,
     ...manifest.peerDependencies,
-  }).filter(
-    (name) => !/^(?:@codemirror\/|@lezer\/|@uiw\/|codemirror$)/.test(name),
-  ),
+  }),
 );
 
 export function externalWorkspaceDependency(id: string): boolean {

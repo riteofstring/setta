@@ -25,7 +25,7 @@ import {
   TEXT_VALUE_BASIC_SETUP,
 } from "./textValueExtensions";
 import type { TextValueCompletionProvider } from "./textValueCompletion";
-import type { TextValueLanguage } from "./textValueLanguages";
+import type { TextValueLanguage } from "./editorLanguages";
 import {
   mountTextValueThemeStyles,
   useTextValueTheme,
