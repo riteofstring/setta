@@ -16,7 +16,7 @@ import type {
   DropzoneRejection,
   DropzoneServerPickerRequest,
 } from "../dropzone/dropzoneTypes";
-import type { TextValueLanguage } from "../text/editorLanguages";
+import type { TextValueLanguage } from "../text/textValueLanguages";
 
 type ControlledMetaValue = {
   ariaLabel: string;

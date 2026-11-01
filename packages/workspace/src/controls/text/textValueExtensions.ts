@@ -15,8 +15,10 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
-import type { TextValueLanguage } from "./editorLanguages";
-import { getTextValueLanguageExtensions } from "./textValueLanguages";
+import {
+  getTextValueLanguageExtensions,
+  type TextValueLanguage,
+} from "./textValueLanguages";
 import type {
   TextValueCompletionProvider,
   TextValueCompletionResult,

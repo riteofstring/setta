@@ -253,7 +253,7 @@ export type {
   TextValueCompletionRequest,
   TextValueCompletionResult,
 } from "./controls/text/textValueCompletion";
-export type { TextValueLanguage } from "./controls/text/editorLanguages";
+export type { TextValueLanguage } from "./controls/text/textValueLanguages";
 export { ItemDndContext } from "./dnd/ItemDndContext";
 export { setWorkspaceColorMode } from "./document/appearance";
 export {

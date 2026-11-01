@@ -7,7 +7,7 @@ import {
   buildHighlightedCodeLines,
   buildPlainCodeLines,
 } from "./highlightedCodeLines";
-import type { TextValueLanguage } from "./editorLanguages";
+import { type TextValueLanguage } from "./textValueLanguages";
 import { getThemeScopeClassName, type TextValueTheme } from "./textValueTheme";
 
 const lineWrapStyle: CSSProperties = {

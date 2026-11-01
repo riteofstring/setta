@@ -15,7 +15,7 @@ import {
   getTextValueExtensions,
   TEXT_VALUE_BASIC_SETUP,
 } from "../text/textValueExtensions";
-import type { TextValueLanguage } from "../text/editorLanguages";
+import type { TextValueLanguage } from "../text/textValueLanguages";
 import {
   mountTextValueThemeStyles,
   useTextValueTheme,

@@ -509,13 +509,10 @@ inlined, avoiding dependency font resolution and redundant encodings. The build 
 from the workspace manifest, making that exact declared dependency the stylesheet source.
 
 The ESM artifact bundles package-relative modules and the private editor dependency graph as one
-CodeMirror runtime identity. The editor packages are therefore development dependencies: every
-declared runtime dependency and peer stays external, and nothing else does. Consumers install no
-editor packages and need no editor aliases or version overrides; the build includes the editor
-dependencies' license notices. Public declarations must not name a bundled package either, so the
-public language union lives apart from the CodeMirror language support. The package-boundary check
-owns the emitted import list, the imports reachable from the public declarations, the exports-only
-manifest, scoped stylesheet markers, and absence of dependency CSS.
+CodeMirror runtime identity. Other declared bare dependencies remain external. The build includes
+the editor dependencies' license notices; consumers need no editor aliases or version overrides.
+The package-boundary check owns the emitted import list, exports-only manifest, scoped stylesheet
+markers, and absence of dependency CSS.
 
 ## Verification harnesses
 

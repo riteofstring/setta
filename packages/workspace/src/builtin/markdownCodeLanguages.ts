@@ -1,4 +1,4 @@
-import type { WorkspaceEditorLanguage } from "../controls/text/editorLanguages";
+import type { WorkspaceEditorLanguage } from "../controls/text/textValueLanguages";
 
 const MARKDOWN_CODE_LANGUAGE_BY_ALIAS: Record<
   string,
