@@ -10,27 +10,32 @@ body:
     id: version
     attributes:
       label: Setta version
-      description: Run `setta --version`.
+      description: The installed `@riteofstring/setta` version, for example from `npm ls @riteofstring/setta`.
+      placeholder: 0.1.0
     validations:
       required: true
   - type: dropdown
-    id: app
+    id: area
     attributes:
-      label: Affected app
+      label: Affected area
       options:
-        - Python Canvas
-        - Realtime
-        - Review
-        - Experiment Lens
-        - Command line or installation
-        - Shared workspace
+        - Canvas, sections, and groups
+        - Built-in items and controls
+        - Graph ports and cables
+        - Managed windows and Window Spaces
+        - Saved views
+        - Find, command palette, and commands
+        - History, copy, and paste
+        - Appearance and theming
+        - Browser entry (`@riteofstring/setta/browser`)
+        - Packaging and installation
     validations:
       required: true
   - type: input
-    id: platform
+    id: environment
     attributes:
-      label: Operating system
-      placeholder: macOS 15 arm64, Windows 11 x86-64, Ubuntu 24.04 x86-64
+      label: Browser and React version
+      placeholder: Chrome 142 on macOS 15, React 19.1.0
     validations:
       required: true
   - type: textarea
@@ -51,7 +56,7 @@ body:
     id: diagnostics
     attributes:
       label: Relevant diagnostics
-      description: Add sanitized logs, screenshots, or project fragments if useful.
+      description: Add sanitized console output, screenshots, or the host code that configures the workspace.
       render: shell
   - type: checkboxes
     id: security

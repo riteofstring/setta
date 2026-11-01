@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to a Setta workflow
+description: Propose an improvement to the Setta library
 title: "[Feature]: "
 body:
   - type: dropdown
@@ -7,13 +7,16 @@ body:
     attributes:
       label: Area
       options:
-        - Python Canvas
-        - Realtime
-        - Review
-        - Experiment Lens
-        - Command line or installation
-        - Shared workspace
-        - Other project infrastructure
+        - Canvas, sections, and groups
+        - Built-in items and controls
+        - Graph ports and cables
+        - Managed windows and Window Spaces
+        - Saved views
+        - Find, command palette, and commands
+        - History, copy, and paste
+        - Appearance and theming
+        - Browser entry (`@riteofstring/setta/browser`)
+        - Packaging and project infrastructure
     validations:
       required: true
   - type: textarea
