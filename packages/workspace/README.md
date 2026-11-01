@@ -1145,7 +1145,9 @@ omitted.
 configuration. Code/text configuration records the accepted autocomplete policy (`"off"`);
 numeric bounds, date/time modes, choices, colors, attachment metadata, and dropzone limits reject
 malformed values at load and mutation boundaries. A structural root has neither presentation nor
-opaque data. A row cannot carry both a typed presentation and opaque `data`.
+opaque data. A row cannot carry both a typed presentation and opaque `data`. A rotary knob, as an
+item or meta control, changes by relative drag: pressing never jumps the value, and dragging up or
+right by 160 pixels sweeps the full range. The wheel and arrow keys step it.
 
 The Inspector commits help text on blur or Cmd/Ctrl+Enter; Escape discards its current draft. A
 nonblank value stages the whole parameter row for Setta's held-Q quick-info surface. The surface

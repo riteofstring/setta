@@ -23,6 +23,7 @@ const ROTARY_START_DEG = -135;
 const ROTARY_END_DEG = 135;
 const ROTARY_RANGE_DEG = ROTARY_END_DEG - ROTARY_START_DEG;
 const MAX_DISPLAY_DECIMALS = 3;
+const DRAG_PIXELS_PER_RANGE = 160;
 const KEYBOARD_STEP_DIRECTIONS = {
   ArrowDown: -1,
   ArrowLeft: -1,
@@ -53,7 +54,12 @@ export function RotaryValueControl({
 }: RotaryValueControlProps) {
   const host = useWorkspaceHost();
   assertNumericControlConfig("RotaryValueControl", { min, max, step });
-  const pointerIdRef = useRef<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    value: number;
+  } | null>(null);
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const clampedValue = parseValue(value, min, max);
@@ -65,32 +71,40 @@ export function RotaryValueControl({
   const wheelBoundaryClassName = isDisabled ? "" : MANUAL_WHEEL_CLASS_NAME;
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
 
-  function updateFromPointer(event: PointerEvent<HTMLButtonElement>) {
-    const angle = getPointerAngle(event, event.currentTarget);
-    reportChange(getValueFromAngle(angle, { min, max, step }));
-  }
-
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
     if (isDisabled) {
       return;
     }
     event.preventDefault();
-    pointerIdRef.current = event.pointerId;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      value: clampedValue,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
-    updateFromPointer(event);
   }
 
   function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
-    if (pointerIdRef.current === event.pointerId) {
-      updateFromPointer(event);
+    const drag = dragRef.current;
+    if (drag?.pointerId !== event.pointerId) {
+      return;
     }
+    const travel = event.clientX - drag.x - (event.clientY - drag.y);
+    reportChange(
+      snapToStep(drag.value + (travel / DRAG_PIXELS_PER_RANGE) * (max - min), {
+        min,
+        max,
+        step,
+      }),
+    );
   }
 
   function finishPointer(event: PointerEvent<HTMLButtonElement>) {
-    if (pointerIdRef.current !== event.pointerId) {
+    if (dragRef.current?.pointerId !== event.pointerId) {
       return;
     }
-    pointerIdRef.current = null;
+    dragRef.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
@@ -181,20 +195,6 @@ function getAngleFromValue(value: number, min: number, max: number): number {
   return ROTARY_START_DEG + normalized * ROTARY_RANGE_DEG;
 }
 
-function getValueFromAngle(
-  angle: number,
-  config: NumericControlConfig,
-): number {
-  const clampedAngle = clampNumericValue(
-    angle,
-    ROTARY_START_DEG,
-    ROTARY_END_DEG,
-  );
-  const normalized = (clampedAngle - ROTARY_START_DEG) / ROTARY_RANGE_DEG;
-  const rawValue = config.min + normalized * (config.max - config.min);
-  return snapToStep(rawValue, config);
-}
-
 function snapToStep(
   value: number,
   { min, max, step }: NumericControlConfig,
@@ -246,17 +246,4 @@ function resolveKeyboardValue(
   const direction =
     KEYBOARD_STEP_DIRECTIONS[key as keyof typeof KEYBOARD_STEP_DIRECTIONS];
   return direction === undefined ? null : clampedValue + direction * step;
-}
-
-function getPointerAngle(
-  event: PointerEvent<HTMLButtonElement>,
-  target: HTMLButtonElement,
-): number {
-  const rect = target.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  return (
-    (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
-    Math.PI
-  );
 }

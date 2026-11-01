@@ -197,7 +197,7 @@ describe("RotaryValueControl", () => {
     expect(onValueChange).toHaveBeenCalledWith("0.6");
   });
 
-  it("captures a pointer and maps its angle through the -135 to 135 degree range", async () => {
+  it("captures a pointer and changes the value by relative drag without jumping", async () => {
     const onValueChange = vi.fn();
     await mount({ onValueChange });
     const knob = getKnob();
@@ -226,24 +226,29 @@ describe("RotaryValueControl", () => {
     await act(async () => {
       pointerDown = dispatchPointer(knob, "pointerdown", {
         pointerId: 7,
-        clientX: 40,
+        clientX: 20,
         clientY: 20,
       });
       dispatchPointer(knob, "pointermove", {
         pointerId: 7,
         clientX: 20,
-        clientY: 0,
+        clientY: -12,
+      });
+      dispatchPointer(knob, "pointermove", {
+        pointerId: 7,
+        clientX: 52,
+        clientY: -12,
       });
       dispatchPointer(knob, "pointerup", {
         pointerId: 7,
-        clientX: 20,
-        clientY: 0,
+        clientX: 52,
+        clientY: -12,
       });
     });
     expect(pointerDown?.defaultPrevented).toBe(true);
     expect(setPointerCapture).toHaveBeenCalledWith(7);
     expect(releasePointerCapture).toHaveBeenCalledWith(7);
-    expect(onValueChange.mock.calls).toEqual([["0.5"], ["0.2"]]);
+    expect(onValueChange.mock.calls).toEqual([["0.7"], ["0.9"]]);
   });
 
   it("parses the controlled value like the reference and clamps it to the configured range", async () => {
