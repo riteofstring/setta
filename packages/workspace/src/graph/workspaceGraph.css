@@ -48,6 +48,18 @@
   stroke-dasharray: 0 6;
 }
 
+.setta-workspace .setta-workspace-graph-tie {
+  fill: none;
+  stroke: #475569;
+  stroke-width: 3;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-graph-tie {
+  stroke: #cbd5e1;
+}
+
 .setta-workspace .setta-workspace-graph-edge-interaction {
   pointer-events: stroke;
   cursor: pointer;

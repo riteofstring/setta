@@ -128,6 +128,13 @@ even-odd rule, and its outer extent stays near the ports because Chrome stopped 
 at very large clip coordinates. Resting edges use reduced stroke opacity; hover, focus, selection,
 and status treatments restore full strength.
 
+Cables that share a port are bundled the way patch cables are zip-tied: each runs a short straight
+lane beside its neighbours, ordered by the height of its far end so the fan-out does not cross,
+then curves to its destination from the lane's end. Bundling is presentation computed from the
+measured endpoints on every geometry refresh, so it needs no host input and cannot disagree with
+the controlled edges; the ties are decorative and never take pointer events. A cable shorter than
+the tied run would be all bundle, so short hops stay direct and are not counted toward a bundle.
+
 Controls under a cable take precedence over it. A capture-phase pointer-move listener, throttled to
 one animation frame, hit-tests beneath the overlay; when the topmost non-graph element is a native
 or ARIA control, editable content, CodeMirror, or a port, the overlay stops taking pointer events

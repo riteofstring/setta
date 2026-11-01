@@ -22,6 +22,12 @@ import type {
   WorkspaceGraphPortSide,
 } from "./types";
 import {
+  getWorkspaceGraphBundledPath,
+  getWorkspaceGraphBundles,
+  type WorkspaceGraphBundledEdge,
+  type WorkspaceGraphTie,
+} from "./bundles";
+import {
   getWorkspaceGraphBezier,
   getWorkspaceGraphElementCenter,
   getWorkspaceGraphViewportPoint,
@@ -392,10 +398,12 @@ function WorkspaceGraphEdgeLabel({
 }
 
 function WorkspaceGraphEdgePath({
+  bundle,
   clips,
   edge,
   geometry,
 }: {
+  bundle: WorkspaceGraphBundledEdge | undefined;
   clips: WorkspaceGraphClips;
   edge: WorkspaceGraphEdge;
   geometry: WorkspaceGraphGeometry;
@@ -417,11 +425,10 @@ function WorkspaceGraphEdgePath({
   const targetGeometry = target;
   const selected = activeGraph.snapshot.selectedEdgeIds.has(edge.id);
   const family = activeGraph.snapshot.families.get(edge.family);
-  const bezier = getWorkspaceGraphBezier(
-    sourceGeometry.point,
-    sourceGeometry.side,
-    targetGeometry.point,
-    targetGeometry.side,
+  const bezier = getWorkspaceGraphBundledPath(
+    sourceGeometry,
+    targetGeometry,
+    bundle,
   );
   const canReconnect =
     canEditStructure && activeGraph.snapshot.onReconnect !== undefined;
@@ -520,6 +527,27 @@ function WorkspaceGraphEdgePath({
           />
         </>
       ) : null}
+    </g>
+  );
+}
+
+function WorkspaceGraphTies({
+  clipPath,
+  ties,
+}: {
+  clipPath: string;
+  ties: readonly WorkspaceGraphTie[];
+}) {
+  return (
+    <g aria-hidden="true" clipPath={clipPath}>
+      {ties.map((tie) => (
+        <path
+          className="setta-workspace-graph-tie"
+          d={`M${tie.x},${tie.top} V${tie.bottom} M${tie.x},${tie.top} l${tie.direction * 4},-6`}
+          data-testid="workspace-graph-tie"
+          key={`${tie.x},${tie.top}`}
+        />
+      ))}
     </g>
   );
 }
@@ -837,17 +865,22 @@ export function WorkspaceGraphLayer({
     }),
     [geometry.ports],
   );
+  const bundles = useMemo(
+    () => getWorkspaceGraphBundles(graph?.snapshot.edges ?? [], geometry.ports),
+    [geometry.ports, graph],
+  );
   const renderedEdges = useMemo(
     () =>
       graph?.snapshot.edges.map((edge) => (
         <WorkspaceGraphEdgePath
+          bundle={bundles.edges.get(edge.id)}
           clips={clips}
           edge={edge}
           geometry={geometry}
           key={edge.id}
         />
       )) ?? [],
-    [clips, geometry, graph],
+    [bundles, clips, geometry, graph],
   );
   if (!graph || !rootElement || geometry.width <= 0 || geometry.height <= 0) {
     return null;
@@ -870,6 +903,7 @@ export function WorkspaceGraphLayer({
         </clipPath>
       </defs>
       {renderedEdges}
+      <WorkspaceGraphTies clipPath={clips.paint} ties={bundles.ties} />
       <WorkspaceGraphConnectionPreview
         clipPath={clips.paint}
         geometry={geometry}
