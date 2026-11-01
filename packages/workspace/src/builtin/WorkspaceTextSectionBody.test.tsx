@@ -235,8 +235,6 @@ describe("built-in text section", () => {
           "| - | - |",
           "| 1 | 2 |",
           "",
-          "$E = mc^2$",
-          "",
           "```python",
           "alpha = 1",
           "```",
@@ -250,7 +248,6 @@ describe("built-in text section", () => {
     );
     expect(surface.querySelector("table td")?.textContent).toBe("1");
     expect(surface.querySelectorAll("input[type='checkbox']")).toHaveLength(2);
-    expect(surface.querySelector(".katex")).not.toBeNull();
   });
 
   it("paints inline code as a chip and a fence as a highlighted code block", async () => {

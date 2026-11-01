@@ -62,7 +62,6 @@
       "packages/workspace/vitest.setup.ts",
       "scripts/check-package-boundary.mjs",
       "scripts/check-workspace-policy.mjs",
-      "scripts/compile-katex-styles.mjs",
       "scripts/profile-workspace-performance.mjs",
       "scripts/workspace-browser-interactions.mjs",
       "scripts/verify-packed-consumer.mjs",
@@ -213,23 +212,6 @@
       }
     ],
     "vulnerabilityAssessments": [
-      {
-        "id": "ghsa-238p-pmpm-9mq7-0-16-21",
-        "ecosystem": "pnpm",
-        "advisory": "GHSA-238p-pmpm-9mq7",
-        "package": "katex",
-        "affectedVersion": "0.16.21",
-        "scope": "pnpm-lock.yaml",
-        "severity": "low",
-        "status": "not-affected",
-        "basis": "unreachable",
-        "reason": "Workspace Markdown passes math text, not KaTeX option objects; no attacker-controlled prototype mutation path supplies the required pre-existing pollution. Application trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md).",
-        "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
-        "evidence": "https://osv.dev/vulnerability/GHSA-238p-pmpm-9mq7",
-        "owner": "Codex",
-        "reviewed": "2026-10-09",
-        "expires": "2026-11-07"
-      },
       {
         "id": "ghsa-2m5v-pch6-74hx-7-29-1",
         "ecosystem": "pnpm",

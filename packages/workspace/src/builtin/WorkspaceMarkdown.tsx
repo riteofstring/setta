@@ -1,12 +1,9 @@
 import type { HTMLAttributes } from "react";
 import Markdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import { WorkspaceMarkdownCodeBlock } from "./WorkspaceMarkdownCodeBlock.js";
 
-const REMARK_PLUGINS = [remarkGfm, remarkMath];
-const REHYPE_PLUGINS = [rehypeKatex];
+const REMARK_PLUGINS = [remarkGfm];
 
 const INLINE_CODE_CLASS_NAME =
   "rounded-sm bg-setta-200/70 px-1 py-[1px] font-mono text-[0.92em] text-setta-800 dark:bg-setta-700 dark:text-setta-100";
@@ -53,7 +50,6 @@ export function WorkspaceMarkdown({ text }: { text: string }) {
     <Markdown
       className={MARKDOWN_CLASS_NAME}
       components={MARKDOWN_COMPONENTS}
-      rehypePlugins={REHYPE_PLUGINS}
       remarkPlugins={REMARK_PLUGINS}
     >
       {text}

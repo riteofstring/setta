@@ -1412,7 +1412,7 @@ rejected there when malformed or outside what the registration allows.
 The Text section carries `text`, `format` (`plaintext` or `markdown`), `displayMode` (`edit` or
 `render`), `fontSizePx`, and `readOnly`. Its edit mode is the package's CodeMirror editor; its
 rendered mode is GitHub-flavored Markdown with tables, task lists, inline code, fenced code with
-language-aware highlighting and a copy button, and KaTeX math, with raw HTML never parsed, or a
+language-aware highlighting and a copy button, with raw HTML never parsed, or a
 whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
 `wrapLines`, `lineNumbers`, `indentWidth`, and a required `mode` over the package's language set:
 Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. `mode` is one of
@@ -1491,10 +1491,8 @@ diagnostics, and retry policy remain application responsibilities. `renderHeader
 that shortcut with a visible action without coupling either behavior to the built-in editor.
 
 Their presentation ships in the one compiled stylesheet. The rendered Markdown surface compiles
-from the Tailwind typography plugin under the package-owned `setta-prose` class name, and KaTeX's
-own presentation rules are folded into the same sheet, scoped to the workspace surface and carrying
-their faces inline. Consumers import no dependency CSS, resolve no dependency fonts, and add no
-bundler configuration for either section.
+from the Tailwind typography plugin under the package-owned `setta-prose` class name. Consumers
+import no dependency CSS and add no bundler configuration for either section.
 
 ## Build and consumption
 
@@ -1505,9 +1503,8 @@ Consumers install the compiled package: the `exports` map serves ESM with a sour
 dependencies external. The editor ships as one CodeMirror runtime so consumers need no aliases or
 dependency overrides; its third-party notices are included in `dist/EDITOR-NOTICES.txt`.
 `tsc -p tsconfig.build.json`
-emits declarations, the Tailwind CLI compiles the stylesheet from package source alone,
-`scripts/compile-katex-styles.mjs` folds KaTeX's presentation rules into that stylesheet scoped
-and with its faces inlined, and `scripts/check-package-boundary.mjs --built` verifies the artifact
+emits declarations, the Tailwind CLI compiles the stylesheet from package source alone, and
+`scripts/check-package-boundary.mjs --built` verifies the artifact
 imports and stylesheet scoping. The quality gate typechecks the private browser fixture against the built
 declarations, so build before running it on a fresh tree.
 

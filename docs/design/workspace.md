@@ -502,12 +502,6 @@ position also keeps the named grids authoritative over retained utility tokens. 
 checks verify the resulting selectors because source class assertions cannot prove that consumers
 receive the rules.
 
-KaTeX presentation is folded into the compiled sheet after Tailwind so its layout outranks the
-surrounding typography. Every rule is scoped to the workspace; KaTeX's document-level equation
-counter reset becomes a per-workspace reset. Font faces retain only their WOFF2 source and are
-inlined, avoiding dependency font resolution and redundant encodings. The build resolves KaTeX
-from the workspace manifest, making that exact declared dependency the stylesheet source.
-
 The ESM artifact bundles package-relative modules and the private editor dependency graph as one
 CodeMirror runtime identity. The editor packages are therefore development dependencies: every
 declared runtime dependency and peer stays external, and nothing else does. Consumers install no

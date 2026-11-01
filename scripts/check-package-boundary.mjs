@@ -216,13 +216,6 @@ function validateBuiltStylesheet() {
       String.raw`.setta-prose-h1\:text-\[length\:var\(--setta-workspace-text-h1-size\)\]`,
       "authored Markdown type scale",
     ],
-
-    [".setta-workspace .katex{", "scoped math surface"],
-    [
-      ".setta-workspace{counter-reset:katexEqnNo",
-      "scoped math equation counters",
-    ],
-    ["src:url(data:font/woff2;base64,", "inlined math font faces"],
   ];
   return [
     ...(contents.includes("@tailwind")
@@ -231,16 +224,6 @@ function validateBuiltStylesheet() {
     ...(/^(?:\*|html\b|body\b|:root\b)/mu.test(contents)
       ? [
           "dist/styles.css: contains a host-wide selector; rules must stay package-scoped",
-        ]
-      : []),
-    ...(contents.includes("url(fonts/")
-      ? [
-          "dist/styles.css: references a dependency font path; faces must ship inline",
-        ]
-      : []),
-    ...(/^\.katex/mu.test(contents)
-      ? [
-          "dist/styles.css: contains an unscoped KaTeX rule; folded rules must stay package-scoped",
         ]
       : []),
     ...requiredMarkers.flatMap(([marker, label]) =>
