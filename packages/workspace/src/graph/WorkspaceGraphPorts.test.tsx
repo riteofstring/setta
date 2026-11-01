@@ -42,17 +42,18 @@ function createConfiguration(
   return {
     canConnect,
     edges: [],
+    families: { mod: { color: "#a78bfa", pattern: "dotted" } },
     onConnect,
     ports: [
       {
-        family: "agentic",
+        family: "mod",
         id: "source-output",
         label: "Source output",
         sectionId: "source",
         type: "source",
       },
       {
-        family: "agentic",
+        family: "mod",
         id: "target-input",
         label: "Target input",
         sectionId: "target",
@@ -88,7 +89,7 @@ function ReconnectTrigger() {
       data-testid="workspace-graph-reconnect-trigger"
       onPointerDown={(event) =>
         graph?.beginReconnect(
-          "agent-edge",
+          "mod-edge",
           "source",
           { x: 120, y: 80 },
           event.pointerId,
@@ -216,7 +217,7 @@ describe("WorkspaceGraphPorts", () => {
 
     expect(onConnect).toHaveBeenCalledTimes(1);
     expect(onConnect).toHaveBeenCalledWith({
-      family: "agentic",
+      family: "mod",
       source: { portId: "source-output", sectionId: "source" },
       target: { portId: "target-input", sectionId: "target" },
     });
@@ -272,8 +273,8 @@ describe("WorkspaceGraphPorts", () => {
       ...baseConfiguration,
       edges: [
         {
-          family: "agentic",
-          id: "agent-edge",
+          family: "mod",
+          id: "mod-edge",
           source: { portId: "source-output", sectionId: "source" },
           target: { portId: "target-input", sectionId: "target" },
         },
@@ -301,11 +302,11 @@ describe("WorkspaceGraphPorts", () => {
     await dispatchPointer(source, "pointerup");
     expect(onReconnect).toHaveBeenCalledWith({
       connection: {
-        family: "agentic",
+        family: "mod",
         source: { portId: "source-output", sectionId: "source" },
         target: { portId: "target-input", sectionId: "target" },
       },
-      edgeId: "agent-edge",
+      edgeId: "mod-edge",
     });
   });
 
