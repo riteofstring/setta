@@ -8,11 +8,11 @@
 Compose React workspaces with typed controls, nested sections, editors, graphs, saved views,
 and floating windows. Run live computations in browser workers on static hosting.
 
-[**Turn a photo into 3D →**](https://setta.dev) ·
+[**Play the instrument →**](https://setta.dev) ·
 [Frontend API](packages/workspace/README.md) ·
 [Browser pipelines](packages/workspace/BROWSER.md)
 
-[![The Setta playground: object selection, cutout, density field, raw and animated Gaussians, and linked controls.](images/splat-playground.png)](https://setta.dev)
+[![The setta.dev ambient instrument: grouped sound modules with live displays, cables between ports, typed controls, and saved view tabs.](images/instrument.png)](https://setta.dev)
 
 ## The library
 
@@ -24,14 +24,12 @@ and floating windows. Run live computations in browser workers on static hosting
 Use them together or independently. Your application owns its data, computations, persistence,
 and routes. Setta supplies the workspace and execution building blocks.
 
-The [Gaussian splat playground](https://setta.dev) turns a photo of one object into an inferred 3D
-surface and exports it as Gaussian splats. Select an object with interactive segmentation, refine
-its cutout, scan through the predicted density field, and adjust the extracted surface without
-rerunning AI. Linked raw and final cameras expose what each stage changes. Setta worker pipelines
-provide live progress, cancellation, and recovery; native controls reshape, recolor, animate, and
-slice the result. Meta controls drive multiple parameters, and export bakes the appearance into a
-reusable .splat file. The independent site owns its models and renderer; the library acquires no
-ML dependencies. Everything runs on static hosting, with no photo upload.
+The [ambient instrument](https://setta.dev) is a native Setta workspace whose layout is the
+patch. Horizontal groups chain audio, vertical groups layer it, minimizing a module bypasses it,
+saved views are scenes, and cables between ports carry notes, modulation, and sends. Typed
+sliders, dropdowns, switches, and code editors set each module's parameters, and custom section
+bodies draw what every module does to the sound. The independent site owns its audio engine; the
+library acquires no audio dependencies. Everything runs on static hosting.
 
 ## Start building
 
@@ -57,7 +55,7 @@ For a checkout before registry publication, build and pack the library using the
 
 ## Development
 
-The public Gaussian splat playground is at [setta.dev](https://setta.dev), maintained in the separate
+The public ambient instrument is at [setta.dev](https://setta.dev), maintained in the separate
 `setta-site` repository. Private [browser fixtures](fixtures/packed-consumer/) exercise the package
 with `pnpm workspace:browser:test` and `pnpm consumer:check`.
 

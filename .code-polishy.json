@@ -376,12 +376,12 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "Only repository-owned CSS selectors reach the build parser; runtime project content is not compiled as CSS. Application trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md).",
+        "reason": "Tailwind 3.4.1 (through postcss-nested) and @tailwindcss/typography 0.5.9 parse selectors only while building the library stylesheet from src/styles/index.css and class names in ./src. The published package does not depend on either parser, and runtime project content is never compiled as CSS. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-06-postcss-selector-parser-review).",
         "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
         "evidence": "https://osv.dev/vulnerability/GHSA-rj75-hqrm-r3gf",
-        "owner": "Codex",
-        "reviewed": "2026-10-09",
-        "expires": "2026-11-07"
+        "owner": "Claude",
+        "reviewed": "2026-11-06",
+        "expires": "2026-11-19"
       },
       {
         "id": "ghsa-rj75-hqrm-r3gf-6-1-4",
@@ -393,12 +393,12 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "Only repository-owned CSS selectors reach the build parser; runtime project content is not compiled as CSS. Application trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md).",
+        "reason": "Tailwind 3.4.1 (through postcss-nested) and @tailwindcss/typography 0.5.9 parse selectors only while building the library stylesheet from src/styles/index.css and class names in ./src. The published package does not depend on either parser, and runtime project content is never compiled as CSS. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-06-postcss-selector-parser-review).",
         "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
         "evidence": "https://osv.dev/vulnerability/GHSA-rj75-hqrm-r3gf",
-        "owner": "Codex",
-        "reviewed": "2026-10-09",
-        "expires": "2026-11-07"
+        "owner": "Claude",
+        "reviewed": "2026-11-06",
+        "expires": "2026-11-19"
       },
       {
         "id": "ghsa-xjj6-f33q-929c-7-29-1",

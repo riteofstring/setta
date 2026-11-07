@@ -1,9 +1,7 @@
 # Browser pipelines
 
 `@riteofstring/setta/browser` runs application-owned computations in a Web Worker. It works on
-static hosting without a server, React, or the workspace UI at runtime. The
-[Gaussian splat playground](https://setta.dev) uses it for local photo reconstruction, model-download
-progress, surface sampling, Gaussian validation, and GPU packing.
+static hosting without a server, React, or the workspace UI at runtime.
 
 ## A worker with dependent stages
 
@@ -87,9 +85,8 @@ effects. Those remain application decisions.
 
 ## GPU scenes and other expensive computations
 
-The Gaussian splat playground sends structured-cloneable source records, measurements, and packed
-arrays through the pipeline. WebGL renderers and their GPU resources belong to the rendering view.
-Keep frame-by-frame rendering on the renderer's own loop. Sliders update shader uniforms without
+Send structured-cloneable source records, measurements, and packed arrays through the pipeline.
+WebGL renderers and their GPU resources belong to the rendering view. Keep frame-by-frame rendering on the renderer's own loop. Sliders update shader uniforms without
 requesting another pipeline run; loading a different capture requests new worker processing.
 Use `outputRevision` and `status` to identify the last successful scene while newer work is pending.
 

@@ -231,3 +231,19 @@ socket here, and the browser checks' fixed Node file server; no command starts a
 server or sets a host. The advisory's request path is therefore absent. The fix, 6.4.5, was
 published October 21, 2026 at 05:35 UTC and becomes admissible on November 20; review it then. The
 assessment expires November 21, 2026.
+
+## Addendum, 2026-11-06: postcss-selector-parser review
+
+Assessor: Claude. GHSA-rj75-hqrm-r3gf makes flat selectors such as `.a.a.a…` parse in quadratic
+time, so a caller that parses attacker-supplied selectors can be held on one thread. The lock
+resolves 6.1.4 through Tailwind 3.4.1's postcss-nested and 6.0.10 through
+@tailwindcss/typography 0.5.9, which pins it exactly. Both run only in the library build, which
+compiles `src/styles/index.css` against class names found in `./src`. All of those selectors are
+repository-owned. The published package depends on neither parser, the exported Tailwind preset
+runs on the consumer's own toolchain, and workspace content is never compiled as CSS. No
+untrusted selector reaches the parser, so both versions remain `not-affected/unreachable`.
+
+The same-major fix, 6.1.5, was published October 19, 2026 at 15:02 UTC and becomes admissible on
+November 18. Version 7.1.6 is aged but outside the 6.x range both parents declare. When 6.1.5
+ages, replace both resolutions with an exact `postcss-selector-parser` 6.1.5 override and retire
+these assessments, which now expire November 19, 2026.
