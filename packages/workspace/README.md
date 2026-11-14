@@ -1336,7 +1336,8 @@ fails at the boundary instead of on first paint. An ordinary kind may also regis
 minimize, and delete. A meta-control kind renders no section header and cannot register one.
 
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
-`MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
+`MetaControlKind` and may supply an `onEdit` callback for the outboard edit affordance. Omit `onEdit`
+when the control has no edit action; the package then omits the edit button. The package
 owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
 default; such a kind cannot register a competing `defaultSize`. `MetaControl` exports controlled
 definitions for Button, Text, TextArea, Date, Time, Slider, Rotary, Switch, Color, Dropdown,

@@ -156,7 +156,7 @@ function loadVerticalContainerDocument() {
 }
 
 function loadMetaControlDocument(
-  onEdit: (section: WorkspaceSection) => void,
+  onEdit?: (section: WorkspaceSection) => void,
   overrides: Partial<WorkspaceSection> = {},
   controlKind: MetaControlKind = "text",
 ) {
@@ -643,6 +643,14 @@ describe("SectionContainer", () => {
     );
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
+  });
+
+  it("omits the meta edit action when the host supplies none", async () => {
+    loadMetaControlDocument();
+    await mount("meta");
+
+    expect(host.querySelector('[aria-label="Edit Meta text"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Drag Meta text"]')).not.toBeNull();
   });
 
   it("removes meta drag and resize affordances when its layout is locked", async () => {

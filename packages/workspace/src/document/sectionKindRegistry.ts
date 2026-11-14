@@ -19,7 +19,7 @@ export type MetaControlSectionPresentation = {
     section: Pick<WorkspaceSection, "id" | "kind" | "name" | "data">,
   ) => MetaControlKind;
 
-  onEdit: (section: WorkspaceSection) => void;
+  onEdit?: (section: WorkspaceSection) => void;
 };
 
 export type WorkspaceInspectorContributionContext =
@@ -181,9 +181,11 @@ function assertMetaControlPresentation(
       `Meta-control section kind ${kind} must provide resolveControlKind.`,
     );
   }
-  if (typeof candidate.onEdit !== "function") {
-    throw new Error(`Meta-control section kind ${kind} must provide onEdit.`);
-  }
+  assertOptionalSectionKindFunction(
+    kind,
+    "presentation.onEdit",
+    candidate.onEdit,
+  );
 }
 
 function assertOptionalSectionKindFunction(

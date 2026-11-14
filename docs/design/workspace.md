@@ -254,7 +254,8 @@ Custom meta controls use the existing meta-control presentation and a host-owned
 Workspace owns the headerless shell, title, drag grip, two-dimensional sizing, gesture isolation,
 and Escape-to-section focus. It supplies the disabled state to the renderer, including item
 selection mode. The application applies that state and owns the control's values, input semantics,
-and persistence. This lets compound controls such as a two-axis mood pad use native section chrome
+and persistence. Meta-control edit chrome appears only when the host supplies an `onEdit` action;
+controls with no separate editor omit the callback. This lets compound controls such as a two-axis mood pad use native section chrome
 without adding application-specific value models to Workspace or pretending to be another control kind.
 
 The normalized-stroke surface owns the shared mechanics of drawing over a resizable projection:

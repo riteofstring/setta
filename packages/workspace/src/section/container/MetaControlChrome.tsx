@@ -19,7 +19,7 @@ export function MetaControlChrome({
   onEdit,
 }: {
   section: WorkspaceSection;
-  onEdit: (section: WorkspaceSection) => void;
+  onEdit?: (section: WorkspaceSection) => void;
 }) {
   const host = useWorkspaceHost();
   const { canEditLayout, canEditStructure } = useWorkspaceCapabilities(
@@ -40,27 +40,29 @@ export function MetaControlChrome({
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
         </button>
       ) : null}
-      <div className="absolute start-0 top-1/2 z-[200] -translate-y-1/2 ltr:-translate-x-full rtl:translate-x-full">
-        <div className="flex h-12 w-10 items-center justify-end">
-          <button
-            type="button"
-            className={EDIT_TRIGGER_CLASS_NAME}
-            onClick={() => onEdit(section)}
-            onKeyDown={(event) =>
-              handleSectionControlEscape(host, event, section.id)
-            }
-            disabled={!canEditStructure}
-            aria-label={`Edit ${section.name.trim() || "meta control"}`}
-            title="Edit meta control"
-            data-meta-control-edit="true"
-          >
-            <TbAdjustmentsHorizontal
-              className={EDIT_ICON_CLASS_NAME}
-              aria-hidden="true"
-            />
-          </button>
+      {onEdit ? (
+        <div className="absolute start-0 top-1/2 z-[200] -translate-y-1/2 ltr:-translate-x-full rtl:translate-x-full">
+          <div className="flex h-12 w-10 items-center justify-end">
+            <button
+              type="button"
+              className={EDIT_TRIGGER_CLASS_NAME}
+              onClick={() => onEdit(section)}
+              onKeyDown={(event) =>
+                handleSectionControlEscape(host, event, section.id)
+              }
+              disabled={!canEditStructure}
+              aria-label={`Edit ${section.name.trim() || "meta control"}`}
+              title="Edit meta control"
+              data-meta-control-edit="true"
+            >
+              <TbAdjustmentsHorizontal
+                className={EDIT_ICON_CLASS_NAME}
+                aria-hidden="true"
+              />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </>
   );
 }

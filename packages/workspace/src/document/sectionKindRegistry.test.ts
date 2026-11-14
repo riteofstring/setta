@@ -208,7 +208,6 @@ describe("sectionKindRegistry", () => {
     const presentation = {
       type: "meta-control" as const,
       resolveControlKind: () => "text" as const,
-      onEdit: () => {},
     };
     registerSectionKinds(host, {
       meta: { renderContent: () => null, presentation },
