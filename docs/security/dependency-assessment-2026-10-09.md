@@ -247,3 +247,57 @@ The same-major fix, 6.1.5, was published October 19, 2026 at 15:02 UTC and becom
 November 18. Version 7.1.6 is aged but outside the 6.x range both parents declare. When 6.1.5
 ages, replace both resolutions with an exact `postcss-selector-parser` 6.1.5 override and retire
 these assessments, which now expire November 19, 2026.
+
+## Addendum, 2026-11-15: aged Undici and Vitest security fixes
+
+Assessor: Codex. Dates in this addendum are UTC. The pre-update npm audit and OSV results identified
+the same eight Undici 7.29.1 findings and two @vitest/mocker 4.1.11 findings documented above.
+Their fixed releases now exceed the 30-day admission minimum. The lock replaces those vulnerable
+versions, and the ten assessments for the superseded versions are retired rather than extended.
+
+| Package                                                                                                       | Exact update     | Registry publication, UTC                   | Security changes                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Undici](https://registry.npmjs.org/undici)                                                                   | 7.29.1 to 7.30.1 | October 15, 2026, 14:18:31                  | Preserves TLS callbacks, bounds EventSource buffering, rejects cross-origin redirect cache entries, catches decompression-handler errors, applies WebSocket backpressure, normalizes integrity tokens, handles TLS renegotiation errors, and aborts excessive-content-encoding responses before creating their body. |
+| [Vitest](https://registry.npmjs.org/vitest) and [@vitest/mocker](https://registry.npmjs.org/@vitest%2Fmocker) | 4.1.11 to 4.1.12 | October 15, 2026, 14:40:12 through 14:51:24 | Escapes manual-mock URLs and export names with JSON serialization and normalizes Windows backslashes before checking redirect paths against Vite's file allowlist.                                                                                                                                                   |
+
+The Undici override remains within jsdom 28.1.0's declared `^7.21.0` range. The Vitest update
+keeps its seven `@vitest/*` dependencies on the coordinated 4.1.12 release; all were published
+on October 15 before Vitest itself. The mocker's existing Vite peer range remains compatible
+with 6.4.4. The six other `@vitest/*` packages change only their package manifests.
+
+Registry metadata identifies the official `nodejs/undici` and `vitest-dev/vitest` repositories.
+The old and new npm tarballs were verified against registry integrity values before source
+comparison. Undici adds no dependency; Vitest's dependency changes are confined to its own
+release family. Neither adds an installation lifecycle hook. Undici retains its existing
+development `prepare` command. Lock generation and frozen installation keep scripts disabled;
+no release-age admission or new vulnerability assessment is needed.
+
+The caller review still finds no path from untrusted input to the previously assessed APIs.
+`vite.config.ts` and `vitest.setup.ts` configure authored Node/jsdom tests without resource
+options, remote fixtures, custom TLS callbacks, or interceptors. jsdom disables automatic
+subresource loading by default and owns its separate resource-dispatch/decompression path.
+No checked-in test constructs XMLHttpRequest, EventSource, or jsdom/Undici WebSocket. The CDP
+client uses Node's built-in network APIs against its own loopback Chrome process. Vitest's
+Node runner installs `hoistMocksPlugin` and `automockPlugin`, not the public mocker/interceptor
+plugins that accept WebSocket registrations. Reassess these boundaries if those callers change.
+
+Undici 7.30.1 also changes retry and decompression backpressure, HTTP upgrade completion,
+TLS-session caching, and cookie parsing. Its decompression interceptor changes the default
+size limit from 64 MiB to unlimited unless explicitly configured. Setta does not compose that
+interceptor, and jsdom's separate implementation is unchanged. These differences reinforce the
+need to reassess before enabling remote resource fixtures rather than treating the version update
+as authorization for new network inputs.
+
+The three remaining assessed findings retain their existing expiry dates and remediation plans:
+`postcss-selector-parser` 6.0.10 and 6.1.4 process only repository-owned CSS selectors, and Vite
+6.4.4 has no network-listening development server in the checked-in commands. The
+[parser 6.1.5 release](https://registry.npmjs.org/postcss-selector-parser) becomes eligible
+November 18 at 15:02 UTC; [Vite 6.4.5](https://registry.npmjs.org/vite) becomes eligible
+November 20 at 05:35 UTC. Their absent attacker-controlled inputs do not justify early admission
+or a broader major-version change. The parser assessments expire November 19 and the Vite
+assessment expires November 21.
+
+Post-update dependency review and online supply-chain verification pass with zero open findings;
+the three remaining findings are covered by the exact assessments above. Strict doctor and
+changed-file checks pass, with existing file-length warnings. All 1,616 tests in 206 files pass
+under Node 26.10.0 and pnpm 10.23.0 with Vitest 4.1.12 and jsdom's resolved Undici 7.30.1.
