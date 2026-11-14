@@ -65,6 +65,18 @@ describe("meta control sizing", () => {
     expect(DROPZONE_META_CONTROL_SIZE).toEqual({ width: 240, height: 120 });
   });
 
+  it("gives custom content a two-dimensional surface that can resize vertically", () => {
+    expect(getMetaControlDefaultSize("custom")).toEqual({
+      width: 240,
+      height: 200,
+    });
+    expect(getMetaControlMinimumSize("custom")).toEqual({
+      width: 240,
+      height: 200,
+    });
+    expect(getMetaControlHeightSizeMode("custom")).toBe("any");
+  });
+
   it("keeps every non-compact control freely resizable in height", () => {
     for (const kind of [
       "button",

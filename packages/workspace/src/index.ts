@@ -210,6 +210,7 @@ export { MetaControl } from "./controls/meta/MetaControl.js";
 export type {
   ButtonMetaControl,
   ColorMetaControl,
+  CustomMetaControl,
   DateMetaControl,
   DropdownMetaControl,
   DropzoneMetaControl,

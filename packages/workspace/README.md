@@ -1340,11 +1340,18 @@ A kind whose `presentation.type` is `"meta-control"` projects its opaque data to
 owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
 default; such a kind cannot register a competing `defaultSize`. `MetaControl` exports controlled
 definitions for Button, Text, TextArea, Date, Time, Slider, Rotary, Switch, Color, Dropdown,
-Password, and Dropzone. Values, actions, configuration, attachment metadata, and persistence cross
+Password, Dropzone, and Custom. Values, actions, configuration, attachment metadata, and persistence cross
 explicit host callbacks. The ordinary inner default is 200 x 44 (202 x 46 including the shell
-border); TextArea defaults to 200 x 98, Dropzone to 240 x 120, and Dropdown, Password, and Slider
+border); TextArea defaults to 200 x 98, Dropzone to 240 x 120, Custom to 240 x 200, and Dropdown, Password, and Slider
 keep frozen main's auto-only height policy. Unknown projected or rendered control kinds fail
 specifically instead of displaying a fallback.
+
+Use `resolveControlKind: () => "custom"` for an application-owned control such as a two-axis pad.
+Render it with `MetaControl` and `control={{ kind: "custom", render: ({ disabled }) => ... }}`.
+The renderer receives the combined host-disabled and item-selection state and must apply it to
+its interactive content. Workspace supplies the optional title, gesture isolation, Escape-to-section
+focus, and resizing in both dimensions. The application owns value semantics, labels, keyboard
+interaction, and persistence. Custom content remains a runtime callback outside the document.
 
 Ordinary renderers return their content only. The package wraps that result in the correct
 header-below body slot; consumers must not add `section-full-no-title` or any other package grid

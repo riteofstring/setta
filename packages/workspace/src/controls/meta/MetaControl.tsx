@@ -4,6 +4,7 @@ import { handleSectionControlEscape } from "../sectionFocus.js";
 import { MetaTextValueEditor } from "../text/TextValueEditor.js";
 import type {
   ButtonMetaControl,
+  CustomMetaControl,
   MetaControlDefinition,
   TextAreaMetaControl,
   TextMetaControl,
@@ -16,6 +17,7 @@ import { MetaValueControl } from "./MetaValueControl.js";
 export type {
   ButtonMetaControl,
   ColorMetaControl,
+  CustomMetaControl,
   DateMetaControl,
   DropdownMetaControl,
   DropzoneMetaControl,
@@ -74,6 +76,16 @@ function renderMetaControl({
       />
     );
   }
+  if (control.kind === "custom") {
+    return (
+      <CustomControl
+        sectionId={sectionId}
+        sectionName={sectionName}
+        showSectionTitle={showSectionTitle}
+        control={control}
+      />
+    );
+  }
   if (control.kind === "text" || control.kind === "textarea") {
     return (
       <TextControl
@@ -91,6 +103,43 @@ function renderMetaControl({
       showSectionTitle={showSectionTitle}
       control={control}
     />
+  );
+}
+
+function CustomControl({
+  sectionId,
+  sectionName,
+  showSectionTitle,
+  control,
+}: {
+  sectionId: string;
+  sectionName: string;
+  showSectionTitle: boolean;
+  control: CustomMetaControl;
+}) {
+  const host = useWorkspaceHost();
+  const isSelectingItems = useItemSelectionMode(
+    (state) => state.isSelectingItems,
+  );
+  return (
+    <MetaControlTitleStack
+      showSectionTitle={showSectionTitle}
+      sectionName={sectionName}
+      contentClassName="items-stretch"
+    >
+      <div
+        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} h-full min-h-0 w-full min-w-0`}
+        role="group"
+        aria-label={sectionName}
+        onKeyDown={(event) =>
+          handleSectionControlEscape(host, event, sectionId)
+        }
+      >
+        {control.render({
+          disabled: Boolean(control.disabled || isSelectingItems),
+        })}
+      </div>
+    </MetaControlTitleStack>
   );
 }
 

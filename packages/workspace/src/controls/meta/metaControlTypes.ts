@@ -3,6 +3,7 @@ import type { SectionSize } from "../../document/types.js";
 export type MetaControlKind =
   | "button"
   | "color"
+  | "custom"
   | "date"
   | "dropdown"
   | "dropzone"
@@ -19,6 +20,7 @@ export type MetaControlHeightSizeMode = "any" | "auto-only";
 const META_CONTROL_KINDS: ReadonlySet<MetaControlKind> = new Set([
   "button",
   "color",
+  "custom",
   "date",
   "dropdown",
   "dropzone",
@@ -62,6 +64,11 @@ export const DROPZONE_META_CONTROL_SIZE = {
   height: 120,
 } as const satisfies SectionSize;
 
+const CUSTOM_META_CONTROL_SIZE = {
+  width: 240,
+  height: 200,
+} as const satisfies SectionSize;
+
 const AUTO_HEIGHT_META_CONTROL_SIZE = {
   width: 200,
   height: "auto",
@@ -80,6 +87,9 @@ const DEFAULT_META_CONTROL_MINIMUM_SIZE = {
 
 export function getMetaControlDefaultSize(kind: MetaControlKind): SectionSize {
   assertMetaControlKind(kind);
+  if (kind === "custom") {
+    return CUSTOM_META_CONTROL_SIZE;
+  }
   if (kind === "textarea") {
     return TEXTAREA_META_CONTROL_SIZE;
   }
@@ -96,6 +106,9 @@ export function getMetaControlMinimumSize(
   kind: MetaControlKind,
 ): MetaControlMinimumSize {
   assertMetaControlKind(kind);
+  if (kind === "custom") {
+    return CUSTOM_META_CONTROL_SIZE;
+  }
   if (kind === "textarea") {
     return TEXTAREA_META_CONTROL_SIZE;
   }

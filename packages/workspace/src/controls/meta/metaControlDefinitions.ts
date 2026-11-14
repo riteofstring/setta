@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ColorValueChoice } from "../color/ColorValueControl.js";
 import type {
   DateCalendarWeekStart,
@@ -35,6 +36,12 @@ export type ButtonMetaControl = {
   onAction: () => void;
   disabled?: boolean;
   pending?: boolean;
+};
+
+export type CustomMetaControl = {
+  kind: "custom";
+  render: (state: { disabled: boolean }) => ReactNode;
+  disabled?: boolean;
 };
 
 export type TextMetaControl = IdentifiedControlledMetaValue & {
@@ -123,6 +130,7 @@ export type DropzoneMetaControl = {
 export type MetaControlDefinition =
   | ButtonMetaControl
   | ColorMetaControl
+  | CustomMetaControl
   | DateMetaControl
   | DropdownMetaControl
   | DropzoneMetaControl

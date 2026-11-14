@@ -93,6 +93,75 @@ describe("MetaControl", () => {
     );
   }
 
+  it("keeps custom controls host-owned and disables them during item selection", async () => {
+    const onAction = vi.fn();
+    const render = ({ disabled }: { disabled: boolean }) => (
+      <button disabled={disabled} onClick={onAction}>
+        Change mood
+      </button>
+    );
+    const props: MetaControlProps = {
+      sectionId: "mood",
+      sectionName: "Mood",
+      showSectionTitle: true,
+      control: { kind: "custom", render },
+    };
+    await mount(props);
+    expect(host.textContent).toContain("Mood");
+    const button = host.querySelector("button")!;
+    await act(async () => button.click());
+    expect(onAction).toHaveBeenCalledTimes(1);
+
+    await mount({
+      ...props,
+      control: { kind: "custom", render, disabled: true },
+    });
+    expect(button.disabled).toBe(true);
+    await act(async () => button.click());
+    expect(onAction).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      testWorkspace.itemSelectionMode.setState({ isSelectingItems: true }),
+    );
+    await mount(props);
+    expect(button.disabled).toBe(true);
+    await act(async () =>
+      testWorkspace.itemSelectionMode.setState({ isSelectingItems: false }),
+    );
+    expect(button.disabled).toBe(false);
+    await act(async () => button.click());
+    expect(onAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns focus from custom content to its section on Escape", async () => {
+    const sectionRoot = document.createElement("div");
+    sectionRoot.tabIndex = -1;
+    document.body.appendChild(sectionRoot);
+    testWorkspace.sectionRefs.setState({ withNested: { mood: sectionRoot } });
+    try {
+      await mount({
+        sectionId: "mood",
+        sectionName: "Mood",
+        control: {
+          kind: "custom",
+          render: ({ disabled }) => (
+            <input aria-label="Energy" disabled={disabled} />
+          ),
+        },
+      });
+      const input = host.querySelector("input")!;
+      input.focus();
+      await act(async () =>
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        ),
+      );
+      expect(document.activeElement).toBe(sectionRoot);
+    } finally {
+      sectionRoot.remove();
+    }
+  });
+
   it("renders the full-area controlled Button with the frozen classes and optional title", async () => {
     const onAction = vi.fn();
     await mount({
