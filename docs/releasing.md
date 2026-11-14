@@ -24,7 +24,8 @@ run the locally owned gate against the merge target:
 
 Use the gate's exact command logs for failures; do not duplicate successful gates or run unselected
 supplemental suites. Dependency findings have scoped assessments in `.code-polishy.json` and
-[`docs/security`](security/); review their expiration before releasing a later candidate.
+the [dependency assessment](security/dependency-assessment-2026-10-09.md); review their expiration
+before releasing a later candidate.
 
 Build the npm artifact and verify an unrelated consumer:
 

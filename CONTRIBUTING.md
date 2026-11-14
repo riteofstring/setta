@@ -9,8 +9,9 @@ Use an issue to describe substantial behavior or architecture changes before inv
 implementation. Small, well-scoped fixes can go directly to a pull request.
 
 Setta is a monorepo with its published package under `packages/` and private browser fixtures under
-`fixtures/`. Read the relevant design note in [`docs/design`](docs/design/) before
-changing an established boundary.
+`fixtures/`. Read the [workspace](docs/design/workspace.md) or
+[development tooling](docs/design/development-tooling.md) design note before changing an
+established boundary.
 
 ## Source setup
 

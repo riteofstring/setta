@@ -56,7 +56,7 @@ For a checkout before registry publication, build and pack the library using the
 ## Development
 
 The public ambient instrument is at [setta.dev](https://setta.dev), maintained in the separate
-`setta-site` repository. Private [browser fixtures](fixtures/packed-consumer/) exercise the package
+`setta-site` repository. Private [browser fixtures](fixtures/packed-consumer/src/main.tsx) exercise the package
 with `pnpm workspace:browser:test` and `pnpm consumer:check`.
 
 See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), [security](SECURITY.md), and the

@@ -77,7 +77,7 @@ React root unmounts. For multiple workspaces, create one host for each independe
 Add native controls through [typed items](#typed-built-in-items), a
 [worker pipeline](BROWSER.md) for live computations, or your own backend.
 The [ambient instrument](https://setta.dev) builds on typed items, graph cables, and saved
-views. The [packed consumer fixture](../../fixtures/packed-consumer) exercises
+views. The [packed consumer fixture](../../fixtures/packed-consumer/src/main.tsx) exercises
 more of the UI API against built declarations.
 
 ## Host lifecycle
