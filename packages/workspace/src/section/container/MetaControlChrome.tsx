@@ -32,9 +32,9 @@ export function MetaControlChrome({
       {showDragHandle ? (
         <button
           type="button"
-          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute left-1/2 top-0 z-20 flex h-6 w-12 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded focus-visible:outline focus-visible:outline-2 active:cursor-grabbing`}
+          className={`${NO_PAN_CLASS_NAME} absolute left-1/2 top-0 z-20 flex h-6 w-12 -translate-x-1/2 -translate-y-1/2 touch-none cursor-grab items-center justify-center rounded focus-visible:outline focus-visible:outline-2 active:cursor-grabbing`}
           aria-label={`Drag ${section.name.trim() || "meta control"}`}
-          title="Drag to move or drop into a group"
+          title="Drag to move"
           data-meta-control-drag-handle="true"
         >
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />

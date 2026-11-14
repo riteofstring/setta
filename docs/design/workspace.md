@@ -188,11 +188,11 @@ retain their existing boundaries.
 
 ## Direct drag handles
 
-Meta controls expose a persistent, focusable drag grip. Starting on that grip enters the existing
-free-move session without requiring a held modifier. A grip-owned session ends on drop or cancel;
-modifier reconciliation cannot cancel it merely because Alt is not held. The five-pixel threshold
-also applies to touch, where the dedicated grip already prevents page panning. Ordinary section
-content retains its existing modifier gestures and control editing behavior.
+Meta controls expose a persistent, focusable drag grip. The grip uses the same canvas drag path as
+an ordinary section: the actual section follows the pointer at its rendered size. It does not
+activate a free-move session or a drag preview. Nesting, extraction, and sorting use the same
+modifier gestures as ordinary sections. The dedicated grip prevents page panning on touch while
+the control content retains its editing behavior.
 
 Parameter rows expose a grip whenever structure editing is allowed and the list is unfiltered.
 The same item drag engine handles nesting and reordering from that grip without entering global

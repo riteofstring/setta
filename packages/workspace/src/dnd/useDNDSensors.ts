@@ -55,7 +55,6 @@ function startsOnHandle(
 
 function preventSectionActivation(
   host: WorkspaceHost,
-  event: Event,
   source: DndSource,
 ): boolean {
   const { isSorting, isMovingFree } = getDndStateStore(host).getState();
@@ -68,12 +67,7 @@ function preventSectionActivation(
     return false;
   }
 
-  return !startsOnHandle(
-    event,
-    '[data-meta-control-drag-handle="true"]',
-    "data-section-id",
-    String(source.id),
-  );
+  return true;
 }
 
 export function useSectionDndSensors() {
@@ -85,18 +79,6 @@ export function useSectionDndSensors() {
     }
 
     const pointerSensor = PointerSensor.configure({
-      activationConstraints: (event, source) => {
-        if (
-          event.target instanceof Element &&
-          event.target.closest('[data-meta-control-drag-handle="true"]')
-        ) {
-          return [new PointerActivationConstraints.Distance({ value: 5 })];
-        }
-        const constraints = PointerSensor.defaults.activationConstraints;
-        return typeof constraints === "function"
-          ? constraints(event, source)
-          : constraints;
-      },
       activatorElements: (source: DndSource) => {
         const baseTarget = source.handle ?? source.element;
         const handleElement = getSelectionDragHandle(host).value;
@@ -110,13 +92,13 @@ export function useSectionDndSensors() {
         }
         return [baseTarget];
       },
-      preventActivation: (event, source) =>
-        preventSectionActivation(host, event, source as DndSource),
+      preventActivation: (_event, source) =>
+        preventSectionActivation(host, source as DndSource),
     });
 
     const keyboardSensor = KeyboardSensor.configure({
-      preventActivation: (event, source) =>
-        preventSectionActivation(host, event, source as DndSource),
+      preventActivation: (_event, source) =>
+        preventSectionActivation(host, source as DndSource),
     });
 
     return [pointerSensor, keyboardSensor];

@@ -87,7 +87,7 @@ Workspace and moves a section on its first Cmd/Ctrl drag from content that norma
 XYFlow's no-drag filter. The marquee acceptance keeps a floating window open and Shift-drags from
 a bare pane point through that window. Every sampled move must retain positive marquee geometry
 while the viewport stays fixed; mouse-up must select multiple sections without closing the window
-or reporting a browser error. Direct meta grips must insert into and extract from a group with mouse and touch, and Escape must cancel them. Parameter grips must reorder rows without disabling subsequent keyboard editing. Nested sorting must activate its temporary drag placeholder, preserve
+or reporting a browser error. Meta grips must move the actual canvas section with mouse and touch, preserve its rendered dimensions throughout the gesture, and leave the viewport fixed. Parameter grips must reorder rows without disabling subsequent keyboard editing. Nested sorting must activate its temporary drag placeholder, preserve
 the original order on Escape, and accept a subsequent drag that commits the expected new order.
 
 Package tests cover nested section and item sorting, collision resolution, cancellation, and window

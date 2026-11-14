@@ -679,8 +679,7 @@ async function dragHandle(
   client,
   selector,
   target,
-  cancel = false,
-  touch = false,
+  { touch = false, onMove = () => {} } = {},
 ) {
   const start = await evaluate(
     client,
@@ -715,14 +714,8 @@ async function dragHandle(
     };
     await moveHandlePointer(client, point, touch);
     await delay(25);
+    await onMove(point);
   }
-  if (cancel)
-    await client.send("Input.dispatchKeyEvent", {
-      type: "keyDown",
-      key: "Escape",
-      code: "Escape",
-      windowsVirtualKeyCode: 27,
-    });
   await client.send(
     touch ? "Input.dispatchTouchEvent" : "Input.dispatchMouseEvent",
     touch
@@ -735,13 +728,6 @@ async function dragHandle(
           clickCount: 1,
         },
   );
-  if (cancel)
-    await client.send("Input.dispatchKeyEvent", {
-      type: "keyUp",
-      key: "Escape",
-      code: "Escape",
-      windowsVirtualKeyCode: 27,
-    });
   await delay(450);
 }
 
@@ -757,39 +743,55 @@ async function moveHandlePointer(client, point, touch) {
 async function verifyDirectHandles(client, touch = false) {
   const handle =
     '[data-section-id="meta-text"] [data-meta-control-drag-handle]';
-  const point = await evaluate(
-    client,
-    `(() => {
-    const r = document.querySelector('[data-section-id="sort-group"]').getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.bottom - 15 };
-  })()`,
-  );
-  await dragHandle(client, handle, point, true, touch);
-  assert.equal(
-    await evaluate(
+  const snapshot = () =>
+    evaluate(
       client,
-      `!!document.querySelector('.react-flow__node[data-id="meta-text"]')`,
-    ),
-    true,
-    "Cancel must leave the control on the canvas",
-  );
-  await dragHandle(client, handle, point, false, touch);
-  assert.equal(
-    await evaluate(
-      client,
-      `!!document.querySelector('[data-section-id="sort-group"] [data-section-id="meta-text"]')`,
-    ),
-    true,
-    "Direct handle must drop the control into the group",
-  );
-  await dragHandle(client, handle, { x: 1100, y: 170 }, false, touch);
-  assert.equal(
-    await evaluate(
-      client,
-      `!!document.querySelector('.react-flow__node[data-id="meta-text"]')`,
-    ),
-    true,
-    "Direct handle must extract the control",
+      `(() => {
+        const node = document.querySelector('.react-flow__node[data-id="meta-text"]');
+        const grip = node?.querySelector('[data-meta-control-drag-handle]');
+        if (!node || !grip) throw new Error("Meta control left the canvas during an ordinary drag");
+        const rect = node.getBoundingClientRect();
+        const handle = grip.getBoundingClientRect();
+        return {
+          x: handle.x + handle.width / 2,
+          y: handle.y + handle.height / 2,
+          width: rect.width,
+          height: rect.height,
+          viewport: document.querySelector('.react-flow__viewport').style.transform,
+        };
+      })()`,
+    );
+  const before = await snapshot();
+  const target = { x: before.x - 120, y: before.y + 90 };
+  let lastPosition = before;
+  await dragHandle(client, handle, target, {
+    touch,
+    onMove: async (point) => {
+      const current = await snapshot();
+      lastPosition = current;
+      assert.ok(
+        Math.hypot(current.x - point.x, current.y - point.y) <
+          (touch ? 30 : 10),
+        `The actual meta control must follow the pointer during the drag: ${JSON.stringify({ touch, point, current })}`,
+      );
+      assert.equal(current.width, before.width, "Dragging must preserve width");
+      assert.equal(
+        current.height,
+        before.height,
+        "Dragging must preserve height",
+      );
+      assert.equal(
+        current.viewport,
+        before.viewport,
+        "Dragging must not pan the canvas",
+      );
+    },
+  });
+  const after = await snapshot();
+  assert.ok(
+    Math.abs(after.x - lastPosition.x) <= 7.5 &&
+      Math.abs(after.y - lastPosition.y) <= 7.5,
+    "The meta control must settle on the nearest canvas grid point",
   );
   const itemTarget = await evaluate(
     client,
@@ -802,8 +804,7 @@ async function verifyDirectHandles(client, touch = false) {
     client,
     '[data-workspace-item-id="first"] [data-workspace-item-drag-handle]',
     itemTarget,
-    false,
-    touch,
+    { touch },
   );
   assert.deepEqual(
     await evaluate(

@@ -127,10 +127,9 @@ export function useOnDragEnd() {
           ReturnType<typeof getDndStateStore>["getState"]
         >;
         return {
-          isMovingFree: !dndState.isHandleDrag && dndState.isMovingFree,
-          isSorting: !dndState.isHandleDrag && dndState.isSorting,
-          pendingDeactivation:
-            !dndState.isHandleDrag && dndState.pendingDeactivation,
+          isMovingFree: dndState.isMovingFree,
+          isSorting: dndState.isSorting,
+          pendingDeactivation: dndState.pendingDeactivation,
           disabled: dndState.disabled,
         };
       });
