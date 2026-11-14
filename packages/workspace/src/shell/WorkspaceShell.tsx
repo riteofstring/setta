@@ -436,12 +436,22 @@ function getPointerResizeState(
   );
 }
 
+function renderWorkspaceShellControls(includeControls: boolean | undefined) {
+  if (includeControls === false) return null;
+  return (
+    <div className="setta-workspace-shell-controls">
+      <WorkspaceControls />
+    </div>
+  );
+}
+
 export function WorkspaceShell({
   ariaLabel = "Workspace",
   canvas,
   className,
   includeBuiltInInspector = true,
   includeBuiltInSavedViews = false,
+  includeControls,
   includeSavedViewTabs = false,
   leadingPaneShiftsCanvas = true,
   leadingTabs,
@@ -1007,9 +1017,7 @@ export function WorkspaceShell({
           panelId={savedViewPanelId}
           visible={hasSavedViewTabs}
         />
-        <div className="setta-workspace-shell-controls">
-          <WorkspaceControls />
-        </div>
+        {renderWorkspaceShellControls(includeControls)}
         {navigator ? (
           <WorkspaceNavigator
             defaultMode={navigator.defaultMode}

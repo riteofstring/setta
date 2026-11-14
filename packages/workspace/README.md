@@ -435,6 +435,9 @@ built-in tabs, rail, resize controls, and reserved canvas and window space. Pass
 the pane; an empty array retains its built-in tabs. Both panes may be omitted while keeping canvas
 controls, Find, saved-view tabs, and managed windows.
 
+Pass `includeControls={false}` to omit the floating canvas toolbar. Controls are included by
+default; omitting them leaves canvas gestures and keyboard commands available.
+
 The built-in `Outline` is the first tab when the leading pane is enabled. Setting
 `includeBuiltInSavedViews={true}` adds Saved Views immediately after it. The built-in `Inspector` is
 the first trailing tab when enabled, which is the default; `includeBuiltInInspector={false}` lets a

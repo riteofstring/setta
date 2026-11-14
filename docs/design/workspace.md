@@ -225,7 +225,8 @@ boundary insets from package-owned pane widths, writing direction, and the saved
 An application can omit either side pane by supplying a null tab catalog. An omitted pane mounts
 no rail or content and contributes no canvas or window inset; its stored visibility does not
 participate in pane-width negotiation. Canvas controls, Find, saved-view tabs, and managed windows
-remain independent of side panes.
+remain independent of side panes. The floating canvas toolbar is included by default; applications
+can omit it with `includeControls={false}` without changing canvas gesture or command behavior.
 Applications may observe that viewport when they invoke pure window transitions, but they do not
 duplicate shell measurement or guess fallback dimensions. Viewport-dependent controls remain
 unavailable until a positive measurement exists.
