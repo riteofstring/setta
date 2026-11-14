@@ -53,8 +53,8 @@ export type WorkspaceShellProps = {
 
   canvas?: WorkspaceCanvasConfiguration;
 
-  leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
-  trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+  leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> | null;
+  trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> | null;
 
   includeBuiltInInspector?: boolean;
 

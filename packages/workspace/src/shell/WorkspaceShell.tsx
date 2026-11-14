@@ -82,10 +82,10 @@ type ResizeSession = {
   startWidth: number;
 };
 
-type ShellTabCollections = Pick<
-  WorkspaceShellProps,
-  "leadingTabs" | "trailingTabs"
->;
+type ShellTabCollections = {
+  leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+  trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
+};
 
 type ShellTabRefs = Map<string, HTMLButtonElement>;
 
@@ -203,7 +203,9 @@ function assertTabs(
   pane: WorkspaceShellPaneSide,
   tabs: ReadonlyArray<WorkspaceShellTabDefinition>,
   paneState: WorkspaceShellViewState[WorkspaceShellPaneSide],
+  present: boolean,
 ): void {
+  if (!present) return;
   if (tabs.length === 0) {
     throw new Error(
       `Workspace shell ${pane} pane requires at least one registered tab.`,
@@ -411,6 +413,13 @@ function getRegionStyle(width: number): CSSProperties {
   return { width: `${width}px` };
 }
 
+function getPaneViewportInset(
+  paneState: WorkspaceShellViewState[WorkspaceShellPaneSide],
+  present: boolean,
+): number {
+  return present ? getWorkspaceShellPaneTrueWidth(paneState) : 0;
+}
+
 function getPointerResizeState(
   session: ResizeSession,
   clientX: number,
@@ -440,10 +449,24 @@ export function WorkspaceShell({
   onViewStateChange,
   sectionTagColorPalette,
   trailingTabs,
-  viewState,
+  viewState: suppliedViewState,
   windowManager,
   windowing,
 }: WorkspaceShellProps) {
+  const hasLeadingPane = leadingTabs !== null;
+  const hasTrailingPane = trailingTabs !== null;
+  const viewState = useMemo(
+    () => ({
+      ...suppliedViewState,
+      leading: hasLeadingPane
+        ? suppliedViewState.leading
+        : { ...suppliedViewState.leading, visible: false },
+      trailing: hasTrailingPane
+        ? suppliedViewState.trailing
+        : { ...suppliedViewState.trailing, visible: false },
+    }),
+    [hasLeadingPane, hasTrailingPane, suppliedViewState],
+  );
   assertWorkspaceShellWindowingConfiguration({ windowManager, windowing });
   const host = useWorkspaceHost();
   const hasSavedViewTabs =
@@ -474,7 +497,7 @@ export function WorkspaceShell({
   const focusRequestRef = useRef<FocusRequest | null>(null);
   const previousViewStateRef = useRef(viewState);
   const previousLeadingTrueWidthRef = useRef(
-    getWorkspaceShellPaneTrueWidth(viewState.leading),
+    getPaneViewportInset(viewState.leading, hasLeadingPane),
   );
   const ownedViewportInsetsRef = useRef(EMPTY_VIEWPORT_INSETS);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -530,28 +553,27 @@ export function WorkspaceShell({
     }),
     [requestViewState, viewState.outline],
   );
-  const combinedLeadingTabs = useMemo(
-    () =>
-      includeBuiltInSavedViews
-        ? [
-            outlineTab,
-            {
-              id: WORKSPACE_SAVED_VIEWS_TAB_ID,
-              label: "Saved Views",
-              icon: WorkspaceSavedViewsIcon,
-              initialFocusRef: savedViewsInitialFocusRef,
-              renderContent: () => (
-                <WorkspaceSavedViewsPane
-                  initialFocusRef={savedViewsInitialFocusRef}
-                  showTabBookmarks={includeSavedViewTabs}
-                />
-              ),
-            },
-            ...leadingTabs,
-          ]
-        : [outlineTab, ...leadingTabs],
-    [includeBuiltInSavedViews, includeSavedViewTabs, leadingTabs, outlineTab],
-  );
+  const combinedLeadingTabs = useMemo(() => {
+    if (leadingTabs === null) return [];
+    return includeBuiltInSavedViews
+      ? [
+          outlineTab,
+          {
+            id: WORKSPACE_SAVED_VIEWS_TAB_ID,
+            label: "Saved Views",
+            icon: WorkspaceSavedViewsIcon,
+            initialFocusRef: savedViewsInitialFocusRef,
+            renderContent: () => (
+              <WorkspaceSavedViewsPane
+                initialFocusRef={savedViewsInitialFocusRef}
+                showTabBookmarks={includeSavedViewTabs}
+              />
+            ),
+          },
+          ...leadingTabs,
+        ]
+      : [outlineTab, ...leadingTabs];
+  }, [includeBuiltInSavedViews, includeSavedViewTabs, leadingTabs, outlineTab]);
   const inspectorTab = useMemo<WorkspaceShellTabDefinition>(
     () => ({
       id: WORKSPACE_INSPECTOR_TAB_ID,
@@ -567,14 +589,20 @@ export function WorkspaceShell({
     }),
     [resolvedSectionTagColorPalette],
   );
-  const combinedTrailingTabs = useMemo(
-    () =>
-      includeBuiltInInspector ? [inspectorTab, ...trailingTabs] : trailingTabs,
-    [includeBuiltInInspector, inspectorTab, trailingTabs],
-  );
+  const combinedTrailingTabs = useMemo(() => {
+    if (trailingTabs === null) return [];
+    return includeBuiltInInspector
+      ? [inspectorTab, ...trailingTabs]
+      : trailingTabs;
+  }, [includeBuiltInInspector, inspectorTab, trailingTabs]);
   assertOutlineViewState(viewState);
-  assertTabs("leading", combinedLeadingTabs, viewState.leading);
-  assertTabs("trailing", combinedTrailingTabs, viewState.trailing);
+  assertTabs("leading", combinedLeadingTabs, viewState.leading, hasLeadingPane);
+  assertTabs(
+    "trailing",
+    combinedTrailingTabs,
+    viewState.trailing,
+    hasTrailingPane,
+  );
 
   useLayoutEffect(() => {
     const normalized = normalizeUnavailableTabSelection(viewState, {
@@ -584,11 +612,13 @@ export function WorkspaceShell({
     requestViewState(normalized);
   }, [combinedLeadingTabs, combinedTrailingTabs, requestViewState, viewState]);
 
-  const leadingViewportInset = getWorkspaceShellPaneTrueWidth(
+  const leadingViewportInset = getPaneViewportInset(
     displayState.leading,
+    hasLeadingPane,
   );
-  const trailingViewportInset = getWorkspaceShellPaneTrueWidth(
+  const trailingViewportInset = getPaneViewportInset(
     displayState.trailing,
+    hasTrailingPane,
   );
 
   useLayoutEffect(() => {
@@ -705,8 +735,9 @@ export function WorkspaceShell({
   }, [combinedLeadingTabs, combinedTrailingTabs, viewState]);
 
   useLayoutEffect(() => {
-    const nextLeadingTrueWidth = getWorkspaceShellPaneTrueWidth(
+    const nextLeadingTrueWidth = getPaneViewportInset(
       viewState.leading,
+      hasLeadingPane,
     );
     const widthDiff =
       nextLeadingTrueWidth - previousLeadingTrueWidthRef.current;
@@ -714,7 +745,7 @@ export function WorkspaceShell({
       shiftWorkspaceMapForLeadingPane(host, widthDiff);
     }
     previousLeadingTrueWidthRef.current = nextLeadingTrueWidth;
-  }, [host, leadingPaneShiftsCanvas, viewState.leading]);
+  }, [hasLeadingPane, host, leadingPaneShiftsCanvas, viewState.leading]);
 
   function registerTab(
     pane: WorkspaceShellPaneSide,
@@ -934,6 +965,25 @@ export function WorkspaceShell({
       finishResize(event, false),
   };
 
+  function renderPane(pane: WorkspaceShellPaneSide) {
+    const tabs = getTabs(pane, {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs: combinedTrailingTabs,
+    });
+    if (tabs.length === 0) return null;
+    const inset =
+      pane === "leading" ? leadingViewportInset : trailingViewportInset;
+    return (
+      <WorkspaceShellPane
+        {...sharedPaneProps}
+        pane={pane}
+        paneState={displayState[pane]}
+        regionStyle={getRegionStyle(inset)}
+        tabs={tabs}
+      />
+    );
+  }
+
   return (
     <WorkspaceShellWindowingComposition
       boundaryInsets={windowBoundaryInsets}
@@ -946,29 +996,13 @@ export function WorkspaceShell({
         data-workspace-shell="true"
         ref={rootRef}
       >
-        <WorkspaceShellPane
-          {...sharedPaneProps}
-          pane="leading"
-          paneState={displayState.leading}
-          regionStyle={getRegionStyle(
-            getWorkspaceShellPaneTrueWidth(displayState.leading),
-          )}
-          tabs={combinedLeadingTabs}
-        />
+        {renderPane("leading")}
         <WorkspaceShellCenter
           canvas={canvas}
           hasSavedViewTabs={hasSavedViewTabs}
           savedViewPanelId={savedViewPanelId}
         />
-        <WorkspaceShellPane
-          {...sharedPaneProps}
-          pane="trailing"
-          paneState={displayState.trailing}
-          regionStyle={getRegionStyle(
-            getWorkspaceShellPaneTrueWidth(displayState.trailing),
-          )}
-          tabs={combinedTrailingTabs}
-        />
+        {renderPane("trailing")}
         <WorkspaceSavedViewTabs
           panelId={savedViewPanelId}
           visible={hasSavedViewTabs}

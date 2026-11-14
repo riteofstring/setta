@@ -222,6 +222,10 @@ collision state while handling either completion or cancellation.
 Managed-window state remains a controlled host value, but an integrated `WorkspaceShell` owns the
 geometry of its own presentation layer. It measures the exact manager surface and derives physical
 boundary insets from package-owned pane widths, writing direction, and the saved-view tab strip.
+An application can omit either side pane by supplying a null tab catalog. An omitted pane mounts
+no rail or content and contributes no canvas or window inset; its stored visibility does not
+participate in pane-width negotiation. Canvas controls, Find, saved-view tabs, and managed windows
+remain independent of side panes.
 Applications may observe that viewport when they invoke pure window transitions, but they do not
 duplicate shell measurement or guess fallback dimensions. Viewport-dependent controls remain
 unavailable until a positive measurement exists.

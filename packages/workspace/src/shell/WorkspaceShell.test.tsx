@@ -158,6 +158,8 @@ function Harness({
   includeBuiltInSavedViews = false,
   includeSavedViewTabs = false,
   leadingPaneShiftsCanvas = true,
+  leadingTabs: leadingPaneTabs = leadingTabs,
+  trailingTabs: trailingPaneTabs = trailingTabs,
   navigator,
   onChange,
   windowManager,
@@ -168,6 +170,8 @@ function Harness({
   includeBuiltInSavedViews?: boolean;
   includeSavedViewTabs?: boolean;
   leadingPaneShiftsCanvas?: boolean;
+  leadingTabs?: ReadonlyArray<WorkspaceShellTabDefinition> | null;
+  trailingTabs?: ReadonlyArray<WorkspaceShellTabDefinition> | null;
   navigator?: WorkspaceNavigatorConfiguration;
   onChange: (viewState: WorkspaceShellViewState) => void;
   windowManager?: ReactNode;
@@ -187,13 +191,13 @@ function Harness({
       includeBuiltInSavedViews={includeBuiltInSavedViews}
       includeSavedViewTabs={includeSavedViewTabs}
       leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
-      leadingTabs={leadingTabs}
+      leadingTabs={leadingPaneTabs}
       navigator={navigator}
       onViewStateChange={(nextState) => {
         onChange(nextState);
         setViewState(nextState);
       }}
-      trailingTabs={trailingTabs}
+      trailingTabs={trailingPaneTabs}
       viewState={viewState}
       windowManager={windowManager}
       windowing={windowing}
@@ -353,6 +357,59 @@ describe("WorkspaceShell", () => {
       );
     });
   }
+
+  it("omits both side panes and their reserved space while retaining canvas controls", async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceTestProvider workspace={testWorkspace}>
+          <Harness leadingTabs={null} trailingTabs={null} onChange={onChange} />
+        </WorkspaceTestProvider>,
+      );
+    });
+    await resizeShell(320);
+
+    expect(host.querySelectorAll("aside")).toHaveLength(0);
+    expect(host.querySelectorAll('[role="tablist"]')).toHaveLength(0);
+    expect(host.querySelectorAll('[role="separator"]')).toHaveLength(0);
+    expect(
+      host.querySelector('[data-testid="workspace-canvas"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="workspace-controls"]'),
+    ).not.toBeNull();
+    expect(testWorkspace.reactFlow.getState().viewportInsets).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+  });
+
+  it.each(["leading", "trailing"] as const)(
+    "omits only the configured %s pane",
+    async (pane) => {
+      await act(async () => {
+        root.render(
+          <WorkspaceTestProvider workspace={testWorkspace}>
+            <Harness
+              leadingTabs={pane === "leading" ? null : leadingTabs}
+              trailingTabs={pane === "trailing" ? null : trailingTabs}
+              onChange={onChange}
+            />
+          </WorkspaceTestProvider>,
+        );
+      });
+      expect(host.querySelectorAll("aside")).toHaveLength(1);
+      expect(
+        host.querySelector(`[data-workspace-shell-pane-region="${pane}"]`),
+      ).toBeNull();
+      expect(testWorkspace.reactFlow.getState().viewportInsets).toEqual(
+        pane === "leading"
+          ? { top: 0, right: 40, bottom: 0, left: 0 }
+          : { top: 0, right: 0, bottom: 0, left: 335 },
+      );
+    },
+  );
 
   it("composes the canvas chrome with ordered pane landmarks and named tablists", () => {
     expect(getShell().getAttribute("aria-label")).toBe("Test workspace");

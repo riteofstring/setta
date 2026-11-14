@@ -430,7 +430,12 @@ it. Creating application sections from tooltip text remains host application beh
 
 ## Controlled workspace shell
 
-The built-in `Outline` is always the first leading tab. Setting
+Pass `leadingTabs={null}` or `trailingTabs={null}` to omit that entire side pane, including its
+built-in tabs, rail, resize controls, and reserved canvas and window space. Passing an array enables
+the pane; an empty array retains its built-in tabs. Both panes may be omitted while keeping canvas
+controls, Find, saved-view tabs, and managed windows.
+
+The built-in `Outline` is the first tab when the leading pane is enabled. Setting
 `includeBuiltInSavedViews={true}` adds Saved Views immediately after it. The built-in `Inspector` is
 the first trailing tab when enabled, which is the default; `includeBuiltInInspector={false}` lets a
 host own the complete trailing catalog. `WORKSPACE_OUTLINE_TAB_ID` is always reserved,
