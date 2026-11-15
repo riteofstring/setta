@@ -1,6 +1,0 @@
-pytorch_metric_learning.miners.MultiSimilarityMiner
----
-
----
-epsilon: 0.2
-kwargs: 

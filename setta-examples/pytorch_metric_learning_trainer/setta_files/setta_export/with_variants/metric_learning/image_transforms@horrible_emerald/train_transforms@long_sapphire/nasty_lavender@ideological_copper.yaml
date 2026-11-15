@@ -1,9 +1,0 @@
-torchvision.transforms.RandomResizedCrop
----
-
----
-size: 224
-scale: 
-ratio: 
-interpolation: 
-antialias: 
