@@ -417,7 +417,7 @@ describe("WorkspaceGraphLayer", () => {
     ).toContain("192.5,142.5");
   });
 
-  it("keeps edge geometry fixed in workspace coordinates while the viewport pans", async () => {
+  it("keeps cables fixed while panning and measures subsequent moves in the current camera", async () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={workspace}>
@@ -441,6 +441,22 @@ describe("WorkspaceGraphLayer", () => {
       .querySelector(".setta-workspace-graph-edge-path")
       ?.getAttribute("d");
     expect(after).toBe(before);
+
+    const nestedLayout = host.querySelector<HTMLElement>(
+      '[data-testid="workspace-graph-nested-layout"]',
+    )!;
+    portRects["notes-target"] = { left: 580, top: 400 };
+    await act(async () => {
+      nestedLayout.style.transform = "translateX(20px)";
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+    expect(
+      getEdge(host, "notes-edge")
+        .querySelector(".setta-workspace-graph-edge-path")
+        ?.getAttribute("d"),
+    ).toContain("202.5,142.5");
   });
 
   it("removes edges whose endpoint is hidden from the rendered section tree", async () => {

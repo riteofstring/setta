@@ -140,6 +140,12 @@ updates the paths while signal-status changes reuse them. Routing is presentatio
 document state or host configuration. Overlapping sections can enclose a port; those connections
 retain a visible best-effort route until the layout separates them.
 
+Graph measurements collect the rendered port anchors in one pass. Camera transforms do not
+change workspace-space cable geometry, so they do not independently trigger a measurement;
+geometry refreshes read the current camera when sections, ports, sizes, or nested scrolling
+change. The graph's own SVG mutations do not invalidate its inputs. Other descendant style and
+class changes remain observed because application content can change port placement.
+
 Controls under a cable take precedence over it. A capture-phase pointer-move listener, throttled to
 one animation frame, hit-tests beneath the overlay; when the topmost non-graph element is a native
 or ARIA control, editable content, CodeMirror, or a port, the overlay stops taking pointer events

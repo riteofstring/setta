@@ -10,7 +10,8 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from "react";
-import { useReactFlow } from "../canvas/store.js";
+import { getReactFlowStore, useReactFlow } from "../canvas/store.js";
+import { useWorkspaceHost } from "../workspaceHostContext.js";
 import { useWorkspaceCapabilities } from "../document/capabilities.js";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores.js";
 import { BOUNDED_GROUP_SCROLL_CLASS_NAME } from "../interaction.js";
@@ -234,22 +235,24 @@ function graphGeometryEqual(
   return sameWorkspaceGraphObstacles(left.obstacles, right.obstacles);
 }
 
-function getWorkspaceGraphPortElement(
+function getWorkspaceGraphPortElements(
   rootElement: HTMLElement,
-  portId: string,
-): HTMLElement | null {
+): ReadonlyMap<string, HTMLElement> {
+  const ports = new Map<string, HTMLElement>();
   for (const element of rootElement.querySelectorAll<HTMLElement>(
     "[data-workspace-graph-port-id]",
   )) {
-    if (element.dataset.workspaceGraphPortId === portId) {
-      return (
+    const portId = element.dataset.workspaceGraphPortId;
+    if (portId && !ports.has(portId)) {
+      ports.set(
+        portId,
         element.querySelector<HTMLElement>(
           "[data-workspace-graph-port-anchor]",
-        ) ?? element
+        ) ?? element,
       );
     }
   }
-  return null;
+  return ports;
 }
 
 function getWorkspaceGraphEdgeLabel(edge: WorkspaceGraphEdge): string {
@@ -692,8 +695,9 @@ function getWorkspaceGraphGeometry(
 ): WorkspaceGraphGeometry {
   const rootRect = getRootRect(rootElement);
   const ports = new Map<string, WorkspaceGraphPortGeometry>();
+  const elements = getWorkspaceGraphPortElements(rootElement);
   for (const port of graph.snapshot.ports) {
-    const element = getWorkspaceGraphPortElement(rootElement, port.id);
+    const element = elements.get(port.id);
     const center = element
       ? getWorkspaceGraphElementCenter(element.getBoundingClientRect())
       : null;
@@ -726,8 +730,8 @@ export function WorkspaceGraphLayer({
 }: {
   rootElement: HTMLElement | null;
 }) {
+  const host = useWorkspaceHost();
   const graph = useWorkspaceGraph();
-  const transform = useReactFlow((state) => state.transform);
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
@@ -744,11 +748,15 @@ export function WorkspaceGraphLayer({
       );
       return;
     }
-    const next = getWorkspaceGraphGeometry(graph, rootElement, transform);
+    const next = getWorkspaceGraphGeometry(
+      graph,
+      rootElement,
+      getReactFlowStore(host).getState().transform,
+    );
     setGeometry((current) =>
       graphGeometryEqual(current, next) ? current : next,
     );
-  }, [graph, rootElement, transform]);
+  }, [graph, host, rootElement]);
 
   useLayoutEffect(() => {
     refreshGeometry();
@@ -770,13 +778,29 @@ export function WorkspaceGraphLayer({
     };
     const resizeObserver = new ResizeObserver(scheduleGeometryRefresh);
     resizeObserver.observe(rootElement);
+    const viewportElement = rootElement.querySelector(".react-flow__viewport");
+    const elements = getWorkspaceGraphPortElements(rootElement);
     for (const port of graph.snapshot.ports) {
-      const element = getWorkspaceGraphPortElement(rootElement, port.id);
+      const element = elements.get(port.id);
       if (element) {
         resizeObserver.observe(element);
       }
     }
-    const mutationObserver = new MutationObserver(scheduleGeometryRefresh);
+    const mutationObserver = new MutationObserver((records) => {
+      if (
+        records.some(
+          ({ target, type, attributeName }) =>
+            !(target instanceof Element) ||
+            (!target.closest(".setta-workspace-graph-layer") &&
+              !(
+                type === "attributes" &&
+                attributeName === "style" &&
+                target === viewportElement
+              )),
+        )
+      )
+        scheduleGeometryRefresh();
+    });
     mutationObserver.observe(rootElement, {
       attributes: true,
       attributeFilter: ["class", "style"],
