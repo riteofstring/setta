@@ -22,11 +22,13 @@ import type {
   WorkspaceGraphPortSide,
 } from "./types.js";
 import {
-  getWorkspaceGraphBundledPath,
-  getWorkspaceGraphBundles,
-  type WorkspaceGraphBundledEdge,
-  type WorkspaceGraphTie,
-} from "./bundles.js";
+  getWorkspaceGraphRoute,
+  type WorkspaceGraphObstacle,
+} from "./routing.js";
+import {
+  getWorkspaceGraphObstacles,
+  sameWorkspaceGraphObstacles,
+} from "./obstacles.js";
 import {
   getWorkspaceGraphBezier,
   getWorkspaceGraphElementCenter,
@@ -48,12 +50,14 @@ type WorkspaceGraphPortGeometry = Readonly<{
 
 type WorkspaceGraphGeometry = Readonly<{
   height: number;
+  obstacles: readonly WorkspaceGraphObstacle[];
   ports: ReadonlyMap<string, WorkspaceGraphPortGeometry>;
   width: number;
 }>;
 
 const EMPTY_GRAPH_GEOMETRY: WorkspaceGraphGeometry = {
   height: 0,
+  obstacles: [],
   ports: new Map(),
   width: 0,
 };
@@ -227,7 +231,7 @@ function graphGeometryEqual(
       return false;
     }
   }
-  return true;
+  return sameWorkspaceGraphObstacles(left.obstacles, right.obstacles);
 }
 
 function getWorkspaceGraphPortElement(
@@ -398,12 +402,10 @@ function WorkspaceGraphEdgeLabel({
 }
 
 function WorkspaceGraphEdgePath({
-  bundle,
   clips,
   edge,
   geometry,
 }: {
-  bundle: WorkspaceGraphBundledEdge | undefined;
   clips: WorkspaceGraphClips;
   edge: WorkspaceGraphEdge;
   geometry: WorkspaceGraphGeometry;
@@ -412,24 +414,24 @@ function WorkspaceGraphEdgePath({
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
-  if (!graph) {
+  const source = geometry.ports.get(edge.source.portId);
+  const target = geometry.ports.get(edge.target.portId);
+  const route = useMemo(() => {
+    if (!source || !target) return null;
+    return {
+      ...getWorkspaceGraphRoute(source, target, geometry.obstacles),
+      source,
+      target,
+    };
+  }, [source, target, geometry.obstacles]);
+  if (!graph || !route || edge.hidden) {
     return null;
   }
   const activeGraph = graph;
-  const source = geometry.ports.get(edge.source.portId);
-  const target = geometry.ports.get(edge.target.portId);
-  if (!source || !target || edge.hidden) {
-    return null;
-  }
-  const sourceGeometry = source;
-  const targetGeometry = target;
+  const sourceGeometry = route.source;
+  const targetGeometry = route.target;
   const selected = activeGraph.snapshot.selectedEdgeIds.has(edge.id);
   const family = activeGraph.snapshot.families.get(edge.family);
-  const bezier = getWorkspaceGraphBundledPath(
-    sourceGeometry,
-    targetGeometry,
-    bundle,
-  );
   const canReconnect =
     canEditStructure && activeGraph.snapshot.onReconnect !== undefined;
   const canSelect = activeGraph.snapshot.onSelectedEdgeIdsChange !== undefined;
@@ -487,21 +489,21 @@ function WorkspaceGraphEdgePath({
       <path
         className="setta-workspace-graph-edge-path"
         clipPath={clips.paint}
-        d={bezier.path}
+        d={route.path}
         fill="none"
       />
       <path
         className="setta-workspace-graph-edge-interaction"
         clipPath={clips.hit}
-        d={bezier.path}
+        d={route.path}
         fill="none"
         stroke="transparent"
         strokeWidth={10}
       />
       <WorkspaceGraphEdgeLabel
         label={edge.label}
-        x={bezier.labelX}
-        y={bezier.labelY}
+        x={route.labelX}
+        y={route.labelY}
       />
       {canReconnect ? (
         <>
@@ -527,27 +529,6 @@ function WorkspaceGraphEdgePath({
           />
         </>
       ) : null}
-    </g>
-  );
-}
-
-function WorkspaceGraphTies({
-  clipPath,
-  ties,
-}: {
-  clipPath: string;
-  ties: readonly WorkspaceGraphTie[];
-}) {
-  return (
-    <g aria-hidden="true" clipPath={clipPath}>
-      {ties.map((tie) => (
-        <path
-          className="setta-workspace-graph-tie"
-          d={`M${tie.x},${tie.top} V${tie.bottom} M${tie.x},${tie.top} l${tie.direction * 4},-6`}
-          data-testid="workspace-graph-tie"
-          key={`${tie.x},${tie.top}`}
-        />
-      ))}
     </g>
   );
 }
@@ -734,6 +715,7 @@ function getWorkspaceGraphGeometry(
   }
   return {
     height: rootRect.height,
+    obstacles: getWorkspaceGraphObstacles(rootElement, rootRect, transform),
     ports,
     width: rootRect.width,
   };
@@ -865,22 +847,17 @@ export function WorkspaceGraphLayer({
     }),
     [geometry.ports],
   );
-  const bundles = useMemo(
-    () => getWorkspaceGraphBundles(graph?.snapshot.edges ?? [], geometry.ports),
-    [geometry.ports, graph],
-  );
   const renderedEdges = useMemo(
     () =>
       graph?.snapshot.edges.map((edge) => (
         <WorkspaceGraphEdgePath
-          bundle={bundles.edges.get(edge.id)}
           clips={clips}
           edge={edge}
           geometry={geometry}
           key={edge.id}
         />
       )) ?? [],
-    [bundles, clips, geometry, graph],
+    [clips, geometry, graph],
   );
   if (!graph || !rootElement || geometry.width <= 0 || geometry.height <= 0) {
     return null;
@@ -903,7 +880,6 @@ export function WorkspaceGraphLayer({
         </clipPath>
       </defs>
       {renderedEdges}
-      <WorkspaceGraphTies clipPath={clips.paint} ties={bundles.ties} />
       <WorkspaceGraphConnectionPreview
         clipPath={clips.paint}
         geometry={geometry}

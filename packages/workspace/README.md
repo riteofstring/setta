@@ -258,9 +258,9 @@ each edge takes pointer events, ports stay above their cables for hover and conn
 and resting edges are lighter than hovered or selected ones. Buttons, inputs, sliders, editors, and
 other controls under a cable keep their clicks; the cable stays selectable everywhere else. Deleting
 a focused edge leaves focus on the canvas, so `Mod+Z` can undo it at once. A port scrolled out of a bounded group
-or hidden by the active saved view draws no edges. Two or more visible cables that share a port
-leave it as one bundle: they run in parallel lanes, held by zip ties, before fanning out to their
-other ends. Cables shorter than 90 canvas units stay out of bundles.
+or hidden by the active saved view draws no edges. Connections automatically take rounded paths
+through gaps around sections and group headers, updating as sections move or resize. Nested
+connections can use the gutters inside groups. No manual routing or cable-tie controls are needed.
 Workspace graph types deliberately contain no XYFlow types, and graph state is not stored in the
 workspace document.
 

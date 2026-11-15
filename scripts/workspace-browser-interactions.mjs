@@ -433,8 +433,8 @@ async function readGraphLayering(client) {
       const below = (point) =>
         document.elementsFromPoint(point.x, point.y).find((element) => !element.closest(".setta-workspace-graph-layer"));
       const samples = Array.from({ length: 200 }, (_, index) => toScreen((path.getTotalLength() * index) / 200));
-      const overControl = samples.find((point) =>
-        below(point)?.closest('[data-testid="graph-module-control"]'));
+      const controlBounds = document.querySelector('[data-testid="graph-module-control"]').getBoundingClientRect();
+      const control = { x: controlBounds.left + controlBounds.width / 2, y: controlBounds.top + controlBounds.height / 2 };
       const overGroupBackground = samples.find((point) =>
         below(point)?.closest('[data-workspace-section-shell="true"]')?.dataset.sectionId === "chain");
       const crossing = toScreen(path.getTotalLength() / 2);
@@ -449,11 +449,11 @@ async function readGraphLayering(client) {
         besideCrossing: hitAt(crossing.x, crossing.y + 8),
         crossing: { x: crossing.x, y: crossing.y },
         crossingHit: hitAt(crossing.x, crossing.y),
-        crossingInsideNestedSection:
-          crossing.x > bounds.left && crossing.x < bounds.right &&
-          crossing.y > bounds.top && crossing.y < bounds.bottom,
+        crossesNestedSection: samples.some(point =>
+          point.x > bounds.left + 1 && point.x < bounds.right - 1 &&
+          point.y > bounds.top + 1 && point.y < bounds.bottom - 1),
         hiddenEndpointDrawn: document.querySelector('[data-edge-id="env-amp"]') !== null,
-        overControl: overControl && { x: overControl.x, y: overControl.y },
+        control,
         overGroupBackground: overGroupBackground && { x: overGroupBackground.x, y: overGroupBackground.y },
         presses: Number(document.querySelector('[data-testid="graph-module-control"]')?.dataset.presses),
         ports,
@@ -498,14 +498,14 @@ async function verifyGraphLayering(client, url) {
   }
   assert.ok(layering, "The graph fixture did not render its cables.");
   assert.equal(
-    layering.crossingInsideNestedSection,
-    true,
-    "The crossing cable must pass over a section nested in a group.",
+    layering.crossesNestedSection,
+    false,
+    "The cable must route around the section nested in its path.",
   );
   assert.equal(
     layering.crossingHit,
     "drift-amp",
-    "A cable over a nested section is hidden or unclickable.",
+    "A routed cable is hidden or unclickable.",
   );
   assert.notEqual(
     layering.besideCrossing,
@@ -525,20 +525,20 @@ async function verifyGraphLayering(client, url) {
     "A cable to a port scrolled out of its bounded group was drawn.",
   );
   assert.ok(
-    layering.overControl && layering.overGroupBackground,
-    "The crossing cable must cross a control and bare group background.",
+    layering.overGroupBackground,
+    "The cable must remain reachable through the group background.",
   );
-  await clickGraphPoint(client, layering.overControl);
+  await clickGraphPoint(client, layering.control);
   const pressed = await readGraphLayering(client);
   assert.equal(
     pressed?.presses,
     layering.presses + 1,
-    "A cable crossing a control swallowed the control's click.",
+    "The graph overlay swallowed a control's click.",
   );
   assert.equal(
     pressed?.selected,
     false,
-    "Clicking a control under a cable selected the cable.",
+    "Clicking a section control selected the cable.",
   );
   await clickGraphPoint(client, layering.overGroupBackground);
   await evaluate(
