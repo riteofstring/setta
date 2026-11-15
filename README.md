@@ -3,62 +3,107 @@
 
 # Setta
 
-**Building blocks for interactive tools.**
+**Build interactive tools around your own data and code.**
 
-Compose React workspaces with typed controls, nested sections, editors, graphs, saved views,
-and floating windows. Run live computations in browser workers on static hosting.
+Setta is a TypeScript/React toolkit for configurable workspaces. Combine typed controls,
+nested panels, editors, graphs, saved views and floating windows around your application.
+You supply the data and algorithms; Setta supplies the workspace interactions.
 
-[**Play the instrument →**](https://setta.dev) ·
-[Frontend API](packages/workspace/README.md) ·
-[Browser pipelines](packages/workspace/BROWSER.md)
+[**Get started**](#get-started) ·
+[Live example: ambient instrument](https://setta.dev) · [Explore the history](docs/history/README.md)
 
-[![The setta.dev ambient instrument: grouped sound modules with live displays, cables between ports, typed controls, and saved view tabs.](images/instrument.png)](https://setta.dev)
+## Why Setta?
 
-## The library
+| What you want to do                           | What Setta provides                                                                      |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Organize a complex tool                       | Nested sections, horizontal/vertical groups, and drag-and-drop composition               |
+| Let users configure their work                | Typed controls, validation, diagnostics and custom React content                         |
+| Present the same content in different ways    | Saved views, canvas layouts, floating windows and focused section surfaces               |
+| Navigate and edit large workspaces            | Find, commands and optional structural undo/redo                                         |
+| Keep expensive computations off the UI thread | Optional browser worker pipelines with dependencies, progress, cancellation and recovery |
 
-| Entry point                                                    | What it provides                                                                                                                |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [`@riteofstring/setta`](packages/workspace/README.md)          | A composable React workspace: controls, sections, navigation, editors, graph presentation, and managed windows.                 |
-| [`@riteofstring/setta/browser`](packages/workspace/BROWSER.md) | Worker pipelines with dependent stages, latest-input queuing, progress, cancellation, and failure recovery. No server required. |
+These building blocks suit simulation tools, data explorers, configuration editors and creative
+applications. Your application decides what a value means, what a connection does, and where
+data is stored.
 
-Use them together or independently. Your application owns its data, computations, persistence,
-and routes. Setta supplies the workspace and execution building blocks.
+## How it fits into your application
 
-The [ambient instrument](https://setta.dev) is a native Setta workspace whose layout is the
-patch. Horizontal groups chain audio, vertical groups layer it, minimizing a module bypasses it,
-saved views are scenes, and cables between ports carry notes, modulation, and sends. Typed
-sliders, dropdowns, switches, and code editors set each module's parameters, and custom section
-bodies draw what every module does to the sound. The independent site owns its audio engine; the
-library acquires no audio dependencies. Everything runs on static hosting.
+![Setta's workspace connects to your application, which owns the data, algorithms and storage. Optional browser pipelines run its computations in Web Workers.](images/setta-architecture.svg)
 
-## Start building
+The workspace and browser pipelines can be used together or independently. Browser pipelines
+run trusted application computations in Web Workers on static hosting. Applications can also
+connect the workspace to their own backend.
 
-The frontend requires React 19 and an ESM bundler such as Vite:
+Setta builds on [React Flow](https://reactflow.dev/) by xyflow for its canvas foundation.
+React Flow already supplies pan/zoom, draggable nodes, connections and custom React content.
+Setta adds a workspace document model and coordinated section layouts, parameter editing,
+saved presentations, window handoff and editing operations. Adopting Setta means using those
+document and interaction conventions; application logic, storage and sync remain yours.
+
+## Example application: the ambient instrument
+
+[![An example built with Setta: the ambient instrument's controls and workspace over its animated landscape.](images/instrument.png)](https://setta.dev)
+
+**The instrument is an example application built with Setta.** Its audio engine, musical rules
+and 3D visuals are application code. Setta supplies the workspace, controls, graph interactions and
+worker orchestration. The library has no audio or 3D-engine dependency.
+
+[Try the instrument](https://setta.dev) · [See which parts come from Setta](docs/examples/instrument.md)
+
+## Get started
+
+The package is `@riteofstring/setta`, under the
+[riteofstring npm organization](https://www.npmjs.com/org/riteofstring). After the first
+registry release, install it in your React application:
 
 ```sh
-npm install @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
+npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
 ```
 
-```tsx
-import {
-  createWorkspaceHost,
-  WorkspaceProvider,
-  WorkspaceShell,
-} from "@riteofstring/setta";
-import "@riteofstring/setta/styles.css";
+Import `@riteofstring/setta/styles.css` once, then follow the
+[complete component setup](packages/workspace/README.md#getting-started).
+The workspace and browser pipelines are entry points of the same package.
+
+| Entry point                      | Guide                                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------- |
+| `@riteofstring/setta`            | [React workspace and complete component setup](packages/workspace/README.md#getting-started) |
+| `@riteofstring/setta/browser`    | [Independent browser worker pipelines](packages/workspace/BROWSER.md)                        |
+| `@riteofstring/setta/styles.css` | Import once in your application                                                              |
+
+The frontend requires React 19 and an ESM bundler such as Vite. Setta is alpha software;
+APIs may change before 1.0.
+
+### Run from source
+
+The first npm release is pending. You can build this checkout and install its local tarball now.
+Use Node 26.10.0 and pnpm 10.23.0. Follow the [contributor setup](CONTRIBUTING.md#source-setup)
+to install this checkout's pinned dependencies, then run:
+
+```sh
+pnpm --filter @riteofstring/setta build
 ```
 
-Follow the [frontend getting started guide](packages/workspace/README.md#getting-started) for a
-complete component, or start with a [browser worker pipeline](packages/workspace/BROWSER.md).
-For a checkout before registry publication, build and pack the library using the
-[contributor setup](CONTRIBUTING.md#source-setup), then install the resulting local tarball.
+From your consuming application:
+
+```sh
+npm install /path/to/setta/packages/workspace/setta.tgz react@19.1.1 react-dom@19.1.1
+```
+
+## Six years of experiments
+
+Setta began in 2020 as **ABCDE**, turning Python metadata into interfaces. It became
+**ioVuu**, then **Runcoder**, then **Setta**: an experiment tool, a programmable workbench,
+and finally a reusable library.
+
+The [visual history guide](docs/history/README.md) follows those ideas through screenshots,
+feature explanations and implementation links. Historical Python execution, AI integrations
+and workbench applications are preserved in Git; the current checkout contains the library.
+The project histories are collected in one lineage.
 
 ## Development
 
-The public ambient instrument is at [setta.dev](https://setta.dev), maintained in the separate
-`setta-site` repository. Private [browser fixtures](fixtures/packed-consumer/src/main.tsx) exercise the package
-with `pnpm workspace:browser:test` and `pnpm consumer:check`.
+See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), and [security](SECURITY.md).
+The independently maintained instrument is at
+[setta.dev](https://setta.dev). Browser regression fixtures live under `fixtures/`.
 
-See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), [security](SECURITY.md), and the
-[release procedure](docs/releasing.md). Setta is alpha software; APIs may change before 1.0.
 Licensed under [Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

@@ -42,7 +42,7 @@ files. Requests never reach source transforms, filesystem path resolution, or de
 launching. Each harness closes its server and isolated Chrome profile when it finishes. The
 repository has no authored Vite development-server command.
 
-The public demonstration belongs to `setta-site`. This fixture owns package regression coverage,
+The independently maintained instrument belongs to `setta-site`. This fixture owns package regression coverage,
 not a component gallery or a second product interface. Package component suites retain the full
 control, nested sorting, window recovery, saved-view, and standalone-section behavioral contracts.
 

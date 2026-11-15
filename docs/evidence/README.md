@@ -20,8 +20,7 @@ git archive --format=tar --output=/tmp/setta-historical-evidence.tar \
 ```
 
 Current implementation rationale lives in the [workspace](../design/workspace.md) and
-[development tooling](../design/development-tooling.md) design notes, active dependency assessments in
-the [security assessment](../security/dependency-assessment-2026-10-09.md), and release procedures in
-[releasing](../releasing.md). Current package,
+[development tooling](../design/development-tooling.md) design notes, and active dependency assessments in
+the [security assessment](../security/dependency-assessment-2026-10-09.md). Current package,
 browser-interaction, packed-consumer, and performance checks run from the working tree; historical
 captures are not inputs to those checks.

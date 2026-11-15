@@ -15,11 +15,16 @@ process-global workspace. This is an alpha release; APIs may change before 1.0.
 
 ## Getting started
 
-Install the package with React 19, then import the compiled stylesheet once:
+The package belongs to the [riteofstring npm organization](https://www.npmjs.com/org/riteofstring).
+After the first registry release, install it in your React application:
 
 ```sh
-npm install @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
+npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
 ```
+
+The first release is pending; [source and local-tarball instructions](../../README.md#run-from-source)
+are available now. The workspace and `/browser` pipelines ship in the same package.
+Import the compiled stylesheet once:
 
 ```tsx
 import { useState } from "react";
@@ -34,7 +39,10 @@ import "@riteofstring/setta/styles.css";
 
 const host = createWorkspaceHost();
 registerSectionKinds(host, {
-  hello: { renderContent: () => <p>Hello, possibility.</p> },
+  hello: {
+    renderContent: () => <p>Hello, possibility.</p>,
+    defaultSize: { width: 320, height: 240 },
+  },
 });
 host.loadDocument({
   sections: {
@@ -63,6 +71,8 @@ export function App() {
     <div style={{ height: "100dvh" }}>
       <WorkspaceProvider host={host}>
         <WorkspaceShell
+          leadingTabs={[]}
+          trailingTabs={[]}
           viewState={viewState}
           onViewStateChange={setViewState}
         />
