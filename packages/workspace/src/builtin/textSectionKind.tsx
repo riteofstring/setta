@@ -43,6 +43,7 @@ export type WorkspaceTextSectionRegistration = {
   displayModes?: ReadonlyArray<WorkspaceTextSectionDisplayMode>;
 
   showDisplayModeControl?: boolean;
+  showSectionTitle?: boolean;
   renderInspector?: (
     context: WorkspaceInspectorContributionContext,
   ) => ReactNode;
@@ -110,6 +111,7 @@ export function createWorkspaceTextSection(
       parseWorkspaceTextSectionData(section.id, section.data, choices);
     },
     icon: registration.icon ?? TextSectionFormatIcon,
+    showSectionTitle: registration.showSectionTitle,
 
     contentClassName: "flex min-h-0 flex-col",
     defaultSize:

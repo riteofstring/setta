@@ -31,6 +31,9 @@ or view inputs. A section kind parses package- or host-owned data once when a do
 package. Opaque host data is validated for serializability and otherwise remains uninterpreted.
 Minimization constrains a section's rendered surface to its header without replacing the section's
 authored size; expanding the section restores that size.
+Regular section kinds can hide the expanded header's section title when their content supplies a
+heading. The section name remains document authority for Find, commands, and window identity;
+minimized sections always display it. Hiding a title preserves the header's drag surface and actions.
 
 Width resizing follows the owning layout. A child climbs through vertically arranged parents,
 including application-defined list sections, and applies the same width update as resizing that

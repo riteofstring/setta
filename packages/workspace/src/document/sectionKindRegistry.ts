@@ -122,6 +122,8 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
 
         itemArea?: WorkspaceItemAreaPresentation;
 
+        showSectionTitle?: boolean;
+
         renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
 
         renderAttachedContent?: (section: WorkspaceSection) => ReactNode;
@@ -141,6 +143,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         getItemSearchableText?: never;
         getSectionSearchableText?: never;
         itemArea?: never;
+        showSectionTitle?: never;
         renderHeaderControls?: never;
         renderAttachedContent?: never;
         deleteActionLabel?: never;
@@ -487,6 +490,16 @@ export function getSectionKindHeaderControls(
   return definition.presentation === undefined
     ? (definition.renderHeaderControls ?? null)
     : null;
+}
+
+export function getSectionKindShowTitle(
+  host: WorkspaceHost,
+  kind: string,
+): boolean {
+  return (
+    kind === GROUP_SECTION_KIND ||
+    getRegisteredSectionKindOrThrow(host, kind).showSectionTitle !== false
+  );
 }
 
 export function getSectionKindDeleteActionLabel(

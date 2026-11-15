@@ -1,6 +1,7 @@
 import type { ComponentPropsWithoutRef, CSSProperties, ReactNode } from "react";
 import { getSectionOrThrow } from "../../document/documentSelectors.js";
 import {
+  getSectionKindShowTitle,
   getSectionKindDeleteActionLabel,
   getSectionKindHeaderControls,
 } from "../../document/sectionKindRegistry.js";
@@ -66,6 +67,11 @@ export function SectionHeader({
     (x) => getSectionOrThrow(x, sectionId).kind,
   );
   const host = useWorkspaceHost();
+  const isMinimized = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).isMinimized,
+  );
+  const showSectionTitle =
+    isMinimized || getSectionKindShowTitle(host, sectionKind);
   const deleteActionLabel = getSectionKindDeleteActionLabel(host, sectionKind);
   const {
     className: headerClassName,
@@ -88,10 +94,12 @@ export function SectionHeader({
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
       <SectionTagColorIndicator tagColor={tagColor} />
-      <SectionCardTitle
-        sectionId={sectionId}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
+      {showSectionTitle && (
+        <SectionCardTitle
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
       <div
         className="z-10 ms-auto flex items-center"
         data-setta-workspace-compact-control-group="true"

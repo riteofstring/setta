@@ -1487,6 +1487,10 @@ registerSectionKinds(host, {
 });
 ```
 
+`showSectionTitle: false` on a Text registration hides the expanded section's title while keeping
+its drag surface and header actions. Minimized sections still show their name. Regular custom
+section kinds can also set `showSectionTitle` on their definition.
+
 `icon` replaces the header glyph the section otherwise paints from its own format or language, and
 `defaultSize` applies when a loaded section omits its size. `formats`, `displayModes`, and
 `languages` narrow what the registration accepts: a document, or a later typed write, naming a

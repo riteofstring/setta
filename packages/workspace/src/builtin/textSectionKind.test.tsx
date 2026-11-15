@@ -276,6 +276,37 @@ describe("built-in text section header", () => {
     expect(host.querySelector("button[aria-label='Render text']")).toBeNull();
   });
 
+  it("hides the expanded title without removing the section name or actions", async () => {
+    registerSectionKinds(testWorkspace.host, {
+      [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+        showSectionTitle: false,
+      }),
+    });
+    loadWorkspaceDocument(testWorkspace.host, makeDocument());
+    await renderHeader();
+    expect(
+      host.querySelector('[aria-label="Notes, edit section title"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('button[aria-label="Lock position and size"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('button[aria-label="Minimize section"]'),
+    ).not.toBeNull();
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.name,
+    ).toBe("Notes");
+    await act(async () => {
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({ isMinimized: true }),
+      );
+    });
+    expect(
+      host.querySelector('[aria-label="Notes, edit section title"]'),
+    ).not.toBeNull();
+  });
+
   it("leaves the display-mode control out when one mode is forced", async () => {
     registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
@@ -303,5 +334,8 @@ describe("built-in text section header", () => {
     );
     expect(labels[0]).toBe("Render text");
     expect(labels).toContain("Lock position and size");
+    expect(
+      host.querySelector('[aria-label="Notes, edit section title"]'),
+    ).not.toBeNull();
   });
 });
