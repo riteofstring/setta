@@ -1,7 +1,7 @@
 # @riteofstring/setta
 
 The Setta workspace UI is a standalone TypeScript/React package. Its public surface is the package
-root, the standalone [`/browser` pipeline entry](BROWSER.md), and the published style exports.
+root, the standalone [`/browser` pipeline entry](https://github.com/riteofstring/setta/blob/main/packages/workspace/BROWSER.md), and the published style exports.
 Package-relative modules are implementation details.
 
 Canvas rendering uses the repository's exact-pinned upstream `@xyflow/react` dependency behind a
@@ -13,17 +13,25 @@ registers its extension catalogs, loads one controlled serializable document, co
 and mounts the integrated shell or an intentionally standalone canvas. There is no default or
 process-global workspace. This is an alpha release; APIs may change before 1.0.
 
+## Guide
+
+- [Getting started](#getting-started) and [host lifecycle](#host-lifecycle)
+- [Shell and panes](#controlled-workspace-shell), [saved views](#saved-canvas-views), and [windows](#managed-windows-section-handoff-and-window-spaces)
+- [Canvas and graphs](#canvas-ingress-attention-and-graphs), [Find](#global-find-and-command-palette), and [commands](#commands-and-creation-extensions)
+- [Typed controls](#typed-built-in-items) and [content sections](#built-in-content-sections)
+- [Build and consumption](#build-and-consumption) and [browser pipelines](https://github.com/riteofstring/setta/blob/main/packages/workspace/BROWSER.md)
+
 ## Getting started
 
 The package belongs to the [riteofstring npm organization](https://www.npmjs.com/org/riteofstring).
-After the first registry release, install it in your React application:
+Install it in your React application:
 
 ```sh
 npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
 ```
 
-The first release is pending; [source and local-tarball instructions](../../README.md#run-from-source)
-are available now. The workspace and `/browser` pipelines ship in the same package.
+[Source and local-tarball instructions](https://github.com/riteofstring/setta#run-from-source)
+are also available. The workspace and `/browser` pipelines ship in the same package.
 Import the compiled stylesheet once:
 
 ```tsx
@@ -85,9 +93,9 @@ export function App() {
 The application creates the host outside React rendering and calls `host.dispose()` after its
 React root unmounts. For multiple workspaces, create one host for each independent lifetime.
 Add native controls through [typed items](#typed-built-in-items), a
-[worker pipeline](BROWSER.md) for live computations, or your own backend.
+[worker pipeline](https://github.com/riteofstring/setta/blob/main/packages/workspace/BROWSER.md) for live computations, or your own backend.
 The [ambient instrument](https://setta.dev) builds on typed items, graph cables, and saved
-views. The [packed consumer fixture](../../fixtures/packed-consumer/src/main.tsx) exercises
+views. The [packed consumer fixture](https://github.com/riteofstring/setta/blob/main/fixtures/packed-consumer/src/main.tsx) exercises
 more of the UI API against built declarations.
 
 ## Host lifecycle
@@ -122,7 +130,7 @@ ends. A disposed host rejects later reads or writes.
   Inspector. Supplying `navigator` also mounts the package-owned global Find and command palette.
   Hosts register additional typed tabs with icons and content rendered from public props only. Its optional
   `sectionTagColorPalette` is the complete host-supplied set of named Inspector categories;
-  omitting it uses the captured package defaults.
+  omitting it uses the package defaults.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
@@ -370,7 +378,7 @@ Canvas-owned pan and zoom gestures are canceled synchronously and applied to tha
 documented content ownership and contain overscroll at the window boundary.
 
 The bottom dock uses the measured usable area between shell panes. Open dock panels shrink to their
-reference minimum before overflowing into the recovery strip; narrower hosts progressively use
+minimum width before overflowing into the recovery strip; narrower hosts progressively use
 full pills, compact pills, cycle controls, and a menu. Minimized windows reopen from the strip.
 When saved-view tabs are visible, the integrated shell adds their height to its windowing viewport
 inset; a host-composed `windowManager` layer is constrained above the same strip. Docked panels,
@@ -513,12 +521,12 @@ function HostWorkspace() {
 }
 ```
 
-The shell observes its own host box rather than the global window. It applies the reference width
+The shell observes its own host box rather than the global window. It applies the width
 clamps, paired-pane negotiation, full-width memory, and viewport resize normalization at embedded
 and compact sizes. Rail tabs use one roving tab stop with Arrow Up/Down and Home/End; resize
 separators support pointer dragging plus Arrow Left/Right and Home/End. Set
 `leadingPaneShiftsCanvas={false}` to leave the canvas camera unchanged beneath the leading overlay
-pane. The default `true` mirrors frozen main: leading-pane width changes shift the map by the same
+pane. With the default `true`, leading-pane width changes shift the map by the same
 delta through its 100ms viewport transition. Trailing-pane changes never move the camera.
 
 The Outline projects top-level sections and recursive group children in document order. It uses
@@ -529,8 +537,7 @@ activation combine the canvas selection policy with the public `focusWorkspaceSe
 Hosts may call that command directly to fit a mounted section at no more than 100% zoom; it never
 changes canonical selection.
 
-The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
-frozen UI Editor; one section exposes package-owned identity, name, style accent, named color tag,
+The Inspector projects canonical section and typed-item selection. With no selection, it shows an empty state. Selecting one section exposes package-owned identity, name, style accent, named color tag,
 lock/minimize, authored/resolved size, group orientation, bounded overflow, and ungroup actions;
 one typed item exposes its editable label, ordinary UI type, and only that type's valid
 configuration. Its
@@ -845,7 +852,7 @@ this operation.
 direct hosts. It accepts `null` to reset to none and canonicalizes a six-digit RGB hex color before
 one document write and one publication. It rejects unavailable layout capability, a locked or
 missing section, and malformed color input before writing. `DEFAULT_SECTION_TAG_COLOR_PALETTE`
-exports frozen main's Red, Orange, Yellow, Green, Cyan, Blue, Purple, and Slate categories. A
+exports Red, Orange, Yellow, Green, Cyan, Blue, Purple, and Slate categories. A
 `WorkspaceShell` host may replace the complete Inspector palette with uniquely colored, named
 categories, including an empty host-owned set; the package validates and freezes that input, while
 reusable palette editing and persistence remain host-owned. A valid document color outside the
@@ -886,7 +893,7 @@ removes that host-scoped subscription.
 ## Peer dependencies
 
 React and React DOM are host-provided peers with the documented compatible range `^19.1.0`:
-the frozen product reference runs `react 19.1.1`, and the package uses React 19 ref-as-prop
+the package is tested with `react 19.1.1` and uses React 19 ref-as-prop
 components, so React 18 and below are not supported. All other runtime dependencies are
 exact-pinned under the repository dependency policy.
 
@@ -927,7 +934,7 @@ system preference.
 
 `WorkspaceSection.styleColor` is the semantic section accent. `null` or an empty string uses the
 normal accepted chrome; otherwise the value must be a six-digit RGB hex color (with an optional
-leading `#`) and an unparseable value rejects the load. The frozen reference derivation produces
+leading `#`) and an unparseable value rejects the load. The color derivation produces
 appearance-aware background, panel, border, outline, primary-text, and muted-text colors. Registered
 host content inside that section may consume the corresponding inherited custom properties:
 
@@ -1249,9 +1256,9 @@ const itemDiagnostics = {
 every kind once, before loading or rendering documents that use them. A
 `SectionKindDefinition` maps a kind to its content renderer (the section body inside the
 package-owned shell, chrome, and header), an optional header icon component (kinds without one
-render the reference's gg-menu fallback glyph), an optional default size, and optional size
+render the default menu glyph), an optional default size, and optional size
 constraints. The default is applied when a loaded section omits `size` (kinds without one load at
-the reference's auto/auto default; emitted documents always carry resolved sizes). Groups are the
+the auto/auto default; emitted documents always carry resolved sizes). Groups are the
 one package-owned kind and cannot be registered.
 
 `setWorkspaceSectionSize(host, sectionId, nextSize)` is the direct host resize funnel and applies
@@ -1285,7 +1292,7 @@ itemArea: {
 The package renders one coherent item area in this exact order: `renderLeadingContent(section)`
 when present, the toolbar selected by the declared mode, then `renderContent(section)`. One
 package-owned item-filter provider wraps all three regions. A kind that declares
-`renderLeadingContent` composes its toolbar under that slot, so the toolbar takes the reference's
+`renderLeadingContent` composes its toolbar under that slot, so the toolbar uses
 compact block spacing and the two surfaces meet; a kind that declares none keeps the ordinary
 toolbar's own step, because its toolbar opens the item area directly under the section header. That
 spacing follows the composition the kind declares, not the toolbar mode it selects and not anything
@@ -1302,17 +1309,16 @@ package places it and never interprets what it renders.
 
 A `TextValueEditor` states which of its two placements it means: `item-row` for a parameter control,
 or `section-field` for the compact field a section renders in that leading slot. The package owns
-the section field's whole surface — the reference's rounded box, its 12px monospace type, its focus
+the section field's whole surface — a rounded box, its 12px monospace type, its focus
 border, and the layout gutter for one optional caller-owned end adornment, whose content and ARIA
 stay with the caller. Both editor layers share that one box and type owner, so activating the field
 changes only its border colour. The field owns no block margin, so it begins at the section
-header's own boundary and the item toolbar begins at the field's, exactly as the reference
-composes them; a host that wants space around it gives that space to its own content. The rendered
+header's own boundary and the item toolbar begins at the field's, with no added spacing; a host that wants space around it gives that space to its own content. The rendered
 field carries `data-workspace-section-field`: that attribute is the one documented hook for
 observing or capturing the surface, and no field class,
 inner structure, or CodeMirror internal is public.
 
-Both placements share the reference's editing keys. A supplied `completionProvider` offers its
+Both placements share the same editing keys. A supplied `completionProvider` offers its
 options in a popup the canvas parents beside its scene rather than inside the section that would
 clip it, so a popup taller than a compact field is fully visible and still pans and zooms with the
 scene. The canvas renders that parent per host: a consumer never passes, names, or opts into one,
@@ -1362,7 +1368,7 @@ definitions for Button, Text, TextArea, Date, Time, Slider, Rotary, Switch, Colo
 Password, Dropzone, and Custom. Values, actions, configuration, attachment metadata, and persistence cross
 explicit host callbacks. The ordinary inner default is 200 x 44 (202 x 46 including the shell
 border); TextArea defaults to 200 x 98, Dropzone to 240 x 120, Custom to 240 x 200, and Dropdown, Password, and Slider
-keep frozen main's auto-only height policy. Unknown projected or rendered control kinds fail
+use automatic height. Unknown projected or rendered control kinds fail
 specifically instead of displaying a fallback.
 
 Use `resolveControlKind: () => "custom"` for an application-owned control such as a two-axis pad.
@@ -1450,10 +1456,9 @@ also carries `generatedRegion`, one `{ from, to }` range of UTF-16 CodeMirror of
 `code`; the package never infers it from the text, and a missing, empty, reversed, fractional, or
 out-of-document range — like a region declared on an ordinary mode, or a generated document that
 declares none — is rejected at the same data boundary. Only the lines that range covers are
-painted as machine-written output, with the reference's blue region, its leading rail, and its
+painted as machine-written output, with a blue region, its leading rail, and its
 compact uppercase generated/read-only badge centred on the block's upper boundary. Declare the
-range the way the reference's own protected range runs — from the end of the text before it to the
-start of the text after it — because those two boundary lines carry a lip of the block rather than
+range from the end of the text before it to the start of the text after it because those two boundary lines carry a lip of the block rather than
 a full band. Text outside the range keeps the ordinary editor's paint, and so does a section taller
 than its document.
 
@@ -1547,7 +1552,7 @@ Preflight subset the package's own elements rely on is scoped under the `setta-w
 marker class (`src/styles/scopedBase.css`), which the package applies to every root it
 renders — the canvas, the toolbar and tooltip surfaces, and the drag overlays portaled to
 `document.body`. Hosts need no Tailwind setup; the optional `@riteofstring/setta/tailwind-preset`
-export exists for hosts that want the setta palette in their own chrome. Host page context (fonts, background) stays host-owned, as in the reference application.
+export exists for hosts that want the setta palette in their own chrome. The host application controls its page fonts and background.
 
 The manifest is deliberately exports-only: it has no duplicate top-level `main`, `module`,
 `types`, `typings`, or `typesVersions` path. TypeScript consumers use a package-exports-aware

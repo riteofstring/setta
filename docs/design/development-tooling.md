@@ -9,8 +9,8 @@ records.
 Package checks run on GitHub-hosted Linux for source and toolchain changes. They cover the
 Workspace boundary suite and browser interactions.
 The browser script receives the runner's explicit Chrome path and isolates its own profile. The
-job builds Workspace's public declarations before checking imports. These workflows publish
-nothing.
+job builds Workspace's public declarations before checking imports. The checks and security
+workflows do not publish packages.
 
 Static checks use one repository-wide `./code-polishyw check --all` invocation. Syntax, semantic
 lint, and authored-source checks remain active.
@@ -125,3 +125,16 @@ The acceptance decision prioritizes activation and sustained frame gaps, first v
 long tasks, complete mounted-node counts, and absence of host-page scroll or browser errors.
 Scripting, style, layout, and total task duration remain recorded so a renderer change cannot hide
 extra CPU work behind a smooth frame cadence.
+
+## npm publication
+
+The release workflow follows Onirigiri's annotated-tag and npm OIDC publishing model.
+Stable `vMAJOR.MINOR.PATCH` tags must match the package manifest, name a commit on `main`,
+and have a dated changelog entry. It builds and checks the tagged source and exercises the
+packed artifact in an unrelated consumer before publishing that exact tarball. npm versions
+are immutable; a retry accepts an existing version only when its registry integrity matches
+the verified tarball. Different bytes require a new version.
+The local merge gate remains the final release gate; hosted package checks verify the Linux
+build and consumer before publication. The first package publication uses maintainer login
+to establish the npm package, after which its trusted publisher binds this repository,
+`release.yml`, and the `npm` environment. See [releasing](../releasing.md).

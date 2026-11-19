@@ -39,9 +39,7 @@ git show source/abcde-frontend:abcde-frontend/README.md
 git log --all --oneline --grep='Recovered WIP:'
 ```
 
-Use a separate checkout for exploring a tag. The revision links in these pages
-target the reconstructed repository at github.com/riteofstring/setta; before
-publication, the same commit IDs and tags resolve in the local candidate.
+Use a separate checkout for exploring a tag. Revision links target the reconstructed repository at github.com/riteofstring/setta.
 
 ## External dependencies and preservation
 
@@ -49,8 +47,8 @@ A historical `.code-policy` Git submodule points to a separate tooling repositor
 
 ## Screenshots
 
-The visual tour combines captures of restored historical builds with a current
-library example. The historical applications were run separately during preservation;
+The visual tour combines original example previews, captures of restored historical builds,
+and a current library example. The historical applications were run separately during preservation;
 importing their source into this lineage does not itself reproduce those environments.
 Captions name the build being shown, not the first implementation of every visible feature.
 Demonstration projects and provider substitutions are documented in the

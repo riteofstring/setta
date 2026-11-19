@@ -53,8 +53,7 @@ worker orchestration. The library has no audio or 3D-engine dependency.
 ## Get started
 
 The package is `@riteofstring/setta`, under the
-[riteofstring npm organization](https://www.npmjs.com/org/riteofstring). After the first
-registry release, install it in your React application:
+[riteofstring npm organization](https://www.npmjs.com/org/riteofstring). Install it in your React application:
 
 ```sh
 npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
@@ -75,7 +74,7 @@ APIs may change before 1.0.
 
 ### Run from source
 
-The first npm release is pending. You can build this checkout and install its local tarball now.
+You can also build this checkout and install its local tarball.
 Use Node 26.10.0 and pnpm 10.23.0. Follow the [contributor setup](CONTRIBUTING.md#source-setup)
 to install this checkout's pinned dependencies, then run:
 

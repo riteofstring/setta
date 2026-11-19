@@ -12,6 +12,9 @@ _Restored January 2024 build: interactive execution. This image does not show a 
 **Current library:** browser pipelines coordinate application-supplied worker computations.
 They do not include the historical Python runner, training infrastructure or experiment manager.
 
+See the [original example gallery](../examples.md) for diffusion drawing, FLUX inpainting,
+TRL finetuning, text classification, metric learning and AutoML.
+
 ## Implementation landmarks
 
 These are preserved implementation landmarks, not a release calendar.

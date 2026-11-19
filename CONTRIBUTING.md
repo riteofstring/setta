@@ -22,8 +22,8 @@ Clone this repository, enter its root, and install these pinned tools:
 | Node.js | 26.10.0 (`.node-version`) |
 | pnpm    | 10.23.0 (`package.json`)  |
 
-The supported targets are macOS 13+ on Intel and Apple Silicon, Linux on amd64 and arm64, and
-Windows amd64.
+The Code Polishy tooling supports macOS 13+ on Intel and Apple Silicon, Linux on amd64 and arm64,
+and Windows amd64. The published Setta package runs in the browser.
 
 Bootstrap Code Polishy, review dependencies, and install the frozen graphs without dependency
 build scripts:
@@ -49,6 +49,7 @@ Use the narrowest test that exercises your change while developing. Before openi
 run the repository's change-aware checks against the branch you intend to merge into:
 
 ```sh
+./code-polishyw check --git-changes
 ./code-polishyw test --changed --base origin/main
 ```
 
@@ -67,3 +68,7 @@ surface.
 
 By submitting a contribution, you agree that it is licensed under the repository's
 [Apache License 2.0](LICENSE).
+
+## Releases
+
+Maintainers publish annotated version tags using the [release guide](docs/releasing.md).

@@ -1,6 +1,6 @@
 # Image provenance
 
-The historical screenshots are captures of restored applications made in November 2026.
+The chronological tour includes captures of restored applications made in November 2026.
 They show the named source checkpoints with demonstration data, not original release-day
 screenshots. Runtime restoration can include dependency, connection and provider adaptations.
 The implementation tables identify feature history independently of these captures.
@@ -32,3 +32,20 @@ its default patch. Its musical logic, audio and scenery belong to that applicati
 These are application captures, not illustrations or interface mockups.
 
 [Visual tour](README.md) · [Reconstruction methodology](methodology.md)
+
+## Original example screenshots
+
+These seven images are original project previews, downloaded unchanged from the GitHub
+attachments linked by the [preserved examples README](https://github.com/riteofstring/setta/blob/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/README.md). Unlike the restoration captures above, they were already part
+of the historical project documentation. The source checkpoint identifies where the links
+were preserved; it does not establish the date each screenshot was taken.
+
+| Image                                                                                  | Original attachment                                                                       |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Stream Diffusion Image to Image](../../images/history/stream-diffusion.png)           | [Source](https://github.com/user-attachments/assets/2a063779-ed61-4103-90a5-bf127f3ea012) |
+| [TRL Language Model Finetuning](../../images/history/trl-finetuning.png)               | [Source](https://github.com/user-attachments/assets/96775341-4b6d-4d3c-8bc2-743eafce458a) |
+| [Flux Inpainting](../../images/history/flux-inpainting.png)                            | [Source](https://github.com/user-attachments/assets/5c0ed2f1-cfa7-46aa-a5ce-6f5d93fa414b) |
+| [Groq API Chat](../../images/history/groq-chat.png)                                    | [Source](https://github.com/user-attachments/assets/0d8ff9c1-2557-4549-a816-3c6693430d98) |
+| [Transformers Sequence Classification](../../images/history/transformers-training.png) | [Source](https://github.com/user-attachments/assets/1f6554f8-8d49-4ba8-af48-f5dc6bc5d845) |
+| [PyTorch Metric Learning](../../images/history/metric-learning.png)                    | [Source](https://github.com/user-attachments/assets/45ae2047-9dbd-4057-9191-9a3460357ccc) |
+| [SapientML](../../images/history/sapientml.png)                                        | [Source](https://github.com/user-attachments/assets/d58e648a-47e2-4eda-b9e5-9062494518a4) |

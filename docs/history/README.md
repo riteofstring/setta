@@ -1,4 +1,4 @@
-# Setta: from Python interfaces to a reusable workspace
+# Six years of building with Setta
 
 Setta began in 2020 as **ABCDE**, a way to turn Python metadata into interfaces.
 It became **ioVuu**, then **Runcoder**, then **Setta**. Across those names, the recurring
@@ -12,17 +12,33 @@ commits, while the current checkout contains the library.
 [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
-## What is current, historical or experimental?
+## From a sketch to an AI image
 
-| Label                      | Meaning                                                                            |
-| -------------------------- | ---------------------------------------------------------------------------------- |
-| **Current library**        | Workspace and browser-pipeline APIs in this checkout                               |
-| **Historical application** | A preserved product workflow, with its original runtime in Git history             |
-| **Experiment**             | An explored direction or prototype; its source does not establish a public release |
+[![Three AI-generated variations beside their image input, model controls and Python code in Setta](../../images/history/stream-diffusion.png)](examples.md#stream-diffusion-image-to-image)
 
-The dates below describe preserved implementation evidence. Build captions identify
-what was captured; feature pages link the earlier implementations where available.
-The historical months in this guide come from preserved implementation evidence.
+**Stream Diffusion:** sketch on an image and explore several generated variations in the same
+workspace. This original example put drawing, prompts, Python and results side by side.
+[Watch it in action](https://www.youtube.com/watch?v=KE6FZxbGVkw) or [explore all seven original examples](examples.md).
+
+| Image editing with FLUX                                                                               | Language-model finetuning with TRL                                                                              |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [![FLUX inpainting workspace](../../images/history/flux-inpainting.png)](examples.md#flux-inpainting) | [![TRL training workspace](../../images/history/trl-finetuning.png)](examples.md#trl-language-model-finetuning) |
+| Paint a mask and explore image edits.                                                                 | Compose model, dataset and training settings.                                                                   |
+
+These examples belong to the historical Python application. Today's React library carries
+forward its configurable workspace. The tour below traces that evolution; captions distinguish
+original previews from restored builds, and [image provenance](images.md) records their sources.
+
+## The journey at a glance
+
+| Period                       | Idea                                                                  |
+| ---------------------------- | --------------------------------------------------------------------- |
+| 2020–2021 · ABCDE            | Turn Python arguments into composable interfaces.                     |
+| 2022–2023 · ioVuu → Runcoder | Arrange configuration on a navigable canvas.                          |
+| 2023–2024 · Runcoder         | Bring execution, charts and experiment comparison into the workspace. |
+| 2024–2025 · Setta            | Connect images, models, code and live state.                          |
+| 2025–2026 · Setta            | Explore a programmable workbench with files, chats and workflows.     |
+| 2026 onward · The library    | Make workspace interactions reusable in other applications.           |
 
 ## 2020–2021: Python becomes an interface
 
@@ -33,8 +49,7 @@ Generated Python and execution followed, alongside experiments in control types 
 
 ![ABCDE with nested Compose and ColorJitter controls beside an argument-details panel.](../../images/history/abcde-nested-forms.png)
 
-_Restored November 2020 build: nested configuration forms. The visible Run button is
-not evidence that this build executes the configuration._
+_Restored November 2020 build: nested configuration forms._
 
 [Follow Python metadata, generated code and execution](features/python-interfaces.md).
 The December 2020 sweep editor was explicitly a **UI prototype without execution logic**.
@@ -90,7 +105,7 @@ separately from the generated state class introduced in May.
 
 ## 2025–2026: a programmable workbench
 
-**Historical application, with several publishing experiments.** Files, Git, SSH workspaces,
+**Historical application.** Files, Git, SSH workspaces,
 plugins, spreadsheets and task boards expanded the workspace beyond experiment configuration.
 Saved views presented different surfaces over one project. Chats could receive connected
 context, invoke one another and participate in executable workflows.
@@ -98,8 +113,7 @@ context, invoke one another and participate in executable workflows.
 ![A results table connected to Analyst and Reviewer chat sections in Setta.](../../images/history/setta-connected-chats.png)
 
 _Restored March 2026 build with a new demonstration project and a substitute local model:
-two chats receive connected experiment results. This is a restoration capture, not an
-original provider session._
+two chats receive connected experiment results._
 
 Execution also changed form: the old sweeps and run groups were removed in June 2025;
 January 2026's SettaRunner and RunPlan added grids, zipped values, sampling, repetition
