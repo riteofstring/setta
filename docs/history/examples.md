@@ -4,8 +4,8 @@ A drawing could become several AI images. A canvas of controls could configure a
 run. A chat, its model settings, and the Python that powered it could share one workspace.
 These projects show how the historical Setta application put code, inputs and results together.
 
-The screenshots below are original previews recovered from the preserved `settadev/examples`
-README. Each project links to its archived source in this repository. They use the historical
+The screenshots below are original previews recovered from the preserved example project
+documentation. Each project links to its archived source in this repository. They use the historical
 Python application and its dependencies; they are not examples for the current npm API.
 
 [Visual history](README.md) · [Image sources](images.md#original-example-screenshots)
@@ -49,6 +49,11 @@ Chat with Llama 3.3 using the Groq API.
 Train text classification models using the Hugging Face Transformers library.
 
 [![Transformers Sequence Classification in the historical Setta workspace](../../images/history/transformers-training.png)](../../images/history/transformers-training.png)
+
+The expanded developer view brings the Python training script, parameter sweeps, loss charts,
+and dataset and model configuration onto the same canvas.
+
+[![Expanded Transformers workspace with Python code, loss charts, and dataset and training controls](../../images/history/transformers-training-expanded.png)](../../images/history/transformers-training-expanded.png)
 
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/transformers_trainer)
 
