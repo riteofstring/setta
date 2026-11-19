@@ -22,6 +22,9 @@ runner label or a global Code Polishy install.
 The weekly scan's shell function routes the literal `code-polishy supply-chain` command recognized
 by monitoring policy through `./code-polishyw`; command discovery never selects a global release.
 
+Node setup disables automatic package-manager caching because pnpm is installed in the next
+step; enabling that cache before pnpm exists prevents a fresh runner from starting.
+
 The root `.node-version` owns the development runtime selection. Package engines and the packed
 consumer template must agree with it, and CI reads that same file. The workspace publication check
 validates agreement instead of carrying another independent runtime version. After frozen

@@ -39,6 +39,7 @@ jobs:
       - name: Set up pinned Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
+          package-manager-cache: false
           node-version-file: .node-version
           registry-url: https://registry.npmjs.org
       - name: Set up pinned pnpm
