@@ -87,6 +87,7 @@ jobs:
           node --input-type=module <<'JS'
           import { readFileSync, appendFileSync } from 'node:fs';
           import { createHash } from 'node:crypto';
+          import { gunzipSync } from 'node:zlib';
           const { name, version } = JSON.parse(readFileSync('packages/workspace/package.json', 'utf8'));
           const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/${version}`);
           if (response.status === 404) {
@@ -94,10 +95,15 @@ jobs:
           } else {
             if (!response.ok) throw new Error(`Registry lookup failed: ${response.status}`);
             const metadata = await response.json();
-            const integrity = 'sha512-' + createHash('sha512').update(readFileSync('packages/workspace/setta.tgz')).digest('base64');
-            if (metadata.dist.integrity !== integrity) throw new Error('Published version contains a different artifact; choose a new version.');
+            const archive = await fetch(metadata.dist.tarball);
+            if (!archive.ok) throw new Error(`Published artifact download failed: ${archive.status}`);
+            const published = Buffer.from(await archive.arrayBuffer());
+            const integrity = 'sha512-' + createHash('sha512').update(published).digest('base64');
+            if (metadata.dist.integrity !== integrity) throw new Error('Published artifact failed registry integrity verification.');
+            const candidate = readFileSync('packages/workspace/setta.tgz');
+            if (!gunzipSync(published).equals(gunzipSync(candidate))) throw new Error('Published version contains a different archive; choose a new version.');
             appendFileSync(process.env.GITHUB_OUTPUT, 'published=true\n');
-            console.log(`${name}@${version} already contains this exact tarball.`);
+            console.log(`${name}@${version} already contains this exact package archive.`);
           }
           JS
       - name: Publish verified tarball through trusted publishing

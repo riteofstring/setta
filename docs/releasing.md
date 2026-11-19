@@ -55,6 +55,8 @@ correction requires a new patch version. The workflow currently accepts stable v
 and publishes to npm's `latest` dist-tag.
 
 For the first manual publication, push its annotated `v0.1.0` tag after publishing. The workflow
-verifies the package and recognizes an already published tarball by its registry integrity.
-An exact match succeeds without republishing; a different artifact fails and needs a new version.
+verifies the package, downloads the published tarball, authenticates it against npm's registry
+integrity, and compares the decompressed tar archives. Gzip headers can differ between macOS
+and Linux while the complete package archive remains identical. Matching archives succeed
+without republishing; different archives fail and need a new version.
 The same rule makes retries safe when publication succeeded but a workflow result was interrupted.

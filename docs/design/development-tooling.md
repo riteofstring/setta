@@ -138,8 +138,10 @@ The release workflow follows Onirigiri's annotated-tag and npm OIDC publishing m
 Stable `vMAJOR.MINOR.PATCH` tags must match the package manifest, name a commit on `main`,
 and have a dated changelog entry. It builds and checks the tagged source and exercises the
 packed artifact in an unrelated consumer before publishing that exact tarball. npm versions
-are immutable; a retry accepts an existing version only when its registry integrity matches
-the verified tarball. Different bytes require a new version.
+are immutable; a retry authenticates the downloaded artifact against its registry integrity
+and requires its decompressed tar archive to equal the built archive. This preserves exact
+file and archive-metadata comparison while allowing gzip's platform byte to differ between
+macOS and Linux. Different package archives require a new version.
 The local merge gate remains the final release gate; hosted package checks verify the Linux
 build and consumer before publication. The first package publication uses maintainer login
 to establish the npm package, after which its trusted publisher binds this repository,
