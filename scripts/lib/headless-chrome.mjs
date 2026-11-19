@@ -133,6 +133,11 @@ export async function stopHeadlessChrome(browser) {
       }
     }
   } finally {
-    rmSync(browser.profileDirectory, { force: true, recursive: true });
+    rmSync(browser.profileDirectory, {
+      force: true,
+      recursive: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   }
 }

@@ -42,7 +42,10 @@ graph layering and hit-testing. `?fixture=performance` contains the fixed 256-se
 The interaction, performance, and packed-consumer checks share one static server. It reads the built
 HTML and assets into a closed file map, binds an ephemeral loopback port, and serves only those
 files. Requests never reach source transforms, filesystem path resolution, or desktop editor
-launching. Each harness closes its server and isolated Chrome profile when it finishes. The
+launching. Each harness closes its server and isolated Chrome profile when it finishes. After Chrome exits,
+profile deletion retries transient filesystem errors up to five times with a 100 ms linear
+backoff. Chromium helpers can finish profile writes after the parent exits on Linux; this
+bounded cleanup lets those writes settle while still failing if the directory cannot be removed. The
 repository has no authored Vite development-server command.
 
 The independently maintained instrument belongs to `setta-site`. This fixture owns package regression coverage,
