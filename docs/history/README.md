@@ -12,7 +12,7 @@ commits, while the current checkout contains the library.
 [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
-## From a sketch to an AI image
+## Spring 2025: from a sketch to an AI image
 
 [![Three AI-generated variations beside their image input, model controls and Python code in Setta](../../images/history/stream-diffusion.png)](examples.md#stream-diffusion-image-to-image)
 
@@ -37,7 +37,7 @@ original previews from restored builds, and [image provenance](images.md) record
 | 2022–2023 · ioVuu → Runcoder | Arrange configuration on a navigable canvas.                          |
 | 2023–2024 · Runcoder         | Bring execution, charts and experiment comparison into the workspace. |
 | 2024–2025 · Setta            | Connect images, models, code and live state.                          |
-| 2025–2026 · Setta            | Explore a programmable workbench with files, chats and workflows.     |
+| 2025–2026 · Setta            | Build an AI-native workbench around code, data, agents and workflows. |
 | 2026 onward · The library    | Make workspace interactions reusable in other applications.           |
 
 ## 2020–2021: Python becomes an interface
@@ -77,9 +77,19 @@ the execution environment into the project. A control could affect a calculated 
 versions and run groups supported comparing configurations instead of repeatedly rebuilding
 them by hand.
 
-![Runcoder with a global-variable slider beside a Python-generated chart.](../../images/history/runcoder-interactive-python.png)
+![Runcoder Signal lab: a frequency slider, damped waveform, Python callback and explanatory notes.](../../images/history/runcoder-signal-lab.png)
 
-_Restored January 2024 build: a parameter alongside its interactive Python result._
+**A small model, a live result.** The Signal lab combines a frequency control, a calculated
+waveform, its Python callback and notes on the mathematics. Changing the slider recomputes
+180 samples through the restored application's interactive Python connection.
+
+![Runcoder Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)
+
+**An experiment you could inspect.** Shared variables feed the dataset and algorithm;
+saved variants retain different seeds; a sweep selects feature counts of 2, 8 and 32.
+This view shows configuration and experiment planning, rather than completed training runs.
+
+_Both are new demonstration projects in the restored January 2024 build._
 
 Executable parameter-value sweeps appear in January 2024. Sweeps across saved versions
 extend them in February. Hover previews of section versions date to December 2023,
@@ -94,26 +104,57 @@ and reference-aware renaming connected visual configuration to text. Later, list
 generated state classes and bound files connected edits to running Python and ordinary
 source files.
 
-![Setta with configuration sliders, an image result and Python sections.](../../images/history/setta-configuration.png)
+![Setta Julia studio: three richly colored fractal studies beside controls, Python, a formula and an escape-time chart.](../../images/history/setta-image-lab.png)
 
-_Restored November 2024 build: the GUI after a YAML edit sets `c` to 3 and `n` to 64._
+**Small changes, new worlds.** The Julia studio renders three neighboring complex constants
+as images. Controls, the recurrence formula, live Python and an escape-time distribution
+share the canvas. The images and chart were calculated by the restored application's
+interactive task, using a new demonstration project.
+
+_Restored November 2024 build._
+
+By **spring 2025**, the [original examples](examples.md) took this workspace into image
+generation, inpainting, language-model finetuning, sequence classification and metric
+learning. The Stream Diffusion, FLUX and TRL previews at the top of this page come from
+those examples. The [archived website](https://setta.dev/old) and
+[documentation](https://setta.dev/old/docs) preserve that period's presentation.
 
 Model-backed canvas chat appears in February 2025, project chat develops in March–April,
 and MCP workspace operations follow in April. Standalone meta controls arrive in December,
 separately from the generated state class introduced in May.
 [Explore reactive state and AI](features/reactive-ai.md).
 
-## 2025–2026: a programmable workbench
+## Summer 2025–spring 2026: an AI-native workbench
 
-**Historical application.** Files, Git, SSH workspaces,
-plugins, spreadsheets and task boards expanded the workspace beyond experiment configuration.
-Saved views presented different surfaces over one project. Chats could receive connected
-context, invoke one another and participate in executable workflows.
+**Historical application.** The workspace expanded from experiment configuration into
+an environment for working with code, files, models and agents together. Files, Git, SSH
+workspaces, plugins, spreadsheets and task boards joined the canvas. Saved views let one
+project serve several stages of the work. Chats could receive connected context, invoke
+one another and take part in executable workflows.
 
-![A results table connected to Analyst and Reviewer chat sections in Setta.](../../images/history/setta-connected-chats.png)
+![Setta Training review: experiment evidence, two AI reviewers and a completed Start–AND–End workflow.](../../images/history/setta-model-workbench.png)
 
-_Restored March 2026 build with a new demonstration project and a substitute local model:
-two chats receive connected experiment results._
+**AI as part of the project.** Two reviewers examine the same six-run experiment. The
+workflow starts both reviews, waits for both to finish, then reaches its end. The visible
+responses identify the tied candidates and the need for validation; the gate reports two
+inputs received. These are actual responses generated through the restored application
+with a substitute local model.
+
+![Setta Regression lab in its Analyze view: six convergence curves, a CSV spreadsheet, Python and a file browser.](../../images/history/setta-research-workbench.png)
+
+**The evidence stays close.** The Analyze view puts six measured convergence curves beside
+an editable CSV, the Python calculation and the experiment files. The curves use a logarithmic
+loss axis, making the difference between slow convergence and the shared loss floor visible.
+
+![The same Regression lab in its Plan view: a three-column task board, the shared chart and research decisions.](../../images/history/setta-project-operations.png)
+
+**One project, several working views.** Plan brings the task board and research decisions
+forward while keeping the same chart. Analyze brings back code and data. The next steps
+remain explicit: validate on unseen samples and explore learning rates beyond the tested range.
+
+_All three captures use the restored May 2026 build with new demonstration projects.
+The numerical experiment was computed in Python and imported into its native chart and
+spreadsheet. [Image provenance](images.md) describes the restoration and model substitution._
 
 Execution also changed form: the old sweeps and run groups were removed in June 2025;
 January 2026's SettaRunner and RunPlan added grids, zipped values, sampling, repetition
@@ -135,10 +176,7 @@ _An independently maintained application built with the current library. Setta s
 workspace interactions and worker coordination; the instrument supplies its musical rules,
 audio engine and 3D scenery._
 
-**Experiments:** Setta 3 and Setta 4 are also preserved. They explored other directions;
-they were not ancestors of the original current-library line. Explicit transitions make
-those detours browsable within this reconstructed single lineage.
-[Trace extraction and the parallel experiments](features/libraries-and-detours.md).
+[Follow the library extraction](features/libraries-and-detours.md).
 
 ## Browse by feature or source
 

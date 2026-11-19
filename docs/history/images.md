@@ -5,6 +5,42 @@ They show the named source checkpoints with demonstration data, not original rel
 screenshots. Runtime restoration can include dependency, connection and provider adaptations.
 The implementation tables identify feature history independently of these captures.
 
+## Expanded visual tour
+
+These six captures use new demonstration projects, assembled in the restored applications
+on November 19, 2026. The interfaces are application renders, not mockups; computed images,
+curves and model responses are real outputs.
+
+| Image                                                                         | Source checkpoint                                                                                              | What it shows                                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Signal lab](../../images/history/runcoder-signal-lab.png)                    | [January 2024 Runcoder](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | A frequency slider drives an interactive Python callback and its 180-sample damped waveform.                                                                                  |
+| [Cluster lab](../../images/history/runcoder-experiments.png)                  | [January 2024 Runcoder](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | Shared parameters, scikit-learn callable controls, saved seed variants and a feature-count sweep. This is a configured experiment, not evidence of completed sweep execution. |
+| [Julia studio](../../images/history/setta-image-lab.png)                      | [November 2024 Setta](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492)   | An interactive Python task computes three 640 × 640 Julia-set studies and an escape-time distribution, using NumPy and Pillow.                                                |
+| [Training review](../../images/history/setta-model-workbench.png)             | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Two chat reviews in an executed Start–AND–End workflow. Both responses completed and the gate received both inputs.                                                           |
+| [Regression lab — Analyze](../../images/history/setta-research-workbench.png) | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Native code, chart, spreadsheet and file-browser sections, populated with a real six-rate numerical experiment.                                                               |
+| [Regression lab — Plan](../../images/history/setta-project-operations.png)    | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Another saved view of the same project: a native Kanban board, research notes and the same convergence chart. Validation and further experiments remain planned tasks.        |
+
+The May 2026 demonstrations use 81 synthetic samples, 40 gradient-descent steps and six
+learning rates. A separate Python calculation produced the CSV and curves; these were
+imported into the application's native displays. The captures do not demonstrate SettaRunner
+or detached-job execution. At the displayed precision, rates 0.3 and 0.6 both reach a training
+MSE of 0.007273; no validation set was used.
+
+The chat responses came from **Qwen3-4B, Q4_K_M**, served locally on a temporary GPU through
+the application's OpenAI-compatible provider connection. The measured results were included
+explicitly in both prompts. The canvas also has section-context links, but this capture does
+not establish that those links alone supplied the evidence. The responses reproduce neither
+an original provider's answers nor its performance.
+
+Two small frontend repairs were needed in the May build: a missing Lodash import in the
+chat layout, and an explicit Blob download mode for the spreadsheet's binary-file request.
+The retained dependencies were used to rebuild it. These repairs restore the existing widgets;
+they do not add the demonstrated workflow, chart, spreadsheet or task-board features.
+
+## Earlier restoration captures
+
+The following images remain available in the feature histories.
+
 | Image                                                                               | Restored build                                                                                                     | What it shows                                                                                                                                         |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [ABCDE nested forms](../../images/history/abcde-nested-forms.png)                   | [November 2020 frontend](https://github.com/riteofstring/setta/commit/cf95643cd5a6c9a7fe67736db07815fecc1addcc)    | Compose and ColorJitter controls with nested arguments. Execution is not demonstrated.                                                                |
@@ -14,7 +50,7 @@ The implementation tables identify feature history independently of these captur
 | [Connected chats](../../images/history/setta-connected-chats.png)                   | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new six-run demonstration table connected to two chats. A substitute local model produced the displayed responses through the restored application. |
 | [Saved view](../../images/history/setta-saved-view.png)                             | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new listener demonstration in the Operate view: a gain control and its live computed result.                                                        |
 
-The chat screenshot's “CONTEXT UNAVAILABLE” indicator concerns provider context-usage
+The earlier connected-chats screenshot's “CONTEXT UNAVAILABLE” indicator concerns provider context-usage
 reporting. The connected table was supplied to the model; the displayed answer identifies
 the lowest-loss row. This restoration does not claim to reproduce the original provider's
 answers or performance.
