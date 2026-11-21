@@ -14,6 +14,53 @@ control and live Python result while the Develop view contains the implementatio
 applications. Python listeners, model providers and MCP integrations belong to the preserved
 application histories; the current toolkit does not supply an AI service.
 
+## Change a value, see the program respond
+
+The listener API connected workspace changes to ordinary Python callbacks. A control could
+change a calculation; the callback could send a new image, chart or value back to the
+workspace. Bound source files and hot reload later let the implementation stay in an editor
+while the workspace remained its operating surface.
+
+The [November 2025 listener implementation](https://github.com/riteofstring/setta/commit/04435ec501efa94e6bb5ff4ee20109eafd004a14)
+developed that reload loop. The restored Operate view above demonstrates the result of
+a listener calculation, with implementation details kept in a separate Develop view.
+
+## Write Python, grow an interface
+
+**Watch Code** went beyond editing a file beside a canvas. It watched selected Python files
+and folders, discovered new top-level functions, async functions and class constructors,
+and created Callable sections for them. Changes to signatures refreshed their parameter
+interfaces; deleted definitions removed their associated sections. Rename handling retained
+existing parameter choices.
+
+The [January 2026 implementation](https://github.com/riteofstring/setta/blob/8786063d529c8517cb6df4f8687d010d9002dd27/backend/setta/project_state/watch_code.py)
+and [rename handling](https://github.com/riteofstring/setta/commit/aac08321ebd9eb8a37fe293f703650762625bc5e)
+preserve that behavior. Adding a watch path recorded a baseline of existing definitions,
+so enabling it did not automatically flood the canvas with every function already present.
+
+## Keep a file and its controls together
+
+Source-backed dictionary sections exposed ordinary configuration files as editable controls.
+A section could point at an entire object or a nested path within it. File changes updated
+the controls, and saving control edits wrote the structured values back to the source file.
+By the [May 2026 checkpoint](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/json_source_sections.md),
+the feature supported JSON, YAML and TOML with JSON-compatible values.
+
+This was distinct from generating a Python program or exporting a workspace configuration:
+the selected file remained the canonical on-disk store for those values.
+
+## Give the program an operating panel
+
+Standalone meta controls made a larger project approachable through a few sliders, rotary
+controls, switches or buttons. Their values were persistent and participated in realtime
+updates; action events could trigger executable behavior. Named views separated the
+operating surface from the implementation without duplicating the underlying project.
+
+The AI interface also became spatial. **Follow AI** used section identifiers in tool calls
+and results to highlight the affected parts of the workspace and move the viewport to them.
+The [December 2025 change](https://github.com/riteofstring/setta/commit/7c29be57c70eaabdf9de08dd11c80d0b673c4116)
+made actions on the canvas visible alongside the conversation.
+
 ## Implementation landmarks
 
 These are preserved implementation landmarks, not a release calendar.
@@ -39,5 +86,7 @@ These are preserved implementation landmarks, not a release calendar.
 | 2025-12 | Standalone meta controls become workspace nodes.                                                     | [Change](https://github.com/riteofstring/setta/commit/e08f15a8a646ef2ad58b55b685308fb4f2d30f9a) |
 | 2025-12 | Meta controls gain persistence and realtime values.                                                  | [Change](https://github.com/riteofstring/setta/commit/256f31e1d10fb2afe42a446d6022873beb606553) |
 | 2025-12 | Action events connect controls to executable behavior.                                               | [Change](https://github.com/riteofstring/setta/commit/3d4e88186dc714c4e7479b92b77941c6afc632f3) |
+| 2026-01 | Watch Code creates and updates Callable sections from Python definitions on disk.                    | [Change](https://github.com/riteofstring/setta/commit/8786063d529c8517cb6df4f8687d010d9002dd27) |
+| 2026-01 | Renaming a watched callable preserves its parameter choices.                                         | [Change](https://github.com/riteofstring/setta/commit/aac08321ebd9eb8a37fe293f703650762625bc5e) |
 
 [Historical guide](../README.md) · [Repository composition](../timeline.md)

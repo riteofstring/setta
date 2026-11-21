@@ -10,7 +10,7 @@ nested panels, editors, graphs, saved views and floating windows around your app
 You supply the data and algorithms; Setta supplies the workspace interactions.
 
 [**Get started**](#get-started) ·
-[Live example: ambient instrument](https://setta.dev) · [Explore the history](docs/history/README.md)
+[Live example: ambient instrument](https://setta.dev) · [Explore the history](docs/history/highlights.md)
 
 ## Why Setta?
 
@@ -94,6 +94,8 @@ Setta began in 2020 as **ABCDE**, turning Python metadata into interfaces. It be
 **ioVuu**, then **Runcoder**, then **Setta**: an experiment tool, a programmable workbench,
 and finally a reusable library.
 
+The [illustrated highlights](docs/history/highlights.md) bring together sketch-to-image
+experiments, live Python, executable AI workflows, a print studio and browser 3D tools.
 The [visual history guide](docs/history/README.md) follows those ideas through screenshots,
 feature explanations and implementation links. Historical Python execution, AI integrations
 and workbench applications are preserved in Git; the current checkout contains the library.

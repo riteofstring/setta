@@ -1,9 +1,10 @@
 # Image provenance
 
-The chronological tour includes captures of restored applications made in November 2026.
-They show the named source checkpoints with demonstration data, not original release-day
-screenshots. Runtime restoration can include dependency, connection and provider adaptations.
-The implementation tables identify feature history independently of these captures.
+The chronological tour combines original example previews, original library-era application
+screenshots, and captures of restored applications made in November 2026. Restoration captures
+show the named source checkpoints with demonstration data, not original release-day screenshots.
+Runtime restoration can include dependency, connection and provider adaptations. The
+implementation tables identify feature history independently of these captures.
 
 ## Expanded visual tour
 
@@ -58,6 +59,39 @@ answers or performance.
 The build links resolve to rewritten commits in this repository. They identify the source
 checkpoint, not a self-contained restoration environment. Full capture projects, restoration
 patches and recordings are retained separately in private preservation archives.
+
+## Library-era application screenshots
+
+These five PNGs were committed with Setta or its independently maintained website during
+October 2026 and are preserved unchanged. They show applications built around the extracted
+library, not the earlier Python workbench and not a new restoration. Their application-specific
+algorithms are separate from Setta's workspace and browser-worker coordination.
+
+| Image                                                                 | Immutable screenshot source                                                                                                           | Application implementation                                                                                                          | What it shows                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Print studio](../../images/history/print-studio.png)                 | [Setta screenshot](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/images/print-studio.png)       | [Browser print studio](https://github.com/riteofstring/setta-site/tree/7051440aba168e8cc34a2572f5c6ebe7b8b38722/src/studio)         | A drawing, three print treatments and a finished poster. Application SVG rendering and export use Setta's browser pipeline.                              |
+| [Photo playground](../../images/history/photo-playground.png)         | [Setta screenshot](https://github.com/riteofstring/setta/blob/6422916e00af57931ed3356165ed69256331e298/images/photo-playground.png)   | [Depth-particle playground](https://github.com/riteofstring/setta-site/tree/682754a1894b9f03989a441b30849999b66dc24f/src/studio)    | The fox example, prepared depth and a particle scene. The screenshot uses a saved depth map; the application also supports model-based depth estimation. |
+| [Gaussian splat studio](../../images/history/splat-playground.png)    | [Setta screenshot](https://github.com/riteofstring/setta/blob/81c02e5d7eea903167f3723aa89bbdb0bc5ea35a/images/splat-playground.png)   | [Splat studio](https://github.com/riteofstring/setta-site/tree/f2802703613b0092037ab2e375e7d7d1e82f3439/src/studio)                 | Houseplant, its opacity distribution and inspection controls, with Textile ball also available. These are real multi-view captures.                      |
+| [Photo reconstruction](../../images/history/photo-reconstruction.png) | [Website screenshot](https://github.com/riteofstring/setta-site/blob/a34ee19de4f39aa19e9e65f83bd5bb8f0ea13270/public/social-card.png) | [Selection and reconstruction](https://github.com/riteofstring/setta-site/tree/c55310fa8befe0265cf8334d41a11a1c48bdbe17/src/studio) | A robot photo, prepared cutout, radiance-field slice, extracted Gaussians and a final scene. The displayed reconstruction is a saved generated example.  |
+| [3D sketchbook](../../images/history/sketchbook.png)                  | [Website screenshot](https://github.com/riteofstring/setta-site/blob/04db4d143ffa1e085b9bc17f0161308f6fcc36ec/public/social-card.png) | [Native 3D sketchbook](https://github.com/riteofstring/setta-site/tree/04db4d143ffa1e085b9bc17f0161308f6fcc36ec/src)                | Disperse, Vortex and Ripple meta controls linked to the duck scene's individual parameters. The duck is a generated example.                             |
+
+The Houseplant and Textile ball captures and their thumbnails are by **Marcel Padilla**,
+from the [Gaussian Splat Objects Dataset](https://marcelpadilla.com/Gaussian_Splat_Object_Dataset/),
+licensed [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
+The site preserved them from
+[revision c3e5ec0a8ddb3ab26f28a067a29d272fe1a23411](https://github.com/marcelpadilla/splats/tree/c3e5ec0a8ddb3ab26f28a067a29d272fe1a23411).
+The screenshot shows the application's normalized rendering of Houseplant; the archived
+screenshot itself is unchanged. Houseplant has 113,648 Gaussians and Textile ball has 384,589.
+
+The robot input comes from the MIT-licensed
+[TripoSR examples](https://github.com/VAST-AI-Research/TripoSR/tree/107cefdc244c39106fa830359024f6a2f1c78871/examples).
+The application used SlimSAM for selection and TripoSR for a radiance-field estimate, then
+derived surface Gaussians in its own worker. These single-photo reconstructions are approximate
+generated objects, not measured multi-view captures. The screenshot shows the stored robot
+example with 30,357 Gaussians; it does not show inference running at capture time.
+
+The Setta documentation and independent website commits have different dates within October.
+The source links identify exact preserved material, not a public release day.
 
 ## Current example
 

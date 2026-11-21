@@ -9,7 +9,7 @@ This guide follows the ideas and their changing interfaces. The repository combi
 16 related source histories on one `main` branch; older applications are found in earlier
 commits, while the current checkout contains the library.
 
-[Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
+[**Start with the coolest ideas**](highlights.md) · [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
 ## Spring 2025: from a sketch to an AI image
@@ -176,7 +176,10 @@ _An independently maintained application built with the current library. Setta s
 workspace interactions and worker coordination; the instrument supplies its musical rules,
 audio engine and 3D scenery._
 
-[Follow the library extraction](features/libraries-and-detours.md).
+The library era also produced a print studio, depth-particle and Gaussian-splat viewers,
+a photo-reconstruction tool, Python Canvas, Realtime, Review and Experiment Lens.
+Their algorithms belong to the applications; the shared workspace made them configurable.
+[Explore the original gallery and library extraction](features/libraries-and-detours.md).
 
 ## Browse by feature or source
 
