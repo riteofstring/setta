@@ -9,6 +9,7 @@ This guide follows the ideas and their changing interfaces. The repository combi
 16 related source histories on one `main` branch; older applications are found in earlier
 commits, while the current checkout contains the library.
 
+[**Watch the 4:37 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) ·
 [**Start with the coolest ideas**](highlights.md) · [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
@@ -31,14 +32,15 @@ original previews from restored builds, and [image provenance](images.md) record
 
 ## The journey at a glance
 
-| Period                       | Idea                                                                  |
-| ---------------------------- | --------------------------------------------------------------------- |
-| 2020–2021 · ABCDE            | Turn Python arguments into composable interfaces.                     |
-| 2022–2023 · ioVuu → Runcoder | Arrange configuration on a navigable canvas.                          |
-| 2023–2024 · Runcoder         | Bring execution, charts and experiment comparison into the workspace. |
-| 2024–2025 · Setta            | Connect images, models, code and live state.                          |
-| 2025–2026 · Setta            | Build an AI-native workbench around code, data, agents and workflows. |
-| 2026 onward · The library    | Make workspace interactions reusable in other applications.           |
+| Period                         | Idea                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| 2020–2021 · ABCDE              | Turn Python arguments into composable interfaces.                                  |
+| 2022–2023 · ioVuu → Runcoder   | Arrange configuration on a navigable canvas.                                       |
+| 2023–2024 · Runcoder           | Bring execution, charts and experiment comparison into the workspace.              |
+| 2024–2025 · Setta              | Connect images, models, code and live state.                                       |
+| 2025–2026 · Setta              | Build an AI-native workbench around code, data, agents and workflows.              |
+| July–August 2026 · Setta 3 & 4 | Explore scrolling agent workspaces, research graphs and a Director command center. |
+| 2026 onward · The library      | Make workspace interactions reusable in other applications.                        |
 
 ## 2020–2021: Python becomes an interface
 
@@ -161,6 +163,42 @@ January 2026's SettaRunner and RunPlan added grids, zipped values, sampling, rep
 and detached jobs. Hosted projects, later share deployments and app mode were separate
 attempts to turn workspaces into tools other people could use.
 [Explore the workbench](features/workbench.md) and [execution's return](features/experiments.md).
+
+## Summer 2026: two agent-workspace experiments
+
+**Separate experimental applications.** Setta 3 and Setta 4 explored organizing
+ongoing agent work. They ran alongside the Setta 2-derived line from which the
+current library was extracted.
+
+![Setta 3 agent chat, terminal test results and task status in a scrolling pane workspace.](../../images/history/setta3-workspace.png)
+
+**Keep working as the workspace moves.** Setta 3 combined chat, terminals and
+other surfaces in a scrolling strip. Panes could change width, maximize or
+shrink into an overview. Easy Button put a request and its active run into a
+focused surface. The restored workspace contains actual local-model work;
+the film’s Easy Button shot shows a run in progress.
+
+_Restored July 11, 2026 build, using a prepared project and local Qwen3-30B-A3B.
+The native web client connects to the restored Go backend._
+
+The same experiment added a semantic research graph and a separate workflow
+editor. New captures show an authored graph with synthetic experiment data
+and a workflow draft that passed validation. They demonstrate editing and
+presentation, not automatic cartography or completed workflow execution.
+
+![Setta 4’s original Director graph replay with requests, actions and milestones.](../../images/history/setta4-director.png)
+
+**Make the work itself visible.** Setta 4 explored workstreams and their
+relationships in a Director command center. Structured artifacts combined
+metrics, tables and charts into readable results. The graph replay and report
+captures use the application’s original built-in demonstrations; the restored
+live Director did not dispatch work successfully.
+
+_Restored August 2, 2026 build · built-in graph demonstration._
+
+[Explore all six captures and the experimental directions](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments).
+[Image provenance](images.md#summer-2026-restoration-captures) records exact
+source revisions, frame selections, prepared data and model substitutions.
 
 ## 2026 onward: reusable building blocks
 

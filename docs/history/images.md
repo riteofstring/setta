@@ -38,6 +38,46 @@ chat layout, and an explicit Blob download mode for the spreadsheet's binary-fil
 The retained dependencies were used to rebuild it. These repairs restore the existing widgets;
 they do not add the demonstrated workflow, chart, spreadsheet or task-board features.
 
+## Summer 2026 restoration captures
+
+These six frames were extracted on November 23, 2026 from retained cloud
+recordings of the July 11 Setta 3 and August 2 Setta 4 builds. The PNGs preserve
+the recorded pixels at the crops below. The webpage uses 1800 × 1013 WebP
+derivatives. Frame times are within the original source recordings, not the
+edited film.
+
+| Image                                                                     | Source checkpoint                                                                                       | Recorded frame and evidence                                                                                                                                                                                       |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Scrolling workspace](../../images/history/setta3-workspace.png)          | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-01-niri-workspace-take02.mp4` at 0.3 s; crop x/y/w/h [0, 0, 2560, 1440]. Agent chat, passing tests and task status in the scrolling pane workspace. Actual local-model work in a prepared project.           |
+| [Easy Button](../../images/history/setta3-easy-button.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-04-easy-button-run.mp4` at 5 s; crop x/y/w/h [208, 150, 2144, 1206]. A submitted request and the active run. Completion of this request is not established.                                                  |
+| [Semantic research graph](../../images/history/setta3-semantic-graph.png) | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-02-semantic-graph-take03.mp4` at 3.5 s; crop x/y/w/h [512, 286, 2048, 1152]. Authored nodes, typed edges and file evidence. The experiment results are synthetic; automatic cartography is not demonstrated. |
+| [Workflow draft](../../images/history/setta3-workflow.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-03-workflow-editor.mp4` at 6.5 s; crop x/y/w/h [0, 108, 2368, 1332]. Native node editing and successful draft validation. The prepared workflow was not executed.                                            |
+| [Director graph](../../images/history/setta4-director.png)                | [August 2 Setta 4](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b) | `r12-05-director-replay.mp4` at 4.5 s; crop x/y/w/h [48, 54, 2464, 1386]. The original director-and-worker-interleaved replay scenario. Renderer and fixture events, not live orchestration.                      |
+| [Structured report](../../images/history/setta4-report.png)               | [August 2 Setta 4](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b) | `r12-06-artifact-report.mp4` at 4.5 s; crop x/y/w/h [328, 258, 1888, 1062]. The original Weekly platform review artifact. Built-in example metrics, a table and a chart.                                          |
+
+Setta 3 uses its native web client and Go backend. Its Codex integration runs
+local **Qwen3-30B-A3B Q4_K_M**, served by llama.cpp, in place of the original
+provider. The prepared Food-101 project contains synthetic experiment results
+and a real sorting bug that the model fixed. The workspace transcript and
+terminal output are actual recorded work. The Easy Button request selected
+for the film remained active until the backend was restarted.
+
+The semantic graph was authored through the native API: seven nodes, seven
+typed edges and three file-evidence links. The cartographer did not produce
+an accepted patch. The separate workflow draft passed native validation but
+was not executed. Its prepared sequence is Start → Compare experiments → Plan
+the next run → Ready.
+
+Setta 4 runs in the restored Electron desktop. The graph uses the original
+replay harness and its native 2.5× fixture clock. The report uses the original
+artifact catalog. The live Director did not dispatch work successfully with
+the substitute model, so neither demonstration establishes live orchestration
+or an agent-authored artifact. No historical UI or model response was fabricated.
+
+The complete source takes and restoration inputs remain in the retained
+capture collection and cloud disks. The [film guide](film.md) records the
+selections in the 4:37 edit; its crop and timing can differ from these stills.
+
 ## Earlier restoration captures
 
 The following images remain available in the feature histories.

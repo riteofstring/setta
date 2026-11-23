@@ -223,12 +223,12 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "The bypass needs a Vite development server reachable over the network. Repository commands run only vite build, Vitest's in-process server, and a fixed Node file server for browser checks; none starts a development server or sets a host. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-05-vite-644-and-katex-removal).",
+        "reason": "Revalidated against the current advisory and checked-in callers: vite build, Vitest without a listening socket, and the fixed Node browser-fixture server never expose Vite's development transform middleware to HTTP queries. The aged fix 6.4.5 is available; retain the unaffected version pending a toolchain update. Trace and update plan: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-23-build-only-dependency-revalidation).",
         "impact": "The required network-exposed development server is absent in the checked-in commands. Reassess before adding a Vite dev server, --host, or server.host.",
         "evidence": "https://osv.dev/vulnerability/GHSA-8g5g-mxqh-grgj",
-        "owner": "Claude",
-        "reviewed": "2026-11-05",
-        "expires": "2026-11-21"
+        "owner": "Codex",
+        "reviewed": "2026-11-23",
+        "expires": "2026-12-07"
       },
       {
         "id": "ghsa-rj75-hqrm-r3gf-6-0-10",
@@ -240,12 +240,12 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "Tailwind 3.4.1 (through postcss-nested) and @tailwindcss/typography 0.5.9 parse selectors only while building the library stylesheet from src/styles/index.css and class names in ./src. The published package does not depend on either parser, and runtime project content is never compiled as CSS. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-06-postcss-selector-parser-review).",
+        "reason": "Revalidated the installed parser sources and callers: Tailwind, postcss-nested processSync and typography astSync consume only repository-owned CSS and source class names during builds and the geometry test. No runtime request parses untrusted selectors, and neither parser is a published runtime dependency. The aged fix 6.1.5 is available; retain the unaffected versions pending a toolchain update. Trace and update plan: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-23-build-only-dependency-revalidation).",
         "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
         "evidence": "https://osv.dev/vulnerability/GHSA-rj75-hqrm-r3gf",
-        "owner": "Claude",
-        "reviewed": "2026-11-06",
-        "expires": "2026-11-19"
+        "owner": "Codex",
+        "reviewed": "2026-11-23",
+        "expires": "2026-12-07"
       },
       {
         "id": "ghsa-rj75-hqrm-r3gf-6-1-4",
@@ -257,12 +257,12 @@
         "severity": "moderate",
         "status": "not-affected",
         "basis": "unreachable",
-        "reason": "Tailwind 3.4.1 (through postcss-nested) and @tailwindcss/typography 0.5.9 parse selectors only while building the library stylesheet from src/styles/index.css and class names in ./src. The published package does not depend on either parser, and runtime project content is never compiled as CSS. Trace and remediation: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-06-postcss-selector-parser-review).",
+        "reason": "Revalidated the installed parser sources and callers: Tailwind, postcss-nested processSync and typography astSync consume only repository-owned CSS and source class names during builds and the geometry test. No runtime request parses untrusted selectors, and neither parser is a published runtime dependency. The aged fix 6.1.5 is available; retain the unaffected versions pending a toolchain update. Trace and update plan: [docs/security/dependency-assessment-2026-10-09.md](docs/security/dependency-assessment-2026-10-09.md#addendum-2026-11-23-build-only-dependency-revalidation).",
         "impact": "The advisory prerequisites are absent from the published packages and checked-in build/test callers; reassess when those callers change.",
         "evidence": "https://osv.dev/vulnerability/GHSA-rj75-hqrm-r3gf",
-        "owner": "Claude",
-        "reviewed": "2026-11-06",
-        "expires": "2026-11-19"
+        "owner": "Codex",
+        "reviewed": "2026-11-23",
+        "expires": "2026-12-07"
       }
     ],
     "dependencyOverridePolicies": []

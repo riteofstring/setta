@@ -94,6 +94,10 @@ Setta began in 2020 as **ABCDE**, turning Python metadata into interfaces. It be
 **ioVuu**, then **Runcoder**, then **Setta**: an experiment tool, a programmable workbench,
 and finally a reusable library.
 
+[Watch the 4:37 retrospective](https://setta.dev/history/#film) or follow its
+[timestamped captions and source notes](docs/history/film.md). The tour includes
+the separate Setta 3 and Setta 4 experiments alongside the workbench and library.
+
 The [illustrated highlights](docs/history/highlights.md) bring together sketch-to-image
 experiments, live Python, executable AI workflows, a print studio and browser 3D tools.
 The [visual history guide](docs/history/README.md) follows those ideas through screenshots,

@@ -54,4 +54,22 @@ Captions name the build being shown, not the first implementation of every visib
 Demonstration projects and provider substitutions are documented in the
 [image provenance](images.md).
 
+## The retrospective film
+
+The November 23 edit contains seventy feature shots across twelve dated chapters,
+followed by a four-example gallery. The [film guide](film.md) transcribes its
+on-screen captions, gives chapter times and retains the source labels. The
+[webpage](https://setta.dev/history/#film) serves a smaller encode of the same
+4:37 cut; the original 1080p master and raw takes remain preserved separately.
+
+The summer captures distinguish actual local-model work from prepared research
+data, workflow drafts and Setta 4’s built-in demonstrations. An authored graph
+does not establish automatic cartography, a validated draft does not establish
+workflow execution, and a replay does not establish live agent orchestration.
+
+Historical dependencies, builds and application execution stayed on the cloud
+capture machines. Editing, frame extraction and the web encode use retained
+pixels on the workstation. Cloud compute was stopped after capture while
+retaining the disks, restored environments and originals.
+
 [Visual tour](README.md) · [Composition timeline](timeline.md)

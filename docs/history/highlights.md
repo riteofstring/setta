@@ -162,6 +162,28 @@ _New Regression lab in the restored May build. These numerical results were calc
 in Python and imported into the chart and spreadsheet; the image does not establish
 RunPlan execution. [Execution history](features/experiments.md) separates the two._
 
+## Make agent work and its context visible
+
+![Setta 3’s prepared semantic graph connects a research goal, synthetic results, a decision and the next question.](../../images/history/setta3-semantic-graph.png)
+
+**July–August 2026 · Setta 3 and Setta 4.** Setta 3 explored a scrolling workspace
+for chats, terminals and task status, alongside a semantic graph and workflow
+editor. The prepared research graph makes relationships between a goal,
+evidence and a decision visible. The workflow editor lets a user arrange
+steps and validate the draft before execution.
+
+Setta 4 explored another shape for the work: a Director graph of workstreams,
+requests, actions and milestones, with structured reports for artifacts.
+Its captured graph and report are the original built-in demonstrations.
+These were separate directions from the Setta 2-derived library.
+
+_Restored July 2026 graph with authored, synthetic research data. The captures
+do not establish automatic cartography, completed Setta 3 workflow execution
+or live Setta 4 orchestration._
+
+[Explore the six summer captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) ·
+[Watch the film and follow its captions](film.md)
+
 ## Give the same building blocks very different jobs
 
 ![Print Studio turns a drawn flower into several treatments and an exportable poster.](../../images/history/print-studio.png)

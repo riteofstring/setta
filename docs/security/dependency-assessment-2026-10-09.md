@@ -301,3 +301,35 @@ Post-update dependency review and online supply-chain verification pass with zer
 the three remaining findings are covered by the exact assessments above. Strict doctor and
 changed-file checks pass, with existing file-length warnings. All 1,616 tests in 206 files pass
 under Node 26.10.0 and pnpm 10.23.0 with Vitest 4.1.12 and jsdom's resolved Undici 7.30.1.
+
+## Addendum, 2026-11-23: build-only dependency revalidation
+
+Assessor: Codex. This review supersedes the Vite and selector-parser assessment expiries
+and update plans above. The current OSV advisory records and installed package sources
+were checked against the repository's enabled callers and input paths.
+
+- [GHSA-8g5g-mxqh-grgj](https://osv.dev/vulnerability/GHSA-8g5g-mxqh-grgj), Vite 6.4.4:
+  `packages/workspace/package.json` invokes `vite build`; Vitest uses an in-process
+  server without a listening socket. Browser checks serve their built fixture through
+  `scripts/lib/browser-fixture.mjs`, a Node file server bound to `127.0.0.1`. None exposes
+  Vite's development transform middleware to incoming HTTP queries, so the `?raw`
+  bypass cannot reach a denied source file. Published library artifacts contain no
+  development server.
+- [GHSA-rj75-hqrm-r3gf](https://osv.dev/vulnerability/GHSA-rj75-hqrm-r3gf),
+  postcss-selector-parser 6.0.10 and 6.1.4: the lock resolves 6.0.10 through
+  `@tailwindcss/typography` 0.5.9, whose `utils.js` calls `astSync`, and 6.1.4 through
+  Tailwind 3.4.1 and `postcss-nested` 6.2.0, whose parser calls `processSync`. These
+  paths reach the affected `splitWord` implementation only with repository-owned CSS
+  and selectors. The Tailwind configuration reads `./src/**/*.{ts,tsx}`; the
+  `itemNestedGridGeometry` test compiles the same checked-in stylesheet and source
+  glob. Runtime workspace content is never passed to these build tools, and neither
+  parser is a published runtime dependency. The required attacker-supplied selector
+  in a synchronous request path is absent.
+
+Vite 6.4.5 and postcss-selector-parser 6.1.5 are now aged fixed releases. The exact
+existing versions remain `not-affected/unreachable`; retaining them avoids unrelated
+toolchain changes while the documented prerequisites remain absent. These three
+assessments expire 2026-12-07. Review the fixed releases at the next toolchain update
+or expiry, and replace the assessments after upgrading. Reassess before enabling a
+network-facing Vite development server or compiling untrusted runtime CSS or class
+names; use an aged fixed release before introducing either path.

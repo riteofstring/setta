@@ -4,24 +4,24 @@ Setta began as a way to describe Python objects and build interfaces for their a
 
 The account covers the preserved source history from October 2020 through November 21, 2026. Dates identify implementation evidence in this repository, not necessarily public launches. The endpoint is the source tree at [d7ac38a6ff](https://github.com/riteofstring/setta/commit/d7ac38a6ff), following the first 0.1.0 package release. Historical behavior is described from source, commit changes, and contemporaneous documentation; an implementation in the archive does not establish that every historical environment still works.
 
-| Period | Chapter |
-| --- | --- |
-| 2020 | [ABCDE: Python descriptions and generated forms](#2020-abcde-python-descriptions-and-generated-forms) |
-| 2021 | [Saved interfaces, local execution, and spatial navigation](#2021-saved-interfaces-local-execution-and-spatial-navigation) |
-| 2022 | [ioVuu and Runcoder: the freeform workspace](#2022-iovuu-and-runcoder-become-a-freeform-workspace) |
-| 2023 | [Experiments, charts, documentation, and the local monorepo](#2023-experiments-charts-documentation-and-a-local-monorepo) |
-| 2024 | [Executable sweeps, live artifacts, and the Setta name](#2024-executable-sweeps-live-artifacts-and-the-setta-name) |
-| 2025 | [Reactive Python, chat, MCP, and the expanding workbench](#2025-reactive-python-chat-mcp-and-the-expanding-workbench) |
-| January 2026 | [Sharing, a new runner, agents, files, and Watch Code](#january-2026-a-programmable-workbench-and-a-new-experiment-runner) |
-| February 2026 | [App mode, remote workspaces, plugins, and specialized sections](#february-2026-applications-remote-workspaces-plugins-and-specialized-sections) |
-| March–May 2026 | [Workflows, windows, and the Setta 2 backend transition](#marchmay-2026-workflows-windows-and-the-setta-2-backend-transition) |
-| Late May–July 2026 | [The Setta 3 experiment](#late-mayjuly-2026-the-setta-3-experiment) |
-| Late July–early August 2026 | [The Setta 4 Director experiment](#late-julyearly-august-2026-the-setta-4-director-experiment) |
-| August 2026 | [The reusable Workspace library](#august-2026-extract-the-reusable-workspace-library) |
-| August–October 2026 | [Python Canvas, Realtime, Bench, Review, and Experiment Lens](#augustoctober-2026-focused-applications-built-on-workspace) |
-| October 2026 | [Browser pipelines and a smaller product boundary](#october-2026-browser-pipelines-and-a-smaller-product-boundary) |
-| November 2026 | [Current library inventory and the first npm release](#november-2026-the-current-react-library-and-first-npm-release) |
-| Cross-reference | [Feature continuity and removals](#feature-continuity-and-removals-at-a-glance) · [Source landmarks](#source-landmarks-for-further-reading) |
+| Period                      | Chapter                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2020                        | [ABCDE: Python descriptions and generated forms](#2020-abcde-python-descriptions-and-generated-forms)                                            |
+| 2021                        | [Saved interfaces, local execution, and spatial navigation](#2021-saved-interfaces-local-execution-and-spatial-navigation)                       |
+| 2022                        | [ioVuu and Runcoder: the freeform workspace](#2022-iovuu-and-runcoder-become-a-freeform-workspace)                                               |
+| 2023                        | [Experiments, charts, documentation, and the local monorepo](#2023-experiments-charts-documentation-and-a-local-monorepo)                        |
+| 2024                        | [Executable sweeps, live artifacts, and the Setta name](#2024-executable-sweeps-live-artifacts-and-the-setta-name)                               |
+| 2025                        | [Reactive Python, chat, MCP, and the expanding workbench](#2025-reactive-python-chat-mcp-and-the-expanding-workbench)                            |
+| January 2026                | [Sharing, a new runner, agents, files, and Watch Code](#january-2026-a-programmable-workbench-and-a-new-experiment-runner)                       |
+| February 2026               | [App mode, remote workspaces, plugins, and specialized sections](#february-2026-applications-remote-workspaces-plugins-and-specialized-sections) |
+| March–May 2026              | [Workflows, windows, and the Setta 2 backend transition](#marchmay-2026-workflows-windows-and-the-setta-2-backend-transition)                    |
+| Late May–July 2026          | [The Setta 3 experiment](#late-mayjuly-2026-the-setta-3-experiment)                                                                              |
+| Late July–early August 2026 | [The Setta 4 Director experiment](#late-julyearly-august-2026-the-setta-4-director-experiment)                                                   |
+| August 2026                 | [The reusable Workspace library](#august-2026-extract-the-reusable-workspace-library)                                                            |
+| August–October 2026         | [Python Canvas, Realtime, Bench, Review, and Experiment Lens](#augustoctober-2026-focused-applications-built-on-workspace)                       |
+| October 2026                | [Browser pipelines and a smaller product boundary](#october-2026-browser-pipelines-and-a-smaller-product-boundary)                               |
+| November 2026               | [Current library inventory and the first npm release](#november-2026-the-current-react-library-and-first-npm-release)                            |
+| Cross-reference             | [Feature continuity and removals](#feature-continuity-and-removals-at-a-glance) · [Source landmarks](#source-landmarks-for-further-reading)      |
 
 ## Reading this history
 
@@ -31,15 +31,15 @@ The coverage is organized around observable capabilities: what users could creat
 
 Several recurring terms changed meaning over time:
 
-| Term | Meaning in the relevant generation |
-| --- | --- |
-| Section | Initially a nested block of callable parameters; later a movable canvas card, group, editor, artifact, chat, or other tool surface. |
-| Callable | A Python function or class constructor represented by editable arguments. |
-| Parameter | An input to a callable or another structured value; later also a standalone interface control. |
-| Version or variant | A saved alternative configuration of a section. This is separate from a software release. |
-| Reference | A connection to another generated value, section, or parameter. Later graph edges also represented AI access and workflow control, with different semantics. |
-| Saved view | A named presentation of a workspace. It does not necessarily duplicate the underlying data. |
-| Window Space | A saved arrangement of floating windows, distinct from a saved canvas view. |
+| Term               | Meaning in the relevant generation                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Section            | Initially a nested block of callable parameters; later a movable canvas card, group, editor, artifact, chat, or other tool surface.                          |
+| Callable           | A Python function or class constructor represented by editable arguments.                                                                                    |
+| Parameter          | An input to a callable or another structured value; later also a standalone interface control.                                                               |
+| Version or variant | A saved alternative configuration of a section. This is separate from a software release.                                                                    |
+| Reference          | A connection to another generated value, section, or parameter. Later graph edges also represented AI access and workflow control, with different semantics. |
+| Saved view         | A named presentation of a workspace. It does not necessarily duplicate the underlying data.                                                                  |
+| Window Space       | A saved arrangement of floating windows, distinct from a saved canvas view.                                                                                  |
 
 ## 2020: ABCDE, Python descriptions, and generated forms
 
@@ -269,15 +269,15 @@ The interactive runtime increasingly treated inputs and outputs as named values 
 
 The companion **setta-examples** collection showed what the programming model could support. These were application configurations and Python integrations, not models or services built into Setta itself:
 
-| Example | What it demonstrated |
-| --- | --- |
-| StreamDiffusion image-to-image | A drawing or image input feeding a live image-generation loop, with outputs displayed beside the controls. |
-| TRL language-model fine-tuning | Configurable training components and arguments for a language-model fine-tuning program. |
-| Transformers Trainer | Dataset, model, Trainer, and related training configuration, including saved alternatives and result charts. |
-| PyTorch Metric Learning | Composition of embedding models, losses, miners, and training components. |
-| FLUX Fill | Image filling and related inpainting/outpainting experiments driven by editable inputs. |
-| Groq API chat | A canvas conversation backed by user Python code calling an external model service. |
-| SapientML AutoML | A configurable interface around an automated machine-learning workflow. |
+| Example                        | What it demonstrated                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| StreamDiffusion image-to-image | A drawing or image input feeding a live image-generation loop, with outputs displayed beside the controls.   |
+| TRL language-model fine-tuning | Configurable training components and arguments for a language-model fine-tuning program.                     |
+| Transformers Trainer           | Dataset, model, Trainer, and related training configuration, including saved alternatives and result charts. |
+| PyTorch Metric Learning        | Composition of embedding models, losses, miners, and training components.                                    |
+| FLUX Fill                      | Image filling and related inpainting/outpainting experiments driven by editable inputs.                      |
+| Groq API chat                  | A canvas conversation backed by user Python code calling an external model service.                          |
+| SapientML AutoML               | A configurable interface around an automated machine-learning workflow.                                      |
 
 The examples made the same broad point through different domains: controls could describe a program, artifacts could be both inputs and outputs, and the canvas could keep configuration and feedback together. Their third-party model, GPU, service, and credential requirements belonged to the examples.
 
@@ -514,6 +514,8 @@ Evidence: [Go backend transition](https://github.com/riteofstring/setta/commit/1
 
 Setta 3 was a separate application experiment centered on agent conversations and workspaces. It used an Electron shell, a Go backend started with the application, a TypeScript renderer, and Codex integration. It should be read as a branch of the product's exploration, not as a simple upgrade that inherited and replaced every Setta 2 feature.
 
+The [restored July 11 captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) show actual local-model workspace use and an Easy Button run in progress, plus an authored semantic graph and a validated workflow draft. These captures establish selected behavior; they do not verify every source capability described below.
+
 ### Late May: local workspaces and an agent conversation shell
 
 The initial application established workspace lifecycle and chat execution, then added queued messages and steering of active work. Model and permission menus, slash commands, attachments, search within chat, sidebar search, pinned messages, notifications, logs, and rule creation made it a usable conversation-oriented environment.
@@ -579,6 +581,8 @@ Evidence: [voice credential configuration](https://github.com/riteofstring/setta
 ## Late July–early August 2026: the Setta 4 Director experiment
 
 Setta 4 pursued a **Director command center** rather than making a pane the primary identity of a task. A durable **workstream** represented a line of work, backed by a conversation. A folder could be attached as a resource, while folderless work remained a valid starting point.
+
+The [restored August 2 captures](features/libraries-and-detours.md#setta-4-follow-workstreams-and-inspect-their-artifacts) use the original graph replay and artifact catalog. The restored live Director did not dispatch work successfully with the substitute model, so these labeled demonstrations establish the interfaces rather than live orchestration.
 
 ### Workstreams and actionable status
 
@@ -764,14 +768,14 @@ Evidence: [Python runtime removal](https://github.com/riteofstring/setta/commit/
 
 The independent showcase illustrated browser applications built with the public library. Its domain-specific code lived outside Setta's reusable workspace:
 
-| Demonstration | What Setta contributed and what the application supplied |
-| --- | --- |
-| Print studio | Workspace controls, drawing interaction, sections, and pipeline coordination surrounded application-owned image treatments, SVG/PNG export, and poster composition. |
-| Photo-to-particles | Controls adjusted the presentation of a depth-derived particle scene; the application owned model inference and the 3D renderer, so visual adjustments need not rerun the model. |
-| Gaussian capture inspection | Controls and panels supported inspection, thresholds, orbiting, and selected export; the application supplied the captures and Spark/Three-based rendering. |
-| Single-image 3D experiment | A segmentation and reconstruction pipeline exposed intermediate progress and threshold/resampling controls. Its inferred reconstruction was distinct from a measured Gaussian capture. |
-| 3D sketchbook | Linked macro controls such as Disperse, Vortex, and Ripple adjusted several renderer values together, including spread, size, twist, hue, wave, and saturation. |
-| Ambient instrument | A spatial control surface organized an audio/visual instrument; the sound engine, simulation, and rendering were application code. |
+| Demonstration               | What Setta contributed and what the application supplied                                                                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Print studio                | Workspace controls, drawing interaction, sections, and pipeline coordination surrounded application-owned image treatments, SVG/PNG export, and poster composition.                    |
+| Photo-to-particles          | Controls adjusted the presentation of a depth-derived particle scene; the application owned model inference and the 3D renderer, so visual adjustments need not rerun the model.       |
+| Gaussian capture inspection | Controls and panels supported inspection, thresholds, orbiting, and selected export; the application supplied the captures and Spark/Three-based rendering.                            |
+| Single-image 3D experiment  | A segmentation and reconstruction pipeline exposed intermediate progress and threshold/resampling controls. Its inferred reconstruction was distinct from a measured Gaussian capture. |
+| 3D sketchbook               | Linked macro controls such as Disperse, Vortex, and Ripple adjusted several renderer values together, including spread, size, twist, hue, wave, and saturation.                        |
+| Ambient instrument          | A spatial control surface organized an audio/visual instrument; the sound engine, simulation, and rendering were application code.                                                     |
 
 These examples showed the library's range without making image generation, reconstruction, Gaussian rendering, or audio synthesis built-in Setta features. The [visual tour](README.md) and [image provenance](images.md) identify the preserved sources and captures; they should be consulted before treating a screenshot as evidence of a particular historical implementation date.
 
@@ -845,10 +849,10 @@ Editor completion hooks allow a host to supply suggestions where the editor cont
 
 Two opt-in content section kinds ship with the package:
 
-| Section | Supported behavior |
-| --- | --- |
-| Text | Plain text or GitHub-flavored Markdown, edit/render modes, font size, read-only presentation, tables, task lists, inline/fenced code, highlighting, and copying code blocks. Raw HTML is not interpreted. |
-| Code | Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text; line wrapping, line numbers, indentation configuration, editable/read-only/generated-document modes, host completion and diagnostic seams, and an optional submit callback. |
+| Section | Supported behavior                                                                                                                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text    | Plain text or GitHub-flavored Markdown, edit/render modes, font size, read-only presentation, tables, task lists, inline/fenced code, highlighting, and copying code blocks. Raw HTML is not interpreted.                                                     |
+| Code    | Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text; line wrapping, line numbers, indentation configuration, editable/read-only/generated-document modes, host completion and diagnostic seams, and an optional submit callback. |
 
 A generated-document code section declares an explicit protected range inside its text. The generated block remains selectable and copyable, while edits around it remain possible. An edit crossing the protected range is refused as a whole; accepted surrounding edits update the range's offsets. A locked section becomes non-editable without losing its generated-region presentation.
 
@@ -906,43 +910,43 @@ The final source-history and showcase work added the historical guide, feature c
 
 This table cross-references the chronological account. A familiar name across generations does not imply the same implementation or product scope.
 
-| Feature family | Earlier development | State at the November 2026 endpoint |
-| --- | --- | --- |
-| Python metadata and callable composition | ABCDE from 2020; Runcoder/Setta generation; later Python Canvas. | Historical application behavior. Hosts may build it with the library, but it is not built in. |
-| Spatial workspace | Navigation in 2021; freeform sections in 2022; groups and richer content afterward. | Core reusable capability. |
-| Parameter controls | Defaults and nested forms from 2020; sliders/presets; later standalone meta controls. | Typed controls and host-defined data remain; Python introspection is external. |
-| Parameter sweeps | UI-only in 2020; executable cards/run groups in 2024; removed June 2025; new RunPlan API January 2026. | No built-in experiment runner. |
-| JSON/YAML/TOML | Several export/import iterations; YAML GUI mode; file-backed values and watching. | Editors can display these formats; historical project conversion and file watching are external. |
-| Live Python | Interactive function proof of concept in 2023; artifacts in 2024; listeners/hot reload in 2025. | Historical runtime removed. Browser pipelines are a separate retained execution helper. |
-| Local terminals and SSH | Electron/CLI bridges, persistent terminals, remote workspaces. | Host application integrations, not built-in runtime services. |
-| Charts, image processing, and media | Logger charts, CSV sources, images, drawing, media carousels, focused examples. | Custom section rendering and carousel/stroke primitives remain; domain engines are external. |
-| Markdown and code editing | Markdown from 2023, richer editors in 2024, LaTeX temporarily supported. | Opt-in text and code sections remain; built-in KaTeX was removed. |
-| Saved configurations and variants | Templates, project saves, section versions, presets and overrides. | Host-owned domain state. Saved canvas views remain a distinct package feature. |
-| Undo/redo | Broad project editing in the workbench. | Opt-in structural history or delegation; native editor and application histories remain separate. |
-| Chat, MCP, and coding agents | Canvas chat, project assistant, MCP tools, external agents, branching and delegation. | Historical workbench/experimental applications, not bundled AI services. |
-| Graphs | Value references, agentic access edges, workflows, semantic graphs. | Controlled generic ports and edges; hosts supply semantics and execution. |
-| Workflows | Setta 2 canvas workflows and a separate Setta 3 orchestrator. | No bundled workflow scheduler. |
-| Application generation | Setta 2 App mode; Setta 4 bounded artifact rendering. | Historical subsystems; the library is an application-building toolkit. |
-| Hosting and sharing | setta-saas, share deployments, remote runtimes, Sprites/Fly experiments. | Host-owned deployment and sharing; no required Setta backend. |
-| Windows and views | Workbench floating windows, named views, Window Spaces. | Retained as reusable controlled features with explicit boundaries. |
-| Review and experiment inspection | Bench, Review, and Experiment Lens companion applications. | Preserved in history; generic supporting workspace primitives remain. |
-| Packaging | Split Python/frontend/desktop projects, local monorepos, Go-backed applications. | Apache-2.0 ESM package with React workspace, styles, types, and an independent browser entry. |
+| Feature family                           | Earlier development                                                                                    | State at the November 2026 endpoint                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Python metadata and callable composition | ABCDE from 2020; Runcoder/Setta generation; later Python Canvas.                                       | Historical application behavior. Hosts may build it with the library, but it is not built in.     |
+| Spatial workspace                        | Navigation in 2021; freeform sections in 2022; groups and richer content afterward.                    | Core reusable capability.                                                                         |
+| Parameter controls                       | Defaults and nested forms from 2020; sliders/presets; later standalone meta controls.                  | Typed controls and host-defined data remain; Python introspection is external.                    |
+| Parameter sweeps                         | UI-only in 2020; executable cards/run groups in 2024; removed June 2025; new RunPlan API January 2026. | No built-in experiment runner.                                                                    |
+| JSON/YAML/TOML                           | Several export/import iterations; YAML GUI mode; file-backed values and watching.                      | Editors can display these formats; historical project conversion and file watching are external.  |
+| Live Python                              | Interactive function proof of concept in 2023; artifacts in 2024; listeners/hot reload in 2025.        | Historical runtime removed. Browser pipelines are a separate retained execution helper.           |
+| Local terminals and SSH                  | Electron/CLI bridges, persistent terminals, remote workspaces.                                         | Host application integrations, not built-in runtime services.                                     |
+| Charts, image processing, and media      | Logger charts, CSV sources, images, drawing, media carousels, focused examples.                        | Custom section rendering and carousel/stroke primitives remain; domain engines are external.      |
+| Markdown and code editing                | Markdown from 2023, richer editors in 2024, LaTeX temporarily supported.                               | Opt-in text and code sections remain; built-in KaTeX was removed.                                 |
+| Saved configurations and variants        | Templates, project saves, section versions, presets and overrides.                                     | Host-owned domain state. Saved canvas views remain a distinct package feature.                    |
+| Undo/redo                                | Broad project editing in the workbench.                                                                | Opt-in structural history or delegation; native editor and application histories remain separate. |
+| Chat, MCP, and coding agents             | Canvas chat, project assistant, MCP tools, external agents, branching and delegation.                  | Historical workbench/experimental applications, not bundled AI services.                          |
+| Graphs                                   | Value references, agentic access edges, workflows, semantic graphs.                                    | Controlled generic ports and edges; hosts supply semantics and execution.                         |
+| Workflows                                | Setta 2 canvas workflows and a separate Setta 3 orchestrator.                                          | No bundled workflow scheduler.                                                                    |
+| Application generation                   | Setta 2 App mode; Setta 4 bounded artifact rendering.                                                  | Historical subsystems; the library is an application-building toolkit.                            |
+| Hosting and sharing                      | setta-saas, share deployments, remote runtimes, Sprites/Fly experiments.                               | Host-owned deployment and sharing; no required Setta backend.                                     |
+| Windows and views                        | Workbench floating windows, named views, Window Spaces.                                                | Retained as reusable controlled features with explicit boundaries.                                |
+| Review and experiment inspection         | Bench, Review, and Experiment Lens companion applications.                                             | Preserved in history; generic supporting workspace primitives remain.                             |
+| Packaging                                | Split Python/frontend/desktop projects, local monorepos, Go-backed applications.                       | Apache-2.0 ESM package with React workspace, styles, types, and an independent browser entry.     |
 
 ## Source landmarks for further reading
 
 The following tags provide stable entry points into the reconstructed archive. A tag identifies preserved source, not a promise of an installable historical environment or compatible adjacent components.
 
-| Period | Useful source landmarks |
-| --- | --- |
-| 2020 | milestone/2020-10-python-metadata; milestone/2020-12-sweep-ui-prototype. |
-| 2021–2022 split components | source/abcde-django; source/abcde-pip; source/abcde-frontend; source/abcde-electron; source/abcde-cli; source/abcde-backend; source/abcde-utils; source/abcde-test; source/abcde-demos. |
-| 2022 spatial interface and names | milestone/2022-02-freeform-sections; milestone/2022-05-iovuu; milestone/2022-08-runcoder. |
-| 2023–2024 Runcoder/Setta | milestone/2023-09-monorepo; milestone/2023-12-interactive-python; milestone/2024-01-sweep-execution; milestone/2024-07-setta; source/runcoder. |
-| 2025 reactive and AI workbench | milestone/2025-02-canvas-chat; milestone/2025-04-mcp-control; milestone/2025-05-generated-state; milestone/2025-05-hosted-projects; milestone/2025-06-sweeps-removed; milestone/2025-12-meta-controls; source/setta-2025. |
-| Companion examples and hosting | source/setta-examples; source/setta-saas. |
-| Early 2026 workbench | milestone/2026-01-runner; milestone/2026-02-app-mode; milestone/2026-03-go-backend; milestone/2026-03-workflows. |
-| Agent-centered detours | milestone/2026-05-setta-3-experiment; milestone/2026-07-setta-4-graph. |
-| Library | milestone/2026-08-library-extraction; milestone/2026-10-browser-pipelines; milestone/2026-11-current-library; source/setta; v0.1.0. |
-| Preserved dependency changes | source/xterm.js and source/xyflow contain selected fork changes, not complete upstream histories. |
+| Period                           | Useful source landmarks                                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2020                             | milestone/2020-10-python-metadata; milestone/2020-12-sweep-ui-prototype.                                                                                                                                                  |
+| 2021–2022 split components       | source/abcde-django; source/abcde-pip; source/abcde-frontend; source/abcde-electron; source/abcde-cli; source/abcde-backend; source/abcde-utils; source/abcde-test; source/abcde-demos.                                   |
+| 2022 spatial interface and names | milestone/2022-02-freeform-sections; milestone/2022-05-iovuu; milestone/2022-08-runcoder.                                                                                                                                 |
+| 2023–2024 Runcoder/Setta         | milestone/2023-09-monorepo; milestone/2023-12-interactive-python; milestone/2024-01-sweep-execution; milestone/2024-07-setta; source/runcoder.                                                                            |
+| 2025 reactive and AI workbench   | milestone/2025-02-canvas-chat; milestone/2025-04-mcp-control; milestone/2025-05-generated-state; milestone/2025-05-hosted-projects; milestone/2025-06-sweeps-removed; milestone/2025-12-meta-controls; source/setta-2025. |
+| Companion examples and hosting   | source/setta-examples; source/setta-saas.                                                                                                                                                                                 |
+| Early 2026 workbench             | milestone/2026-01-runner; milestone/2026-02-app-mode; milestone/2026-03-go-backend; milestone/2026-03-workflows.                                                                                                          |
+| Agent-centered detours           | milestone/2026-05-setta-3-experiment; milestone/2026-07-setta-4-graph.                                                                                                                                                    |
+| Library                          | milestone/2026-08-library-extraction; milestone/2026-10-browser-pipelines; milestone/2026-11-current-library; source/setta; v0.1.0.                                                                                       |
+| Preserved dependency changes     | source/xterm.js and source/xyflow contain selected fork changes, not complete upstream histories.                                                                                                                         |
 
 The [visual tour](README.md) provides a shorter illustrated route. The [feature chapters](features/python-interfaces.md), [examples](examples.md), [composition timeline](timeline.md), and [image provenance](images.md) provide complementary views of the same source history.

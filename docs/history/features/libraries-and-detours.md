@@ -9,6 +9,75 @@ The examples below show what people could build around those pieces. Their print
 machine learning, rendering and Python algorithms belong to the applications. Setta
 provides the workspace and execution coordination.
 
+## Summer 2026: two agent-workspace experiments
+
+Setta 3 and Setta 4 explored separate agent-centered applications before the
+Setta 2-derived library extraction. Their place in the reconstructed chronology
+does not make them ancestors of the current package. The following captures
+come from restored July 11 and August 2 builds; they distinguish actual
+local-model work, prepared examples and built-in demonstrations.
+
+### Setta 3: move through the work
+
+![Agent chat, passing tests and Easy Button status in Setta 3’s scrolling workspace.](../../../images/history/setta3-workspace.png)
+
+**A workspace that keeps moving.** A Niri-inspired strip brought chats,
+terminals and other panes into one navigable workspace. Columns could resize,
+a pane could maximize, and an overview showed the larger arrangement. This
+refers to the interaction model, not an integration with the Niri compositor.
+The chat and passing tests shown here come from actual local-model bug-fix work
+inside a prepared Food-101 project.
+
+![Setta 3 Easy Button working on a request to run tests and write a status note.](../../../images/history/setta3-easy-button.png)
+
+**One request starts the work.** Easy Button focused the request and active
+work into a single surface. This recorded request is in progress; the film
+does not claim that it completed. Both captures used local Qwen3-30B-A3B
+through the application’s original Codex integration.
+
+### Setta 3: connect evidence and prepare the next step
+
+![A prepared research graph in Setta 3 links a goal, synthetic results, a smoothing decision and the next schedule question.](../../../images/history/setta3-semantic-graph.png)
+
+**Connect the evidence.** Typed relationships connect goals, findings,
+decisions and questions. The prepared graph contains seven nodes, seven edges
+and three file-evidence links. Its experiment numbers are synthetic example
+data. They were authored through the native API; the restored cartographer
+did not produce an accepted graph patch.
+
+![Four connected workflow nodes in the Setta 3 editor, with a successful draft-validation message.](../../../images/history/setta3-workflow.png)
+
+**Draw the work before it runs.** Start leads to Compare experiments, Plan the
+next run and Ready. The capture shows node editing and successful draft
+validation. The draft was not executed. This is Setta 3’s own workflow editor,
+separate from the Setta 2 Start/End/Gate canvas system.
+
+_July 11, 2026 source: [6258039962](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209).
+The restoration uses its native web client and Go backend._
+
+### Setta 4: follow workstreams and inspect their artifacts
+
+![The Setta 4 Director graph renders a built-in sequence of requests, actions and milestones.](../../../images/history/setta4-director.png)
+
+**Follow the threads of work.** Setta 4 gave workstreams and their relationships
+a graph presentation. This frame comes from the original
+`director-and-worker-interleaved` replay demonstration, using its native replay
+clock. It demonstrates the renderer and fixture events, not a live agent run.
+
+![An example Setta 4 report combines latency and ticket metrics, a table and a bar chart.](../../../images/history/setta4-report.png)
+
+**Give results a useful shape.** The artifact catalog’s Weekly platform review
+combines summary metrics, a table and a chart. It is the original built-in
+report example, not an agent-authored report from the restored session.
+The live Director did not dispatch work successfully with the substitute model.
+
+_August 2, 2026 source: [bd5cd3d089](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b).
+Both demonstrations run in the restored Electron application._
+
+[Exact capture provenance](../images.md#summer-2026-restoration-captures) ·
+[Setta 3 source history](../feature-history.md#late-mayjuly-2026-the-setta-3-experiment) ·
+[Setta 4 source history](../feature-history.md#late-julyearly-august-2026-the-setta-4-director-experiment)
+
 ## October 2026: a sketch becomes a print
 
 ![The browser print studio: a flower drawing, ink controls, three treatments and a finished multicolor poster.](../../../images/history/print-studio.png)
@@ -121,8 +190,7 @@ These are preserved implementation landmarks, not a release calendar.
 | 2026-11 | Hosts can define graph port families and record their own undoable operations. | [Ports](https://github.com/riteofstring/setta/commit/7ee1c6ba30c890683817345d6f5d84616403f123) · [History](https://github.com/riteofstring/setta/commit/9ed6e5739c901f3386a402c61a763931302a7ba5)   |
 | 2026-11 | Graph cables can share bundles and route around workspace sections.            | [Bundles](https://github.com/riteofstring/setta/commit/02a947202a23ee3252982a4fc28cd7c34c91c351) · [Routing](https://github.com/riteofstring/setta/commit/e48fe6bbf822a9cb6b5284dddeb033d9411b1179) |
 
-Setta 3 and Setta 4 were separate experimental directions and are outside this tour.
-Their position in the reconstructed chain does not make them ancestors of the
-Setta 2-derived library.
+The summer experiments above are separate directions. Their position in the
+reconstructed chain does not make them ancestors of the Setta 2-derived library.
 
 [Historical guide](../README.md) · [Repository composition](../timeline.md)
