@@ -146,7 +146,7 @@ recolored, animated and exported.
 _Original archived application screenshots. Exact source checkpoints and asset credits
 are recorded in [image provenance](../images.md#library-era-application-screenshots)._
 
-## Four local applications around the library
+## Five local applications around the library
 
 The same retained line also explored focused local tools. Their source is preserved
 before the example applications and Python runtime were removed in October 2026.
@@ -157,10 +157,18 @@ before the example applications and Python runtime were removed in October 2026.
 | Realtime        | Signal Bloom Press turns a drawing into a shared ink plate, runs SVG and Pillow treatments in separate branches, then joins their results into a poster. Python handlers power this example.                                                                      | [Drawing playground](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/apps/realtime/README.md)     |
 | Review          | Claims and choices stay connected to exact Git hunks, source lines, JSON values and artifacts. A poster comparison supports drawings anchored to the reviewed image, then records a portable human response.                                                      | [Review](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/apps/review/README.md)                   |
 | Experiment Lens | Shared selections connect scatterplots, histograms, heatmaps, parallel coordinates, tables, trajectories and artifact galleries. A simulated battery study contains 864 observations across 24 cells; selected evidence and annotations can be exported together. | [Experiment Lens](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/apps/experiment-lens/README.md) |
+| Bench           | Run competing candidates against the same case set, inspect their artifacts and shared checks, then save a human preference. The product-thumbnail example compares contain and cover strategies across ten generated catalog images.                             | [Bench](https://github.com/riteofstring/setta/blob/674bbd18ad04c6878c128784920dd0ac08263dd1/apps/bench/README.md)                     |
 
 Review recorded decisions without running agents. Experiment Lens explored already-recorded
-results without launching experiments. The model workshop's small synthetic dataset illustrated
+results without launching experiments. Bench executed local candidate commands and kept their
+outputs beside evaluations and human reviews. The model workshop's small synthetic dataset illustrated
 composition and generalization; its accuracy was not a claim about real-world performance.
+
+The [focused demonstrations](../feature-demos.md) follow three of these tools
+through a saved result: an annotated Experiment Lens export, a qualified Review
+claim and poster response, and a Bench preference backed by twenty actual case
+executions. Their stills and step-by-step descriptions distinguish imported
+fixtures from newly computed outputs.
 
 ## The current library
 

@@ -78,6 +78,33 @@ The complete source takes and restoration inputs remain in the retained
 capture collection and cloud disks. The [film guide](film.md) records the
 selections in the 4:37 edit; its crop and timing can differ from these stills.
 
+## Focused feature demonstrations
+
+Four native application screenshots accompany the [feature demonstrations](feature-demos.md).
+They were captured on November 23, 2026 at 3200 × 1800, without cropping or
+reconstructed interface elements. The webpage uses 1920 × 1080 WebP derivatives.
+
+| Image                 | Historical source                                        | Visible evidence                                                                                                             |
+| --------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `experiment-lens.png` | `74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb`, October 11   | Original simulated battery study, two-cell comparison, a retained outside-cohort observation and annotated thermal evidence. |
+| `review.png`          | `74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb`, October 11   | Original fictional Aperture poster, newly drawn underline and final changes-requested response in Old.                       |
+| `bench.png`           | `674bbd18ad04c6878c128784920dd0ac08263dd1`, September 13 | Original ten-image catalog; newly executed Contain/Cover outputs and saved Cover preference.                                 |
+| `runplan.png`         | `eea7fb38c8fdb452766d06b08610248e2962c4fc`, May 10       | Prepared regression experiment; six real detached runs, actual training losses and unchanged live parameters.                |
+
+Historical builds and Python execution ran on OVH; a dedicated Runpod Chrome
+browser rendered and recorded the applications. The workstation transferred and
+encoded media. Original source revisions and frozen dependency graphs were
+retained. The three library applications used their original preparation tools;
+RunPlan used a new small experiment and helper that read actual run logs.
+The May editor's three analysis diagnostics remain visible; the six runs succeed.
+Review's imported model assessments are fixture data, not fresh inference.
+
+Raw takes, JPEG frames, timestamps, final application state and the Lens selection
+packet remain in the capture collection's `setta-retrospective/footage/gap/` retention
+set. `CAPTURE-REVISION13.md` and `plans/revision13/feature-demos.json` in that
+collection record runtime limits, capture repairs and exact edit decisions.
+The four new clips supplement the existing 4:37 overview and 33-second promo.
+
 ## Earlier restoration captures
 
 The following images remain available in the feature histories.

@@ -15,6 +15,10 @@ are identified separately. Historical build dates describe the footage, not
 the first implementation of every feature. The full source history covers
 capabilities that this selected visual tour does not demonstrate.
 
+[Four focused demonstrations](feature-demos.md) add longer walkthroughs of Experiment Lens,
+Review, Bench and RunPlan alongside this film. They are separate clips; the overview
+and its chapter times remain unchanged.
+
 The film opens at 0:00 with “Six years of ideas.”
 
 ## 0:02 — 2020 · ABCDE

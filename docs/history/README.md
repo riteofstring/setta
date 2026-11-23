@@ -9,7 +9,7 @@ This guide follows the ideas and their changing interfaces. The repository combi
 16 related source histories on one `main` branch; older applications are found in earlier
 commits, while the current checkout contains the library.
 
-[**Watch the 4:37 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) ·
+[**Watch the 4:37 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) · [Four focused feature demos](feature-demos.md) ·
 [**Start with the coolest ideas**](highlights.md) · [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
