@@ -64,7 +64,8 @@ measurements describe this small local example, not a general performance rankin
 The May 2026 workbench runs a prepared numerical experiment through the original
 Python `SettaRunner` and `RunPlan` APIs. `grid_params` combines three learning
 rates with two random seeds. Each `run_detached` invocation gets a separate
-snapshot, run identifier, tags, status and log.
+snapshot, run identifier, tags, status and log. The demonstration spaces launches
+to keep this revision’s second-resolution snapshot filenames distinct.
 
 The experiment fits a line to 81 synthetic samples with 40 gradient steps.
 The results below come from the six runs' actual standard output. The helper
