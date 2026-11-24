@@ -1,24 +1,24 @@
 # Features in motion
 
 These demonstrations expand the [chronological feature history](feature-history.md).
-They accompany the [overview film](film.md), with time to follow an action through
-to its result. The [coverage index](coverage.md) maps the full feature inventory to
+They appear on the [retrospective webpage](https://setta.dev/history/), with time
+to follow an action through to its result. The [coverage index](coverage.md) maps the full feature inventory to
 recordings, real app images and explanations. The clips are silent; the steps
 below describe the visible actions and measured outcomes.
 
-| Demonstration     | Watch                                                         | What the recording establishes                                                                                    |
-| ----------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Python Canvas     | [18 seconds](https://setta.dev/history/#programming-apps)     | Change a model parameter, execute it and inspect measured results and generated Python.                           |
-| Realtime          | [20 seconds](https://setta.dev/history/#programming-apps)     | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                                     |
-| Project assistant | [18 seconds](https://setta.dev/history/#agents)               | Request a configurable trainer, inspect real tool checks and adjust generated controls.                           |
-| Experiment Lens   | [49 seconds](https://setta.dev/history/#experiment-lens-demo) | A shared selection survives filtering, joins trajectories to a thermal artifact, and exports with its annotation. |
-| Review            | [30 seconds](https://setta.dev/history/#review-demo)          | A qualified claim and an image-specific request for changes become durable human responses.                       |
-| Bench             | [38 seconds](https://setta.dev/history/#bench-demo)           | Two candidates execute against ten cases each; their generated images support a saved preference.                 |
-| RunPlan           | [23 seconds](https://setta.dev/history/#runplan-demo)         | A three-by-two parameter grid produces six successful detached runs while the live parameters stay unchanged.     |
+| Demonstration     | Watch                                                    | What the recording establishes                                                                                     |
+| ----------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Python Canvas     | [Watch](https://setta.dev/history/#programming-apps)     | Change a model parameter, execute it and inspect measured results and generated Python.                            |
+| Realtime          | [Watch](https://setta.dev/history/#programming-apps)     | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                                      |
+| Project assistant | [Watch](https://setta.dev/history/#agents)               | Request a configurable trainer, inspect real tool checks and adjust generated controls.                            |
+| Experiment Lens   | [Watch](https://setta.dev/history/#experiment-lens-demo) | Filter a cohort, compare two cells, join their trajectory to thermal evidence, and export the annotated selection. |
+| Review            | [Watch](https://setta.dev/history/#review-demo)          | A qualified claim and an image-specific request for changes become durable human responses.                        |
+| Bench             | [Watch](https://setta.dev/history/#bench-demo)           | Two candidates execute against ten cases each; their generated images support a saved preference.                  |
+| RunPlan           | [Watch](https://setta.dev/history/#runplan-demo)         | A three-by-two parameter grid produces six successful detached runs while the live parameters stay unchanged.      |
 
 ## Python Canvas: change the model, then execute it
 
-[![Python controls beside generated code and the learned decision boundary.](../../images/history/python-canvas.png)](https://setta.dev/history/#programming-apps)
+[![Python controls beside generated code and the learned decision boundary.](https://setta.dev/history-media/feature-python-canvas.webp)](https://setta.dev/history/#programming-apps)
 
 Model Workshop composes Python callables into an executable program. The original
 example generates a two-moons classification problem, builds polynomial features,
@@ -34,7 +34,7 @@ application; the current React library does not include it.
 
 ## Realtime: one drawing, two treatments, one joined result
 
-[![The final Signal Bloom poster combines Aurora and Riso treatments.](../../images/history/realtime-signal-bloom.png)](https://setta.dev/history/#programming-apps)
+[![One drawing feeds Aurora and Riso treatments in the same workspace.](https://setta.dev/history-media/feature-realtime-signal-bloom.webp)](https://setta.dev/history/#programming-apps)
 
 Move a triangle in the original Signal Bloom drawing. A preparation handler feeds
 independent Aurora and Riso treatments, then a join produces the poster from the
@@ -48,7 +48,7 @@ explained from source; this clip does not pretend to exercise every race conditi
 
 ## Agents: ask for a configurable training program
 
-[![The AI-written PyTorch trainer beside its generated controls.](../../images/history/ai-training.png)](https://setta.dev/history/#agents)
+[![The AI-written PyTorch trainer beside its generated controls.](https://setta.dev/history-media/feature-ai-ask.webp)](https://setta.dev/history/#agents)
 
 The March workbench receives a high-level request to write a small PyTorch image
 classifier and make its training configurable. The OpenCode integration writes a
@@ -81,7 +81,7 @@ was supplied. No successful response was painted into the interface.
 
 ## Workflows: wait for two independent reviews
 
-[![Start, two review chats, an AND gate and End with clear connections.](../../images/history/setta-model-workbench.png)](https://setta.dev/history/#agents)
+[![Start, two review chats, an AND gate and End with clear connections.](https://setta.dev/history-media/feature-workflow.webp)](https://setta.dev/history/#agents)
 
 The May workbench starts two genuine model reviews of measured training results.
 One suggests the next experiment; the other identifies missing validation evidence.
@@ -98,7 +98,7 @@ it does not establish that these chats read an independently connected note.
 
 [Watch the saved arrangement return](https://setta.dev/history/#app-mode).
 
-Open the saved Evidence and decisions Window Space. The actual loss curves and
+Open the saved Evidence review Window Space. The actual loss curves and
 prepared research note return in two separate floating windows, with their saved
 positions and sizes. The underlying canvas sections are hidden in this named view,
 so unrelated cards and edges do not compete with the restored windows. The note
@@ -106,13 +106,13 @@ summarizes measured training losses and explicitly calls for unseen validation d
 
 ## Experiment Lens: keep an investigation together
 
-[![Two battery-cell trajectories compared beside the retained selection and thermal evidence.](../../images/history/experiment-lens.png)](https://setta.dev/history/#experiment-lens-demo)
+[![Two selected battery observations beside their linked trajectory and thermal evidence.](https://setta.dev/history-media/experiment-lens.webp)](https://setta.dev/history/#experiment-lens-demo)
 
 The original simulated battery study contains 864 observations across 24 cells.
-Select cell 22 at cycle 900, then exclude LCO chemistry: the visible cohort drops
-to 576 observations, but the selected observation remains in the basket with an
-outside-cohort indicator. Select cell 11, click its trajectory at cycle 300, then
-advance the linked gallery to cycle 475.
+Exclude LCO chemistry: the visible cohort drops to 576 observations. Select
+cells 16 and 11 at cycle 900 under the same 40°C ambient temperature and 1.5C
+charge rate. Their capacity retention is 83.4% and 82.7%. Move the linked
+trajectory and thermal gallery to cycle 475.
 
 A follow-up annotation asks to recheck the accelerated capacity loss at that
 checkpoint. Include the exact thermal artifact, compare the two trajectories,
@@ -123,7 +123,7 @@ launch the experiments that produced them.
 
 ## Review: make the decision traceable
 
-[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](../../images/history/review.png)](https://setta.dev/history/#review-demo)
+[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](https://setta.dev/history-media/review.webp)](https://setta.dev/history/#review-demo)
 
 The checkout example contains conflicting imported assessments of the claim
 “No database migration is required.” Inspect its Git evidence, then qualify the
@@ -138,7 +138,7 @@ assessments are original fictional fixtures. No new model inference is shown.
 
 ## Bench: compare actual candidate outputs
 
-[![Contain and Cover thumbnails with a saved preference for Cover and its rationale.](../../images/history/bench.png)](https://setta.dev/history/#bench-demo)
+[![Contain and Cover thumbnails with a saved preference for Cover and its rationale.](https://setta.dev/history-media/bench.webp)](https://setta.dev/history/#bench-demo)
 
 Launch the original product-thumbnail comparison. Contain and Cover each run on
 the same ten generated catalog images, yielding twenty case results and twenty
@@ -151,7 +151,7 @@ measurements describe this small local example, not a general performance rankin
 
 ## RunPlan: vary a snapshot without changing the project
 
-[![RunPlan code, unchanged live parameters, six successful terminal results and their training losses.](../../images/history/runplan.png)](https://setta.dev/history/#runplan-demo)
+[![RunPlan code, unchanged live parameters, six successful terminal results and their training losses.](https://setta.dev/history-media/runplan.webp)](https://setta.dev/history/#runplan-demo)
 
 The May 2026 workbench runs a prepared numerical experiment through the original
 Python `SettaRunner` and `RunPlan` APIs. `grid_params` combines three learning
@@ -188,6 +188,6 @@ These applications and the Python runner are preserved historical software;
 they are not bundled services in today's React library.
 
 The [image provenance](images.md#focused-feature-demonstrations) records the
-restoration and media sources. The overview and promo use the same accepted replacement recordings. The
+restoration and media sources. The
 [source history](feature-history.md) remains the authority for unfilmed modes
 and integrations; the [coverage index](coverage.md) makes those limits explicit.

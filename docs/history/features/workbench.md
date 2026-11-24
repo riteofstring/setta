@@ -107,7 +107,7 @@ separate snapshots and exposed each run's status and logs. In the restored May
 workbench, three learning rates and two seeds produce six successful numerical
 experiments. The live project's parameters remain `0.1` and `1`.
 
-[Watch the 23-second demonstration and read its results](../feature-demos.md#runplan-vary-a-snapshot-without-changing-the-project).
+[Watch the six-run demonstration and read its results](../feature-demos.md#runplan-vary-a-snapshot-without-changing-the-project).
 This is a new prepared experiment executed through the historical API. It shows
 a grid; random, zipped and repeated plans are documented in the
 [source history](../feature-history.md#settarunner-and-runplan-replace-the-old-sweep-design).
