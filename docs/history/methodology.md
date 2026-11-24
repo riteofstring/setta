@@ -56,11 +56,11 @@ Demonstration projects and provider substitutions are documented in the
 
 ## The retrospective film
 
-The November 23 edit contains seventy feature shots across twelve dated chapters,
+The November 24 edit contains seventy feature shots across twelve dated chapters,
 followed by a four-example gallery. The [film guide](film.md) transcribes its
-on-screen captions, gives chapter times and retains the source labels. The
+on-screen captions, gives chapter times and retains the source notes. The
 [webpage](https://setta.dev/history/#film) serves a smaller encode of the same
-4:37 cut; the original 1080p master and raw takes remain preserved separately.
+4:45 cut; the original 1080p master and raw takes remain preserved separately.
 
 The summer captures distinguish actual local-model work from prepared research
 data, workflow drafts and Setta 4’s built-in demonstrations. An authored graph

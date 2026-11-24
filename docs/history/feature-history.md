@@ -23,6 +23,8 @@ The account covers the preserved source history from October 2020 through Novemb
 | November 2026               | [Current library inventory and the first npm release](#november-2026-the-current-react-library-and-first-npm-release)                            |
 | Cross-reference             | [Feature continuity and removals](#feature-continuity-and-removals-at-a-glance) · [Source landmarks](#source-landmarks-for-further-reading)      |
 
+The [visual coverage index](coverage.md) maps these feature families to real application examples and identifies capabilities explained from source.
+
 ## Reading this history
 
 The repository combines formerly separate projects and branch experiments. Its chronological sequence is a reconstruction: a **History transition** restores another source baseline, and **Recovered WIP** identifies unfinished saved work. Those transitions are not product features. Setta 3 and Setta 4 are separate experiments; today's library was extracted from the Setta 2 workbench. A later date therefore does not mean that all earlier capabilities were inherited.

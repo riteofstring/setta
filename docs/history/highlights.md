@@ -42,17 +42,15 @@ _Restored June 2022 ioVuu interface. The undo/redo implementation dates to May 2
 [Control presets](https://github.com/riteofstring/setta/commit/7e3fa175e4701bae478e4ab0a0eee707463215fc) ·
 [Undo and redo](https://github.com/riteofstring/setta/commit/d47946d06496c46f5c1f53afe4ea19d45b38c663)
 
-## Change a number, see a new result
+## Follow the program’s output
 
-![Signal lab with a frequency slider, calculated waveform, Python callback and mathematical notes.](../../images/history/runcoder-signal-lab.png)
+![Terminal logs and training curves update together.](../../images/history/training-output.png)
 
-**2023–2024 · Runcoder.** Interactive Python connected controls to computed output.
-In this Signal lab, moving the frequency slider recomputes a damped waveform. The
-parameter, chart, callback and explanation occupy one workspace, so the relationship
-between input and result stays visible.
-
-_New demonstration in the restored January 2024 build; its Python callback computes
-the displayed 180-sample waveform._
+**2023–2024 · Runcoder.** Interactive Python connected controls to computed output,
+and terminals and charts brought the running program into the workspace. This
+original January 2025 recording shows actual training logs and loss curves.
+The [live Python examples](https://setta.dev/history/#live-python) show controls,
+authored callbacks and generated images together.
 
 [Interactive execution](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102) ·
 [Visible chart output](https://github.com/riteofstring/setta/commit/6d21c9c7e53f991cea12174bae1c038a241b75a1)

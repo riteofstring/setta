@@ -14,7 +14,6 @@ curves and model responses are real outputs.
 
 | Image                                                                         | Source checkpoint                                                                                              | What it shows                                                                                                                                                                 |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Signal lab](../../images/history/runcoder-signal-lab.png)                    | [January 2024 Runcoder](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | A frequency slider drives an interactive Python callback and its 180-sample damped waveform.                                                                                  |
 | [Cluster lab](../../images/history/runcoder-experiments.png)                  | [January 2024 Runcoder](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | Shared parameters, scikit-learn callable controls, saved seed variants and a feature-count sweep. This is a configured experiment, not evidence of completed sweep execution. |
 | [Julia studio](../../images/history/setta-image-lab.png)                      | [November 2024 Setta](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492)   | An interactive Python task computes three 640 × 640 Julia-set studies and an escape-time distribution, using NumPy and Pillow.                                                |
 | [Training review](../../images/history/setta-model-workbench.png)             | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Two chat reviews in an executed Start–AND–End workflow. Both responses completed and the gate received both inputs.                                                           |
@@ -27,9 +26,7 @@ imported into the application's native displays. The captures do not demonstrate
 or detached-job execution. At the displayed precision, rates 0.3 and 0.6 both reach a training
 MSE of 0.007273; no validation set was used.
 
-The chat responses came from **Qwen3-4B, Q4_K_M**, served locally on a temporary GPU through
-the application's OpenAI-compatible provider connection. The measured results were included
-explicitly in both prompts. The canvas also has section-context links, but this capture does
+The current Training review image was recaptured on November 24 with **Qwen3-30B-A3B, Q4_K_M**, served locally on a temporary GPU through the application's OpenAI-compatible provider connection. Its five workflow sections occupy separate columns with clear branching and joining routes. Native view controls hide the unrelated evidence sections and access links for this workflow view. The measured results were included explicitly in both workflow prompts. The canvas also has section-context links, but this capture does
 not establish that those links alone supplied the evidence. The responses reproduce neither
 an original provider's answers nor its performance.
 
@@ -40,20 +37,19 @@ they do not add the demonstrated workflow, chart, spreadsheet or task-board feat
 
 ## Summer 2026 restoration captures
 
-These six frames were extracted on November 23, 2026 from retained cloud
+The original frames were extracted on November 23, 2026 from retained cloud
 recordings of the July 11 Setta 3 and August 2 Setta 4 builds. The PNGs preserve
 the recorded pixels at the crops below. The webpage uses 1800 × 1013 WebP
 derivatives. Frame times are within the original source recordings, not the
 edited film.
 
-| Image                                                                     | Source checkpoint                                                                                       | Recorded frame and evidence                                                                                                                                                                                       |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Scrolling workspace](../../images/history/setta3-workspace.png)          | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-01-niri-workspace-take02.mp4` at 0.3 s; crop x/y/w/h [0, 0, 2560, 1440]. Agent chat, passing tests and task status in the scrolling pane workspace. Actual local-model work in a prepared project.           |
-| [Easy Button](../../images/history/setta3-easy-button.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-04-easy-button-run.mp4` at 5 s; crop x/y/w/h [208, 150, 2144, 1206]. A submitted request and the active run. Completion of this request is not established.                                                  |
-| [Semantic research graph](../../images/history/setta3-semantic-graph.png) | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-02-semantic-graph-take03.mp4` at 3.5 s; crop x/y/w/h [512, 286, 2048, 1152]. Authored nodes, typed edges and file evidence. The experiment results are synthetic; automatic cartography is not demonstrated. |
-| [Workflow draft](../../images/history/setta3-workflow.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-03-workflow-editor.mp4` at 6.5 s; crop x/y/w/h [0, 108, 2368, 1332]. Native node editing and successful draft validation. The prepared workflow was not executed.                                            |
-| [Director graph](../../images/history/setta4-director.png)                | [August 2 Setta 4](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b) | `r12-05-director-replay.mp4` at 4.5 s; crop x/y/w/h [48, 54, 2464, 1386]. The original director-and-worker-interleaved replay scenario. Renderer and fixture events, not live orchestration.                      |
-| [Structured report](../../images/history/setta4-report.png)               | [August 2 Setta 4](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b) | `r12-06-artifact-report.mp4` at 4.5 s; crop x/y/w/h [328, 258, 1888, 1062]. The original Weekly platform review artifact. Built-in example metrics, a table and a chart.                                          |
+| Image                                                                     | Source checkpoint                                                                                       | Recorded frame and evidence                                                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Scrolling workspace](../../images/history/setta3-workspace.png)          | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-01-niri-workspace-take02.mp4` at 0.3 s; crop x/y/w/h [0, 0, 2560, 1440]. Agent chat, passing tests and task status in the scrolling pane workspace. Actual local-model work in a prepared project.       |
+| [Easy Button](../../images/history/setta3-easy-button.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-04-easy-button-run.mp4` at 5 s; crop x/y/w/h [208, 150, 2144, 1206]. A submitted request and the active run. Completion of this request is not established.                                              |
+| [Semantic research graph](../../images/history/setta3-semantic-graph.png) | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r14-setta3-semantic-graph-take02.mp4`, final poster; full 2560 × 1440 frame. Authored nodes, typed edges and file evidence. The experiment results are synthetic; automatic cartography is not demonstrated. |
+| [Workflow draft](../../images/history/setta3-workflow.png)                | [July 11 Setta 3](https://github.com/riteofstring/setta/tree/6258039962ac90a9e5fd44c141c50ce48843b209)  | `r12-03-workflow-editor.mp4` at 6.5 s; crop x/y/w/h [0, 108, 2368, 1332]. Native node editing and successful draft validation. The prepared workflow was not executed.                                        |
+| [Structured report](../../images/history/setta4-report.png)               | [August 2 Setta 4](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b) | `r12-06-artifact-report.mp4` at 4.5 s; crop x/y/w/h [328, 258, 1888, 1062]. The original Weekly platform review artifact. Built-in example metrics, a table and a chart.                                      |
 
 Setta 3 uses its native web client and Go backend. Its Codex integration runs
 local **Qwen3-30B-A3B Q4_K_M**, served by llama.cpp, in place of the original
@@ -62,7 +58,7 @@ and a real sorting bug that the model fixed. The workspace transcript and
 terminal output are actual recorded work. The Easy Button request selected
 for the film remained active until the backend was restarted.
 
-The semantic graph was authored through the native API: seven nodes, seven
+The semantic graph was reframed on November 24 through native node-position and label operations. The replacement preserves all seven original summaries, seven edges and their evidence, while showing every node and route inside the frame. The graph was authored through the native API: seven nodes, seven
 typed edges and three file-evidence links. The cartographer did not produce
 an accepted patch. The separate workflow draft passed native validation but
 was not executed. Its prepared sequence is Start → Compare experiments → Plan
@@ -76,7 +72,7 @@ or an agent-authored artifact. No historical UI or model response was fabricated
 
 The complete source takes and restoration inputs remain in the retained
 capture collection and cloud disks. The [film guide](film.md) records the
-selections in the 4:37 edit; its crop and timing can differ from these stills.
+selections in the 4:45 edit; its crop and timing can differ from these stills.
 
 ## Focused feature demonstrations
 
@@ -103,7 +99,7 @@ Raw takes, JPEG frames, timestamps, final application state and the Lens selecti
 packet remain in the capture collection's `setta-retrospective/footage/gap/` retention
 set. `CAPTURE-REVISION13.md` and `plans/revision13/feature-demos.json` in that
 collection record runtime limits, capture repairs and exact edit decisions.
-The four new clips supplement the existing 4:37 overview and 33-second promo.
+The focused clips supplement the updated 4:45 overview and 33-second promo.
 
 ## Earlier restoration captures
 
@@ -112,7 +108,7 @@ The following images remain available in the feature histories.
 | Image                                                                               | Restored build                                                                                                     | What it shows                                                                                                                                         |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [ABCDE nested forms](../../images/history/abcde-nested-forms.png)                   | [November 2020 frontend](https://github.com/riteofstring/setta/commit/cf95643cd5a6c9a7fe67736db07815fecc1addcc)    | Compose and ColorJitter controls with nested arguments. Execution is not demonstrated.                                                                |
-| [ioVuu workspace](../../images/history/iovuu-workspace.png)                         | [June 2022 frontend](https://github.com/riteofstring/setta/commit/a0c694437b8cb938b2cfe9aa8c969ef48b6b8364)        | Canvas sections, a project outline and parameter editing.                                                                                             |
+| [ioVuu workspace](../../images/history/iovuu-workspace.png)                         | [June 2022 frontend](https://github.com/riteofstring/setta/commit/a0c694437b8cb938b2cfe9aa8c969ef48b6b8364)        | Revision-nine minimap take at 3.5 seconds: canvas navigation and configured dataset sections.                                                         |
 | [Runcoder interactive Python](../../images/history/runcoder-interactive-python.png) | [January 2024 application](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1)  | A global parameter and the calculated chart from interactive Python.                                                                                  |
 | [Setta configuration](../../images/history/setta-configuration.png)                 | [November 2024 application](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492) | GUI values after a YAML edit: `c = 3`, `n = 64`. The editor itself is outside this frame.                                                             |
 | [Connected chats](../../images/history/setta-connected-chats.png)                   | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new six-run demonstration table connected to two chats. A substitute local model produced the displayed responses through the restored application. |
@@ -188,3 +184,23 @@ were preserved; it does not establish the date each screenshot was taken.
 | [Transformers expanded developer view](../../images/history/transformers-training-expanded.png) | [Source](https://github.com/user-attachments/assets/3d03506a-6c08-47e5-843e-2b6b87f5eaeb) |
 | [PyTorch Metric Learning](../../images/history/metric-learning.png)                             | [Source](https://github.com/user-attachments/assets/45ae2047-9dbd-4057-9191-9a3460357ccc) |
 | [SapientML](../../images/history/sapientml.png)                                                 | [Source](https://github.com/user-attachments/assets/d58e648a-47e2-4eda-b9e5-9062494518a4) |
+
+## November 24 feature captures
+
+| Image                                                           | Source and evidence                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Python Canvas](../../images/history/python-canvas.png)         | October 11 source `74837d35da`; original Model Workshop fixture `5344734e39`. Actual degree 3 result after 83.3%→94.2% held-out accuracy. Native controls, generated code and terminal output.                                                                                         |
+| [Realtime](../../images/history/realtime-signal-bloom.png)      | Same application source; original Signal Bloom drawing and handlers. Final matching-lineage joined poster after native drawing and recipe edits.                                                                                                                                       |
+| [AI trainer](../../images/history/ai-training.png)              | March source `1a2f277ac712befd238ed383f696b91e3149131b`. Actual Qwen3-30B-A3B output after two corrective turns, native typed controls and generated invocation. CLI help/dry-run passed in the historical workspace; exact source separately passed a Runpod PyTorch execution check. |
+| [Connected context](../../images/history/connected-context.png) | Same March source. Real answer reads a six-row note through an incoming read-only edge. Prepared native positions keep both full cards and the route visible.                                                                                                                          |
+| [Training output](../../images/history/training-output.png)     | Original January 2025 training_run recording at 28 seconds. Actual step/log/loss output; no completion claim.                                                                                                                                                                          |
+
+The May workflow image uses take03 at 36 seconds, cropped 2432×1368 at 64,72.
+The same run's web edit removes waiting and a native refresh between its start and
+completed model responses. The prompts explicitly include measured training data.
+Window Spaces restores a prepared curve-and-note arrangement through the native UI.
+
+Python Canvas and Realtime were built and executed on OVH; Chrome ran on Runpod.
+Original PNGs, raw takes, generated code, actual terminal results and project state
+remain retained. Their [walkthroughs](feature-demos.md) explain the measured outcomes;
+the [coverage index](coverage.md) records the limits of each demonstration.

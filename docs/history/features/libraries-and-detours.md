@@ -57,12 +57,9 @@ The restoration uses its native web client and Go backend._
 
 ### Setta 4: follow workstreams and inspect their artifacts
 
-![The Setta 4 Director graph renders a built-in sequence of requests, actions and milestones.](../../../images/history/setta4-director.png)
-
-**Follow the threads of work.** Setta 4 gave workstreams and their relationships
-a graph presentation. This frame comes from the original
-`director-and-worker-interleaved` replay demonstration, using its native replay
-clock. It demonstrates the renderer and fixture events, not a live agent run.
+Setta 4 followed workstreams and their relationships in a Director command
+center. Its recorded events, declarations and attributed interpretations were
+distinct kinds of evidence. The structured report below shows its artifact UI.
 
 ![An example Setta 4 report combines latency and ticket metrics, a table and a bar chart.](../../../images/history/setta4-report.png)
 

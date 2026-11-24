@@ -40,8 +40,6 @@ Use the FLUX.1-Fill-dev model by Black Forest Labs to inpaint and outpaint image
 
 Chat with Llama 3.3 using the Groq API.
 
-[![Groq API Chat in the historical Setta workspace](../../images/history/groq-chat.png)](../../images/history/groq-chat.png)
-
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/groq_api_chat)
 
 ## Transformers Sequence Classification

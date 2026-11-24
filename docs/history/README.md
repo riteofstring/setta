@@ -9,7 +9,7 @@ This guide follows the ideas and their changing interfaces. The repository combi
 16 related source histories on one `main` branch; older applications are found in earlier
 commits, while the current checkout contains the library.
 
-[**Watch the 4:37 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) · [Four focused feature demos](feature-demos.md) ·
+[**Watch the 4:45 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) · [Feature demonstrations](feature-demos.md) · [Coverage index](coverage.md) ·
 [**Start with the coolest ideas**](highlights.md) · [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
@@ -79,11 +79,12 @@ the execution environment into the project. A control could affect a calculated 
 versions and run groups supported comparing configurations instead of repeatedly rebuilding
 them by hand.
 
-![Runcoder Signal lab: a frequency slider, damped waveform, Python callback and explanatory notes.](../../images/history/runcoder-signal-lab.png)
+![A real training run with terminal output and updating loss curves.](../../images/history/training-output.png)
 
-**A small model, a live result.** The Signal lab combines a frequency control, a calculated
-waveform, its Python callback and notes on the mathematics. Changing the slider recomputes
-180 samples through the restored application's interactive Python connection.
+**Follow a computation as it runs.** Terminal logs and loss curves update together
+in the original January 2025 recording. Interactive Python also let changing
+controls recompute outputs; the later [Julia studio](https://setta.dev/history/#live-python)
+shows that relationship through actual images.
 
 ![Runcoder Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)
 
@@ -91,7 +92,7 @@ waveform, its Python callback and notes on the mathematics. Changing the slider 
 saved variants retain different seeds; a sweep selects feature counts of 2, 8 and 32.
 This view shows configuration and experiment planning, rather than completed training runs.
 
-_Both are new demonstration projects in the restored January 2024 build._
+_Cluster lab is a prepared demonstration in the restored January 2024 build; the training frame comes from an original January 2025 recording._
 
 Executable parameter-value sweeps appear in January 2024. Sweeps across saved versions
 extend them in February. Hover previews of section versions date to December 2023,
@@ -186,17 +187,16 @@ editor. New captures show an authored graph with synthetic experiment data
 and a workflow draft that passed validation. They demonstrate editing and
 presentation, not automatic cartography or completed workflow execution.
 
-![Setta 4’s original Director graph replay with requests, actions and milestones.](../../images/history/setta4-director.png)
+![Setta 4’s built-in report with metrics, a table and a chart.](../../images/history/setta4-report.png)
 
 **Make the work itself visible.** Setta 4 explored workstreams and their
 relationships in a Director command center. Structured artifacts combined
-metrics, tables and charts into readable results. The graph replay and report
-captures use the application’s original built-in demonstrations; the restored
+metrics, tables and charts into readable results. The report uses the application’s original built-in demonstration; the restored
 live Director did not dispatch work successfully.
 
-_Restored August 2, 2026 build · built-in graph demonstration._
+_Restored August 2, 2026 build · built-in report example._
 
-[Explore all six captures and the experimental directions](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments).
+[Explore the captures and the experimental directions](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments).
 [Image provenance](images.md#summer-2026-restoration-captures) records exact
 source revisions, frame selections, prepared data and model substitutions.
 
