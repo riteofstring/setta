@@ -1,5 +1,7 @@
 # Python becomes an interface
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 **Historical application.** The original problem was making Python configuration explorable.
 Function metadata became controls; nested callables, references and generated code connected
 those controls to executable programs. Later autocomplete, YAML and reference-aware renaming

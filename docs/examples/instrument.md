@@ -1,5 +1,7 @@
 # Example application: an ambient instrument
 
+[Documentation](../README.md) / Package examples
+
 The [instrument at setta.dev](https://setta.dev) demonstrates one application of
 Setta's workspace and browser pipelines. Its musical behavior is implemented by
 the consuming application.

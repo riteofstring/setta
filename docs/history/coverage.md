@@ -1,8 +1,18 @@
 # Feature guide and visual coverage
 
+[Documentation](../README.md) / [History](README.md)
+
 This index connects the [chronological feature history](feature-history.md) to the [visual retrospective](https://setta.dev/history/). It covers feature families rather than treating each implementation change as a separate demonstration. **Motion** means a real interaction is recorded; **still** means an actual application surface is shown; **explained** means source establishes the capability but the selected media does not exercise it.
 
 The feature history remains the authority for dates and product boundaries. The [media provenance](images.md) and [focused demonstrations](feature-demos.md) describe what the recordings establish. A configured model is not a completed training run, a draft is not an executed workflow, and a fixture is not live agent work.
+
+**On this page**
+
+- [Python interfaces and the spatial canvas](#python-interfaces-and-the-spatial-canvas)
+- [Experiments, source files and live Python](#experiments-source-files-and-live-python)
+- [The project workbench](#the-project-workbench)
+- [Agent experiments and focused applications](#agent-experiments-and-focused-applications)
+- [The reusable library](#the-reusable-library)
 
 ## Python interfaces and the spatial canvas
 
@@ -97,3 +107,5 @@ The feature history remains the authority for dates and product boundaries. The 
 | Themes, accessibility, touch, RTL and reduced motion                | [Library primitives](https://setta.dev/history/#library-primitives)                                                                  | Source-backed explanation beside real consumers. The media is not a comprehensive accessibility conformance test.                                                                                                                        |
 | Independent browser pipeline API                                    | [Library primitives](https://setta.dev/history/#library-primitives)                                                                  | Motion: changing a room recomputes its acoustics in the actual instrument. Staged dependencies, newest pending input, retained last success, progress, timeout and cancellation are explained.                                           |
 | Browser-only package and historical removals                        | [Library](https://setta.dev/history/#library)                                                                                        | Explicit product boundary: Python and Go servers, agents, schedulers and historical applications are not bundled in the current React library.                                                                                           |
+
+[History guide](README.md) · [All documentation](../README.md)

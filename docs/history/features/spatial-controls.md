@@ -1,5 +1,7 @@
 # Controls, composition and navigation
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 **Historical application → current library.** A long configuration became easier to manage
 when its parts could be searched, regrouped and shown in different layouts. This developed
 through distinct steps: list reordering, pan/zoom navigation, free positioning, nested groups

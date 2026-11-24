@@ -1,5 +1,7 @@
 # Reactive state and AI
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 **Historical application.** Listeners and generated state connected workspace values to
 running code. Bound files brought source editing and hot reload into the same loop. AI chat
 then gained access to project context and operations, allowing it to act on the workspace.

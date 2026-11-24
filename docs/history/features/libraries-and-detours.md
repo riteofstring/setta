@@ -1,5 +1,7 @@
 # From workbench to reusable tools
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 Extraction made the workspace useful beyond the application that had grown around it.
 The Setta 2-derived line separated controls, nested sections, editors, graphs, saved views
 and windows into a React library. Browser pipelines then made it possible to coordinate
@@ -8,6 +10,17 @@ application computations on static hosting.
 The examples below show what people could build around those pieces. Their printing,
 machine learning, rendering and Python algorithms belong to the applications. Setta
 provides the workspace and execution coordination.
+
+**On this page**
+
+- [Summer 2026: two agent-workspace experiments](#summer-2026-two-agent-workspace-experiments)
+- [August: the surrounding workspace becomes reusable](#august-the-surrounding-workspace-becomes-reusable)
+- [October 2026: a sketch becomes a print](#october-2026-a-sketch-becomes-a-print)
+- [October 2026: photographs and captured objects](#october-2026-photographs-and-captured-objects)
+- [October 2026: make the processing visible](#october-2026-make-the-processing-visible)
+- [Five local applications around the library](#five-local-applications-around-the-library)
+- [The current library](#the-current-library)
+- [Implementation landmarks](#implementation-landmarks)
 
 ## Summer 2026: two agent-workspace experiments
 
@@ -74,6 +87,18 @@ Both demonstrations run in the restored Electron application._
 [Exact capture provenance](../images.md#summer-2026-restoration-captures) ·
 [Setta 3 source history](../feature-history.md#late-mayjuly-2026-the-setta-3-experiment) ·
 [Setta 4 source history](../feature-history.md#late-julyearly-august-2026-the-setta-4-director-experiment)
+
+## August: the surrounding workspace becomes reusable
+
+The library rebuilt Outline and Inspector with explicit interaction contracts. Outline
+added group disclosure, keyboard/typeahead navigation and tree semantics; the workbench
+Overview had flattened visible section records. Inspector added selected-item editing
+and compatible multi-section actions beyond the old single-section editor. Saved Views
+became a separate controlled pane with host-owned persistence.
+
+These were new library behaviors, documented in the
+[contemporaneous comparison](https://github.com/riteofstring/setta/blob/5672885e2072afb4967244358e56e01edb562015/docs/evidence/workspace-shell/reference/README.md).
+The old Git, SSH, AI, plugin and file services remained application integrations.
 
 ## October 2026: a sketch becomes a print
 
@@ -197,17 +222,5 @@ These are preserved implementation landmarks, not a release calendar.
 
 The summer experiments above are separate directions. Their position in the
 reconstructed chain does not make them ancestors of the Setta 2-derived library.
-
-## August: the surrounding workspace becomes reusable
-
-The library rebuilt Outline and Inspector with explicit interaction contracts. Outline
-added group disclosure, keyboard/typeahead navigation and tree semantics; the workbench
-Overview had flattened visible section records. Inspector added selected-item editing
-and compatible multi-section actions beyond the old single-section editor. Saved Views
-became a separate controlled pane with host-owned persistence.
-
-These were new library behaviors, documented in the
-[contemporaneous comparison](https://github.com/riteofstring/setta/blob/5672885e2072afb4967244358e56e01edb562015/docs/evidence/workspace-shell/reference/README.md).
-The old Git, SSH, AI, plugin and file services remained application integrations.
 
 [Historical guide](../README.md) · [Repository composition](../timeline.md)

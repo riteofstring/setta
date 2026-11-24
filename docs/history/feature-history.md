@@ -1,5 +1,7 @@
 # Setta: chronological feature history, 2020–2026
 
+[Documentation](../README.md) / [History](README.md)
+
 Setta began as a way to describe Python objects and build interfaces for their arguments. It grew into a spatial programming and experiment workbench, acquired live Python interaction and AI tools, explored separate agent-centered applications, and eventually became a reusable React workspace library. This document follows those changes chronologically, including features that were replaced, removed, or confined to an experimental branch.
 
 The account covers the preserved source history from October 2020 through November 21, 2026. Dates identify implementation evidence in this repository, not necessarily public launches. The endpoint is the source tree at [d7ac38a6ff](https://github.com/riteofstring/setta/commit/d7ac38a6ff), following the first 0.1.0 package release. Historical behavior is described from source, commit changes, and contemporaneous documentation; an implementation in the archive does not establish that every historical environment still works.
@@ -881,7 +883,7 @@ The independent showcase illustrated browser applications built with the public 
 | 3D sketchbook               | Linked macro controls such as Disperse, Vortex, and Ripple adjusted several renderer values together, including spread, size, twist, hue, wave, and saturation.                        |
 | Ambient instrument          | A spatial control surface organized an audio/visual instrument; the sound engine, simulation, and rendering were application code.                                                     |
 
-These examples showed the library's range without making image generation, reconstruction, Gaussian rendering, or audio synthesis built-in Setta features. The [visual tour](README.md) and [image provenance](images.md) identify the preserved sources and captures; they should be consulted before treating a screenshot as evidence of a particular historical implementation date.
+These examples showed the library's range without making image generation, reconstruction, Gaussian rendering, or audio synthesis built-in Setta features. The [illustrated timeline](tour.md) and [image provenance](images.md) identify the preserved sources and captures; they should be consulted before treating a screenshot as evidence of a particular historical implementation date.
 
 ## November 2026: the current React library and first npm release
 
@@ -1053,4 +1055,4 @@ The following tags provide stable entry points into the reconstructed archive. A
 | Library                          | milestone/2026-08-library-extraction; milestone/2026-10-browser-pipelines; milestone/2026-11-current-library; source/setta; v0.1.0.                                                                                       |
 | Preserved dependency changes     | source/xterm.js and source/xyflow contain selected fork changes, not complete upstream histories.                                                                                                                         |
 
-The [visual tour](README.md) provides a shorter illustrated route. The [feature chapters](features/python-interfaces.md), [examples](examples.md), [composition timeline](timeline.md), and [image provenance](images.md) provide complementary views of the same source history.
+The [illustrated timeline](tour.md) provides a shorter illustrated route. The [feature chapters](features/python-interfaces.md), [examples](examples.md), [composition timeline](timeline.md), and [image provenance](images.md) provide complementary views of the same source history.

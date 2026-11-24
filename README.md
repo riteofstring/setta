@@ -3,111 +3,71 @@
 
 # Setta
 
-**Build interactive tools around your own data and code.**
+**Six years of experiments in how we work with code, data and AI.**
 
-Setta is a TypeScript/React toolkit for configurable workspaces. Combine typed controls,
-nested panels, editors, graphs, saved views and floating windows around your application.
-You supply the data and algorithms; Setta supplies the workspace interactions.
+Setta began in 2020 as **ABCDE**, turning Python arguments into interfaces. It became
+**ioVuu**, then **Runcoder**, then **Setta**: a spatial experiment tool, a programmable
+workbench, and a series of explorations in working with AI agents. The recurring idea
+was to keep controls, code and results together in a workspace you could reshape.
 
-[**Get started**](#get-started) ·
-[Live example: ambient instrument](https://setta.dev) · [Explore the history](docs/history/highlights.md)
+This repository preserves that history: the interfaces, the ideas, the detours and
+the source behind them. The current React package is one outcome of that work.
 
-## Why Setta?
+[**Explore the interactive retrospective →**](https://setta.dev/history/)
 
-| What you want to do                           | What Setta provides                                                                      |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Organize a complex tool                       | Nested sections, horizontal/vertical groups, and drag-and-drop composition               |
-| Let users configure their work                | Typed controls, validation, diagnostics and custom React content                         |
-| Present the same content in different ways    | Saved views, canvas layouts, floating windows and focused section surfaces               |
-| Navigate and edit large workspaces            | Find, commands and optional structural undo/redo                                         |
-| Keep expensive computations off the UI thread | Optional browser worker pipelines with dependencies, progress, cancellation and recovery |
+[Illustrated highlights](docs/history/highlights.md) ·
+[History guide](docs/history/README.md) · [All documentation](docs/README.md)
 
-These building blocks suit simulation tools, data explorers, configuration editors and creative
-applications. Your application decides what a value means, what a connection does, and where
-data is stored.
+[![Setta's Julia studio: three fractal images beside their controls, Python code, formula and chart.](images/history/setta-image-lab.png)](https://setta.dev/history/#live-python)
 
-## How it fits into your application
+_Change a parameter, watch Python recompute the images. Julia studio demonstrates the
+November 2024 application; [capture details](docs/history/images.md#earlier-restoration-captures)._
 
-![Setta's workspace connects to your application, which owns the data, algorithms and storage. Optional browser pipelines run its computations in Web Workers.](images/setta-architecture.svg)
+## Ideas explored along the way
 
-The workspace and browser pipelines can be used together or independently. Browser pipelines
-run trusted application computations in Web Workers on static hosting. Applications can also
-connect the workspace to their own backend.
+| Period                       | What changed                                                                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2020–2021 · ABCDE            | [Python functions and classes became composable controls, then executable programs.](docs/history/features/python-interfaces.md)                                                                       |
+| 2022–2023 · ioVuu → Runcoder | [The interface became a canvas of movable sections, groups and reusable configurations.](docs/history/features/spatial-controls.md)                                                                    |
+| 2023–2024 · Runcoder → Setta | [Saved variants, parameter sweeps, terminals and charts brought experiments into the workspace.](docs/history/features/experiments.md)                                                                 |
+| 2024–2025 · Setta            | [Live Python, drawing and generated images connected controls to visible results.](docs/history/highlights.md#put-images-mathematics-and-code-on-the-same-canvas)                                      |
+| 2025–2026 · Setta workbench  | [Files, Git, remote environments, agents and executable workflows shared one project.](docs/history/features/workbench.md)                                                                             |
+| Summer 2026 · Setta 3 & 4    | [Separate experiments explored scrolling agent workspaces, research graphs and a Director command center.](docs/history/features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) |
+| August–November 2026         | [Workspace interactions became a library used by creative tools and focused research applications.](docs/history/features/libraries-and-detours.md)                                                    |
 
-Setta builds on [React Flow](https://reactflow.dev/) by xyflow for its canvas foundation.
-React Flow already supplies pan/zoom, draggable nodes, connections and custom React content.
-Setta adds a workspace document model and coordinated section layouts, parameter editing,
-saved presentations, window handoff and editing operations. Adopting Setta means using those
-document and interaction conventions; application logic, storage and sync remain yours.
+The [illustrated tour](docs/history/tour.md) follows the changing interfaces. For individual
+features and their implementation dates, use the [source-linked chronology](docs/history/feature-history.md).
 
-## Example application: the ambient instrument
+## Explore the source history
 
-[![An example built with Setta: the ambient instrument's controls and workspace over its animated landscape.](images/instrument.png)](https://setta.dev)
+Sixteen related project histories are collected in this repository. Earlier applications
+live in earlier commits; the current checkout contains the extracted library. Setta 3
+and Setta 4 were separate experiments, while the library came from the Setta 2 workbench.
 
-**The instrument is an example application built with Setta.** Its audio engine, musical rules
-and 3D visuals are application code. Setta supplies the workspace, controls, graph interactions and
-worker orchestration. The library has no audio or 3D-engine dependency.
+The [repository timeline](docs/history/timeline.md) identifies the source trees and major
+boundaries. The [reconstruction guide](docs/history/methodology.md) explains the lineage,
+its limits, and how to browse `source/*` and `milestone/*` tags without building anything.
 
-[Try the instrument](https://setta.dev) · [See which parts come from Setta](docs/examples/instrument.md)
+## Current package
 
-## Get started
+`@riteofstring/setta` provides configurable React workspaces and optional browser worker
+pipelines. Applications supply their own data, algorithms and persistence. Historical
+Python runtimes, AI integrations and workbench applications remain in the source history.
 
-The package is `@riteofstring/setta`, under the
-[riteofstring npm organization](https://www.npmjs.com/org/riteofstring). Install it in your React application:
+[Try the audio demo](https://setta.dev) ·
+[Workspace API](packages/workspace/README.md) · [Browser pipelines](packages/workspace/BROWSER.md)
 
-```sh
-npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
-```
+### Get started
 
-Import `@riteofstring/setta/styles.css` once, then follow the
-[complete component setup](packages/workspace/README.md#getting-started).
-The workspace and browser pipelines are entry points of the same package.
-
-| Entry point                      | Guide                                                                                        |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| `@riteofstring/setta`            | [React workspace and complete component setup](packages/workspace/README.md#getting-started) |
-| `@riteofstring/setta/browser`    | [Independent browser worker pipelines](packages/workspace/BROWSER.md)                        |
-| `@riteofstring/setta/styles.css` | Import once in your application                                                              |
-
-The frontend requires React 19 and an ESM bundler such as Vite. Setta is alpha software;
-APIs may change before 1.0.
+Follow the [package installation and component setup](packages/workspace/README.md#getting-started).
+The package requires React 19 and an ESM bundler; its APIs are still alpha.
 
 ### Run from source
 
-You can also build this checkout and install its local tarball.
-Use Node 26.10.0 and pnpm 10.23.0. Follow the [contributor setup](CONTRIBUTING.md#source-setup)
-to install this checkout's pinned dependencies, then run:
+Use Node 26.10.0 and pnpm 10.23.0. Follow the [contributor setup](CONTRIBUTING.md#source-setup),
+then build the current package with `pnpm --filter @riteofstring/setta build`.
+Install the resulting `packages/workspace/setta.tgz` from your consuming application.
 
-```sh
-pnpm --filter @riteofstring/setta build
-```
-
-From your consuming application:
-
-```sh
-npm install /path/to/setta/packages/workspace/setta.tgz react@19.1.1 react-dom@19.1.1
-```
-
-## Six years of experiments
-
-Setta began in 2020 as **ABCDE**, turning Python metadata into interfaces. It became
-**ioVuu**, then **Runcoder**, then **Setta**: an experiment tool, a programmable workbench,
-and finally a reusable library.
-
-[Explore the interactive history](https://setta.dev/history/). The tour includes
-the separate Setta 3 and Setta 4 experiments alongside the workbench and library.
-
-The [illustrated highlights](docs/history/highlights.md) bring together sketch-to-image
-experiments, live Python, executable AI workflows, a print studio and browser 3D tools.
-The [visual history guide](docs/history/README.md) follows those ideas through screenshots,
-feature explanations and implementation links. Historical Python execution, AI integrations
-and workbench applications are preserved in Git; the current checkout contains the library.
-The project histories are collected in one lineage.
-
-## Development
-
-See [contributing](CONTRIBUTING.md), [support](SUPPORT.md), and [security](SECURITY.md).
-The independently maintained instrument is at
-[setta.dev](https://setta.dev). Browser regression fixtures live under `fixtures/`.
+[Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md)
 
 Licensed under [Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

@@ -1,10 +1,24 @@
 # Dependency assessment, 2026-10-09
 
+[Documentation](../README.md) / Security
+
 Assessor: Codex. Retained scope: the published `@riteofstring/setta` package, the private browser
 fixture, the checked-in build and test commands, and `pnpm-lock.yaml`. Dated addenda update the
 initial review below; `.code-polishy.json` declares the active versions and individual expiry dates.
 Reassess immediately if the callers described here change. These conclusions do not cover arbitrary applications embedding
 Workspace or executing third-party build plugins. Advisory findings remain visible in Code Polishy.
+
+**On this page**
+
+- [Retained npm releases](#retained-npm-releases)
+- [Addendum, 2026-10-19: example applications removed](#addendum-2026-10-19-example-applications-removed)
+- [Addendum, 2026-10-23: supported Node and development-server advisories](#addendum-2026-10-23-supported-node-and-development-server-advisories)
+- [Addendum, 2026-10-23: withdrawn braces advisory](#addendum-2026-10-23-withdrawn-braces-advisory)
+- [Addendum, 2026-11-04: aged patches and Undici network advisories](#addendum-2026-11-04-aged-patches-and-undici-network-advisories)
+- [Addendum, 2026-11-05: Vite 6.4.4 and KaTeX removal](#addendum-2026-11-05-vite-644-and-katex-removal)
+- [Addendum, 2026-11-06: postcss-selector-parser review](#addendum-2026-11-06-postcss-selector-parser-review)
+- [Addendum, 2026-11-15: aged Undici and Vitest security fixes](#addendum-2026-11-15-aged-undici-and-vitest-security-fixes)
+- [Addendum, 2026-11-23: build-only dependency revalidation](#addendum-2026-11-23-build-only-dependency-revalidation)
 
 ## Retained npm releases
 

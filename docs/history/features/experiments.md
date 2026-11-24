@@ -1,5 +1,7 @@
 # Experiments, versions and execution
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 **Historical application.** Configuration was useful when it led to comparable runs.
 Runcoder combined interactive Python and charts with terminals, versions, parameter sweeps
 and run groups. The later workbench revisited execution through a programmable runner.

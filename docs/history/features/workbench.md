@@ -1,9 +1,22 @@
 # The programmable workbench
 
+[Documentation](../../README.md) / [History](../README.md) / Feature chapters
+
 **Historical application.** Setta expanded into a place to work with files, repositories,
 remote environments, tasks and agents. Connected context and executable workflows made the
 canvas part of how work ran, while views and app mode made it possible to expose a smaller
 surface to another person.
+
+**On this page**
+
+- [2025–2026: project tools enter the left pane](#20252026-project-tools-enter-the-left-pane)
+- [From provider settings to an agent workspace](#from-provider-settings-to-an-agent-workspace)
+- [Give each conversation a role](#give-each-conversation-a-role)
+- [Turn conversations into a workflow](#turn-conversations-into-a-workflow)
+- [Keep the evidence beside the work](#keep-the-evidence-beside-the-work)
+- [Run experiments without changing the live project](#run-experiments-without-changing-the-live-project)
+- [May 30: a smaller canvas and a full Contents editor](#may-30-a-smaller-canvas-and-a-full-contents-editor)
+- [Implementation landmarks](#implementation-landmarks)
 
 ![Experiment results connected to two Setta chats.](../../../images/history/setta-connected-chats.png)
 

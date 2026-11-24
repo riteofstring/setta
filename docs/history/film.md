@@ -1,6 +1,8 @@
-# Six years of Setta: the retrospective film
+# Archived retrospective film
 
-[Explore the interactive history](https://setta.dev/history/) · [Illustrated history](README.md) · [Feature coverage](coverage.md)
+[Documentation](../README.md) / [History](README.md)
+
+[Explore the interactive history](https://setta.dev/history/) · [Illustrated timeline](tour.md) · [Feature coverage](coverage.md)
 
 This guide documents the preserved video edition. The interactive webpage now uses
 individual feature demonstrations; the overview film remains in the video collection.
@@ -179,3 +181,5 @@ source references remain preserved. The web copy is a smaller encode of the same
 Houseplant imagery is by **Marcel Padilla**, from the
 [Gaussian Splat Objects Dataset](https://marcelpadilla.com/Gaussian_Splat_Object_Dataset/),
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+[History guide](README.md) · [All documentation](../README.md)

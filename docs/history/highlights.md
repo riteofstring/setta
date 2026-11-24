@@ -1,14 +1,31 @@
 # Ideas worth remembering
 
+[Documentation](../README.md) / [History](README.md)
+
 Setta's history is full of tools within tools: controls generated from Python, drawings
 that feed computations, experiments assembled from saved configurations, and workspaces
 that keep the result beside the code that produced it. Here are some of those ideas in
 action, from ABCDE through ioVuu and Runcoder to Setta.
 
 The applications below are historical. Their Python execution and built-in editors are
-distinct from today's [React workspace library](../../README.md). Restored-build images
+distinct from today's [React workspace library](../../packages/workspace/README.md). Restored-build images
 were captured in 2026; they are not release-day screenshots. [Image provenance](images.md)
 identifies their source checkpoints and demonstration data.
+
+**On this page**
+
+- [Make a Python object something you can explore](#make-a-python-object-something-you-can-explore)
+- [Arrange the interface around the problem](#arrange-the-interface-around-the-problem)
+- [Follow the program’s output](#follow-the-programs-output)
+- [Explore a family of experiments](#explore-a-family-of-experiments)
+- [Put images, mathematics and code on the same canvas](#put-images-mathematics-and-code-on-the-same-canvas)
+- [Keep visual configuration connected to text](#keep-visual-configuration-connected-to-text)
+- [Draw a sketch, explore several AI images](#draw-a-sketch-explore-several-ai-images)
+- [Let ordinary code grow its own controls](#let-ordinary-code-grow-its-own-controls)
+- [Make AI part of the project](#make-ai-part-of-the-project)
+- [Keep the evidence and the next decision together](#keep-the-evidence-and-the-next-decision-together)
+- [Make agent work and its context visible](#make-agent-work-and-its-context-visible)
+- [Give the same building blocks very different jobs](#give-the-same-building-blocks-very-different-jobs)
 
 ## Make a Python object something you can explore
 
@@ -204,5 +221,5 @@ The current [ambient instrument](https://setta.dev) carries the idea forward: Se
 controls, composition, graphs, windows and worker coordination; the application supplies
 its musical rules, audio engine and scenery.
 
-[Full visual history](README.md) · [Original example gallery](examples.md) ·
+[Illustrated timeline](tour.md) · [Original example gallery](examples.md) ·
 [Feature histories](README.md#browse-by-feature-or-source)

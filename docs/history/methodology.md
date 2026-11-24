@@ -1,7 +1,9 @@
 # How this history was reconstructed
 
+[Documentation](../README.md) / [History](README.md)
+
 This page explains the Git reconstruction and its limits. Start with the
-[visual tour](README.md) for the evolution of the product, or the
+[illustrated timeline](tour.md) for the evolution of the product, or the
 [composition timeline](timeline.md) to locate a particular source tree.
 
 ## Reading the lineage
@@ -73,4 +75,6 @@ capture machines. Editing, frame extraction and the web encode use retained
 pixels on the workstation. Cloud compute was stopped after capture while
 retaining the disks, restored environments and originals.
 
-[Visual tour](README.md) · [Composition timeline](timeline.md)
+[Illustrated timeline](tour.md) · [Composition timeline](timeline.md)
+
+[History guide](README.md) · [All documentation](../README.md)

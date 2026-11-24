@@ -1,8 +1,21 @@
 # Development tooling rationale
 
+[Documentation](../README.md) / Package design
+
 This document owns current non-local rationale for the directly mapped workspace build, Vitest
 setup, and Chrome DevTools launcher files. Product runtime behavior remains in the module design
 records.
+
+**On this page**
+
+- [Hosted verification](#hosted-verification)
+- [Browser fixture server](#browser-fixture-server)
+- [Workspace build and CodeMirror module identity](#workspace-build-and-codemirror-module-identity)
+- [Browser test shims](#browser-test-shims)
+- [Workspace browser interaction acceptance](#workspace-browser-interaction-acceptance)
+- [Historical renderer evidence](#historical-renderer-evidence)
+- [Production performance profile](#production-performance-profile)
+- [npm publication](#npm-publication)
 
 ## Hosted verification
 

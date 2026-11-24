@@ -1,5 +1,7 @@
 # Repository composition through time
 
+[Documentation](../README.md) / [History](README.md)
+
 This table describes how preserved projects coexist in the reconstructed
 checkout. A project's last commit does not prove it stopped being used. The
 transitions below organize source history rather than invent retirement dates.

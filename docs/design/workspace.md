@@ -1,8 +1,30 @@
 # Workspace design rationale
 
+[Documentation](../README.md) / Package design
+
 This document owns current non-local rationale for the `workspace` module. Public composition and
 API usage remain in `packages/workspace/README.md`. Accepted reference and parity records are
 preserved in the [historical evidence archive](../evidence/README.md).
+
+**On this page**
+
+- [Host and document authority](#host-and-document-authority)
+- [Standalone section projection boundary](#standalone-section-projection-boundary)
+- [Private canvas renderer boundary](#private-canvas-renderer-boundary)
+- [Direct drag handles](#direct-drag-handles)
+- [Nested sorting geometry](#nested-sorting-geometry)
+- [Managed-window geometry authority](#managed-window-geometry-authority)
+- [Extension and mutation boundaries](#extension-and-mutation-boundaries)
+- [Saved-view presentation authority](#saved-view-presentation-authority)
+- [Top-level auto-layout authority](#top-level-auto-layout-authority)
+- [Section clipboard authority](#section-clipboard-authority)
+- [Structural history authority](#structural-history-authority)
+- [Navigator discovery boundary](#navigator-discovery-boundary)
+- [Controlled editor invariants](#controlled-editor-invariants)
+- [Stylesheet and artifact boundary](#stylesheet-and-artifact-boundary)
+- [Verification harnesses](#verification-harnesses)
+- [Quick-start guidance](#quick-start-guidance)
+- [Browser execution boundary](#browser-execution-boundary)
 
 ## Host and document authority
 

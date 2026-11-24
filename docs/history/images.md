@@ -1,10 +1,26 @@
 # Image provenance
 
-The chronological tour combines original example previews, original library-era application
+[Documentation](../README.md) / [History](README.md)
+
+The [illustrated timeline](tour.md) combines original example previews, original library-era application
 screenshots, and captures of restored applications made in November 2026. Restoration captures
 show the named source checkpoints with demonstration data, not original release-day screenshots.
 Runtime restoration can include dependency, connection and provider adaptations. The
 implementation tables identify feature history independently of these captures.
+
+**On this page**
+
+- [Expanded visual tour](#expanded-visual-tour)
+- [Summer 2026 restoration captures](#summer-2026-restoration-captures)
+- [Focused feature demonstrations](#focused-feature-demonstrations)
+- [Earlier restoration captures](#earlier-restoration-captures)
+- [Library-era application screenshots](#library-era-application-screenshots)
+- [Current example](#current-example)
+- [Original example screenshots](#original-example-screenshots)
+- [November 24 feature captures](#november-24-feature-captures)
+- [Side-pane Git history](#side-pane-git-history)
+- [Parameter inspector](#parameter-inspector)
+- [Pane evolution additions](#pane-evolution-additions)
 
 ## Expanded visual tour
 
@@ -185,7 +201,7 @@ its default patch. Its musical logic, audio and scenery belong to that applicati
 
 These are application captures, not illustrations or interface mockups.
 
-[Visual tour](README.md) · [Reconstruction methodology](methodology.md)
+[Illustrated timeline](tour.md) · [Reconstruction methodology](methodology.md)
 
 ## Original example screenshots
 
@@ -259,3 +275,5 @@ These PNGs share the website’s inspected WebP framing. Original captures remai
 Both PNGs use the webpage derivative’s framing. Full-resolution sources, native
 project snapshots and screencast frames/timings are retained with the video
 collection’s revision-fifteen capture evidence.
+
+[History guide](README.md) · [All documentation](../README.md)

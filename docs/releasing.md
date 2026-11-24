@@ -1,5 +1,7 @@
 # Publishing Setta
 
+[Documentation](README.md) / Package maintenance
+
 Setta publishes one public package: [`@riteofstring/setta`](https://www.npmjs.com/package/@riteofstring/setta).
 Its version lives in `packages/workspace/package.json`; the private monorepo version is unrelated.
 

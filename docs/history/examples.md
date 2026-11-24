@@ -1,5 +1,7 @@
 # Made with Setta: the original examples
 
+[Documentation](../README.md) / [History](README.md)
+
 A drawing could become several AI images. A canvas of controls could configure a training
 run. A chat, its model settings, and the Python that powered it could share one workspace.
 These projects show how the historical Setta application put code, inputs and results together.
@@ -8,7 +10,17 @@ The screenshots below are original previews recovered from the preserved example
 documentation. Each project links to its archived source in this repository. They use the historical
 Python application and its dependencies; they are not examples for the current npm API.
 
-[Visual history](README.md) · [Image sources](images.md#original-example-screenshots)
+[Illustrated timeline](tour.md) · [Image sources](images.md#original-example-screenshots)
+
+**On this page**
+
+- [Stream Diffusion Image to Image](#stream-diffusion-image-to-image)
+- [TRL Language Model Finetuning](#trl-language-model-finetuning)
+- [Flux Inpainting](#flux-inpainting)
+- [Groq API Chat](#groq-api-chat)
+- [Transformers Sequence Classification](#transformers-sequence-classification)
+- [PyTorch Metric Learning](#pytorch-metric-learning)
+- [SapientML](#sapientml)
 
 ## Stream Diffusion Image to Image
 
@@ -70,3 +82,5 @@ Use AutoML to find the best model for tabular data.
 [![SapientML in the historical Setta workspace](../../images/history/sapientml.png)](../../images/history/sapientml.png)
 
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/sapientml_automl)
+
+[History guide](README.md) · [All documentation](../README.md)
