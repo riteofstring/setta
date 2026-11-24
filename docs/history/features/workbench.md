@@ -15,6 +15,46 @@ separate approaches to distribution. They should not be read as one continuous h
 **Current library:** the generic workspace survives; Git, SSH, task management and external
 agents are historical application integrations, not bundled services in today's package.
 
+## The tools around the canvas
+
+The main canvas was only part of the workbench. The left pane managed project tools;
+the right inspector edited the selected section, parameter or connection. Some tools
+could later float or dock elsewhere, so their original placement was not a permanent restriction.
+
+[![The Git pane beside a two-commit repository graph.](../../../images/history/git-pane-history.png)](https://setta.dev/history/#side-panes)
+
+**Inspect files and repository changes.** The file explorer previewed source and tables.
+Git showed working-tree changes, diffs, commit history and worktree information. Plugins
+could add their own panes, alongside sections, settings and backend capabilities.
+The [webpage's side-pane examples](https://setta.dev/history/#side-panes) show actual
+file previews, diff/graph inspection and plugin installation.
+
+_The Git image comes from the restored March 2026 workbench. Its two commits belong to
+a new demonstration repository, not the historical Setta repository. It demonstrates
+inspection, not staging, commits or push. [Image provenance](../images.md)._
+
+[![The right Parameters inspector supplies widget selectors and slider settings beside the canvas controls.](../../../images/history/parameter-inspector.png)](https://setta.dev/history/#side-panes)
+
+_The restored November 2024 inspector shows configured fields; it does not record a new setting being applied._
+
+**Author the interface.** Parameter UI Config selected widgets and their settings;
+Parameter Info Editing supplied friendly names and descriptions. Section settings
+controlled ports, output accessors, JSON paths and file-binding directions. Section
+Variants selected defaults, reordered alternatives and froze them. The workflow-edge
+inspector configured conditions, actions, prompts, thread handling and permissions.
+
+**Set up the project.** Custom Runs defined named one-shot or continuous commands,
+including runs derived from code blocks. AI Settings managed profiles, system prompts,
+engine assignments, allowed tools, memory scopes, transcription, templates and external
+agents. The Skills browser could create and edit Markdown instructions; custom slash
+commands saved reusable prompts and their submission mode. MCP entries showed connection
+configuration and status. Views separated canvas presentations, project configurations
+and Window Spaces; notifications and logs supplied searchable, filtered runtime information.
+
+The [source-backed inventory](../feature-history.md#side-panes-author-the-interface-and-configure-the-project)
+records these tools and their exact implementation landmarks. Skills authoring and custom
+slash commands arrived on March 1, 2026, after the earlier browser surfaces.
+
 ## Give each conversation a role
 
 Chats could branch from edited messages and keep the alternatives visible. Canvas links

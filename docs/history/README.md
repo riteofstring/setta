@@ -9,7 +9,7 @@ This guide follows the ideas and their changing interfaces. The repository combi
 16 related source histories on one `main` branch; older applications are found in earlier
 commits, while the current checkout contains the library.
 
-[**Watch the 4:45 retrospective**](https://setta.dev/history/#film) · [Film guide and chapter times](film.md) · [Feature demonstrations](feature-demos.md) · [Coverage index](coverage.md) ·
+[**Explore the interactive history**](https://setta.dev/history/) · [Feature demonstrations](feature-demos.md) · [Coverage index](coverage.md) ·
 [**Start with the coolest ideas**](highlights.md) · [Composition timeline](timeline.md) · [Reconstruction methodology](methodology.md) ·
 [Image provenance](images.md) · [Current library](../../README.md)
 
@@ -163,7 +163,7 @@ Execution also changed form: the old sweeps and run groups were removed in June 
 January 2026's SettaRunner and RunPlan added grids, zipped values, sampling, repetition
 and detached jobs. Hosted projects, later share deployments and app mode were separate
 attempts to turn workspaces into tools other people could use.
-[Explore the workbench](features/workbench.md) and [execution's return](features/experiments.md).
+[Explore the workbench and its side panes](features/workbench.md#the-tools-around-the-canvas) and [execution's return](features/experiments.md).
 
 ## Summer 2026: two agent-workspace experiments
 
@@ -177,7 +177,7 @@ current library was extracted.
 other surfaces in a scrolling strip. Panes could change width, maximize or
 shrink into an overview. Easy Button put a request and its active run into a
 focused surface. The restored workspace contains actual local-model work;
-the film’s Easy Button shot shows a run in progress.
+the Easy Button recording shows a run in progress.
 
 _Restored July 11, 2026 build, using a prepared project and local Qwen3-30B-A3B.
 The native web client connects to the restored Go backend._

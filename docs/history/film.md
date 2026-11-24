@@ -1,6 +1,9 @@
 # Six years of Setta: the retrospective film
 
-[Watch the film](https://setta.dev/history/#film) · [Illustrated history](README.md) · [Feature coverage](coverage.md)
+[Explore the interactive history](https://setta.dev/history/) · [Illustrated history](README.md) · [Feature coverage](coverage.md)
+
+This guide documents the preserved video edition. The interactive webpage now uses
+individual feature demonstrations; the overview film remains in the video collection.
 
 **4:45.3 · 70 feature shots · 12 dated chapters · original 90 BPM score**
 

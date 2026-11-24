@@ -180,7 +180,7 @@ do not establish automatic cartography, completed Setta 3 workflow execution
 or live Setta 4 orchestration._
 
 [Explore the six summer captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) ·
-[Watch the film and follow its captions](film.md)
+[Explore the interactive history](https://setta.dev/history/)
 
 ## Give the same building blocks very different jobs
 

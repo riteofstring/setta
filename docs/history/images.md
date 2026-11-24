@@ -204,3 +204,22 @@ Python Canvas and Realtime were built and executed on OVH; Chrome ran on Runpod.
 Original PNGs, raw takes, generated code, actual terminal results and project state
 remain retained. Their [walkthroughs](feature-demos.md) explain the measured outcomes;
 the [coverage index](coverage.md) records the limits of each demonstration.
+
+## Side-pane Git history
+
+`images/history/git-pane-history.png` is the original March 1, 2026 workbench
+(`c88c01bf751b0417dbc03ad29bc8168befa05ca4`) displaying a prepared repository.
+The image is extracted from `../rite-of-string-videos/setta-retrospective/footage/r4-19-git.mp4`
+at 10 seconds and cropped to x/y/w/h [0, 54, 1664, 936]. The commit dates are from
+the November 2026 capture, not the Setta source history. The companion webpage
+clip combines 1.4–6.4 seconds of diff inspection and 8.5–12.8 seconds of the graph.
+Neither establishes staging, committing, pushing or creating worktrees.
+
+## Parameter inspector
+
+`images/history/parameter-inspector.png` crops the actual Parameters inspector
+and adjacent sliders from `../rite-of-string-videos/setta-retrospective/footage/14-version-panel.png`.
+The restored source is November 26, 2024, `36e56a120386407d5cfbe08d4eb0d62acf2a1dcc`;
+the crop is x/y/w/h [640, 80, 1856, 1044]. This still establishes the selected
+widget types and their configured minimum, maximum and step fields. It does not
+demonstrate applying a new setting. The webpage uses an 1800 × 1013 WebP derivative.

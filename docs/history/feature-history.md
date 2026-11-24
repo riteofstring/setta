@@ -462,7 +462,7 @@ Specialized data surfaces widened the range of work that could stay on the canva
 - **Task boards** offered task-list and Kanban presentations, then became a dedicated section type alongside Spreadsheet.
 - **Date and time controls** supported input and display modes, including calendar-style selection and 12/24-hour presentation.
 - **Dictation** added speech-to-text input, with provider and streaming behavior evolving afterward.
-- **Skills and MCP browsers** exposed available instructions and servers, including rendered/raw file inspection and editing paths.
+- **Skills and MCP browsers** exposed available instructions and servers. Custom skill authoring and rendered/raw Markdown editing followed on March 1.
 
 Clock and Calendar sections briefly existed, then were removed the following day as date/time behavior moved into the appropriate text/meta-control forms. They should be recorded as a short-lived design, not as permanent members of the section catalog.
 
@@ -471,6 +471,34 @@ Chat added queued drafts, editing and dispatch of pending messages, richer activ
 Evidence: [spreadsheets](https://github.com/riteofstring/setta/commit/69e253ded2b29963f7023a46346041651868fc28), [task-list/Kanban modes](https://github.com/riteofstring/setta/commit/67c7b3d9cd0fe1ecca0ac09df70ed3090a93bb68), [dedicated section types](https://github.com/riteofstring/setta/commit/8d8729e5aa4598b27041925f0b73862a94f2f6e2), [Clock/Calendar removal](https://github.com/riteofstring/setta/commit/d7a63e1f68c7a839587990414f5676ec5b51c490), [date/time controls](https://github.com/riteofstring/setta/commit/01d3c59cf2b960e129c5dea4584ffe137f1e81b1), [dictation](https://github.com/riteofstring/setta/commit/e46c1267f27aac4e2b8c085c1875aa7f4c4e1de0), [per-view layouts](https://github.com/riteofstring/setta/commit/3383f5a22c27ff02367076376b5c7db71206b3d0).
 
 ## March–May 2026: workflows, windows, and the Setta 2 backend transition
+
+### Side panes: author the interface and configure the project
+
+The workbench had two substantial tool surfaces around the canvas. The left **Overview** pane managed the project; the right **UI Editor** followed the selected section, parameter or workflow edge. Many of these tools accumulated over earlier years. The March and May checkpoints establish their combined form, rather than dating every tool's introduction to spring 2026. Later windowing also let some tools leave their original pane.
+
+The right inspector made generated interfaces editable:
+
+- **Parameter UI Config** selected the widget and exposed its presentation fields. A numeric Python argument could become a slider with a chosen range and step.
+- **Parameter Info Editing** authored friendly parameter names and descriptions; **Info Editing** authored section documentation.
+- **Section Config** chose exposed input ports, authored and reordered output accessors, and selected nested JSON source paths. Code sections could bind to a file in Read & Write, Read Only or Write Only mode.
+- **Section Variants** selected, reordered, froze and designated default alternatives. Applicable Dict variants could use JSON-source behavior.
+- **Workflow Edge** settings authored triggers, signal filters, count conditions, target actions, prompt sources/templates, thread strategy and permissions. This was the editor behind the execution relationships described below.
+
+The left pane offered more than a section catalog:
+
+- **Files**, **Git**, **Watch Code**, **Plugins** and **App** provided dedicated project tools. Git included worktree inspection with branch, HEAD and current/prunable information, alongside status, diffs and history. The inspected pane does not establish staging, committing, pushing or creating worktrees.
+- **Custom Runs / Run Instructions** defined named one-shot or continuous commands, controlled their presence in the Run dropdown, and added runs from code blocks. Code-generation targets/policy, snapshot mode and workflow start/stop/reset controls belonged to this setup surface, separate from the Python RunPlan API.
+- **AI Settings** managed agent profiles, API keys, completion-verification guardrails, transcription profiles, prompt templates and external-agent adapters. Profiles combined system prompts, engine assignments, tool allowlists and memory scopes.
+- **Views** managed canvas View Modes, Project Configs and Window Spaces. These preserved different things: presentation, configured values and floating-window arrangements.
+- **Notifications / Backend Logs** offered project and severity filters, message search and copying of log information.
+
+Evidence: [March pane inventory](https://github.com/riteofstring/setta/blob/c88c01bf751b0417dbc03ad29bc8168befa05ca4/frontend/src/components/Panes/Overview/Overview.tsx#L150), [inspector tabs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/UiEditor.tsx#L133), [widget configuration](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/UIConfig/UIConfigDropdownAndFields.tsx#L21), [parameter information](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx#L149), [ports](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx#L530), [file bindings](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionConfig/CodeAreaSettings.tsx#L116), [variants](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx#L395), [workflow edge editor](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/StateMachineEdgeInspector.tsx#L109), [custom runs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/RunInstructions.tsx#L841), [AI settings](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx#L125), [views](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ViewingEditingMode.tsx#L403), [Git](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/Git/GitPane.tsx#L197), [logs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx#L381).
+
+### March 1: author skills and reusable slash commands
+
+The project chat's **Skills / MCP / Slash Commands** browser developed into an authoring surface. Users could create custom skills, edit and save their Markdown, and switch between rendered and raw views. The browser also identified skill sources and activity. MCP entries exposed configuration-file locations, transport/endpoints and runtime status. Custom slash commands associated a name with reusable prompt text and a submission mode.
+
+Evidence: [custom skill authoring and rendered/raw views](https://github.com/riteofstring/setta/commit/71417d5cf6fc4a7da7049a648a35f133e8422638), [custom slash commands](https://github.com/riteofstring/setta/commit/84b5c7926c84e161de12ef485ea8a890a758e91c), [combined browser](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx#L1250).
 
 ### Linked chats and executable workflow graphs
 
