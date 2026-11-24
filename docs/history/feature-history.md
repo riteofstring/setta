@@ -499,6 +499,8 @@ Password controls gained runtime secret storage rather than embedding the secret
 
 Dropzones accepted files or other input under configured type and size policies. They could represent retained state or emit a transient event. A server-side picker complemented browser uploads, and attachments could feed chat or interactive code. Media surfaces expanded to carousels and previews for images, audio, video, and text.
 
+On January 25, **chat attachments** connected file selection and message previews to the project assistant, canvas chat, the Python chat toolkit and external-agent adapters. Image attachments could reach a vision-capable model as image content; text files could supply their contents. This enabled asking about an attached chart or screenshot instead of transcribing it into the prompt. Support still depended on the selected model and adapter.
+
 View tabs, URL synchronization, startup defaults, and keyboard focus handling made the expanding workbench easier to enter and navigate. Parameter editing included multi-selection, reordering, indentation, outdentation, and movement between groups. Language diagnostics gained controls for ignoring or muting findings and refreshing information for unresolved callables.
 
 Evidence: [runtime password storage](https://github.com/riteofstring/setta/commit/8041d86298), [server-side file picker](https://github.com/riteofstring/setta/commit/fc2dabc56e), [chat attachments](https://github.com/riteofstring/setta/commit/144787457d), [media carousel](https://github.com/riteofstring/setta/commit/b3bf197f37), [view defaults](https://github.com/riteofstring/setta/commit/599bd8c818), [historical meta-control reference](https://github.com/riteofstring/setta/blob/eea7fb38c8/docs/reference/meta-controls.md).

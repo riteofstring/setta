@@ -18,6 +18,7 @@ implementation tables identify feature history independently of these captures.
 - [Current example](#current-example)
 - [Original example screenshots](#original-example-screenshots)
 - [November 24 feature captures](#november-24-feature-captures)
+- [Live callback and front panel](#live-callback-and-front-panel)
 - [Side-pane Git history](#side-pane-git-history)
 - [Parameter inspector](#parameter-inspector)
 - [Pane evolution additions](#pane-evolution-additions)
@@ -228,7 +229,7 @@ were preserved; it does not establish the date each screenshot was taken.
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Python Canvas](../../images/history/python-canvas.png)         | October 11 source `74837d35da`; original Model Workshop fixture `5344734e39`. Actual degree 3 result after 83.3%→94.2% held-out accuracy. Native controls, generated code and terminal output.                                                                                         |
 | [Realtime](../../images/history/realtime-signal-bloom.png)      | Same application source; original Signal Bloom drawing and handlers. Final matching-lineage joined poster after native drawing and recipe edits.                                                                                                                                       |
-| [AI trainer](../../images/history/ai-training.png)              | March source `1a2f277ac712befd238ed383f696b91e3149131b`. Actual Qwen3-30B-A3B output after two corrective turns, native typed controls and generated invocation. CLI help/dry-run passed in the historical workspace; exact source separately passed a Runpod PyTorch execution check. |
+| [AI trainer](../../images/history/ai-training.png)              | March source `c88c01bf751b0417dbc03ad29bc8168befa05ca4`. Actual Qwen3-30B-A3B output after two corrective turns, native typed controls and generated invocation. CLI help/dry-run passed in the historical workspace; exact source separately passed a Runpod PyTorch execution check. |
 | [Connected context](../../images/history/connected-context.png) | Same March source. Real answer reads a six-row note through an incoming read-only edge. Prepared native positions keep both full cards and the route visible.                                                                                                                          |
 | [Training output](../../images/history/training-output.png)     | Original January 2025 training_run recording at 28 seconds. Actual step/log/loss output; no completion claim.                                                                                                                                                                          |
 
@@ -242,15 +243,37 @@ Original PNGs, raw takes, generated code, actual terminal results and project st
 remain retained. Their [walkthroughs](feature-demos.md) explain the measured outcomes;
 the [coverage index](coverage.md) records the limits of each demonstration.
 
+## Live callback and front panel
+
+Both captures use the preserved March 1, 2026 workbench
+[`c88c01bf751b0417dbc03ad29bc8168befa05ca4`](https://github.com/riteofstring/setta/tree/c88c01bf751b0417dbc03ad29bc8168befa05ca4),
+running on OVH with Chrome recording on Runpod on November 24. The Learning-rate
+lab is a new fixture. Its actual SettaListener computes the plotted schedule,
+hot-reloads the file-bound callback and responds to the native warmup slider.
+No historical application source was changed for these demonstrations.
+
+| Image                                                               | Native framing and evidence                                                                                                                                                                      |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Callback hot reload](../../images/history/callback-hot-reload.png) | `callback-take03.mp4`; crop x/y/w/h [144, 192, 2192, 944]. The final callback contains the cosine expression and the plot visibly curves. The recording starts with the verified straight decay. |
+| [Live front panel](../../images/history/live-front-panel.png)       | `front-panel-take02.mp4`; crop [1184, 192, 1152, 944]. Nine-epoch warmup state from the actual 3 → 9 → 3 slider interaction.                                                                     |
+
+These PNGs preserve the native cropped pixels. Raw 2560 × 1440, 60 fps captures,
+initial and final fixture code, action plans and listener evidence are retained
+under `footage/gap/r18-clarity/native-callback/` in the retrospective collection.
+The listener retains the same plot resource and connection across the callback
+edit. Matplotlib 3.10.7 and Pillow 11.0.0 were installed in the cloud fixture's
+isolated dependency directory; the historical app environment was preserved.
+
 ## Side-pane Git history
 
 `images/history/git-pane-history.png` is the original March 1, 2026 workbench
 (`c88c01bf751b0417dbc03ad29bc8168befa05ca4`) displaying a prepared repository.
 The image is extracted from `../rite-of-string-videos/setta-retrospective/footage/r4-19-git.mp4`
 at 10 seconds and cropped to x/y/w/h [0, 54, 1664, 936]. The commit dates are from
-the November 2026 capture, not the Setta source history. The companion webpage
-clip combines 1.4–6.4 seconds of diff inspection and 8.5–12.8 seconds of the graph.
-Neither establishes staging, committing, pushing or creating worktrees.
+the November 2026 capture, not the Setta source history. The webpage's focused
+working-tree preview uses 1.4–6.4 seconds of diff inspection. The earlier combined
+diff/graph edit remains in the capture archive. Neither establishes staging,
+committing, pushing or creating worktrees.
 
 ## Parameter inspector
 

@@ -12,6 +12,8 @@ below describe the visible actions and measured outcomes.
 | --------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [Python Canvas](#python-canvas-change-the-model-then-execute-it)      | [Watch](https://setta.dev/history/#programming-apps)     | Change a model parameter, execute it and inspect measured results and generated Python.           |
 | [Realtime](#realtime-one-drawing-two-treatments-one-joined-result)    | [Watch](https://setta.dev/history/#programming-apps)     | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                     |
+| [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/history/#live-python)          | Replace linear decay with a cosine formula and see the running plot change.                       |
+| [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/history/#app-mode)             | Move a warmup slider and see the schedule's peak move with it.                                    |
 | [Project assistant](#agents-ask-for-a-configurable-training-program)  | [Watch](https://setta.dev/history/#agents)               | Request a configurable trainer, inspect real tool checks and adjust generated controls.           |
 | [Connected context](#connected-context-recommend-the-next-experiment) | [Watch](https://setta.dev/history/#agents)               | Supply a note through a connection, then inspect the recommendation grounded in its measurements. |
 | [Workflows](#workflows-wait-for-two-independent-reviews)              | [Watch](https://setta.dev/history/#agents)               | Run two reviews and follow the gate that waits for both to finish.                                |
@@ -39,17 +41,46 @@ application; the current React library does not include it.
 
 ## Realtime: one drawing, two treatments, one joined result
 
-[![One drawing feeds Aurora and Riso treatments in the same workspace.](https://setta.dev/history-media/feature-realtime-signal-bloom.webp)](https://setta.dev/history/#programming-apps)
+[![One drawing feeds Aurora and Riso treatments in the same workspace.](https://setta.dev/history-media/feature-realtime-drawing.webp)](https://setta.dev/history/#programming-apps)
 
 Move a triangle in the original Signal Bloom drawing. A preparation handler feeds
 independent Aurora and Riso treatments, then a join produces the poster from the
-same input lineage. The recording follows the real updated outputs and inspects
-the running Python recipe. Editing the footer position and applying it produces
-the revised poster; the original app source and retained fixture remain intact.
+same input lineage. The motion preview follows the updated outputs. A companion still shows
+the native Python recipe editor beside its composed poster. Source edits can be
+applied to the running pipeline; the original app source and retained fixture
+remain intact.
 
 The wide graph leaves clear corridors between sections. Realtime's revision checks,
 latest-input scheduling, retained last output and cooperative cancellation are
 explained from source; this clip does not pretend to exercise every race condition.
+
+## Live Python: edit the running callback
+
+[![The edited Python callback beside its cosine learning-rate curve.](../../images/history/callback-hot-reload.png)](https://setta.dev/history/#live-python)
+
+The learning-rate lab starts with a straight decay after a three-epoch warmup.
+Replace `decay = 1 - t` with `(1 + math.cos(math.pi * t)) / 2` and save the file.
+The plot changes to a cosine curve without restarting the program. The code and
+its large graphical result stay beside each other throughout the edit.
+
+This is a new demonstration project running in the preserved March 2026
+workbench. Its actual SettaListener reloads the callback and emits the updated
+image. The retained runtime log confirms that the same connection and plot
+resource survive the edit; the graph is computed by Python, not added to the
+recording.
+
+## Front panel: change the warmup
+
+[![A nine-epoch warmup shown by the live schedule and its slider.](../../images/history/live-front-panel.png)](https://setta.dev/history/#app-mode)
+
+Move the same program's native meta-control slider from 3 to 9 warmup epochs.
+The ramp becomes longer and the peak moves from epoch 3 to epoch 9. Moving the
+slider back restores the original curve. The plot and slider remain in view,
+with a pause at each settled result.
+
+This focused example demonstrates a live control feeding a running program.
+Other supported meta-control widgets and button actions are described in the
+[feature history](feature-history.md#december-ai-navigation-named-views-and-standalone-controls).
 
 ## Agents: ask for a configurable training program
 
@@ -111,9 +142,10 @@ summarizes measured training losses and explicitly calls for unseen validation d
 
 ## Experiment Lens: keep an investigation together
 
-[![Two selected battery observations beside their linked trajectory and thermal evidence.](https://setta.dev/history-media/experiment-lens.webp)](https://setta.dev/history/#experiment-lens-demo)
+[![Annotated thermal evidence beside the selected battery observation.](https://setta.dev/history-media/experiment-lens-evidence.webp)](https://setta.dev/history/#experiment-lens-demo)
 
-The original simulated battery study contains 864 observations across 24 cells.
+Two focused previews cover selecting observations and carrying their evidence
+forward. The original simulated battery study contains 864 observations across 24 cells.
 Exclude LCO chemistry: the visible cohort drops to 576 observations. Select
 cells 16 and 11 at cycle 900 under the same 40°C ambient temperature and 1.5C
 charge rate. Their capacity retention is 83.4% and 82.7%. Move the linked
@@ -128,7 +160,9 @@ launch the experiments that produced them.
 
 ## Review: make the decision traceable
 
-[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](https://setta.dev/history-media/review.webp)](https://setta.dev/history/#review-demo)
+Separate previews show claim review and image feedback, each with its saved result.
+
+[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](https://setta.dev/history-media/review-artifact.webp)](https://setta.dev/history/#review-demo)
 
 The checkout example contains conflicting imported assessments of the claim
 “No database migration is required.” Inspect its Git evidence, then qualify the
