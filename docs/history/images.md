@@ -57,8 +57,7 @@ they do not add the demonstrated workflow, chart, spreadsheet or task-board feat
 The original frames were extracted on November 23, 2026 from retained cloud
 recordings of the July 11 Setta 3 and August 2 Setta 4 builds. The PNGs preserve
 the recorded pixels at the crops below. The webpage uses 1800 × 1013 WebP
-derivatives. Frame times are within the original source recordings, not the
-edited film.
+derivatives. Frame times refer to the original source recordings.
 
 | Image                                                                     | Source checkpoint                                                                                       | Recorded frame and evidence                                                                                                                                                                                   |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,8 +71,7 @@ Setta 3 uses its native web client and Go backend. Its Codex integration runs
 local **Qwen3-30B-A3B Q4_K_M**, served by llama.cpp, in place of the original
 provider. The prepared Food-101 project contains synthetic experiment results
 and a real sorting bug that the model fixed. The workspace transcript and
-terminal output are actual recorded work. The Easy Button request selected
-for the film remained active until the backend was restarted.
+terminal output are actual recorded work. The recorded Easy Button request remained active until the backend was restarted.
 
 The semantic graph was reframed on November 24 through native node-position and label operations. The replacement preserves all seven original summaries, seven edges and their evidence, while showing every node and route inside the frame. The graph was authored through the native API: seven nodes, seven
 typed edges and three file-evidence links. The cartographer did not produce
@@ -88,8 +86,7 @@ the substitute model, so neither demonstration establishes live orchestration
 or an agent-authored artifact. No historical UI or model response was fabricated.
 
 The complete source takes and restoration inputs remain in the retained
-capture collection and cloud disks. The [film guide](film.md) records the
-selections in the 4:45 edit; its crop and timing can differ from these stills.
+capture collection and cloud disks.
 
 ## Focused feature demonstrations
 
@@ -116,7 +113,6 @@ Raw takes, JPEG frames, timestamps, final application state and the Lens selecti
 packet remain in the capture collection's `setta-retrospective/footage/gap/` retention
 set. `CAPTURE-REVISION13.md` and `plans/revision13/feature-demos.json` in that
 collection record runtime limits, capture repairs and exact edit decisions.
-The focused clips supplement the updated 4:45 overview and 33-second promo.
 
 ## Earlier restoration captures
 

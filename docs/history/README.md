@@ -50,7 +50,6 @@ backend stack, including the tools behind the original examples.
 | [Feature demonstration walkthroughs](feature-demos.md) | Follow the actions and results shown in the webpage's clips.                         |
 | [Visual coverage index](coverage.md)                   | Find a feature on the webpage and see whether it is demonstrated or explained.       |
 | [Image and recording provenance](images.md)            | Identify source revisions, original media, prepared examples and restoration limits. |
-| [Archived overview film](film.md)                      | Find the chapter timings and captions for the preserved video edition.               |
 
 The current checkout contains the [React library](../../packages/workspace/README.md).
 Earlier applications live in earlier commits. Setta 3 and Setta 4 were separate experiments;

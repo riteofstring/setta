@@ -18,7 +18,7 @@ creative tools and AI workspaces. Documentation for the current React package fo
 [Tags and checkpoints](history/tags.md) helps locate the corresponding source.
 
 The [history guide](history/README.md#source-and-media-reference) also links to source
-checkpoints, capture provenance, demonstration notes and the archived overview film.
+checkpoints, capture provenance and demonstration notes.
 
 ## Use the current package
 

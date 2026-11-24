@@ -58,14 +58,11 @@ Captions name the build being shown, not the first implementation of every visib
 Demonstration projects and provider substitutions are documented in the
 [image provenance](images.md).
 
-## The preserved retrospective film
+## Recorded demonstrations
 
-The November 24 edit contains seventy feature shots across twelve dated chapters,
-followed by a four-example gallery. The [film guide](film.md) transcribes its
-on-screen captions, gives chapter times and retains the source notes. The
-[webpage](https://setta.dev/history/) presents individual feature demonstrations.
-The overview film, its original 1080p master and raw takes remain preserved
-in the video collection; the overview is no longer included on the webpage.
+The [webpage](https://setta.dev/history/) presents individual feature demonstrations.
+The [walkthroughs](feature-demos.md) describe their actions, results and limits;
+[image provenance](images.md) identifies their source recordings and prepared data.
 
 The summer captures distinguish actual local-model work from prepared research
 data, workflow drafts and Setta 4’s built-in demonstrations. An authored graph

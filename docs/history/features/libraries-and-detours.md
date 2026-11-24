@@ -44,8 +44,8 @@ inside a prepared Food-101 project.
 ![Setta 3 Easy Button working on a request to run tests and write a status note.](../../../images/history/setta3-easy-button.png)
 
 **One request starts the work.** Easy Button focused the request and active
-work into a single surface. This recorded request is in progress; the film
-does not claim that it completed. Both captures used local Qwen3-30B-A3B
+work into a single surface. This recorded request is in progress; its completion
+is not demonstrated. Both captures used local Qwen3-30B-A3B
 through the application’s original Codex integration.
 
 ### Setta 3: connect evidence and prepare the next step
