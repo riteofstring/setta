@@ -7,9 +7,11 @@ existing namespaces and published targets. Add a few landmarks where an entire p
 application or architectural transition is otherwise hard to find; tagging every feature
 or dependency update would make the list less useful.
 
-The November 24, 2026 audit found **58 tags**, with identical local and GitHub targets:
-24 milestones, 16 source endpoints, 17 historical version tags and one current-package
-release tag. The source and milestone tags are lightweight; `v0.1.0` is annotated.
+The November 24, 2026 audit verified **58 existing tags**, with identical local and
+GitHub targets. Nine annotated milestones were then added, bringing the total to
+**67 tags**: 33 milestones, 16 source endpoints, 17 historical version tags and one
+current-package release tag. The original source and milestone tags remain lightweight;
+the nine additions and `v0.1.0` are annotated. No existing tag was moved or replaced.
 
 ## What the namespaces mean
 
@@ -25,12 +27,14 @@ projects at the same commit. For example, `source/abcde-django` identifies the o
 project history, whose files were preserved under `ABCDE/`. Use the
 [repository composition timeline](timeline.md) to understand those directories.
 
-## What is already covered
+## Coverage
 
 The milestone tags cover Python metadata, the early sweep prototype, freeform canvas
 sections, the ioVuu/Runcoder/Setta names, interactive Python, executable sweeps, chat,
 MCP, generated state, hosting, meta controls, the runner, app mode, Go, workflows,
-the starts of Setta 3/4, library extraction and browser pipelines.
+the starts and later interfaces of Setta 3/4, library extraction and browser pipelines.
+The additions below also mark Python execution in 2021, the Vite migration, the local
+Python workbench, Bench, Experiment Lens, upstream xyflow and the browser-only boundary.
 
 Three distinctions matter when browsing:
 
@@ -43,17 +47,17 @@ Three distinctions matter when browsing:
   commit as `source/setta`. Its name does not mean “latest,” and it predates `v0.1.0`.
   Use the release tag for the published package and `main` for today's documentation.
 
-The large gap is **2021**, followed by the later usable Setta 3/4 interfaces and the
-focused applications. Technology changes are also less visible than feature introductions.
-The [technology history](technology.md) provides that missing route through the archive.
+The additions fill the **2021** gap and make later Setta 3/4 interfaces, focused
+applications and architectural changes easier to find. The [technology history](technology.md)
+traces the languages and libraries behind these checkpoints.
 
-## Recommended additions
+## Milestones added November 24, 2026
 
-These are proposed names for currently untagged landmarks, not existing tags or new
-release claims. Each link points directly to its verified commit. The table supplements
-the existing tags without moving or renaming them.
+These annotated tags identify historical source checkpoints, not new releases.
+Each source link points directly to the tagged commit. The annotations explain the
+application generation, significance and relevant demonstration limits.
 
-| Proposed milestone                         | Source checkpoint                                                                                                | Why it earns an anchor                                                                                          |
+| Milestone                                  | Source checkpoint                                                                                                | Why it earns an anchor                                                                                          |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `milestone/2021-01-python-execution`       | [2021-01-24 · e8df01c42c](https://github.com/riteofstring/setta/commit/e8df01c42cf6098d7b2675def33e7a1364766626) | Generated Python is written to a file and launched from the Electron frontend; fills the missing 2021 chapter.  |
 | `milestone/2022-10-vite-frontend`          | [2022-10-09 · ceb0a25a76](https://github.com/riteofstring/setta/commit/ceb0a25a7696373ca8e5ddb605b687d40538d8a1) | The frontend starts moving from Create React App to Vite.                                                       |
@@ -70,7 +74,7 @@ Review and Experiment Lens under `apps/`. Those paths provide further entry poin
 without requiring a tag for every application revision. Bench belongs to a separate
 preserved application checkpoint and benefits from its own anchor.
 
-The Setta 3 and Setta 4 suggestions identify the captured source versions. Their
+The Setta 3 and Setta 4 tags identify the captured source versions. Their
 [demonstration limits](images.md#summer-2026-restoration-captures) still apply: an authored
 graph, validated draft or built-in replay is not proof of successful live orchestration.
 

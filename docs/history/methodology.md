@@ -34,7 +34,7 @@ This import does not rerun historical application environments.
 
 ## Browse locally
 
-The [tag guide](tags.md) explains the namespaces and recommends useful checkpoints.
+The [tag guide](tags.md) explains the namespaces and identifies useful checkpoints.
 
 ```sh
 git tag --list 'source/*'
