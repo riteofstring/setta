@@ -140,7 +140,7 @@ Ripple linked wave amplitude and saturation. The native meta controls and indivi
 parameters operated on the same application state. The scene could be reshaped,
 recolored, animated and exported.
 
-_Original archived application screenshots. Exact source checkpoints and asset credits
+_Original screenshots and native recaptures from preserved applications. Exact source checkpoints and asset credits
 are recorded in [image provenance](../images.md#library-era-application-screenshots)._
 
 ## Five local applications around the library

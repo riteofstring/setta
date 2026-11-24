@@ -125,18 +125,39 @@ patches and recordings are retained separately in private preservation archives.
 
 ## Library-era application screenshots
 
-These five PNGs were committed with Setta or its independently maintained website during
-October 2026 and are preserved unchanged. They show applications built around the extracted
-library, not the earlier Python workbench and not a new restoration. Their application-specific
-algorithms are separate from Setta's workspace and browser-worker coordination.
+These PNGs show October 2026 applications built around the extracted library,
+not the earlier Python workbench. Print studio, Photo playground and Gaussian
+splat studio preserve their original screenshots unchanged. Photo reconstruction
+and the duck workspace were recaptured on November 23 at 2880 × 2000 from their
+exact website checkpoints, replacing small social-preview images. Their
+application-specific algorithms are separate from Setta's workspace and
+browser-worker coordination.
 
-| Image                                                                 | Immutable screenshot source                                                                                                           | Application implementation                                                                                                          | What it shows                                                                                                                                            |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Print studio](../../images/history/print-studio.png)                 | [Setta screenshot](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/images/print-studio.png)       | [Browser print studio](https://github.com/riteofstring/setta-site/tree/7051440aba168e8cc34a2572f5c6ebe7b8b38722/src/studio)         | A drawing, three print treatments and a finished poster. Application SVG rendering and export use Setta's browser pipeline.                              |
-| [Photo playground](../../images/history/photo-playground.png)         | [Setta screenshot](https://github.com/riteofstring/setta/blob/6422916e00af57931ed3356165ed69256331e298/images/photo-playground.png)   | [Depth-particle playground](https://github.com/riteofstring/setta-site/tree/682754a1894b9f03989a441b30849999b66dc24f/src/studio)    | The fox example, prepared depth and a particle scene. The screenshot uses a saved depth map; the application also supports model-based depth estimation. |
-| [Gaussian splat studio](../../images/history/splat-playground.png)    | [Setta screenshot](https://github.com/riteofstring/setta/blob/81c02e5d7eea903167f3723aa89bbdb0bc5ea35a/images/splat-playground.png)   | [Splat studio](https://github.com/riteofstring/setta-site/tree/f2802703613b0092037ab2e375e7d7d1e82f3439/src/studio)                 | Houseplant, its opacity distribution and inspection controls, with Textile ball also available. These are real multi-view captures.                      |
-| [Photo reconstruction](../../images/history/photo-reconstruction.png) | [Website screenshot](https://github.com/riteofstring/setta-site/blob/a34ee19de4f39aa19e9e65f83bd5bb8f0ea13270/public/social-card.png) | [Selection and reconstruction](https://github.com/riteofstring/setta-site/tree/c55310fa8befe0265cf8334d41a11a1c48bdbe17/src/studio) | A robot photo, prepared cutout, radiance-field slice, extracted Gaussians and a final scene. The displayed reconstruction is a saved generated example.  |
-| [3D sketchbook](../../images/history/sketchbook.png)                  | [Website screenshot](https://github.com/riteofstring/setta-site/blob/04db4d143ffa1e085b9bc17f0161308f6fcc36ec/public/social-card.png) | [Native 3D sketchbook](https://github.com/riteofstring/setta-site/tree/04db4d143ffa1e085b9bc17f0161308f6fcc36ec/src)                | Disperse, Vortex and Ripple meta controls linked to the duck scene's individual parameters. The duck is a generated example.                             |
+| Image                                                                 | Capture source                                                                                                                      | Application implementation                                                                                                          | What it shows                                                                                                                                            |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Print studio](../../images/history/print-studio.png)                 | [Setta screenshot](https://github.com/riteofstring/setta/blob/74837d35da5cb21bdff2ebc1ebaab0cbb77d5ceb/images/print-studio.png)     | [Browser print studio](https://github.com/riteofstring/setta-site/tree/7051440aba168e8cc34a2572f5c6ebe7b8b38722/src/studio)         | A drawing, three print treatments and a finished poster. Application SVG rendering and export use Setta's browser pipeline.                              |
+| [Photo playground](../../images/history/photo-playground.png)         | [Setta screenshot](https://github.com/riteofstring/setta/blob/6422916e00af57931ed3356165ed69256331e298/images/photo-playground.png) | [Depth-particle playground](https://github.com/riteofstring/setta-site/tree/682754a1894b9f03989a441b30849999b66dc24f/src/studio)    | The fox example, prepared depth and a particle scene. The screenshot uses a saved depth map; the application also supports model-based depth estimation. |
+| [Gaussian splat studio](../../images/history/splat-playground.png)    | [Setta screenshot](https://github.com/riteofstring/setta/blob/81c02e5d7eea903167f3723aa89bbdb0bc5ea35a/images/splat-playground.png) | [Splat studio](https://github.com/riteofstring/setta-site/tree/f2802703613b0092037ab2e375e7d7d1e82f3439/src/studio)                 | Houseplant, its opacity distribution and inspection controls, with Textile ball also available. These are real multi-view captures.                      |
+| [Photo reconstruction](../../images/history/photo-reconstruction.png) | [Recaptured website checkpoint](https://github.com/riteofstring/setta-site/tree/a34ee19de4f39aa19e9e65f83bd5bb8f0ea13270)           | [Selection and reconstruction](https://github.com/riteofstring/setta-site/tree/c55310fa8befe0265cf8334d41a11a1c48bdbe17/src/studio) | A robot photo, prepared cutout, radiance-field slice, extracted Gaussians and a final scene. The displayed reconstruction is a saved generated example.  |
+| [3D sketchbook](../../images/history/sketchbook.png)                  | [Recaptured website checkpoint](https://github.com/riteofstring/setta-site/tree/d304f5dd9b6edf9c113dd4db807dd5bae03725bf)           | [Native splat workspace](https://github.com/riteofstring/setta-site/tree/d304f5dd9b6edf9c113dd4db807dd5bae03725bf/src)              | Disperse, Vortex and Ripple meta controls linked to the duck scene's individual parameters. The duck is a generated example.                             |
+
+The two replacement PNGs use a 1440 × 1000 CSS viewport at device pixel ratio 2;
+they are native screenshots with no upscaling or image retouching. Application
+code, styles, public assets, locks and compiled Setta dependencies match the
+linked checkpoints. The robot uses its initial native workspace and original
+72 × 30 CSS-pixel logo. For the duck, native Delete section actions remove the
+unrelated welcome and reconstruction panels; a native drag moves the meta
+controls beside the scene, followed by Fit view. Both remaining connections
+are fully visible. Neither capture runs model inference.
+
+The prior [robot social card](https://github.com/riteofstring/setta-site/blob/a34ee19de4f39aa19e9e65f83bd5bb8f0ea13270/public/social-card.png)
+and [duck social card](https://github.com/riteofstring/setta-site/blob/d304f5dd9b6edf9c113dd4db807dd5bae03725bf/public/social-card.png)
+remain preserved at their immutable source revisions. The duck was previously
+linked to `04db4d1`, which inherited the stale social card but implemented the
+later drawing-based sketchbook. This image demonstrates the splat workspace at
+`d304f5d`, not the later outline-to-form application. Capture recipes, native
+states and build evidence are retained in the video collection's
+`setta-retrospective/footage/gap/r16-site-recaptures/`.
 
 The Houseplant and Textile ball captures and their thumbnails are by **Marcel Padilla**,
 from the [Gaussian Splat Objects Dataset](https://marcelpadilla.com/Gaussian_Splat_Object_Dataset/),
