@@ -8,11 +8,11 @@ The account covers the preserved source history from October 2020 through Novemb
 
 | Period                      | Chapter                                                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2020                        | [ABCDE: Python descriptions and generated forms](#2020-abcde-python-descriptions-and-generated-forms)                                            |
+| 2020                        | [Python descriptions and generated forms](#2020-python-descriptions-and-generated-forms)                                                         |
 | 2021                        | [Saved interfaces, local execution, and spatial navigation](#2021-saved-interfaces-local-execution-and-spatial-navigation)                       |
-| 2022                        | [ioVuu and Runcoder: the freeform workspace](#2022-iovuu-and-runcoder-become-a-freeform-workspace)                                               |
+| 2022                        | [The freeform workspace](#2022-a-freeform-workspace)                                                                                             |
 | 2023                        | [Experiments, charts, documentation, and the local monorepo](#2023-experiments-charts-documentation-and-a-local-monorepo)                        |
-| 2024                        | [Executable sweeps, live artifacts, and the Setta name](#2024-executable-sweeps-live-artifacts-and-the-setta-name)                               |
+| 2024                        | [Executable sweeps and live artifacts](#2024-executable-sweeps-and-live-artifacts)                                                               |
 | 2025                        | [Reactive Python, chat, MCP, and the expanding workbench](#2025-reactive-python-chat-mcp-and-the-expanding-workbench)                            |
 | January 2026                | [Sharing, a new runner, agents, files, and Watch Code](#january-2026-a-programmable-workbench-and-a-new-experiment-runner)                       |
 | February 2026               | [App mode, remote workspaces, plugins, and specialized sections](#february-2026-applications-remote-workspaces-plugins-and-specialized-sections) |
@@ -48,13 +48,13 @@ Several recurring terms changed meaning over time:
 | Saved view         | A named presentation of a workspace. It does not necessarily duplicate the underlying data.                                                                  |
 | Window Space       | A saved arrangement of floating windows, distinct from a saved canvas view.                                                                                  |
 
-## 2020: ABCDE, Python descriptions, and generated forms
+## 2020: Python descriptions and generated forms
 
 ### October: describe Python objects before constructing them
 
 The earliest preserved work, beginning October 11, centered on Python training and testing configuration. The important generalization was to describe the objects a program would need instead of constructing every object immediately.
 
-By October 17, ABCDE could describe functions and classes through **ClassInfo**. It inspected signatures, argument names, default values, and annotations; recorded presentation metadata; chose which arguments to expose; and emitted JSON that a frontend could consume. A configuration could consequently describe a model, optimizer, or other component without writing a separate form for each one.
+By October 17, the metadata system could describe functions and classes through **ClassInfo**. It inspected signatures, argument names, default values, and annotations; recorded presentation metadata; chose which arguments to expose; and emitted JSON that a frontend could consume. A configuration could consequently describe a model, optimizer, or other component without writing a separate form for each one.
 
 The accompanying configuration model supported named references and factories. One object could depend on an earlier object, and construction order mattered. Optimizer factories were an early practical use: an optimizer could be described before the model parameters it would eventually receive were available. Work on YAML references and execution order belonged to this object-composition problem, rather than to a general visual workflow engine.
 
@@ -148,7 +148,7 @@ By December, the right editor grouped **UI Config**, **Parameter Sweeps** and **
 
 Evidence: [working modal editor](https://github.com/riteofstring/setta/commit/ca0829de256e95a7f3240fe1eb22f7210c9bb856), [multi-file YAML editor](https://github.com/riteofstring/setta/commit/37693a339088ce4948538a93300e25efca715ec5), [tabbed right editor](https://github.com/riteofstring/setta/blob/6bcf831fd6f07d2c8a0bb0b9b2ba2fdfe23fc3dd/abcde-frontend/src/components/AppContainer/Main/SidePanes/UiEditor/UiEditor.js), [working inspector fields](https://github.com/riteofstring/setta/commit/fe2d5f4266efb759d8d3749a5edb90615b99713a).
 
-## 2022: ioVuu and Runcoder become a freeform workspace
+## 2022: a freeform workspace
 
 ### January–February: presets and freely positioned sections
 
@@ -160,17 +160,15 @@ This is the useful boundary between the earlier navigable form layout and the fa
 
 Evidence: [control presets](https://github.com/riteofstring/setta/commit/7e3fa175e4701bae478e4ab0a0eee707463215fc), [section contents editor](https://github.com/riteofstring/setta/commit/2233e80e09bd3b446866578e7a00b384672ff8ab), [freeform sections](https://github.com/riteofstring/setta/commit/8217da51fdfe52f8983122c9b8aa091adcbf2243).
 
-### May–August: ioVuu, decks, references, and generated programs
+### May–August: decks, references, and generated programs
 
-The interface took the **ioVuu** name in May, alongside a minimap for navigating larger canvases. June added **decks**: users could select several sections, collect them into a container, drop other sections into it, and remove sections while retaining sensible canvas positions. Editable names, nested dragging, overview navigation, and parameter filtering made grouped work more practical.
+May added a minimap for navigating larger canvases. June added **decks**: users could select several sections, collect them into a container, drop other sections into it, and remove sections while retaining sensible canvas positions. Editable names, nested dragging, overview navigation, and parameter filtering made grouped work more practical.
 
 References became explicit parameter inputs. Rather than duplicate a value or nested object, a parameter could refer to another section's result. Code generation expanded to cover primitive values, callables, references, lists, and dictionaries. This let a spatial configuration describe a connected Python object graph.
 
 Selection export supported YAML and JSON during this period. Dragging between lists, groups, and the free canvas gained previews and highlighted targets. Unique sibling naming helped generated references remain unambiguous.
 
-The project adopted the **Runcoder** name in August. That was a branding change within the same evolving configuration-and-execution product, not the introduction of every capability visible in a Runcoder screenshot.
-
-Evidence: [ioVuu and minimap](https://github.com/riteofstring/setta/commit/265561755d058b1e5f6f6c64d01fa2477c6dc170), [decks](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2), [reference input](https://github.com/riteofstring/setta/commit/645f3df3d3ba77558cb1c945bc359ecb11436766), [Runcoder branding](https://github.com/riteofstring/setta/commit/f51e94eab77f6a2e0f1099f4c292fd6bb27c9101).
+Evidence: [Minimap](https://github.com/riteofstring/setta/commit/265561755d058b1e5f6f6c64d01fa2477c6dc170), [decks](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2), [reference input](https://github.com/riteofstring/setta/commit/645f3df3d3ba77558cb1c945bc359ecb11436766).
 
 ### September–November: Card and Parameters replace the old YAML pane
 
@@ -194,7 +192,7 @@ Evidence: [Group sections](https://github.com/riteofstring/setta/commit/19527db9
 
 ### January–March: bring program output back onto the canvas
 
-Runcoder gained a logging path that associated program output with the correct project and run. A Python logger sent data over WebSockets, and a PyTorch Lightning integration made training metrics a concrete use case. Named output groups organized results from a run.
+A new logging path associated program output with the correct project and run. A Python logger sent data over WebSockets, and a PyTorch Lightning integration made training metrics a concrete use case. Named output groups organized results from a run.
 
 Charts turned those results into live visual feedback. Early Chart.js experiments became responsive line charts with multiple series, colors, legends, shared hover information, and updates as data arrived. Resizable sections made the chart surface useful beside controls, and resizing was propagated through containing layouts. Double-click sizing shortcuts followed.
 
@@ -222,7 +220,7 @@ Evidence: [project undo and redo](https://github.com/riteofstring/setta/commit/d
 
 ### September–December: a consolidated local application
 
-September consolidated the previously split components into a **Runcoder monorepo**. The application moved toward a local Python/FastAPI backend that combined responsibilities previously spread across the server and CLI. A local command could serve the application, and development reload and macOS execution paths were part of the continuing work. This reduced the conceptual distance between the browser workspace and the local Python project it controlled.
+September consolidated the previously split components into a **local monorepo**. The application moved toward a local Python/FastAPI backend that combined responsibilities previously spread across the server and CLI. A local command could serve the application, and development reload and macOS execution paths were part of the continuing work. This reduced the conceptual distance between the browser workspace and the local Python project it controlled.
 
 Autocomplete began connecting the editor to the local Python environment in September. It was still evolving; the later April 2024 milestone is the stronger boundary for the working completion feature.
 
@@ -234,7 +232,7 @@ On December 24, an **interactive Python proof of concept** connected changing in
 
 Evidence: [monorepo boundary](https://github.com/riteofstring/setta/commit/edd855830c07bea237a5e3f7c19c68a82cdd6c80), [early autocomplete](https://github.com/riteofstring/setta/commit/65bbb3510d), [JSON import](https://github.com/riteofstring/setta/commit/878bd4d0ca), [navigable references](https://github.com/riteofstring/setta/commit/b49d250999), [version preview](https://github.com/riteofstring/setta/commit/81c8ebf0e0557ee287fd7d3b430676fe1c5b333b), [interactive Python](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102).
 
-## 2024: executable sweeps, live artifacts, and the Setta name
+## 2024: executable sweeps and live artifacts
 
 ### January–February: a full experiment loop
 
@@ -250,15 +248,13 @@ Other editing features made experiments easier to manage: pinned parameters stay
 
 Evidence: [interactive line charts](https://github.com/riteofstring/setta/commit/6d21c9c7e53f991cea12174bae1c038a241b75a1), [long-lived terminals](https://github.com/riteofstring/setta/commit/6e69cf3568a39db9d42442972c5b16aafbe24e74), [parameter-sweep execution](https://github.com/riteofstring/setta/commit/2d0edd8357f059abb08f1ecc333108b8df2d283c), [run groups](https://github.com/riteofstring/setta/commit/ed71f6ae255f83d875e80a3d1dc60917ab12abe4), [version sweeps](https://github.com/riteofstring/setta/commit/18df00fb4771ddabf4bdac276526803dcf789714).
 
-### March–July: editing assistance and the Setta rename
+### March–July: editing assistance and Python awareness
 
 Autosave covered ordinary edits and undo/redo. Grid snapping became configurable, keyboard shortcuts could be customized, and reset-zoom and fit behavior accounted for the surrounding panes. Groups could arrange their contents in different orientations. Parameter editing gained keyboard movement and nesting operations.
 
 Autocomplete became a working feature in April. Parameter information, inferred imports, references to sections and global values, and missing-argument feedback brought Python-aware assistance into the structured editor. By June and July, a language-server path using basedpyright supplied completions, signatures, and diagnostics. This was a local Python development capability, not merely browser text completion.
 
-The project was renamed **Setta** on July 20. The rename retained the Runcoder lineage: callable composition, nested inputs, freeform sections, saved variants, charts, Markdown, code editors, terminals, and executable experiments.
-
-Evidence: [autosave](https://github.com/riteofstring/setta/commit/416b00d69b), [working autocomplete](https://github.com/riteofstring/setta/commit/2c1ee8f26306eba3eb1fb7d78ebe7045138b647a), [Setta rename](https://github.com/riteofstring/setta/commit/241c5e1a7f4b7eea0af6ffb726269c2ec1f0ef6d).
+Evidence: [autosave](https://github.com/riteofstring/setta/commit/416b00d69b), [working autocomplete](https://github.com/riteofstring/setta/commit/2c1ee8f26306eba3eb1fb7d78ebe7045138b647a).
 
 ### August–September: images, drawing, and external source files
 
@@ -1023,7 +1019,7 @@ This table cross-references the chronological account. A familiar name across ge
 
 | Feature family                           | Earlier development                                                                                    | State at the November 2026 endpoint                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Python metadata and callable composition | ABCDE from 2020; Runcoder/Setta generation; later Python Canvas.                                       | Historical application behavior. Hosts may build it with the library, but it is not built in.     |
+| Python metadata and callable composition | Python metadata from 2020; generated programs; later Python Canvas.                                    | Historical application behavior. Hosts may build it with the library, but it is not built in.     |
 | Spatial workspace                        | Navigation in 2021; freeform sections in 2022; groups and richer content afterward.                    | Core reusable capability.                                                                         |
 | Parameter controls                       | Defaults and nested forms from 2020; sliders/presets; later standalone meta controls.                  | Typed controls and host-defined data remain; Python introspection is external.                    |
 | Parameter sweeps                         | UI-only in 2020; executable cards/run groups in 2024; removed June 2025; new RunPlan API January 2026. | No built-in experiment runner.                                                                    |
@@ -1047,17 +1043,17 @@ This table cross-references the chronological account. A familiar name across ge
 
 The following tags provide stable entry points into the reconstructed archive. A tag identifies preserved source, not a promise of an installable historical environment or compatible adjacent components.
 
-| Period                           | Useful source landmarks                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2020                             | milestone/2020-10-python-metadata; milestone/2020-12-sweep-ui-prototype.                                                                                                                                                  |
-| 2021–2022 split components       | source/abcde-django; source/abcde-pip; source/abcde-frontend; source/abcde-electron; source/abcde-cli; source/abcde-backend; source/abcde-utils; source/abcde-test; source/abcde-demos.                                   |
-| 2022 spatial interface and names | milestone/2022-02-freeform-sections; milestone/2022-05-iovuu; milestone/2022-08-runcoder.                                                                                                                                 |
-| 2023–2024 Runcoder/Setta         | milestone/2023-09-monorepo; milestone/2023-12-interactive-python; milestone/2024-01-sweep-execution; milestone/2024-07-setta; source/runcoder.                                                                            |
-| 2025 reactive and AI workbench   | milestone/2025-02-canvas-chat; milestone/2025-04-mcp-control; milestone/2025-05-generated-state; milestone/2025-05-hosted-projects; milestone/2025-06-sweeps-removed; milestone/2025-12-meta-controls; source/setta-2025. |
-| Companion examples and hosting   | source/setta-examples; source/setta-saas.                                                                                                                                                                                 |
-| Early 2026 workbench             | milestone/2026-01-runner; milestone/2026-02-app-mode; milestone/2026-03-go-backend; milestone/2026-03-workflows.                                                                                                          |
-| Agent-centered detours           | milestone/2026-05-setta-3-experiment; milestone/2026-07-setta-4-graph.                                                                                                                                                    |
-| Library                          | milestone/2026-08-library-extraction; milestone/2026-10-browser-pipelines; milestone/2026-11-current-library; source/setta; v0.1.0.                                                                                       |
-| Preserved dependency changes     | source/xterm.js and source/xyflow contain selected fork changes, not complete upstream histories.                                                                                                                         |
+| Period                         | Useful source landmarks                                                                                                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2020                           | milestone/2020-10-python-metadata; milestone/2020-12-sweep-ui-prototype.                                                                                                                                                  |
+| 2021–2022 split components     | source/abcde-django; source/abcde-pip; source/abcde-frontend; source/abcde-electron; source/abcde-cli; source/abcde-backend; source/abcde-utils; source/abcde-test; source/abcde-demos.                                   |
+| 2022 spatial workspace         | milestone/2022-02-freeform-sections; milestone/2022-05-iovuu; milestone/2022-08-runcoder.                                                                                                                                 |
+| 2023–2024 local execution      | milestone/2023-09-monorepo; milestone/2023-12-interactive-python; milestone/2024-01-sweep-execution; milestone/2024-07-setta; source/runcoder.                                                                            |
+| 2025 reactive and AI workbench | milestone/2025-02-canvas-chat; milestone/2025-04-mcp-control; milestone/2025-05-generated-state; milestone/2025-05-hosted-projects; milestone/2025-06-sweeps-removed; milestone/2025-12-meta-controls; source/setta-2025. |
+| Companion examples and hosting | source/setta-examples; source/setta-saas.                                                                                                                                                                                 |
+| Early 2026 workbench           | milestone/2026-01-runner; milestone/2026-02-app-mode; milestone/2026-03-go-backend; milestone/2026-03-workflows.                                                                                                          |
+| Agent-centered detours         | milestone/2026-05-setta-3-experiment; milestone/2026-07-setta-4-graph.                                                                                                                                                    |
+| Library                        | milestone/2026-08-library-extraction; milestone/2026-10-browser-pipelines; milestone/2026-11-current-library; source/setta; v0.1.0.                                                                                       |
+| Preserved dependency changes   | source/xterm.js and source/xyflow contain selected fork changes, not complete upstream histories.                                                                                                                         |
 
 The [illustrated timeline](tour.md) provides a shorter illustrated route. The [feature chapters](features/python-interfaces.md), [examples](examples.md), [composition timeline](timeline.md), and [image provenance](images.md) provide complementary views of the same source history.

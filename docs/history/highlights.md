@@ -5,7 +5,7 @@
 Setta's history is full of tools within tools: controls generated from Python, drawings
 that feed computations, experiments assembled from saved configurations, and workspaces
 that keep the result beside the code that produced it. Here are some of those ideas in
-action, from ABCDE through ioVuu and Runcoder to Setta.
+action, across six years of changing interfaces.
 
 The applications below are historical. Their Python execution and built-in editors are
 distinct from today's [React workspace library](../../packages/workspace/README.md). Restored-build images
@@ -29,9 +29,9 @@ identifies their source checkpoints and demonstration data.
 
 ## Make a Python object something you can explore
 
-![ABCDE with nested Compose and ColorJitter controls and an argument-details panel.](../../images/history/abcde-nested-forms.png)
+![Nested Compose and ColorJitter controls and an argument-details panel.](../../images/history/abcde-nested-forms.png)
 
-**2020–2021 · ABCDE.** Select a transform, explore its arguments, then put another transform
+**2020–2021.** Select a transform, explore its arguments, then put another transform
 inside it. Python metadata supplied names, defaults and types; nested callables turned
 the resulting forms into a way to assemble a program. Generated Python could construct
 a model and optimizer, and the desktop application could launch it.
@@ -45,14 +45,14 @@ execution followed in January 2021._
 
 ## Arrange the interface around the problem
 
-![ioVuu's project outline beside independently positioned configuration sections.](../../images/history/iovuu-workspace.png)
+![Project outline beside independently positioned configuration sections.](../../images/history/iovuu-workspace.png)
 
-**2022–2023 · ioVuu and Runcoder.** Sections became independently positioned canvas nodes.
+**2022–2023.** Sections became independently positioned canvas nodes.
 Decks and groups gathered related controls, while the outline and minimap helped navigate
 the larger project. A useful control configuration could become a reusable preset.
 Undo and redo later made changes to values and workspace structure reversible.
 
-_Restored June 2022 ioVuu interface. The undo/redo implementation dates to May 2023._
+_Restored June 2022 interface. The undo/redo implementation dates to May 2023._
 
 [Canvas sections](https://github.com/riteofstring/setta/commit/8217da51fdfe52f8983122c9b8aa091adcbf2243) ·
 [Groups and decks](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2) ·
@@ -63,7 +63,7 @@ _Restored June 2022 ioVuu interface. The undo/redo implementation dates to May 2
 
 ![Terminal logs and training curves update together.](../../images/history/training-output.png)
 
-**2023–2024 · Runcoder.** Interactive Python connected controls to computed output,
+**2023–2024.** Interactive Python connected controls to computed output,
 and terminals and charts brought the running program into the workspace. This
 original January 2025 recording shows actual training logs and loss curves.
 The [live Python examples](https://setta.dev/history/#live-python) show controls,
@@ -76,7 +76,7 @@ authored callbacks and generated images together.
 
 ![Cluster lab with shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)
 
-**2023–2024 · Runcoder.** Hover over a saved version to preview its values. Keep useful
+**2023–2024.** Hover over a saved version to preview its values. Keep useful
 variants, then sweep several parameter choices instead of rebuilding the configuration
 for each run. Executable sweeps generated Cartesian combinations and sent them to
 terminals; later work extended execution across saved versions and selected run groups.

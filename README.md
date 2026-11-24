@@ -5,10 +5,11 @@
 
 **Six years of experiments in how we work with code, data and AI.**
 
-Setta began in 2020 as **ABCDE**, turning Python arguments into interfaces. It became
-**ioVuu**, then **Runcoder**, then **Setta**: a spatial experiment tool, a programmable
-workbench, and a series of explorations in working with AI agents. The recurring idea
-was to keep controls, code and results together in a workspace you could reshape.
+Setta began in 2020 by turning Python arguments into interfaces. Forms became a
+spatial workspace; saved configurations became executable experiments; live Python
+connected controls to images and charts. Files, tools and AI agents later joined
+that workspace. Along the way, the recurring idea was to keep controls, code and
+results together in a space you could reshape.
 
 This repository preserves that history: the interfaces, the ideas, the detours and
 the source behind them. The current React package is one outcome of that work.
@@ -25,15 +26,15 @@ controls and Python beside the results._
 
 ## Ideas explored along the way
 
-| Period                       | What changed                                                                                                                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2020–2021 · ABCDE            | [Python functions and classes became composable controls, then executable programs.](docs/history/features/python-interfaces.md)                                                                       |
-| 2022–2023 · ioVuu → Runcoder | [The interface became a canvas of movable sections, groups and reusable configurations.](docs/history/features/spatial-controls.md)                                                                    |
-| 2023–2024 · Runcoder → Setta | [Saved variants, parameter sweeps, terminals and charts brought experiments into the workspace.](docs/history/features/experiments.md)                                                                 |
-| 2024–2025 · Setta            | [Live Python, drawing and generated images connected controls to visible results.](docs/history/highlights.md#put-images-mathematics-and-code-on-the-same-canvas)                                      |
-| 2025–2026 · Setta workbench  | [Files, Git, remote environments, agents and executable workflows shared one project.](docs/history/features/workbench.md)                                                                             |
-| Summer 2026 · Setta 3 & 4    | [Separate experiments explored scrolling agent workspaces, research graphs and a Director command center.](docs/history/features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) |
-| August–November 2026         | [Workspace interactions became a library used by creative tools and focused research applications.](docs/history/features/libraries-and-detours.md)                                                    |
+| Period                    | What changed                                                                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2020–2021                 | [Python functions and classes became composable controls, then executable programs.](docs/history/features/python-interfaces.md)                                                                       |
+| 2022–2023                 | [The interface became a canvas of movable sections, groups and reusable configurations.](docs/history/features/spatial-controls.md)                                                                    |
+| 2023–2024                 | [Saved variants, parameter sweeps, terminals and charts brought experiments into the workspace.](docs/history/features/experiments.md)                                                                 |
+| 2024–2025                 | [Live Python, drawing and generated images connected controls to visible results.](docs/history/highlights.md#put-images-mathematics-and-code-on-the-same-canvas)                                      |
+| 2025–2026                 | [Files, Git, remote environments, agents and executable workflows shared one project.](docs/history/features/workbench.md)                                                                             |
+| Summer 2026 · Setta 3 & 4 | [Separate experiments explored scrolling agent workspaces, research graphs and a Director command center.](docs/history/features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) |
+| August–November 2026      | [Workspace interactions became a library used by creative tools and focused research applications.](docs/history/features/libraries-and-detours.md)                                                    |
 
 The [illustrated tour](docs/history/tour.md) follows the changing interfaces. For individual
 features and their implementation dates, use the [source-linked chronology](docs/history/feature-history.md).

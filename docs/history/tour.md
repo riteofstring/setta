@@ -2,13 +2,14 @@
 
 [Documentation](../README.md) / [History](README.md)
 
-Setta began in 2020 as **ABCDE**, a way to turn Python metadata into interfaces.
-It became **ioVuu**, then **Runcoder**, then **Setta**. Across those names, the recurring
-idea was to bring configuration, code and results into a space people could rearrange.
-The current library makes those workspace interactions available to other applications.
+Setta began in 2020 by turning Python metadata into interfaces. Those forms grew
+into a canvas for composing experiments, then a live programming environment with
+files, tools and AI agents. The current library makes the workspace interactions
+available to other applications. This tour follows those changes in capability
+and the interfaces that made them usable.
 
-This guide follows the ideas and their changing interfaces. The repository combines
-16 related source histories on one `main` branch; older applications are found in earlier
+The repository combines 16 related source histories on one `main` branch;
+older applications are found in earlier
 commits, while the current checkout contains the library.
 
 [Explore the interactive retrospective](https://setta.dev/history/) or follow the chapters below.
@@ -19,47 +20,46 @@ records the source revisions and demonstration data.
 
 | Period                                                                         | Idea                                                                               |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| [2020–2021 · ABCDE](#20202021-python-becomes-an-interface)                     | Turn Python arguments into composable interfaces.                                  |
-| [2022–2023 · ioVuu → Runcoder](#20222023-a-spatial-workspace-iovuu--runcoder)  | Arrange configuration on a navigable canvas.                                       |
-| [2023–2024 · Runcoder](#20232024-local-execution-and-experiment-management)    | Bring execution, charts and experiment comparison into the workspace.              |
-| [2024–2025 · Setta](#20242025-setta-connects-representations-and-live-state)   | Connect images, models, code and live state.                                       |
-| [2025–2026 · Setta](#summer-2025spring-2026-an-ai-native-workbench)            | Build an AI-native workbench around code, data, agents and workflows.              |
+| [2020–2021](#20202021-python-becomes-an-interface)                             | Turn Python arguments into composable interfaces.                                  |
+| [2022–2023](#20222023-a-spatial-workspace)                                     | Arrange configuration on a navigable canvas.                                       |
+| [2023–2024](#20232024-local-execution-and-experiment-management)               | Bring execution, charts and experiment comparison into the workspace.              |
+| [2024–2025](#20242025-setta-connects-representations-and-live-state)           | Connect images, models, code and live state.                                       |
+| [2025–2026](#summer-2025spring-2026-an-ai-native-workbench)                    | Build an AI-native workbench around code, data, agents and workflows.              |
 | [July–August 2026 · Setta 3 & 4](#summer-2026-two-agent-workspace-experiments) | Explore scrolling agent workspaces, research graphs and a Director command center. |
 | [2026 onward · The library](#2026-onward-reusable-building-blocks)             | Make workspace interactions reusable in other applications.                        |
 
 ## 2020–2021: Python becomes an interface
 
-**Historical application: ABCDE.** A Python function or class could describe its arguments,
+A Python function or class could describe its arguments,
 allowing the frontend to generate a form. Nested callables made configurations composable:
 a transform could contain another transform rather than stopping at a flat list of fields.
 Generated Python and execution followed, alongside experiments in control types and navigation.
 
-![ABCDE with nested Compose and ColorJitter controls beside an argument-details panel.](../../images/history/abcde-nested-forms.png)
+![Nested Compose and ColorJitter controls beside an argument-details panel.](../../images/history/abcde-nested-forms.png)
 
 _Restored November 2020 build: nested configuration forms._
 
 [Follow Python metadata, generated code and execution](features/python-interfaces.md).
 The December 2020 sweep editor was explicitly a **UI prototype without execution logic**.
 
-## 2022–2023: a spatial workspace, ioVuu → Runcoder
+## 2022–2023: a spatial workspace
 
 **Historical application.** Configuration sections became independently positioned canvas
 nodes. Groups, orientation, an outline and search helped organize larger projects, while
 Markdown brought explanations into the workspace. Generated launch commands connected the
 interface with code execution.
 
-![ioVuu with its project outline and editable configuration sections on a canvas.](../../images/history/iovuu-workspace.png)
+![Project outline and editable configuration sections on a canvas.](../../images/history/iovuu-workspace.png)
 
-_Restored June 2022 ioVuu build: navigating and editing a configuration._
+_Restored June 2022 build: navigating and editing a configuration._
 
-ioVuu is evidenced by May 2022; the **Runcoder** rename follows in August 2022.
 Earlier list reordering and pan/zoom experiments were distinct from the free positioning
 implemented in February 2022.
 [Explore controls, grouping and navigation](features/spatial-controls.md).
 
 ## 2023–2024: local execution and experiment management
 
-**Historical application: local Runcoder.** Editors, terminals and interactive Python brought
+Editors, terminals and interactive Python brought
 the execution environment into the project. A control could affect a calculated result;
 versions and run groups supported comparing configurations instead of repeatedly rebuilding
 them by hand.
@@ -71,7 +71,7 @@ in the original January 2025 recording. Interactive Python also let changing
 controls recompute outputs; the later [Julia studio](https://setta.dev/history/#live-python)
 shows that relationship through actual images.
 
-![Runcoder Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)
+![Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)
 
 **An experiment you could inspect.** Shared variables feed the dataset and algorithm;
 saved variants retain different seeds; a sweep selects feature counts of 2, 8 and 32.
@@ -86,8 +86,8 @@ separately from the early 2021 saved-version experiment.
 
 ## 2024–2025: Setta connects representations and live state
 
-**Historical application.** The **Setta** name arrives in July 2024. The workspace grew to
-combine richer controls, code, image inputs, charts and documentation. YAML round trips
+The workspace grew to combine richer controls, code, image inputs, charts and
+documentation. YAML round trips
 and reference-aware renaming connected visual configuration to text. Later, listeners,
 generated state classes and bound files connected edits to running Python and ordinary
 source files.
@@ -103,8 +103,8 @@ _Restored November 2024 build._
 
 By **spring 2025**, the [original examples](examples.md) took this workspace into image
 generation, inpainting, language-model finetuning, sequence classification and metric
-learning. The Stream Diffusion, FLUX and TRL previews at the top of this page come from
-those examples. The [archived website](https://setta.dev/old) and
+learning. The Stream Diffusion, FLUX and TRL previews below come from those examples.
+The [archived website](https://setta.dev/old) and
 [documentation](https://setta.dev/old/docs) preserve that period's presentation.
 
 Model-backed canvas chat appears in February 2025, project chat develops in March–April,

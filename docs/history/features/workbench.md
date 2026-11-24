@@ -35,16 +35,17 @@ The panes changed their responsibilities as Setta grew. Project chat arrived in 
 Custom Runs, with one-shot or continuous execution. January 2026 brought Files and
 Watch Code; February added Git inspection, plugin management and an App editor.
 
-[![The Git pane beside a two-commit repository graph.](../../../images/history/git-pane-history.png)](https://setta.dev/history/#project-tools)
+[![Git branches and merges beside the selected checkpoint commit's Python diff.](../../../images/history/git-pane-history.png)](https://setta.dev/history/#git-graph-demo)
 
 The [project-tool examples](https://setta.dev/history/#project-tools) show file previews,
 a working-tree diff, commit history and a plugin installing its own pane. The February
 Files editor also supported editing CSV/Excel cells, adding rows and columns, and saving
 back to the source; that authoring surface was separate from a canvas Spreadsheet.
 
-_The Git image comes from the restored March 2026 workbench. Its two commits belong to
-a new demonstration repository, not the historical Setta repository. It demonstrates
-inspection, not staging, commits or push. [Image provenance](../images.md)._
+_The Git image comes from the restored March 2026 workbench. Its training-study
+branches, merges and selected checkpoint change belong to a prepared demonstration
+repository. The recording demonstrates inspection, not staging, committing or pushing.
+[Image provenance](../images.md)._
 
 ## From provider settings to an agent workspace
 
@@ -68,6 +69,13 @@ Chats could branch from edited messages and keep the alternatives visible. Canva
 then connected conversations to the material they should inspect or change. A section-to-chat
 link supplied read access and context; a chat-to-section link granted read/write scope.
 Context could be a reference, an excerpt or a cached summary.
+
+Conversation also gained new ways to work with the canvas. Image attachments let
+the assistant inspect visual evidence; Follow AI moved the viewport to its current
+edits. The [image-chat example](https://setta.dev/history/#chat-image-demo) sends a
+loss plot and gets a checkpoint recommendation. The
+[Follow example](https://setta.dev/history/#ai-follow-demo) starts with a high-level
+request and follows four real configuration changes, keeping the action visible.
 
 The [agentic-edge implementation](https://github.com/riteofstring/setta/commit/2468b2d36433e138d3e4c52b6abc790c4886d3a6)
 made those relationships operational. A later

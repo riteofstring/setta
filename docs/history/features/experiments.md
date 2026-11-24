@@ -3,11 +3,11 @@
 [Documentation](../../README.md) / [History](../README.md) / Feature chapters
 
 **Historical application.** Configuration was useful when it led to comparable runs.
-Runcoder combined interactive Python and charts with terminals, versions, parameter sweeps
+The experiment workbench combined interactive Python and charts with terminals, versions, parameter sweeps
 and run groups. The later workbench revisited execution through a programmable runner.
 These were different execution models rather than one uninterrupted feature.
 
-![A Runcoder parameter and its interactive Python chart.](../../../images/history/runcoder-interactive-python.png)
+![A parameter and its interactive Python chart.](../../../images/history/runcoder-interactive-python.png)
 
 _Restored January 2024 build: interactive execution. This image does not show a sweep._
 

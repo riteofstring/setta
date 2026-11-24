@@ -7,7 +7,7 @@ Function metadata became controls; nested callables, references and generated co
 those controls to executable programs. Later autocomplete, YAML and reference-aware renaming
 made visual and textual editing work together.
 
-![Nested callable controls in ABCDE.](../../../images/history/abcde-nested-forms.png)
+![Nested callable controls.](../../../images/history/abcde-nested-forms.png)
 
 _Restored November 2020 build. This shows nested forms; it does not demonstrate execution._
 
@@ -35,7 +35,7 @@ its confirmation dialog still contained a placeholder list of affected reference
 
 ## Editing moves between the panes and the program
 
-[![ABCDE’s Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/#form-authoring)
+[![Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/#form-authoring)
 
 _December 2020 frontend. The sweep fields are an interface prototype without execution logic._
 
@@ -68,7 +68,7 @@ These are preserved implementation landmarks, not a release calendar.
 | 2022-06 | A parameter can refer to another section through a dedicated reference input. | [Change](https://github.com/riteofstring/setta/commit/645f3df3d3ba77558cb1c945bc359ecb11436766) |
 | 2022-11 | The split application generates a downloadable-code launch command.           | [Change](https://github.com/riteofstring/setta/commit/1a6b25c90386b79d3fe0bb1399397e05dba15b65) |
 | 2022-11 | The standalone CLI runs downloaded code.                                      | [Change](https://github.com/riteofstring/setta/commit/86b1385c8fff3db435472b199cb08069956cfcc0) |
-| 2023-12 | Local Runcoder adds interactive Python execution.                             | [Change](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102) |
+| 2023-12 | Local execution gains interactive Python execution.                           | [Change](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102) |
 | 2024-04 | An initial working autocomplete path is preserved.                            | [Change](https://github.com/riteofstring/setta/commit/2c1ee8f26306eba3eb1fb7d78ebe7045138b647a) |
 | 2024-09 | Parsed YAML updates code information; later work completes the round trip.    | [Change](https://github.com/riteofstring/setta/commit/49014dbdf6f899e6b504a904ef8560d03e8ff9f8) |
 | 2024-09 | JSON-backed controls save edited values to their source files.                | [Change](https://github.com/riteofstring/setta/commit/ec9c5eeaa236334b48eb1306f8d7ad2bbabe67b1) |

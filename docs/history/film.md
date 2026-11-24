@@ -9,8 +9,8 @@ individual feature demonstrations; the overview film remains in the video collec
 
 **4:45.3 · 70 feature shots · 12 dated chapters · original 90 BPM score**
 
-The November 24, 2026 cut follows ABCDE, ioVuu and Runcoder through the Setta
-workbench, the separate Setta 3 and Setta 4 experiments, and the React library.
+The November 24, 2026 cut follows generated forms, spatial configuration, live
+programs, agent workspaces and the React library.
 A dedicated caption band sits below the application image. The source notes below
 identify original recordings, restored builds, prepared data and model substitutions;
 they are not overlaid on the app. Times are rounded down to the start of the second.
@@ -21,32 +21,32 @@ explained using source. The selected film does not demonstrate every historical 
 
 The film opens at 0:00 with “Six years of ideas.”
 
-## 0:02 — 2020 · ABCDE
+## 0:02 — 2020 · Generated forms
 
 | Time | On-screen caption         | Source and capture      |
 | ---- | ------------------------- | ----------------------- |
 | 0:04 | Python in. Interface out. | Restored Dec 2020 build |
 | 0:07 | Objects inside objects.   | Restored Nov 2020 build |
 
-## 0:10 — 2021 · ABCDE
+## 0:10 — 2021 · Composable navigation
 
 | Time | On-screen caption           | Source and capture                         |
 | ---- | --------------------------- | ------------------------------------------ |
 | 0:12 | Jump to any nested section. | Restored Dec 2021 build · original fixture |
 
-## 0:16 — 2022 · Runcoder
+## 0:16 — 2022 · Spatial configuration
 
 | Time | On-screen caption                 | Source and capture                         |
 | ---- | --------------------------------- | ------------------------------------------ |
 | 0:17 | Sections break free on a canvas.  | Restored Feb 2022 build · original fixture |
-| 0:21 | A minimap for big canvases.       | Restored Jun 2022 build · ioVuu            |
-| 0:25 | Collect sections into decks.      | Restored Aug 2022 build · Runcoder         |
+| 0:21 | A minimap for big canvases.       | Restored Jun 2022 build                    |
+| 0:25 | Collect sections into decks.      | Restored Aug 2022 build                    |
 | 0:29 | One section feeds another.        | Restored Feb 2023 build · bundled fixture  |
 | 0:32 | Pull out a part. It stays linked. | Restored Feb 2023 build · bundled fixture  |
 | 0:34 | One project, many setups.         | Original recording · Jan 2025              |
 | 0:37 | One click. One command.           | Restored Sep 2023 build                    |
 
-## 0:39 — 2023 · Runcoder
+## 0:39 — 2023 · Experiment tools
 
 | Time | On-screen caption              | Source and capture                         |
 | ---- | ------------------------------ | ------------------------------------------ |
@@ -57,7 +57,7 @@ The film opens at 0:00 with “Six years of ideas.”
 | 0:55 | Watch it learn.                | Original recording · Jan 2025 · 90× speed  |
 | 1:00 | Shared values. Click to jump.  | Restored Jan 2024 build · prepared project |
 
-## 1:04 — Early 2024 · Runcoder
+## 1:04 — Early 2024 · Executing experiments
 
 | Time | On-screen caption              | Source and capture                                 |
 | ---- | ------------------------------ | -------------------------------------------------- |

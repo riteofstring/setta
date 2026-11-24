@@ -30,7 +30,7 @@ project history, whose files were preserved under `ABCDE/`. Use the
 ## Coverage
 
 The milestone tags cover Python metadata, the early sweep prototype, freeform canvas
-sections, the ioVuu/Runcoder/Setta names, interactive Python, executable sweeps, chat,
+sections, interactive Python, executable sweeps, chat,
 MCP, generated state, hosting, meta controls, the runner, app mode, Go, workflows,
 the starts and later interfaces of Setta 3/4, library extraction and browser pipelines.
 The additions below also mark Python execution in 2021, the Vite migration, the local

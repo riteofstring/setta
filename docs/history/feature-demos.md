@@ -14,10 +14,13 @@ below describe the visible actions and measured outcomes.
 | [Realtime](#realtime-one-drawing-two-treatments-one-joined-result)    | [Watch](https://setta.dev/history/#programming-apps)     | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                     |
 | [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/history/#live-python)          | Replace linear decay with a cosine formula and see the running plot change.                       |
 | [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/history/#app-mode)             | Move a warmup slider and see the schedule's peak move with it.                                    |
-| [Project assistant](#agents-ask-for-a-configurable-training-program)  | [Watch](https://setta.dev/history/#agents)               | Request a configurable trainer, inspect real tool checks and adjust generated controls.           |
+| [Project assistant](#agents-review-a-configurable-training-program)   | [Watch](https://setta.dev/history/#agents)               | Review a real dry-run check and change a control beside the AI-written source.                    |
+| [AI Follow](#ai-follow-see-the-assistants-edits)                      | [Watch](https://setta.dev/history/#ai-follow-demo)       | Ask for a revised experiment and follow the canvas to four actual configuration changes.          |
+| [Image chat](#image-chat-read-an-attached-chart)                      | [Watch](https://setta.dev/history/#chat-image-demo)      | Attach a loss chart and inspect the model's checkpoint choice and explanation.                    |
 | [Connected context](#connected-context-recommend-the-next-experiment) | [Watch](https://setta.dev/history/#agents)               | Supply a note through a connection, then inspect the recommendation grounded in its measurements. |
 | [Workflows](#workflows-wait-for-two-independent-reviews)              | [Watch](https://setta.dev/history/#agents)               | Run two reviews and follow the gate that waits for both to finish.                                |
 | [Window Spaces](#window-spaces-return-to-the-evidence)                | [Watch](https://setta.dev/history/#workbench)            | Restore a saved window arrangement around the same project evidence.                              |
+| [Git graph](#git-graph-inspect-the-change-behind-a-branch)            | [Watch](https://setta.dev/history/#git-graph-demo)       | Follow real branches and merges, then open a commit's changed file and diff.                      |
 | [Experiment Lens](#experiment-lens-keep-an-investigation-together)    | [Watch](https://setta.dev/history/#experiment-lens-demo) | Filter a cohort, compare cells, join thermal evidence and export the annotated selection.         |
 | [Review](#review-make-the-decision-traceable)                         | [Watch](https://setta.dev/history/#review-demo)          | Save a qualified claim and an image-specific request for changes as human responses.              |
 | [Bench](#bench-compare-actual-candidate-outputs)                      | [Watch](https://setta.dev/history/#bench-demo)           | Execute two candidates against ten cases each and save a preference based on their images.        |
@@ -82,23 +85,61 @@ This focused example demonstrates a live control feeding a running program.
 Other supported meta-control widgets and button actions are described in the
 [feature history](feature-history.md#december-ai-navigation-named-views-and-standalone-controls).
 
-## Agents: ask for a configurable training program
+## Agents: review a configurable training program
 
 [![The AI-written PyTorch trainer beside its generated controls.](https://setta.dev/history-media/feature-ai-ask.webp)](https://setta.dev/history/#agents)
 
-The March workbench receives a high-level request to write a small PyTorch image
-classifier and make its training configurable. The OpenCode integration writes a
-real Python file; Watch Code discovers its typed function and generates epochs,
-batch size, learning rate and seed controls. Corrective conversation turns fix
-imports and validation. The completed help and dry-run commands execute in the
-historical workspace. No code or successful tool output is inserted for the model.
+The clip reviews the result of a real OpenCode conversation in the March
+workbench. It first shows the saved dry-run check, then the AI-written PyTorch
+source beside its generated controls. Changing epochs from 10 to 3 updates the
+invocation beside the controls. The source scroll reveals the training loop and
+command-line entry point.
+
+The original conversation required corrective turns to fix imports and validation.
+Watch Code discovered the typed function and generated epochs, batch size,
+learning rate and seed controls. The help and dry-run commands executed in the
+historical workspace. This result-focused edit does not show a new request,
+live code generation or model latency.
 
 The exact generated file is also checked in Runpod's existing PyTorch 2.8.0+cu128
 environment: two training epochs produce a finite 2,410-parameter model and a
 three-image, ten-class output. This separate check establishes that the generated
 program runs. It is not presented as training inside the March workspace, whose
-environment does not include PyTorch. Model output uses local Qwen3-30B-A3B;
+environment did not include PyTorch at the time of that capture. Model output uses local Qwen3-30B-A3B;
 this is a restored integration, not a claim about an original 2026 model response.
+
+## AI Follow: see the assistant's edits
+
+[![The assistant's explanation beside the training settings it changed.](../../images/history/ai-follow.png)](https://setta.dev/history/#ai-follow-demo)
+
+The request describes a problem: validation loss starts rising halfway through
+training. It asks for a more conservative next experiment, without specifying
+fields or values. The canvas begins on a baseline-review note; the training
+settings are offscreen. Native Follow AI pans to those settings and highlights
+the section when the assistant changes it.
+
+The model reduces epochs from 12 to 8 and learning rate from 0.001 to 0.0005,
+adds a 0.1 warmup ratio and changes the schedule from constant to linear. Its
+response describes those same four edits. The demonstration establishes actual
+workspace changes and automatic navigation, not improved training performance.
+The review note and initial configuration are prepared example data; local
+Qwen3-30B-A3B makes the decisions through the preserved March workbench's tools.
+
+## Image chat: read an attached chart
+
+[![An uploaded chart thumbnail and the assistant's answer beside the full loss plot.](../../images/history/ai-image-chat.png)](https://setta.dev/history/#chat-image-demo)
+
+Attach `training-loss.png` and ask: “Which checkpoint would you keep from this
+run, and what should I change for the next experiment?” The actual response
+chooses epoch 5 and identifies the later rise in validation loss. The thumbnail,
+answer and full plot remain visible together, so the interpretation can be
+checked against the image.
+
+The March workbench sends the PNG through its native attachment flow to local
+Qwen3-VL-8B. The plotted losses are illustrative example data, not a claimed
+training run. The request supplies no curve values or interpretation in text;
+the same PNG appears on the canvas for the viewer. The model's proposed next-run
+changes are retained as its suggestions, not results of another experiment.
 
 ## Connected context: recommend the next experiment
 
@@ -139,6 +180,21 @@ prepared research note return in two separate floating windows, with their saved
 positions and sizes. The underlying canvas sections are hidden in this named view,
 so unrelated cards and edges do not compete with the restored windows. The note
 summarizes measured training losses and explicitly calls for unseen validation data.
+
+## Git graph: inspect the change behind a branch
+
+[![Two merged experiments and an open branch beside a selected Python diff.](../../images/history/git-pane-history.png)](https://setta.dev/history/#git-graph-demo)
+
+The training-study repository contains two merged experiments: validation-based
+checkpoints and a warmup/cosine learning-rate schedule. An augmentation experiment
+remains on its own branch. Select **Save the best validation checkpoint**, then
+open `training-study/train.py`. The diff adds best-loss tracking and saves the
+model only when validation loss improves.
+
+These are actual Git commits and merges in a prepared repository, displayed by
+the native March 2026 Git Graph. The clip demonstrates navigating history and
+inspecting code. It does not show Setta creating those branches or running the
+training experiment.
 
 ## Experiment Lens: keep an investigation together
 

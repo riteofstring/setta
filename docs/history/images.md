@@ -29,13 +29,13 @@ These six captures use new demonstration projects, assembled in the restored app
 on November 19, 2026. The interfaces are application renders, not mockups; computed images,
 curves and model responses are real outputs.
 
-| Image                                                                         | Source checkpoint                                                                                              | What it shows                                                                                                                                                                 |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Cluster lab](../../images/history/runcoder-experiments.png)                  | [January 2024 Runcoder](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | Shared parameters, scikit-learn callable controls, saved seed variants and a feature-count sweep. This is a configured experiment, not evidence of completed sweep execution. |
-| [Julia studio](../../images/history/setta-image-lab.png)                      | [November 2024 Setta](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492)   | An interactive Python task computes three 640 × 640 Julia-set studies and an escape-time distribution, using NumPy and Pillow.                                                |
-| [Training review](../../images/history/setta-model-workbench.png)             | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Two chat reviews in an executed Start–AND–End workflow. Both responses completed and the gate received both inputs.                                                           |
-| [Regression lab — Analyze](../../images/history/setta-research-workbench.png) | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Native code, chart, spreadsheet and file-browser sections, populated with a real six-rate numerical experiment.                                                               |
-| [Regression lab — Plan](../../images/history/setta-project-operations.png)    | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)        | Another saved view of the same project: a native Kanban board, research notes and the same convergence chart. Validation and further experiments remain planned tasks.        |
+| Image                                                                         | Source checkpoint                                                                                               | What it shows                                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Cluster lab](../../images/history/runcoder-experiments.png)                  | [January 2024 workbench](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1) | Shared parameters, scikit-learn callable controls, saved seed variants and a feature-count sweep. This is a configured experiment, not evidence of completed sweep execution. |
+| [Julia studio](../../images/history/setta-image-lab.png)                      | [November 2024 Setta](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492)    | An interactive Python task computes three 640 × 640 Julia-set studies and an escape-time distribution, using NumPy and Pillow.                                                |
+| [Training review](../../images/history/setta-model-workbench.png)             | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)         | Two chat reviews in an executed Start–AND–End workflow. Both responses completed and the gate received both inputs.                                                           |
+| [Regression lab — Analyze](../../images/history/setta-research-workbench.png) | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)         | Native code, chart, spreadsheet and file-browser sections, populated with a real six-rate numerical experiment.                                                               |
+| [Regression lab — Plan](../../images/history/setta-project-operations.png)    | [May 2026 Setta](https://github.com/riteofstring/setta/commit/eea7fb38c8fdb452766d06b08610248e2962c4fc)         | Another saved view of the same project: a native Kanban board, research notes and the same convergence chart. Validation and further experiments remain planned tasks.        |
 
 The May 2026 demonstrations use 81 synthetic samples, 40 gradient-descent steps and six
 learning rates. A separate Python calculation produced the CSV and curves; these were
@@ -122,14 +122,14 @@ The focused clips supplement the updated 4:45 overview and 33-second promo.
 
 The following images remain available in the feature histories.
 
-| Image                                                                               | Restored build                                                                                                     | What it shows                                                                                                                                         |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ABCDE nested forms](../../images/history/abcde-nested-forms.png)                   | [November 2020 frontend](https://github.com/riteofstring/setta/commit/cf95643cd5a6c9a7fe67736db07815fecc1addcc)    | Compose and ColorJitter controls with nested arguments. Execution is not demonstrated.                                                                |
-| [ioVuu workspace](../../images/history/iovuu-workspace.png)                         | [June 2022 frontend](https://github.com/riteofstring/setta/commit/a0c694437b8cb938b2cfe9aa8c969ef48b6b8364)        | Revision-nine minimap take at 3.5 seconds: canvas navigation and configured dataset sections.                                                         |
-| [Runcoder interactive Python](../../images/history/runcoder-interactive-python.png) | [January 2024 application](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1)  | A global parameter and the calculated chart from interactive Python.                                                                                  |
-| [Setta configuration](../../images/history/setta-configuration.png)                 | [November 2024 application](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492) | GUI values after a YAML edit: `c = 3`, `n = 64`. The editor itself is outside this frame.                                                             |
-| [Connected chats](../../images/history/setta-connected-chats.png)                   | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new six-run demonstration table connected to two chats. A substitute local model produced the displayed responses through the restored application. |
-| [Saved view](../../images/history/setta-saved-view.png)                             | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new listener demonstration in the Operate view: a gain control and its live computed result.                                                        |
+| Image                                                                      | Restored build                                                                                                     | What it shows                                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Nested forms](../../images/history/abcde-nested-forms.png)                | [November 2020 frontend](https://github.com/riteofstring/setta/commit/cf95643cd5a6c9a7fe67736db07815fecc1addcc)    | Compose and ColorJitter controls with nested arguments. Execution is not demonstrated.                                                                |
+| [Early canvas](../../images/history/iovuu-workspace.png)                   | [June 2022 frontend](https://github.com/riteofstring/setta/commit/a0c694437b8cb938b2cfe9aa8c969ef48b6b8364)        | Revision-nine minimap take at 3.5 seconds: canvas navigation and configured dataset sections.                                                         |
+| [Interactive Python](../../images/history/runcoder-interactive-python.png) | [January 2024 application](https://github.com/riteofstring/setta/commit/898e0b615d4a982358699733713901a3080bb8f1)  | A global parameter and the calculated chart from interactive Python.                                                                                  |
+| [Setta configuration](../../images/history/setta-configuration.png)        | [November 2024 application](https://github.com/riteofstring/setta/commit/6ad993c8524aff5923286989f02cd1f8aa92c492) | GUI values after a YAML edit: `c = 3`, `n = 64`. The editor itself is outside this frame.                                                             |
+| [Connected chats](../../images/history/setta-connected-chats.png)          | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new six-run demonstration table connected to two chats. A substitute local model produced the displayed responses through the restored application. |
+| [Saved view](../../images/history/setta-saved-view.png)                    | [March 2026 application](https://github.com/riteofstring/setta/commit/c88c01bf751b0417dbc03ad29bc8168befa05ca4)    | A new listener demonstration in the Operate view: a gain control and its live computed result.                                                        |
 
 The earlier connected-chats screenshot's “CONTEXT UNAVAILABLE” indicator concerns provider context-usage
 reporting. The connected table was supplied to the model; the displayed answer identifies
@@ -232,11 +232,21 @@ were preserved; it does not establish the date each screenshot was taken.
 | [AI trainer](../../images/history/ai-training.png)              | March source `c88c01bf751b0417dbc03ad29bc8168befa05ca4`. Actual Qwen3-30B-A3B output after two corrective turns, native typed controls and generated invocation. CLI help/dry-run passed in the historical workspace; exact source separately passed a Runpod PyTorch execution check. |
 | [Connected context](../../images/history/connected-context.png) | Same March source. Real answer reads a six-row note through an incoming read-only edge. Prepared native positions keep both full cards and the route visible.                                                                                                                          |
 | [Training output](../../images/history/training-output.png)     | Original January 2025 training_run recording at 28 seconds. Actual step/log/loss output; no completion claim.                                                                                                                                                                          |
+| [Image chat](../../images/history/ai-image-chat.png)            | March source `c88c01bf751b0417dbc03ad29bc8168befa05ca4`. Native PNG attachment and actual Qwen3-VL-8B response selecting epoch 5 from an illustrative loss chart. The plotted values and interpretation are not supplied in the text request.                                          |
 
 The May workflow image uses take03 at 36 seconds, cropped 2432×1368 at 64,72.
 The same run's web edit removes waiting and a native refresh between its start and
 completed model responses. The prompts explicitly include measured training data.
 Window Spaces restores a prepared curve-and-note arrangement through the native UI.
+
+The image-chat PNG uses the native x/y/w/h crop [86, 260, 2348, 1068] from the
+accepted `image-take02` interaction. The matching 18-second web clip retains source
+time 6–24 seconds at 60 fps. The capture uses model files
+`Qwen3VL-8B-Instruct-Q8_0.gguf` and its F16 vision projector, from
+`Qwen/Qwen3-VL-8B-Instruct-GGUF` revision
+`f982a07559d4a2f6c8744d840bf6fccab30eea96`. The app source is unchanged. Source
+video, native conversation receipt, illustrative input PNG and model provenance
+remain under `footage/gap/r18/ai/` in the retrospective collection.
 
 Python Canvas and Realtime were built and executed on OVH; Chrome ran on Runpod.
 Original PNGs, raw takes, generated code, actual terminal results and project state
@@ -266,14 +276,24 @@ isolated dependency directory; the historical app environment was preserved.
 
 ## Side-pane Git history
 
-`images/history/git-pane-history.png` is the original March 1, 2026 workbench
-(`c88c01bf751b0417dbc03ad29bc8168befa05ca4`) displaying a prepared repository.
-The image is extracted from `../rite-of-string-videos/setta-retrospective/footage/r4-19-git.mp4`
-at 10 seconds and cropped to x/y/w/h [0, 54, 1664, 936]. The commit dates are from
-the November 2026 capture, not the Setta source history. The webpage's focused
-working-tree preview uses 1.4–6.4 seconds of diff inspection. The earlier combined
-diff/graph edit remains in the capture archive. Neither establishes staging,
-committing, pushing or creating worktrees.
+[Git graph](../../images/history/git-pane-history.png) shows the March 1, 2026
+workbench (`c88c01bf751b0417dbc03ad29bc8168befa05ca4`) inspecting an actual prepared
+repository. The November 24 capture contains two non-fast-forward merges, an
+unmerged augmentation branch and the selected checkpoint commit's Python diff.
+The fixture commits are not the Setta repository's own history, and the recording
+does not establish training execution or Git mutations through the app.
+
+The PNG is a native frame at 8.5 seconds from
+`footage/gap/r18-clarity/native-git/raw/git-graph-take01.mp4`, cropped x/y/w/h
+[64, 58, 2432, 966]. The web clip uses source time 0.45–10.05 seconds at native
+60 fps, with the graph, commit selection and file diff visible in sequence.
+The selected commit is `266544dd438fd5a9369a013b4c5526f3c50a09c3` in the fixture
+repository. Raw video, fixture scripts, actual Git history and selected diff are
+retained under `native-git/`.
+
+The separate working-tree preview uses `footage/r4-19-git.mp4` at 1.4–6.4 seconds.
+The earlier two-commit graph image and combined diff/graph edit remain in the
+capture archive.
 
 ## Parameter inspector
 
@@ -300,3 +320,19 @@ project snapshots and screencast frames/timings are retained with the video
 collection’s revision-fifteen capture evidence.
 
 [History guide](README.md) · [All documentation](../README.md)
+
+## Follow AI and visible edits
+
+[AI Follow](../../images/history/ai-follow.png) shows the March workbench
+(`c88c01bf751b0417dbc03ad29bc8168befa05ca4`) after an actual Qwen3-30B-A3B
+response and four configuration edits. The associated recording pans from a
+prepared review note to training settings through native Follow AI, with the
+application's own edit highlight. Epochs, learning rate, warmup and schedule
+change; the response describes those same changes. No training improvement is
+claimed.
+
+The native PNG shares the web recording's [86, 360, 2348, 1008] crop. The clip
+retains source time 11.5–35 seconds at 60 fps from
+`footage/gap/r18/ai/follow-take07.mp4`. Its fixture, conversation, native recording
+receipt and exact edit manifest are retained alongside the master. The app
+source is unchanged; model inference uses the restored local engine.

@@ -7,9 +7,9 @@ when its parts could be searched, regrouped and shown in different layouts. This
 through distinct steps: list reordering, pan/zoom navigation, free positioning, nested groups
 and saved views. Markdown and embedded content kept explanations beside the work.
 
-![ioVuu's outline and editable canvas sections.](../../../images/history/iovuu-workspace.png)
+![Project outline and editable canvas sections.](../../../images/history/iovuu-workspace.png)
 
-_Restored June 2022 ioVuu build: the outline navigates a larger configuration._
+_Restored June 2022 build: the outline navigates a larger configuration._
 
 **Current library:** nested composition, typed controls, navigation, saved views and managed
 windows are public APIs. The application chooses the content and what its arrangement means.
@@ -70,7 +70,7 @@ These are preserved implementation landmarks, not a release calendar.
 | 2021-03 | Alternative control types include a working slider.                           | [Change](https://github.com/riteofstring/setta/commit/1f8db6ae4337f253f3d66d102cffaad7c233af3b) |
 | 2022-01 | Control configurations can be saved as reusable presets.                      | [Change](https://github.com/riteofstring/setta/commit/7e3fa175e4701bae478e4ab0a0eee707463215fc) |
 | 2022-02 | React Flow sections become independently positioned nodes.                    | [Change](https://github.com/riteofstring/setta/commit/8217da51fdfe52f8983122c9b8aa091adcbf2243) |
-| 2022-06 | Decks and grouping develop during the ioVuu period.                           | [Change](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2) |
+| 2022-06 | Decks and grouping organize the canvas.                                       | [Change](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2) |
 | 2022-09 | An explicit Group section type appears.                                       | [Change](https://github.com/riteofstring/setta/commit/19527db913b842d4e9195c0c6450257fe52203ae) |
 | 2023-01 | Editable Markdown becomes content inside the project.                         | [Change](https://github.com/riteofstring/setta/commit/07ef6381f0cffd6aeb242334a17c9bfc5761287d) |
 | 2023-05 | Project undo and redo restore coordinated workspace state.                    | [Change](https://github.com/riteofstring/setta/commit/d47946d06496c46f5c1f53afe4ea19d45b38c663) |

@@ -19,9 +19,9 @@ presents the architecture as a dedicated companion to the visual history.
 
 | Period                                       | Interface and language                                                                                  | Backend and execution                                                                                                                               |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2020–2021 · ABCDE                            | JavaScript, React, Create React App, Chakra UI, Emotion and Easy Peasy; an Electron desktop experiment. | Python introspection; Django, Django REST Framework and SQLite; desktop-launched Python.                                                            |
-| 2022–2023 · ioVuu / split Runcoder           | React Flow and dnd-kit; a gradual move into TypeScript, Vite, Radix UI, Tailwind and Zustand.           | TypeScript/Node server experiments, eventually Express and Prisma; a separate Python CLI.                                                           |
-| Late 2023–2025 · local Runcoder / Setta      | React, Vite, React Flow, CodeMirror, xterm.js and charts.                                               | Python, FastAPI and Uvicorn; language analysis, local processes, live tasks and SQLite persistence.                                                 |
+| 2020–2021 · Generated forms                  | JavaScript, React, Create React App, Chakra UI, Emotion and Easy Peasy; an Electron desktop experiment. | Python introspection; Django, Django REST Framework and SQLite; desktop-launched Python.                                                            |
+| 2022–2023 · Spatial configuration            | React Flow and dnd-kit; a gradual move into TypeScript, Vite, Radix UI, Tailwind and Zustand.           | TypeScript/Node server experiments, eventually Express and Prisma; a separate Python CLI.                                                           |
+| Late 2023–2025 · Local Python workbench      | React, Vite, React Flow, CodeMirror, xterm.js and charts.                                               | Python, FastAPI and Uvicorn; language analysis, local processes, live tasks and SQLite persistence.                                                 |
 | 2025–May 2026 · workbench                    | Richer editors, spreadsheets and agent interfaces.                                                      | Python services and SDKs; Go gradually takes over server responsibilities from March 2026. A separate hosted companion uses FastAPI and PostgreSQL. |
 | Summer 2026 · Setta 3 and 4                  | React/Electron; PixiJS in Setta 3's graph, a custom WebGL2 renderer in Setta 4.                         | Go, SQLite and agent-process integrations. These are separate application experiments.                                                              |
 | August–November 2026 · library and consumers | TypeScript/React, upstream xyflow, dnd-kit, CodeMirror and scoped styles.                               | Consumers own their backends. The final package needs neither Setta's Python runtime nor its Go server; browser pipelines use Web Workers.          |
@@ -96,7 +96,7 @@ See the [server dependencies][node2023], [database schema][db2023] and
 ## Late 2023–2025: the local Python workbench
 
 The [October 2023 consolidation][local2023] brought the frontend and Python runtime
-into the local Runcoder application. **FastAPI** handled HTTP and WebSocket endpoints;
+into the local workbench. **FastAPI** handled HTTP and WebSocket endpoints;
 **Uvicorn** served the application. Python handled configuration, generated programs
 and local computation. The [package requirements][python2023] and
 [server implementation][server2023] establish that boundary.

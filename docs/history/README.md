@@ -2,9 +2,10 @@
 
 [Documentation](../README.md) / History
 
-Setta began as ABCDE in 2020, became ioVuu and Runcoder, then grew into a programmable
-workbench and experiments in working with AI agents. This guide connects the changing
-interfaces to the source that survives today.
+Setta grew from generated Python forms into a spatial workspace, an experiment
+environment and a programmable workbench with AI agents. This guide follows what
+each change made possible, how the interfaces and architecture evolved, and which
+ideas became reusable library features.
 
 ## Start here
 
