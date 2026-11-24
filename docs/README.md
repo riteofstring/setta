@@ -14,6 +14,9 @@ creative tools and AI workspaces. Documentation for the current React package fo
 | [Illustrated highlights](history/highlights.md)             | A selection of the most interesting ideas, with examples and implementation links.      |
 | [Chronological feature history](history/feature-history.md) | The detailed account of what existed, when it appeared and what changed or disappeared. |
 
+[Languages and libraries](history/technology.md) explains how the stack changed.
+[Tags and checkpoints](history/tags.md) helps locate the corresponding source.
+
 The [history guide](history/README.md#source-and-media-reference) also links to source
 checkpoints, capture provenance, demonstration notes and the archived overview film.
 

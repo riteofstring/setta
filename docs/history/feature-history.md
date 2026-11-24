@@ -27,6 +27,9 @@ The account covers the preserved source history from October 2020 through Novemb
 
 The [visual coverage index](coverage.md) maps these feature families to real application examples and identifies capabilities explained from source.
 
+The [technology history](technology.md) follows the languages, libraries and server
+architectures behind these capabilities. The [tag guide](tags.md) explains the source landmarks.
+
 ## Reading this history
 
 The repository combines formerly separate projects and branch experiments. Its chronological sequence is a reconstruction: a **History transition** restores another source baseline, and **Recovered WIP** identifies unfinished saved work. Those transitions are not product features. Setta 3 and Setta 4 are separate experiments; today's library was extracted from the Setta 2 workbench. A later date therefore does not mean that all earlier capabilities were inherited.

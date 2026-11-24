@@ -48,6 +48,9 @@ The [repository timeline](docs/history/timeline.md) identifies the source trees 
 boundaries. The [reconstruction guide](docs/history/methodology.md) explains the lineage,
 its limits, and how to browse `source/*` and `milestone/*` tags without building anything.
 
+The [technology history](docs/history/technology.md) follows the languages and libraries
+behind the interfaces. Use the [tag guide](docs/history/tags.md) to choose a source checkpoint.
+
 ## Current package
 
 `@riteofstring/setta` provides configurable React workspaces and optional browser worker

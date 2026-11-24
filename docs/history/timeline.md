@@ -16,6 +16,9 @@ transitions below organize source history rather than invent retirement dates.
 | Later workbench and experiments              | Later Setta takes the root; supporting projects remain available                                                      | Setta 2, Setta 3/4 detours, agents, workflows, applications and rendering experiments are all represented. Source coexistence is not an assertion of runtime compatibility.         |
 | Current reusable library                     | Current Setta at the root, plus this guide                                                                            | The final transition restores the Setta 2-derived library and closes historical-only component directories. Their code remains in earlier commits.                                  |
 
+For the software inside these projects, see [languages, libraries and runtimes](technology.md).
+The [tag guide](tags.md) distinguishes source endpoints, milestones and release versions.
+
 ## Names and major boundaries
 
 - [ioVuu branding](https://github.com/riteofstring/setta/commit/265561755d058b1e5f6f6c64d01fa2477c6dc170)

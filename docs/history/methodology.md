@@ -34,6 +34,8 @@ This import does not rerun historical application environments.
 
 ## Browse locally
 
+The [tag guide](tags.md) explains the namespaces and recommends useful checkpoints.
+
 ```sh
 git tag --list 'source/*'
 git tag --list 'milestone/*'
