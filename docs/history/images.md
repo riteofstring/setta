@@ -223,3 +223,18 @@ The restored source is November 26, 2024, `36e56a120386407d5cfbe08d4eb0d62acf2a1
 the crop is x/y/w/h [640, 80, 1856, 1044]. This still establishes the selected
 widget types and their configured minimum, maximum and step fields. It does not
 demonstrate applying a new setting. The webpage uses an 1800 × 1013 WebP derivative.
+
+## Pane evolution additions
+
+- `feature-early-details.png`: frame 3 of `footage/r3-03-parameter-sweep.mp4`, resized to 1920 × 1080. December 2020 checkpoint `913a721856892e613b577054de598ca3287deaa3`. Selected-callable values and unfinished sweep UI; no execution.
+- `early-ui-config.png`: `footage/05-abcde-panels-2021-12-ui-config.png`, cropped [544, 120, 1984, 1116] and resized to 1800 × 1013. December 2021 checkpoint `87eb93d073441364adef298b60abbbc5e4e6d354`. Layout evidence; visible preset buttons are unfinished.
+- `generated-code-region.png`: `footage/18-setta-generated-python.png`, cropped [1040, 470, 960, 540] and resized to 1800 × 1013. December 2025 checkpoint `667251f4c6f6a3d42bf116367cc74c8fad13ff66`. Protected generated block inside the canvas code editor; no new surrounding edit is demonstrated.
+
+These PNGs share the website’s inspected WebP framing. Original captures remain in the video collection.
+
+- `contents-editor.png`: `contents-final-02.png`, from the May 30, 2026 build `94dcef790b304b9dc2b456c18dcbd4b45de6988c`, captured on Runpod. Crop [64, 64, 2432, 1368], resized to 1920 × 1080. Actual final state after epochs changes from 12 to 24 in Contents; generated Python reflects the edit.
+- `data-port-inspector.png`: `ports-inspector-02.png` from the same build and prepared project. Same crop, resized to 1800 × 1013. Dataset’s native output accessor and one complete connection to Training; no model training is claimed.
+
+Both PNGs use the webpage derivative’s framing. Full-resolution sources, native
+project snapshots and screencast frames/timings are retained with the video
+collection’s revision-fifteen capture evidence.

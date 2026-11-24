@@ -198,4 +198,16 @@ These are preserved implementation landmarks, not a release calendar.
 The summer experiments above are separate directions. Their position in the
 reconstructed chain does not make them ancestors of the Setta 2-derived library.
 
+## August: the surrounding workspace becomes reusable
+
+The library rebuilt Outline and Inspector with explicit interaction contracts. Outline
+added group disclosure, keyboard/typeahead navigation and tree semantics; the workbench
+Overview had flattened visible section records. Inspector added selected-item editing
+and compatible multi-section actions beyond the old single-section editor. Saved Views
+became a separate controlled pane with host-owned persistence.
+
+These were new library behaviors, documented in the
+[contemporaneous comparison](https://github.com/riteofstring/setta/blob/5672885e2072afb4967244358e56e01edb562015/docs/evidence/workspace-shell/reference/README.md).
+The old Git, SSH, AI, plugin and file services remained application integrations.
+
 [Historical guide](../README.md) · [Repository composition](../timeline.md)

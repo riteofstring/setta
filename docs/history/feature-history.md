@@ -75,6 +75,12 @@ By late November, the frontend could fetch specifications from a Django backend 
 
 Evidence: [recursive callable selection](https://github.com/riteofstring/setta/commit/f4f2bd2593de3bc71c7121291df5efcb8bfc08af), [default and UI-type overrides](https://github.com/riteofstring/setta/commit/b25a52978d), [selection export](https://github.com/riteofstring/setta/commit/4835438f7a), [backend specification fetching](https://github.com/riteofstring/setta/commit/a8a7926278).
 
+### November–December: Sections and Details split selection from value entry
+
+The first panes already divided work between two surfaces. By November 15, selecting a callable in **Sections** populated a separate **Details** pane with its arguments. Details edited the object's values; it was not yet an inspector for designing controls. December's sweep fields appeared underneath those values, but remained an interface prototype without execution logic.
+
+Evidence: [selected-callable Details](https://github.com/riteofstring/setta/blob/e0d13577355579df318ae0d9c720717cb6fa50c1/abcde-frontend/src/components/DetailsPane/DetailsContainer/DetailsContainer.js), [sweep fields without logic](https://github.com/riteofstring/setta/commit/c436b2cc7939d2c69feafa1419ae95cfa33c2c57).
+
 ### December: collections, search, and execution scaffolding
 
 List-based forms gained addition, removal, and ordering controls. Searchable callable menus made larger catalogs manageable, and query and selection state could be remembered per section. Root sections could contain collections of children, extending the recursive interface toward a configurable application layout.
@@ -129,17 +135,25 @@ The product was still principally a Python configuration interface. Its importan
 
 Evidence: [YAML export](https://github.com/riteofstring/setta/commit/311c41abc3), [switch control](https://github.com/riteofstring/setta/commit/f365e7e1d1), [preserved frontend history](https://github.com/riteofstring/setta/tree/source/abcde-frontend/abcde-frontend).
 
+### December: control authoring moves from a modal into the inspector
+
+The surrounding editors changed purpose during 2021. The left **Overview** navigated nested sections. The right **UI Editor** initially edited YAML, gaining separate tabs for multiple dropped files in April. Working widget selection and slider configuration lived in a section's gear modal in March, rather than in that YAML pane.
+
+By December, the right editor grouped **UI Config**, **Parameter Sweeps** and **Edit YAML**. The selected section supplied the parameter list; December 25 wired widget selection and configuration fields to state updates. This moved control design beside the form. Adjacent controls were still unfinished: Apply To/Load/Save lacked handlers and the Parameter Sweeps tab was placeholder text. The preserved December UI Config capture shows this developing layout, not a completed preset-save operation.
+
+Evidence: [working modal editor](https://github.com/riteofstring/setta/commit/ca0829de256e95a7f3240fe1eb22f7210c9bb856), [multi-file YAML editor](https://github.com/riteofstring/setta/commit/37693a339088ce4948538a93300e25efca715ec5), [tabbed right editor](https://github.com/riteofstring/setta/blob/6bcf831fd6f07d2c8a0bb0b9b2ba2fdfe23fc3dd/abcde-frontend/src/components/AppContainer/Main/SidePanes/UiEditor/UiEditor.js), [working inspector fields](https://github.com/riteofstring/setta/commit/fe2d5f4266efb759d8d3749a5edb90615b99713a).
+
 ## 2022: ioVuu and Runcoder become a freeform workspace
 
 ### January–February: presets and freely positioned sections
 
-January added parameter-control presets and a clearer distinction between shared defaults and project overrides. A reusable control configuration could establish a sensible presentation while a particular project supplied its own values or settings.
+January added parameter-control presets and a clearer distinction between shared defaults and project overrides. The global control editor could update a named preset or save a new one. February’s **Section Config** pane exposed callable/object and parameter collections, including which choices and fields a section offered. The inspector therefore authored both the contents of a form and the presentation of its controls. A particular project could supply its own values or settings.
 
 The major interaction change arrived on February 26: sections became **freely positioned ReactFlow nodes**. Users could arrange independent cards on a canvas rather than only reorder them within predetermined columns. Context-menu creation used the chosen canvas position, and viewport controls handled fitting and zoom bounds.
 
 This is the useful boundary between the earlier navigable form layout and the familiar Setta spatial workspace. Pan and zoom existed in 2021; independent section positioning is evidenced here.
 
-Evidence: [control presets](https://github.com/riteofstring/setta/commit/7e3fa175e4701bae478e4ab0a0eee707463215fc), [freeform sections](https://github.com/riteofstring/setta/commit/8217da51fdfe52f8983122c9b8aa091adcbf2243).
+Evidence: [control presets](https://github.com/riteofstring/setta/commit/7e3fa175e4701bae478e4ab0a0eee707463215fc), [section contents editor](https://github.com/riteofstring/setta/commit/2233e80e09bd3b446866578e7a00b384672ff8ab), [freeform sections](https://github.com/riteofstring/setta/commit/8217da51fdfe52f8983122c9b8aa091adcbf2243).
 
 ### May–August: ioVuu, decks, references, and generated programs
 
@@ -152,6 +166,12 @@ Selection export supported YAML and JSON during this period. Dragging between li
 The project adopted the **Runcoder** name in August. That was a branding change within the same evolving configuration-and-execution product, not the introduction of every capability visible in a Runcoder screenshot.
 
 Evidence: [ioVuu and minimap](https://github.com/riteofstring/setta/commit/265561755d058b1e5f6f6c64d01fa2477c6dc170), [decks](https://github.com/riteofstring/setta/commit/e85fb1f9bd64d4e44ae306ae579feff93fb50cb2), [reference input](https://github.com/riteofstring/setta/commit/645f3df3d3ba77558cb1c945bc359ecb11436766), [Runcoder branding](https://github.com/riteofstring/setta/commit/f51e94eab77f6a2e0f1099f4c292fd6bb27c9101).
+
+### September–November: Card and Parameters replace the old YAML pane
+
+The right editor narrowed to **Card** and **Parameters** in September. The old YAML-entry tab and implementation were removed, followed by the old Templates button. Project/configuration save-and-load dialogs and direct section creation took over that work. November's Run flow generated a `runcoder run <id>` command for the local CLI, while the old JSON/YAML export menu was removed. Later YAML generation and round-trip editing were new implementations, not an uninterrupted continuation of the 2021 pane.
+
+Evidence: [remove YAML tab](https://github.com/riteofstring/setta/commit/0e5a6ecf27e2d20d972cc844b2e3158a5c8b49dd), [remove Templates button](https://github.com/riteofstring/setta/commit/76fee594d05778c3affd3c86853ae85e619d620e), [project/configuration chooser](https://github.com/riteofstring/setta/commit/6792ff2fce22fc314221097f5afb4e83bc7ce0f4), [CLI handoff](https://github.com/riteofstring/setta/commit/1a6b25c90386b79d3fe0bb1399397e05dba15b65).
 
 ### September–December: explicit groups, project configurations, and CLI execution
 
@@ -179,6 +199,14 @@ Parameter filtering, including a keyboard shortcut, reduced searching within lar
 
 Evidence: [project logger](https://github.com/riteofstring/setta/commit/3695dc1974cf39f9a15f461e13c21b7939ebe9d7), [Lightning logger](https://github.com/riteofstring/setta/commit/c4a7f4de59), [initial charts](https://github.com/riteofstring/setta/commit/268715911a89dbc7c5b8f1d8bbfe3a7f4197ea43), [Markdown sections](https://github.com/riteofstring/setta/commit/07ef6381f0cffd6aeb242334a17c9bfc5761287d), [parameter filtering](https://github.com/riteofstring/setta/commit/435d3ef16b).
 
+### February–March: author explanations in the inspector
+
+February expanded the inspector beyond appearance. The **Parameters** pencil editor saved a description for an individual parameter; hovering that parameter could show its explanation in the left **Quick Help / InfoView**. The right **Info** tab edited the selected section's Markdown description. The two sides could now author and present documentation for the program being assembled.
+
+A **Runtime** tab appeared in March, but its preserved implementation was an empty component followed by an unbound “Test” switch. It did not establish functional execution settings.
+
+Evidence: [parameter descriptions and contextual help](https://github.com/riteofstring/setta/commit/28b516333f8fffe10439c2fcfd458fc4605f2393), [section Markdown editor](https://github.com/riteofstring/setta/commit/033739513cfa4bf9655f4f6120b2babce90d6532), [unfinished Runtime tab](https://github.com/riteofstring/setta/blob/9746188b87e5984dd4a7bd6a8b2e12b50b055022/abcde-frontend/src/components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/RuntimeOptions/RuntimeOptions.jsx).
+
 ### April–August: reversible editing and reusable sections
 
 Undo and redo expanded across the actual project model. Supported changes included values, arguments, section creation and deletion, grouping, renaming, movement, resizing, callable or UI-type selection, descriptions, and chart-related choices. This made spatial experimentation less costly: changing the program and changing its layout could be reversed through the interface.
@@ -195,7 +223,7 @@ Autocomplete began connecting the editor to the local Python environment in Sept
 
 Project interchange returned through JSON export and import. YAML generation also reappeared, initially without the later full round trip. Code references became highlighted and navigable, including control-click navigation, and generation became more aware of imports and referenced sections.
 
-Saved section versions gained selection and hover preview. Users could keep alternate configurations of a component and inspect them before committing to a choice. Copy and paste placed sections at a chosen canvas position.
+Saved section versions gained selection and hover preview in a card-header dropdown. The dedicated right-hand Versions pane came later, in August 2024. Users could keep alternate configurations of a component and inspect them before committing to a choice. Copy and paste placed sections at a chosen canvas position.
 
 On December 24, an **interactive Python proof of concept** connected changing interface state to a user function. This was the start of a live feedback loop: control changes could produce new results without treating every interaction as a separate manually launched script. Interactive charts followed in January.
 
@@ -241,6 +269,14 @@ YAML returned as an editable representation that could be parsed into GUI state 
 
 Evidence: [interactive image manipulation](https://github.com/riteofstring/setta/commit/87275831fe509bd7a265a7fc1ed877bc9a5672dd), [drawing input](https://github.com/riteofstring/setta/commit/82e84e5ae3da61d2592124180bec62a03b357ffe), [YAML-to-GUI parsing](https://github.com/riteofstring/setta/commit/49014dbdf6f899e6b504a904ef8560d03e8ff9f8), [JSON-backed controls](https://github.com/riteofstring/setta/commit/ec9c5eeaa236334b48eb1306f8d7ad2bbabe67b1).
 
+### August–December: versions and parameter help become dedicated inspector tools
+
+On August 17, the version list moved from individual cards into the right **Section Variants** pane. Selecting a section now chose which alternatives the inspector displayed. December completed Add Version, rename, deletion and default selection. This changed where users managed variants; variants themselves already existed in 2023.
+
+September's **Quick Info** editor wrote parameter descriptions directly into code information, extending the earlier description-authoring path. A short-lived **DB Sources** tab had exposed a section's source identifier in March; it was removed in September. It was not a database browser. The inspector was evolving through additions and removals rather than accumulating a permanent list of tabs.
+
+Evidence: [move versions into the pane](https://github.com/riteofstring/setta/commit/e017c6de110b1eace21980b7a753af2eb6515c89), [working Add Version](https://github.com/riteofstring/setta/commit/9b3403121e84216ed2b4b657efd77826bd23fb48), [functional parameter-help editor](https://github.com/riteofstring/setta/commit/c929ab268b59cf4b0fa38d532ba854fa9e442ca8), [DB source field](https://github.com/riteofstring/setta/commit/c800118b6761edb5fdfb992d9ee78fc6b1d40974), [DB Sources removal](https://github.com/riteofstring/setta/commit/eacb7e516e1fbb3a511c56aa47da0edda0782d78).
+
 ### October–November: richer documentation and two-way representations
 
 Source-backed editing expanded to nested JSON paths and file patterns that could supply different versions. Terminals and their grouping became more restorable. Plain text and Markdown presentation continued to converge around reusable editor behavior.
@@ -259,9 +295,9 @@ Reference maintenance became part of structural editing. Renaming, moving, and g
 
 Drawing grew into a layered artifact editor. Layers could be added, deleted, reordered, hidden, and given opacity. A layer could contain multiple artifacts, including file images and brush strokes. Images gained resize and transform handling, including flipped scaling, and erasing became sensitive to the selected artifact. Drawing history continued into early 2025.
 
-Charts gained more explicit line and scatter configuration, axes, categories, and hover behavior. The generated-code placeholder also allowed generated Python to occupy a defined part of a larger authored program, with surrounding code contributing to completion context.
+The right **Section Config** pane exposed the composition behind those outputs. December 21 connected its artifact list and layer groups to real section state, including dropping artifacts into a layer and removing them. Image and plot settings followed, with chart data, horizontal axis and category-column selection. Charts gained more explicit line and scatter configuration, axes, categories, and hover behavior. The generated-code placeholder also allowed generated Python to occupy a defined part of a larger authored program, with surrounding code contributing to completion context.
 
-Evidence: [reference updates](https://github.com/riteofstring/setta/commit/b8ec26789066d81eddf1c0ac4b203033eb5e8a2a), [replacement implementation](https://github.com/riteofstring/setta/blob/b8ec267890/frontend/src/state/actions/infoToEVReferrer.js), [drawing layers](https://github.com/riteofstring/setta/commit/30bdf9dda496eadf3388586b8f27e3e54577acd1), [artifact transforms](https://github.com/riteofstring/setta/commit/3a89e8ae537250c421e344d42824b8e3a1a802f5), [chart modes](https://github.com/riteofstring/setta/commit/587c6d3fd4).
+Evidence: [reference updates](https://github.com/riteofstring/setta/commit/b8ec26789066d81eddf1c0ac4b203033eb5e8a2a), [replacement implementation](https://github.com/riteofstring/setta/blob/b8ec267890/frontend/src/state/actions/infoToEVReferrer.js), [drawing layers](https://github.com/riteofstring/setta/commit/30bdf9dda496eadf3388586b8f27e3e54577acd1), [artifact transforms](https://github.com/riteofstring/setta/commit/3a89e8ae537250c421e344d42824b8e3a1a802f5), [chart modes](https://github.com/riteofstring/setta/commit/587c6d3fd4), [real artifact/layer operations](https://github.com/riteofstring/setta/commit/3116c2ceaeb97e62f4baf430d21864d72afae641), [chart-data settings](https://github.com/riteofstring/setta/commit/440f33cf4a002448eec12d9423e89194195d78d8).
 
 ## 2025: reactive Python, chat, MCP, and the expanding workbench
 
@@ -295,6 +331,14 @@ The distinction matters: a canvas Chat section was one programmable surface amon
 
 Evidence: [canvas chat](https://github.com/riteofstring/setta/commit/65ccfe429425509bf9d709bfdf616cd2ba2ca52e), [chat-history artifacts](https://github.com/riteofstring/setta/commit/339c16e3e9d80cfc3467271434fc94dff960ad43), [LLM experiment](https://github.com/riteofstring/setta/commit/f383021d7601ecbf4656f5f5e52c2f24f67011ea), [continuing project-chat implementation](https://github.com/riteofstring/setta/commit/bf10abdc4d15183a0400d9629659c2f77c41d1f2).
 
+### March: presentation modes, notifications, and JSON-backed variants
+
+The left pane gained persisted **Developer / User / Edit User View** modes. Users could hide sections while composing the user-facing presentation, and Overview respected that visibility. Notifications also became a persisted, dismissible history rather than an initial hardcoded list. These were separate from the backend-log viewer introduced in December.
+
+On the right, JSON-source setup moved into individual version rows. A variant could switch between Python and JSON configuration and load its source values. The old InputAreaSettings panel was withdrawn as watched files and glob patterns changed the model. This was a relocation and redesign of file-backed configuration, not the disappearance of JSON support.
+
+Evidence: [persisted presentation modes](https://github.com/riteofstring/setta/commit/1234bd4e7222f768a111d0a2c0577c60f8f7ba5e), [persisted notifications](https://github.com/riteofstring/setta/commit/a963e435d16fa49e337cf4c60c9a8c4915554f71), [per-variant JSON source](https://github.com/riteofstring/setta/commit/0179185a694527670ef484262d37b6d8bb62c4f6), [source loading](https://github.com/riteofstring/setta/commit/4caab49e8883484795180b6de21872f0a0794475), [old settings withdrawn](https://github.com/riteofstring/setta/commit/8abbfc65d36edb467a0a4dbb9e58979863399d7a).
+
 ### March–April: SettaListener and SettaChat
 
 **SettaListener** turned live interaction into an explicit Python API. A program could subscribe to relevant interface changes, register callbacks, and emit artifacts back to the frontend. Instead of reconstructing a whole script for every slider movement, a long-lived process could respond to changing values.
@@ -311,7 +355,7 @@ FastMCP integration appeared on April 6. The assistant could discover and invoke
 
 Over the following weeks, tools could create sections, choose callables, inspect code information, add parameters, change values, run code, and perform structural actions such as grouping, ungrouping, and moving sections. These operations exposed the same project concepts users manipulated visually.
 
-Chat persistence moved into the backend. Streaming conversations recorded message and tool steps, stopping a run preserved partial history, and multiple chats could show independent activity states. The interface was becoming a workbench with ongoing assistant activity rather than a single request-response box.
+The project-chat pane showed tool names, partial arguments, active calls and returned results alongside the conversation. Chat persistence moved into the backend. Streaming conversations recorded message and tool steps, stopping a run preserved partial history, and multiple chats could show independent activity states. The interface was becoming a workbench with ongoing assistant activity rather than a single request-response box.
 
 Evidence: [FastMCP integration](https://github.com/riteofstring/setta/commit/5bd0161148fb1b28c0eb01dfab5afd74671f5225), [section-creation tool](https://github.com/riteofstring/setta/commit/074824b9723723320e53d2227b60a00b2bab611a), [parameter-value tools](https://github.com/riteofstring/setta/commit/b1750b1971fd89a8723f0267654ab20c770e3772).
 
@@ -327,27 +371,35 @@ On June 1, the old **parameter sweeps and run groups were removed**. Their UI an
 
 Evidence: [generated state](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504), [dependency-focused generation](https://github.com/riteofstring/setta/commit/fea01c019ebc43c0cd82cbec32c5582d3ca85f59), [hosted-project experiment](https://github.com/riteofstring/setta/commit/714290e028dcef6d83d5ac6649b8223b107e7b33), [sweep and run-group removal](https://github.com/riteofstring/setta/commit/e33715d454805045e7f1160c343a46e61181ad23).
 
+### May–July: write around generated Python in the right pane
+
+A **Generated Python Code** settings editor arrived on May 11 for authored prefix code; a suffix editor followed on July 20. Users could surround generated code with imports, setup and follow-on work. This was a real code-authoring surface in the right pane, with completion added to the prefix editor, not just a preview of generated output. December moved the same task into the canvas editor and removed this pane component.
+
+Evidence: [prefix editor](https://github.com/riteofstring/setta/commit/406b8e30de59a005c6e7035f52ae869f1761d5f1), [prefix completion](https://github.com/riteofstring/setta/commit/03adfd99c6615212c491b742261a0131ddc10f1b), [suffix editor](https://github.com/riteofstring/setta/commit/6b78751453863f3b2bc41c34463fd959c4408abd).
+
 ### Summer–September: richer configuration models and watched artifacts
 
 The project model underwent substantial changes during the summer. Section and code-object representations, implementation layers, presets, variants, and overrides separated shared configuration from a particular instance's choices. Much of this was internal restructuring, but its user-facing purpose was to make reusable components and alternate configurations coexist without copying every setting.
+
+The parameter inspector reflected that redesign. By July it could select a reusable control implementation or create an instance-specific implementation and modifier. This rebuilt the existing widget editor around presets and overrides; it was not the first introduction of slider configuration.
 
 The backend increasingly became the authority for typed project state. That mattered for synchronized editing, persistence, and assistant operations: a graphical action and a tool action needed to agree on the same section, argument, and variant identities.
 
 External artifacts became more reactive. JSON sources and image or chart files could be watched, and updates outside the browser could refresh the corresponding surface. This expanded the earlier file-backed sections into an interface for data that other tools were actively changing.
 
-Evidence: [artifact watching](https://github.com/riteofstring/setta/commit/75dc391356), [continued source-file watching](https://github.com/riteofstring/setta/commit/2e900b35d5), [later workbench source](https://github.com/riteofstring/setta/tree/source/setta-2025).
+Evidence: [working preset/implementation selection](https://github.com/riteofstring/setta/commit/6b452ca9f6d356c0effd222d8d8c241341009310), [artifact watching](https://github.com/riteofstring/setta/commit/75dc391356), [continued source-file watching](https://github.com/riteofstring/setta/commit/2e900b35d5), [later workbench source](https://github.com/riteofstring/setta/tree/source/setta-2025).
 
 ### October–November: two-way files and hot-reloaded Python
 
-Code and text sections became more directly tied to canonical project files. File access could be read-only or writable, edits could be saved back, and external changes could be reflected in the workspace. This let Setta coexist with an ordinary editor instead of requiring every file edit to happen inside the canvas.
+Code and text sections became more directly tied to canonical project files. File access could be read-only or writable, edits could be saved back, and external changes could be reflected in the workspace. The right-hand Code settings selected the canonical file path and Read & Write, Read Only or Write Only mode. This let Setta coexist with an ordinary editor instead of requiring every file edit to happen inside the canvas.
 
 The listener system acquired a fuller synchronization model: an initial state snapshot, incremental dependency updates, explicit emitted results, and callback scheduling. Dependencies could distinguish live values from saved values. Programs could consequently choose whether to react immediately to an edit or to a committed configuration.
 
 November added **hot reload** for listener code. A long-running interactive program could update its callback implementation as source files changed, while preserving the surrounding workbench interaction. It was a development loop built around running Python and live controls, separate from Watch Code's later job of creating callable cards from file definitions.
 
-LLM configuration also became more general. Provider-independent abstractions and LiteLLM configuration supported multiple model providers, project-level presets, watched configuration, and selected models. Streaming, reconnection, stop handling, and partial tool-loop histories improved continuity when a conversation was interrupted.
+LLM configuration also became more general. Provider-independent abstractions and LiteLLM configuration supported multiple model providers, project-level presets, watched configuration, and selected models. The November settings editor exposed providers, endpoints, headers and models, then gained provider presets and reset. Its rendering in Overview was explicitly disabled on November 29, so that editor was not continuously exposed through the later snapshots. Streaming, reconnection, stop handling, and partial tool-loop histories improved continuity when a conversation was interrupted.
 
-Evidence: [file synchronization](https://github.com/riteofstring/setta/commit/0f7b11670974fdaf4d3780a9a2ade1ca5c2f9794), [two-way text files](https://github.com/riteofstring/setta/commit/61fc3210ad), [code-file reload](https://github.com/riteofstring/setta/commit/150d894824), [listener hot reload](https://github.com/riteofstring/setta/commit/04435ec501efa94e6bb5ff4ee20109eafd004a14).
+Evidence: [file synchronization](https://github.com/riteofstring/setta/commit/0f7b11670974fdaf4d3780a9a2ade1ca5c2f9794), [two-way text files](https://github.com/riteofstring/setta/commit/61fc3210ad), [code-file reload](https://github.com/riteofstring/setta/commit/150d894824), [listener hot reload](https://github.com/riteofstring/setta/commit/04435ec501efa94e6bb5ff4ee20109eafd004a14), [file-binding inspector](https://github.com/riteofstring/setta/commit/28143c0b256ff06998172ffd99ded23b18d8dd26), [provider editor](https://github.com/riteofstring/setta/commit/0a285e692387ae28315d880eeafaea209bc71206), [settings-pane withdrawal](https://github.com/riteofstring/setta/commit/6ef5a83830221565a1a0adb747a1f824d0dfe2b7).
 
 ### December: AI navigation, named views, and standalone controls
 
@@ -355,7 +407,7 @@ MCP integration expanded toward multiple external servers, live configuration, e
 
 **Follow AI** connected assistant activity to the canvas. When a tool operated on identified sections, the interface could pan to and highlight the affected content. This made an assistant's actions easier to follow in a spatial project.
 
-Named **view modes** controlled which sections were visible. A project could present a focused subset for one task and a different subset for another. Later work extended views to carry separate layouts; the first December boundary was primarily about named presentation and visibility.
+Named **view modes** replaced March’s single Developer/User/Edit User mode on December 20. The left Views pane could create, rename and delete these presentations. Named views controlled which sections were visible. A project could present a focused subset for one task and a different subset for another. Later work extended views to carry separate layouts; the first December boundary was primarily about named presentation and visibility.
 
 **Meta controls** made a single parameter into an independent canvas section. Sliders, rotary-style sliders, switches, text inputs, colors, dropdowns, buttons, and later other input types could serve as the front panel of an application. A control no longer needed to remain a row inside a large callable card. Its header could be minimized or hidden according to the presentation, and its value participated in live state.
 
@@ -364,6 +416,14 @@ Buttons introduced event-oriented behavior: pressing one could trigger an action
 The end of December also began a new **share-deployment** model based on project snapshots and isolated sessions. This was separate from the earlier setta-saas project.
 
 Evidence: [Follow AI](https://github.com/riteofstring/setta/commit/7c29be57c70eaabdf9de08dd11c80d0b673c4116), [named view modes](https://github.com/riteofstring/setta/commit/57e438be1714f12cde879c5eaf04e67da397ca07), [meta-control sections](https://github.com/riteofstring/setta/commit/e08f15a8a646ef2ad58b55b685308fb4f2d30f9a), [live meta-control state](https://github.com/riteofstring/setta/commit/256f31e1d10fb2afe42a446d6022873beb606553), [button actions](https://github.com/riteofstring/setta/commit/3d4e88186dc714c4e7479b92b77941c6afc632f3), [share deployments](https://github.com/riteofstring/setta/commit/8b4ee8d7122b0efb2fa59efd597b1ceefffcb4d0).
+
+### December: Custom Runs and logs arrive; generated-code editing returns to the canvas
+
+The left **Backend Logs** pane arrived on December 14, with retention, filters and unread error indicators. **Custom Runs** followed on December 20: create a named entry from a code block, choose once or continuous execution, and decide whether it appears in the main Run dropdown. This interactive launcher was distinct from January's detached RunPlan API.
+
+On the same day, the generated-code settings component was deleted. Authored prefix and suffix code moved into the canvas **Code** editor around a protected generated region. Users could now read and edit the whole program together instead of dividing that work between the code card and its inspector. December 27 also gave standalone Meta Controls their own settings and added audience-friendly parameter names alongside descriptions.
+
+Evidence: [backend logs](https://github.com/riteofstring/setta/commit/7a3f3a9ac2345bb0a6ef0fd674b3921e8b1fbe40), [Custom Runs](https://github.com/riteofstring/setta/commit/8bcd1a8da108e7bf566607f1e0300dfd06115a97), [move authored code into the canvas editor](https://github.com/riteofstring/setta/commit/60884cb8f0a0ce2fa96e550487c0191f6d53159a), [Meta Control settings](https://github.com/riteofstring/setta/commit/deae8a19f6decadd09ffe7e4e8929059a9ece41d), [friendly parameter names](https://github.com/riteofstring/setta/commit/e006820db954ece89bccd8557baf2901747f5be9).
 
 ## January 2026: a programmable workbench and a new experiment runner
 
@@ -394,25 +454,39 @@ This system was programmatic and detached. It did not restore the deleted 2024 s
 
 Evidence: [runner introduction](https://github.com/riteofstring/setta/commit/ba758e7e090536356f67a1bd787db14c9f11d83f), [runner API source](https://github.com/riteofstring/setta/blob/eea7fb38c8/backend/setta/api/runner.py), [historical run-plan reference](https://github.com/riteofstring/setta/blob/eea7fb38c8/docs/reference/param-sweeps.md).
 
+### January 11–18: author data ports and nested file paths
+
+The right Section Config editor made data connections explicit. Users could choose which parameters appeared as input ports and author ordered output accessors, with completion for the accessor expressions. These described a section's data interface; they were separate from the later workflow-edge inspector's execution rules.
+
+The same settings area gained a JSON-source path editor with validation, refresh feedback and rollback on failed changes. A section could expose a nested part of a file without replacing the entire JSON object.
+
+Evidence: [data-port editor and backend operations](https://github.com/riteofstring/setta/commit/32f7197ef22dd3fce314e5a8c6ccd67a8ea4aa89), [JSON-path editor](https://github.com/riteofstring/setta/commit/204340a8ca9d64faddbdfb9a3c6d1c2fe0a8ce6a), [refresh and rollback](https://github.com/riteofstring/setta/commit/c6ff4833a173f5477ab8b8fc4c6fccd9828d934d).
+
+### January 17: Custom Runs takes over code-generation setup
+
+Custom Runs gained the code-generation target toggle, generation policy and snapshot choices alongside its once/continuous launch entries. The older whole-project GUI/YAML editing mode was removed. That removal did not end external YAML/TOML file-backed values, which had a different role.
+
+Evidence: [move target toggle into Custom Runs](https://github.com/riteofstring/setta/commit/98ff6b6f24e18e6840edceb0743c1a2a205554f9), [generation policy](https://github.com/riteofstring/setta/commit/fcb042edc5fabff913a8e2b1e03f6cd1044045a9), [remove GUI/YAML mode](https://github.com/riteofstring/setta/commit/947b480d8ab49407b68fa03c7aaa9f68bda2522a).
+
 ### External coding agents and richer chat execution
 
-The agentic runner integrated external coding-agent systems, including Claude, Codex, and OpenCode paths. Agent profiles controlled model settings, prompts, permissions, tool allowlists, and related execution choices. Tool activity and reasoning-related status could stream into chat, and approval requests became part of the conversation lifecycle.
+The agentic runner integrated external coding-agent systems, including Claude, Codex, and OpenCode paths. A new **Project AI Settings** pane on January 18 managed API keys, named profiles, reusable prompt templates and external-agent adapters. Profile wiring connected system prompts, models, tool allowlists and memory scopes to actual chat execution. Adapter settings supplied commands or base URLs, working directories and sandbox/approval choices. This replaced the limited 2025 provider editor with a broader agent-configuration surface. Tool activity and reasoning-related status could stream into chat, and approval requests became part of the conversation lifecycle.
 
 The adapters evolved during the month, including a move toward the Codex app-server integration. These were backend-dependent workbench features. They should not be attributed to the present React library merely because it can display a chat surface supplied by a host application.
 
-Evidence: [agentic runner](https://github.com/riteofstring/setta/commit/836cb0ba72152f069190f532ad6c365b305eefb2).
+Evidence: [agentic runner](https://github.com/riteofstring/setta/commit/836cb0ba72152f069190f532ad6c365b305eefb2), [new AI settings pane](https://github.com/riteofstring/setta/commit/cb1bf595541dfe31173ce9554aa1faf9832221c1), [profile/prompt execution wiring](https://github.com/riteofstring/setta/commit/6372875f20def48fc801f43b7afa2fc9545a3074).
 
 ### Code files, source-backed values, and Watch Code
 
 A file explorer exposed code files alongside the canvas. Files could be edited as ordinary sources, including non-runnable languages. Code-generation targets and their enabled state became explicit.
 
-On January 17, the old **GUI/YAML editing-mode toggle was removed**. This did not remove every use of YAML. External structured sources expanded from JSON to YAML and TOML, with nested keys and JSON-compatible values. A file-backed section and a whole-project GUI/YAML mode were different features.
+External structured sources expanded from JSON to YAML and TOML, with nested keys and JSON-compatible values. These file-backed values survived the removal of the separate whole-project GUI/YAML mode.
 
 **Watch Code** connected source definitions to callable sections. Watching selected Python files or folders could detect new top-level functions, async functions, and classes, create their callable cards, and update parameters when signatures changed. Renames could preserve parameter state. Deleted definitions could remove corresponding generated entries, while syntax errors were handled without treating an unparseable file as proof that all its definitions had disappeared. An initial baseline avoided flooding a project with unwanted cards from every existing definition.
 
 By the spring, Watch Code was a provider-based plugin with explicit prerequisites, including Python generation and an appropriate language-server setup. Its purpose remained distinct from listener hot reload: Watch Code synchronized the visual representation of code; hot reload changed the implementation of a running callback.
 
-Evidence: [GUI/YAML mode removal](https://github.com/riteofstring/setta/commit/947b480d8a), [code explorer](https://github.com/riteofstring/setta/commit/2961e37d0a6dab5e7c83b668c247ba30bf1e7edd), [YAML/TOML sources](https://github.com/riteofstring/setta/commit/41bb0ed637), [Watch Code](https://github.com/riteofstring/setta/commit/8786063d529c8517cb6df4f8687d010d9002dd27), [rename preservation](https://github.com/riteofstring/setta/commit/aac08321ebd9eb8a37fe293f703650762625bc5e).
+Evidence: [GUI/YAML mode removal](https://github.com/riteofstring/setta/commit/947b480d8a), [code explorer](https://github.com/riteofstring/setta/commit/a2444de42201253b7e05f4ca06869474c65fc57f), [YAML/TOML sources](https://github.com/riteofstring/setta/commit/41bb0ed637), [Watch Code](https://github.com/riteofstring/setta/commit/8786063d529c8517cb6df4f8687d010d9002dd27), [rename preservation](https://github.com/riteofstring/setta/commit/aac08321ebd9eb8a37fe293f703650762625bc5e).
 
 ### Passwords, dropzones, media, and presentation controls
 
@@ -456,13 +530,13 @@ Evidence: [SSH workspaces](https://github.com/riteofstring/setta/commit/ae708854
 
 ### Spreadsheets, task boards, date/time controls, and dictation
 
-Specialized data surfaces widened the range of work that could stay on the canvas:
+Specialized data surfaces and project tools widened the range of work that could stay in the application:
 
-- **Spreadsheets** opened and edited CSV/XLSX-style data, with sorting, filtering, and presentation settings.
+- **Files became an editor.** Its February 14 spreadsheet surface opened CSV, TSV, XLS and XLSX, edited cells, added rows and columns, and saved with modification-time checking. This was separate from the later canvas Spreadsheet section, whose presentation included sorting and filtering.
 - **Task boards** offered task-list and Kanban presentations, then became a dedicated section type alongside Spreadsheet.
 - **Date and time controls** supported input and display modes, including calendar-style selection and 12/24-hour presentation.
 - **Dictation** added speech-to-text input, with provider and streaming behavior evolving afterward.
-- **Skills and MCP browsers** exposed available instructions and servers. Custom skill authoring and rendered/raw Markdown editing followed on March 1.
+- **Skills and MCP browsing moved into Project Chat** on February 14, out of App configuration. This viewer listed discovered instructions, server configurations and tool availability; it did not yet provide enable/disable controls. Custom skill authoring and rendered/raw Markdown editing followed on March 1.
 
 Clock and Calendar sections briefly existed, then were removed the following day as date/time behavior moved into the appropriate text/meta-control forms. They should be recorded as a short-lived design, not as permanent members of the section catalog.
 
@@ -470,41 +544,31 @@ Chat added queued drafts, editing and dispatch of pending messages, richer activ
 
 Evidence: [spreadsheets](https://github.com/riteofstring/setta/commit/69e253ded2b29963f7023a46346041651868fc28), [task-list/Kanban modes](https://github.com/riteofstring/setta/commit/67c7b3d9cd0fe1ecca0ac09df70ed3090a93bb68), [dedicated section types](https://github.com/riteofstring/setta/commit/8d8729e5aa4598b27041925f0b73862a94f2f6e2), [Clock/Calendar removal](https://github.com/riteofstring/setta/commit/d7a63e1f68c7a839587990414f5676ec5b51c490), [date/time controls](https://github.com/riteofstring/setta/commit/01d3c59cf2b960e129c5dea4584ffe137f1e81b1), [dictation](https://github.com/riteofstring/setta/commit/e46c1267f27aac4e2b8c085c1875aa7f4c4e1de0), [per-view layouts](https://github.com/riteofstring/setta/commit/3383f5a22c27ff02367076376b5c7db71206b3d0).
 
+The new project tools had distinct entry points: the [App editor](https://github.com/riteofstring/setta/commit/d5d00bd1e244f1d178bf5d506a5da1a3b12b6882) edited live specification JSON, with separate [theme/assets editors](https://github.com/riteofstring/setta/commit/25b6768ac81b2185382b0d9fd87ec9a0d624f2b6). The [Plugins pane](https://github.com/riteofstring/setta/commit/f2530503ff307534cca1b95e9cb9dd13ee6a08ec) managed extensions, which could [register their own panes and commands](https://github.com/riteofstring/setta/commit/734b413977bfaeb1a72f721174e35bc345be56ee). SSH connection setup belonged to the workspace-switcher modal. The [Skills/MCP relocation](https://github.com/riteofstring/setta/commit/87a7e13d8c28928ecd862c64b84a8ac42fd53410) made chat the home for agent-related discovery.
+
 ## March–May 2026: workflows, windows, and the Setta 2 backend transition
-
-### Side panes: author the interface and configure the project
-
-The workbench had two substantial tool surfaces around the canvas. The left **Overview** pane managed the project; the right **UI Editor** followed the selected section, parameter or workflow edge. Many of these tools accumulated over earlier years. The March and May checkpoints establish their combined form, rather than dating every tool's introduction to spring 2026. Later windowing also let some tools leave their original pane.
-
-The right inspector made generated interfaces editable:
-
-- **Parameter UI Config** selected the widget and exposed its presentation fields. A numeric Python argument could become a slider with a chosen range and step.
-- **Parameter Info Editing** authored friendly parameter names and descriptions; **Info Editing** authored section documentation.
-- **Section Config** chose exposed input ports, authored and reordered output accessors, and selected nested JSON source paths. Code sections could bind to a file in Read & Write, Read Only or Write Only mode.
-- **Section Variants** selected, reordered, froze and designated default alternatives. Applicable Dict variants could use JSON-source behavior.
-- **Workflow Edge** settings authored triggers, signal filters, count conditions, target actions, prompt sources/templates, thread strategy and permissions. This was the editor behind the execution relationships described below.
-
-The left pane offered more than a section catalog:
-
-- **Files**, **Git**, **Watch Code**, **Plugins** and **App** provided dedicated project tools. Git included worktree inspection with branch, HEAD and current/prunable information, alongside status, diffs and history. The inspected pane does not establish staging, committing, pushing or creating worktrees.
-- **Custom Runs / Run Instructions** defined named one-shot or continuous commands, controlled their presence in the Run dropdown, and added runs from code blocks. Code-generation targets/policy, snapshot mode and workflow start/stop/reset controls belonged to this setup surface, separate from the Python RunPlan API.
-- **AI Settings** managed agent profiles, API keys, completion-verification guardrails, transcription profiles, prompt templates and external-agent adapters. Profiles combined system prompts, engine assignments, tool allowlists and memory scopes.
-- **Views** managed canvas View Modes, Project Configs and Window Spaces. These preserved different things: presentation, configured values and floating-window arrangements.
-- **Notifications / Backend Logs** offered project and severity filters, message search and copying of log information.
-
-Evidence: [March pane inventory](https://github.com/riteofstring/setta/blob/c88c01bf751b0417dbc03ad29bc8168befa05ca4/frontend/src/components/Panes/Overview/Overview.tsx#L150), [inspector tabs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/UiEditor.tsx#L133), [widget configuration](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/UIConfig/UIConfigDropdownAndFields.tsx#L21), [parameter information](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx#L149), [ports](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx#L530), [file bindings](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionConfig/CodeAreaSettings.tsx#L116), [variants](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx#L395), [workflow edge editor](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/UiEditor/StateMachineEdgeInspector.tsx#L109), [custom runs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/RunInstructions.tsx#L841), [AI settings](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx#L125), [views](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ViewingEditingMode.tsx#L403), [Git](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/Git/GitPane.tsx#L197), [logs](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx#L381).
 
 ### March 1: author skills and reusable slash commands
 
-The project chat's **Skills / MCP / Slash Commands** browser developed into an authoring surface. Users could create custom skills, edit and save their Markdown, and switch between rendered and raw views. The browser also identified skill sources and activity. MCP entries exposed configuration-file locations, transport/endpoints and runtime status. Custom slash commands associated a name with reusable prompt text and a submission mode.
+Following February’s read-only viewer, the project chat's **Skills / MCP / Slash Commands** browser developed into an authoring surface. Users could create custom skills, edit and save their Markdown, and switch between rendered and raw views. The browser also identified skill sources and activity. MCP entries exposed configuration-file locations, transport/endpoints and runtime status. Custom slash commands associated a name with reusable prompt text and a submission mode.
 
 Evidence: [custom skill authoring and rendered/raw views](https://github.com/riteofstring/setta/commit/71417d5cf6fc4a7da7049a648a35f133e8422638), [custom slash commands](https://github.com/riteofstring/setta/commit/84b5c7926c84e161de12ef485ea8a890a758e91c), [combined browser](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx#L1250).
+
+### February–March: chat gathers its threads, settings and reusable instructions
+
+A resizable inline thread list appeared beside the conversation in February. Engine/model choices persisted, conversations could continue across engine switches, and deleted threads had local undo. On March 1, Skills, MCP, Slash Commands and AI Settings became auxiliary views inside Project Chat; the old standalone AI-settings tab state routed into chat. This changed the organization of the pane again, after January’s standalone configuration editor.
+
+March added drafts that survived reload, restored waiting history, and search that navigated individual occurrences. These controls supported ongoing work across several conversations, not just sending a single prompt. Transcription profiles and completion checks also belonged to the later settings surface; they are not evidence that those managers existed in the 2025 API-key pane.
+
+Evidence: [inline thread list](https://github.com/riteofstring/setta/commit/baff6bfcc56685bd2dcf3d03737c62b6ec73887a), [auxiliary views](https://github.com/riteofstring/setta/commit/75357af8f8a40b85f93f9164b93209646a198145), [retire standalone AI-settings entry](https://github.com/riteofstring/setta/commit/a900e1a31c21f1d0ae55189d42a8781f3ef84b27), [persistent drafts](https://github.com/riteofstring/setta/commit/b57794be1fdaa8df40441f5fdcc678f2f022b9a4), [search occurrences](https://github.com/riteofstring/setta/commit/21c64590a582d692949e66cb9a740534a1bc5fe9), [later settings managers](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx).
 
 ### Linked chats and executable workflow graphs
 
 Linked peer chats allowed one conversation to request bounded work from another and receive a text result. The early implementation limited delegation depth rather than treating the graph as unrestricted recursive agent spawning.
 
 The **Workflow** system added an explicit control-flow graph. Its section types included Start, End, Gate, and Chat. A valid runnable group needed one Start and at least one End; an incomplete graph could remain a draft without being executable.
+
+Selecting an edge opened the right **Workflow Edge** inspector rather than the selected-section settings. Its source/target, trigger, signal filter, action/prompt, thread strategy and permissions made the connection itself editable. The left Custom Runs pane supplied start, stop and reset.
 
 Edges and gates expressed more than visual relationships:
 
@@ -522,11 +586,11 @@ Evidence: [linked peer chats](https://github.com/riteofstring/setta/commit/f347b
 
 ### Floating windows and Window Spaces
 
-Project chat and other tools could move into floating or docked windows. Window management separated the tool's content from its placement: a conversation or Git view did not have to remain in one fixed sidebar.
+From March 7–8, project chat and Git Graph could move into floating or docked windows. Git also gained worktree status inspection on March 14; this exposed branch/HEAD and current/prunable information without establishing stage, commit, push or worktree-creation controls. Window management separated the tool's content from its placement: a conversation or Git view did not have to remain in one fixed sidebar.
 
 **Window Spaces** saved arrangements of windows, with dedicated views for reopening an arrangement. This was separate from a canvas view, which chose and arranged sections. A project could therefore have both a canvas presentation and a window-based working environment.
 
-Evidence: [window-space and dedicated-view work](https://github.com/riteofstring/setta/commit/f75bef87614f0651b15af57e16117dd60522ae7b).
+Evidence: [window-space and dedicated-view work](https://github.com/riteofstring/setta/commit/f75bef87614f0651b15af57e16117dd60522ae7b), [Git worktree inspection](https://github.com/riteofstring/setta/commit/d9af2238e2882db639af2f07eb646f1c8409ea04).
 
 ### Go becomes the workbench backend; Python remains a runtime
 
@@ -539,6 +603,16 @@ Rendering experiments explored Pixi/GPUFlow, retained surfaces, DOM islands, sna
 The [May 10 workbench checkpoint](https://github.com/riteofstring/setta/tree/eea7fb38c8fdb452766d06b08610248e2962c4fc) is a useful source for the combined feature set: Python composition, live listeners, detached runs, files, artifacts, agent chats, MCP, plugins, workflows, App mode, remote workspaces, and managed windows.
 
 Evidence: [Go backend transition](https://github.com/riteofstring/setta/commit/1db3317abf1d6fdcb288f67649c0f2744ea01018), [Go-first source transition](https://github.com/riteofstring/setta/commit/69a785fc79), [Python language-server plugin work](https://github.com/riteofstring/setta/commit/116d58f830), [App plugin runtime](https://github.com/riteofstring/setta/commit/028c2d3731).
+
+### May 30: compact nodes move whole forms into Contents
+
+A later Setta 2 layout experiment changed the division of work sharply. **Callable** and **Dict** sections stopped displaying their full argument/value forms on the canvas. They became compact title-and-icon nodes with data-edge ports. Selecting a single node opened its actual editable form in a new right-hand **Contents** tab; other section kinds kept their ordinary surfaces.
+
+The follow-up changes gave compact nodes their own presentation and removed duplicate connector handles from the pane. Default automatic project-chat creation was also disabled, making the side-pane entry the starting point for Project AI. This was not just another settings tab: the primary form itself had moved out of the canvas.
+
+Treat this as a dated layout experiment. A subsequent synthetic History transition changes the source baseline; it does not establish an authored rollback or prove that this presentation continued into the August library.
+
+Evidence: [move Callable/Dict contents](https://github.com/riteofstring/setta/commit/5eb3e92e2d8fd9c3b15e8cc829cc225abee36c25), [compact node surface](https://github.com/riteofstring/setta/commit/8a7f98ee2e6033b04963904cb8aa91ce5451cdb8), [hide pane connector handles](https://github.com/riteofstring/setta/commit/795ede4c1a987b2acb15430c4dcddd48d92e2d55), [final May 30 presentation](https://github.com/riteofstring/setta/commit/94dcef790b304b9dc2b456c18dcbd4b45de6988c).
 
 ## Late May–July 2026: the Setta 3 experiment
 
@@ -658,13 +732,13 @@ Evidence: [retained library extraction](https://github.com/riteofstring/setta/co
 
 ### Mid-August: Inspector, commands, and reusable editors
 
-The **Inspector** exposed section and parameter configuration in a contextual pane. Hosts could contribute domain-specific settings while reusing the package's section settings and typed-control configuration.
+The new library panes retained the surrounding-workspace idea while changing its behavior. The workbench Overview used as the extraction reference recursively flattened its visible records; the library **Outline** added real disclosure, ARIA tree semantics and keyboard/typeahead navigation. The old inspector primarily required one selected section. The new **Inspector** followed a selected typed item as well as a section, and supported compatible multi-section group, ungroup, lock and delete actions. Hosts could contribute domain-specific settings while reusing the package's section settings and typed-control configuration.
 
 Menus and a command registry let applications add actions to consistent surfaces. Keyboard bindings could be configured and rebound, and application commands could participate in the workspace's interaction rules. Group scrolling, parameter authoring, filtering, help, and diagnostics became reusable features rather than workbench-only behavior.
 
 Built-in text/Markdown and code sections provided common content without requiring every consumer to rebuild an editor. Hosts still decided whether to register them, which modes to allow, and what actions such as submission meant.
 
-Evidence: [Inspector](https://github.com/riteofstring/setta/commit/5672885e20), [menus](https://github.com/riteofstring/setta/commit/095b216900), [command registry](https://github.com/riteofstring/setta/commit/30577ef25f), [keyboard rebinding](https://github.com/riteofstring/setta/commit/0efb1aab21).
+Evidence: [Inspector](https://github.com/riteofstring/setta/commit/5672885e20), [contemporaneous old/new pane comparison](https://github.com/riteofstring/setta/blob/5672885e2072afb4967244358e56e01edb562015/docs/evidence/workspace-shell/reference/README.md), [menus](https://github.com/riteofstring/setta/commit/095b216900), [command registry](https://github.com/riteofstring/setta/commit/30577ef25f), [keyboard rebinding](https://github.com/riteofstring/setta/commit/0efb1aab21).
 
 ### Late August: windows, history, clipboard, views, and graphs
 
@@ -672,7 +746,7 @@ Managed windows and Window Spaces became reusable package features. Applications
 
 Structural undo/redo became opt-in, with a local in-memory authority or delegation to an application's own history. Section clipboard operations supported copying, pasting, and duplication, including host-specific reference rewriting. Automatic layout offered a way to pack top-level sections instead of manually arranging every card.
 
-Saved views became a library feature with named layouts, visibility, camera state, management controls, and optional tabs. A controlled graph layer exposed ports and edges while leaving their meaning and persistence to the application. Section attention and fitting allowed a host to draw attention to relevant content.
+Saved views became a library feature with named layouts, visibility, camera state, a dedicated management pane, direct view editing and optional tabs. Hosts owned their documents and persistence, replacing the old application-global view store. A controlled graph layer exposed ports and edges while leaving their meaning and persistence to the application. Section attention and fitting allowed a host to draw attention to relevant content.
 
 A standalone section surface rendered a subtree outside the normal canvas. The rendering adapter moved to upstream XYflow rather than requiring the preserved fork. These changes made the workspace usable in multiple compositions: a full shell, a custom shell, a section embedded elsewhere, or a windowed presentation.
 

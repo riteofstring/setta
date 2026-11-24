@@ -31,6 +31,25 @@ section moved or changed name, Setta could update references in code, callable e
 and parameter values. The December 2024 implementation wired the replacement operation;
 its confirmation dialog still contained a placeholder list of affected references.
 
+## Editing moves between the panes and the program
+
+[![ABCDE’s Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/#form-authoring)
+
+_December 2020 frontend. The sweep fields are an interface prototype without execution logic._
+
+The November 2020 Details pane edited a selected callable's argument values beside the
+Sections list. The later inspector designed those controls instead. This is a change
+of responsibility, not one unchanged settings panel.
+
+![December 2025’s generated Python region inside the canvas editor.](../../../images/history/generated-code-region.png)
+
+In May 2025, the right Generated Python settings pane acquired an authored prefix;
+July added a suffix. December removed that component and put both editable regions
+around the protected generated block in the canvas Code editor. October's file-binding
+inspector separately chose a canonical path and read/write direction. The
+[web examples](https://setta.dev/history/#program-authoring) show the generated block
+and synchronized file, while the [chronology](../feature-history.md) records each move.
+
 ## Implementation landmarks
 
 These are preserved implementation landmarks, not a release calendar.

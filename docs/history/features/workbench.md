@@ -15,45 +15,39 @@ separate approaches to distribution. They should not be read as one continuous h
 **Current library:** the generic workspace survives; Git, SSH, task management and external
 agents are historical application integrations, not bundled services in today's package.
 
-## The tools around the canvas
+## 2025–2026: project tools enter the left pane
 
-The main canvas was only part of the workbench. The left pane managed project tools;
-the right inspector edited the selected section, parameter or connection. Some tools
-could later float or dock elsewhere, so their original placement was not a permanent restriction.
+The panes changed their responsibilities as Setta grew. Project chat arrived in March
+2025 and exposed MCP tool activity in April. December added backend logs and named
+Custom Runs, with one-shot or continuous execution. January 2026 brought Files and
+Watch Code; February added Git inspection, plugin management and an App editor.
 
-[![The Git pane beside a two-commit repository graph.](../../../images/history/git-pane-history.png)](https://setta.dev/history/#side-panes)
+[![The Git pane beside a two-commit repository graph.](../../../images/history/git-pane-history.png)](https://setta.dev/history/#project-tools)
 
-**Inspect files and repository changes.** The file explorer previewed source and tables.
-Git showed working-tree changes, diffs, commit history and worktree information. Plugins
-could add their own panes, alongside sections, settings and backend capabilities.
-The [webpage's side-pane examples](https://setta.dev/history/#side-panes) show actual
-file previews, diff/graph inspection and plugin installation.
+The [project-tool examples](https://setta.dev/history/#project-tools) show file previews,
+a working-tree diff, commit history and a plugin installing its own pane. The February
+Files editor also supported editing CSV/Excel cells, adding rows and columns, and saving
+back to the source; that authoring surface was separate from a canvas Spreadsheet.
 
 _The Git image comes from the restored March 2026 workbench. Its two commits belong to
 a new demonstration repository, not the historical Setta repository. It demonstrates
 inspection, not staging, commits or push. [Image provenance](../images.md)._
 
-[![The right Parameters inspector supplies widget selectors and slider settings beside the canvas controls.](../../../images/history/parameter-inspector.png)](https://setta.dev/history/#side-panes)
+## From provider settings to an agent workspace
 
-_The restored November 2024 inspector shows configured fields; it does not record a new setting being applied._
+The 2025 API-key settings grew into provider/model configuration, then January 2026's
+AI Settings added profiles, system prompts, tool allowlists, memory scopes, reusable
+prompts and external-agent adapters. This was a sequence of distinct interfaces.
 
-**Author the interface.** Parameter UI Config selected widgets and their settings;
-Parameter Info Editing supplied friendly names and descriptions. Section settings
-controlled ports, output accessors, JSON paths and file-binding directions. Section
-Variants selected defaults, reordered alternatives and froze them. The workflow-edge
-inspector configured conditions, actions, prompts, thread handling and permissions.
+Skills/MCP browsing moved out of App configuration into Project Chat in February.
+March added editable skill Markdown, rendered/raw views and reusable slash commands.
+Chat then gathered Skills, MCP, commands and AI Settings into its auxiliary views;
+the old standalone settings entry was retired. Resizable thread navigation, persistent
+drafts and search supported longer work across conversations.
 
-**Set up the project.** Custom Runs defined named one-shot or continuous commands,
-including runs derived from code blocks. AI Settings managed profiles, system prompts,
-engine assignments, allowed tools, memory scopes, transcription, templates and external
-agents. The Skills browser could create and edit Markdown instructions; custom slash
-commands saved reusable prompts and their submission mode. MCP entries showed connection
-configuration and status. Views separated canvas presentations, project configurations
-and Window Spaces; notifications and logs supplied searchable, filtered runtime information.
-
-The [source-backed inventory](../feature-history.md#side-panes-author-the-interface-and-configure-the-project)
-records these tools and their exact implementation landmarks. Skills authoring and custom
-slash commands arrived on March 1, 2026, after the earlier browser surfaces.
+The [chronological history](../feature-history.md) records the introductions and moves.
+The earlier control-design and variant inspectors are covered with their own periods in
+[controls and navigation](spatial-controls.md), rather than dated from a late workbench snapshot.
 
 ## Give each conversation a role
 
@@ -118,6 +112,28 @@ This is a new prepared experiment executed through the historical API. It shows
 a grid; random, zipped and repeated plans are documented in the
 [source history](../feature-history.md#settarunner-and-runplan-replace-the-old-sweep-design).
 
+## May 30: a smaller canvas and a full Contents editor
+
+[![Compact Dataset and Training nodes beside the selected Training form.](../../../images/history/contents-editor.png)](https://setta.dev/history/#compact-nodes)
+
+The late-May layout experiment replaced full Callable and Dict cards with compact
+nodes. Selecting one opened its actual editable form in a new right-hand Contents pane.
+This changed where primary value editing happened; it was more than another settings
+panel. The [source and follow-up presentation changes](../feature-history.md#may-30-compact-nodes-move-whole-forms-into-contents)
+are distinct from the subsequent Setta 3 experiment and the August library extraction.
+
+In the new recording, selecting Dataset or Training changes the Contents editor.
+An edit changes epochs from 12 to 24 and updates the real generated Python. A
+single unobscured edge supplies Training’s sample count from `Dataset["size"]`.
+These are prepared configuration values, not a completed training run.
+
+[![Native data-port settings beside the Dataset-to-Training connection.](../../../images/history/data-port-inspector.png)](https://setta.dev/history/#compact-nodes)
+
+Input/output port authoring had arrived in January. The inspector selects input
+parameters and exposes outputs with Python accessors; JSON-backed forms could
+select a nested source path. The May 30 capture shows these settings in the
+compact layout.
+
 ## Implementation landmarks
 
 These are preserved implementation landmarks, not a release calendar.
@@ -128,7 +144,7 @@ These are preserved implementation landmarks, not a release calendar.
 | 2025-12 | Later share deployments introduce another publishing model.                              | [Change](https://github.com/riteofstring/setta/commit/8b4ee8d7122b0efb2fa59efd597b1ceefffcb4d0)                                                                                                               |
 | 2026-01 | Name/version routing develops share deployment addressing.                               | [Change](https://github.com/riteofstring/setta/commit/2eba48c6436edaec29908d37412cd7bafaf4bd23)                                                                                                               |
 | 2026-01 | An agentic runner provides a foundation for external coding agents.                      | [Change](https://github.com/riteofstring/setta/commit/836cb0ba72152f069190f532ad6c365b305eefb2)                                                                                                               |
-| 2026-01 | A file explorer joins the workspace.                                                     | [Change](https://github.com/riteofstring/setta/commit/2961e37d0a6dab5e7c83b668c247ba30bf1e7edd)                                                                                                               |
+| 2026-01 | A file explorer joins the workspace.                                                     | [Change](https://github.com/riteofstring/setta/commit/a2444de42201253b7e05f4ca06869474c65fc57f)                                                                                                               |
 | 2026-02 | Edited messages can branch a conversation, with nested branches shown in chat.           | [Branching](https://github.com/riteofstring/setta/commit/165ad31a57b7bf43e977aebc87075c962587a204) · [Nested branches](https://github.com/riteofstring/setta/commit/ec331e59377643afbff33271aad10d0996f0a449) |
 | 2026-02 | App mode turns project state into a user-facing application surface.                     | [Change](https://github.com/riteofstring/setta/commit/bc0989e379aca4581368bc5104ac45786161bd19)                                                                                                               |
 | 2026-02 | AI app-spec generation develops that application-creation direction.                     | [Change](https://github.com/riteofstring/setta/commit/cf9fe3fbe4d4bd9dc167a79cf45338ddadcd0a7c)                                                                                                               |
