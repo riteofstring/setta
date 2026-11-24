@@ -35,7 +35,7 @@ For exact dates and capabilities across all chapters, use the
 **[chronological feature history](feature-history.md)**. It is the detailed source-backed
 reference, including features that were later removed or remained experimental.
 
-The [languages, libraries and runtimes](technology.md) guide follows the frontend and
+The [technology and architecture](technology.md) guide follows the frontend and
 backend stack, including the tools behind the original examples.
 
 ## Source and media reference
@@ -43,7 +43,7 @@ backend stack, including the tools behind the original examples.
 | Reference                                              | Use it to…                                                                           |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | [Tags and historical checkpoints](tags.md)             | Choose a source or milestone tag and understand what it establishes.                 |
-| [Languages, libraries and runtimes](technology.md)     | Follow the frontend, backend and application dependencies across versions.           |
+| [Technology and architecture](technology.md)           | Understand changing runtimes, engineering challenges and the libraries behind them.  |
 | [Repository composition timeline](timeline.md)         | Locate the projects, source trees and major transitions.                             |
 | [Reconstruction and local browsing](methodology.md)    | Understand the reconstructed Git lineage and inspect its tags.                       |
 | [Feature demonstration walkthroughs](feature-demos.md) | Follow the actions and results shown in the webpage's clips.                         |

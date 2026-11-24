@@ -18,10 +18,10 @@ the source behind them. The current React package is one outcome of that work.
 [Illustrated highlights](docs/history/highlights.md) ·
 [History guide](docs/history/README.md) · [All documentation](docs/README.md)
 
-[![Setta's Julia studio: three fractal images beside their controls, Python code, formula and chart.](images/history/setta-image-lab.png)](https://setta.dev/history/#live-python)
+[![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/#live-python)
 
-_Change a parameter, watch Python recompute the images. Julia studio demonstrates the
-November 2024 application; [capture details](docs/history/images.md#earlier-restoration-captures)._
+_StreamDiffusion turns a drawing or image into generated variations, with inputs,
+controls and Python beside the results._
 
 ## Ideas explored along the way
 
