@@ -2,78 +2,44 @@
 
 [Documentation](../README.md) / [History](README.md)
 
-This page explains the Git reconstruction and its limits. Start with the
-[illustrated timeline](tour.md) for the evolution of the product, or the
-[composition timeline](timeline.md) to locate a particular source tree.
+The repository brings several related projects into one browsable history.
+Start with the [illustrated timeline](tour.md) for the product's evolution or the
+[composition timeline](timeline.md) to locate a source tree.
 
 ## Reading the lineage
 
-This is a reconstruction, not the original development graph. Original merges
-are represented by changes against their first parent. `History transition:`
-commits restore the source baseline before a branch detour or change of
-application generation. `Recovered WIP:` identifies selected unfinished saved
-work. Ordinary empty commits remain. Empty stash snapshots, already represented
-stash content and generated stash artifacts are excluded with private records.
+The Git lineage was reconstructed, so commit IDs and merge topology differ from
+the original repositories. Original merges are represented by their changes
+against the first parent.
 
-Imported human attribution uses Kevin Musgrave's and Jeff Musgrave's GitHub
-noreply addresses; GitHub remains the committer where appropriate. Synthetic
-reconstruction commits use **Kevin Musgrave** and his noreply address. Their
-`History transition:` messages distinguish import operations from original
-development work. Claude AI co-author trailers, private project references and reviewed credential
-values are removed. Third-party notices and attribution are retained. Original commit
-identities and signatures changed; independent private originals preserve them.
-
-Private hosting usernames are removed from merge messages. Setta repository URLs,
-module paths and related fixtures use the publication namespace. These are
-publication edits; they do not establish the original hosting location or make
-historical branch and CI links available in the reconstructed repository.
-
-A component snapshot is not a claim that every adjacent component was tested
-together. These landmarks identify source evidence, not public release dates.
-This import does not rerun historical application environments.
+- `History transition:` marks a source baseline change between projects or branches.
+- `Recovered WIP:` marks unfinished saved work.
+- Historical checkpoints identify source states, not necessarily public releases
+  or combinations of components that were tested together.
 
 ## Browse locally
 
-The [tag guide](tags.md) explains the namespaces and identifies useful checkpoints.
+The [tag guide](tags.md) lists useful checkpoints and explains the `source/*` and
+`milestone/*` namespaces. These can be inspected without building the applications:
 
 ```sh
 git tag --list 'source/*'
 git tag --list 'milestone/*'
-git show source/abcde-frontend:abcde-frontend/README.md
 git log --all --oneline --grep='Recovered WIP:'
 ```
 
-Use a separate checkout for exploring a tag. Revision links target the reconstructed repository at github.com/riteofstring/setta.
+Use a separate checkout when exploring a tag. Historical dependencies and external
+services may no longer be available.
 
-## External dependencies and preservation
+## Screenshots and demonstrations
 
-A historical `.code-policy` Git submodule points to a separate tooling repository. Its pointer and `.gitmodules` declaration remain historical source evidence; that external project's history is not bundled here. No Git LFS pointers occur in the selected source history. Full footage and restored cloud environments remain in separate private preservation archives.
+The [visual history](https://setta.dev/history/) combines original previews,
+captures of restored historical builds, and current library examples. A capture's
+date identifies the build shown, not the first appearance of every visible feature.
 
-## Screenshots
-
-The visual tour combines original example previews, captures of restored historical builds,
-and a current library example. The historical applications were run separately during preservation;
-importing their source into this lineage does not itself reproduce those environments.
-Captions name the build being shown, not the first implementation of every visible feature.
-Demonstration projects and provider substitutions are documented in the
-[image provenance](images.md).
-
-## Recorded demonstrations
-
-The [webpage](https://setta.dev/history/) presents individual feature demonstrations.
-The [walkthroughs](feature-demos.md) describe their actions, results and limits;
-[image provenance](images.md) identifies their source recordings and prepared data.
-
-The summer captures distinguish actual local-model work from prepared research
-data, workflow drafts and Setta 4’s built-in demonstrations. An authored graph
-does not establish automatic cartography, a validated draft does not establish
-workflow execution, and a replay does not establish live agent orchestration.
-
-Historical dependencies, builds and application execution stayed on the cloud
-capture machines. Editing, frame extraction and the web encode use retained
-pixels on the workstation. Cloud compute was stopped after capture while
-retaining the disks, restored environments and originals.
-
-[Illustrated timeline](tour.md) · [Composition timeline](timeline.md)
+Some demonstrations use prepared projects or replacement model providers.
+[Image provenance](images.md) identifies their source revisions and substitutions;
+the [walkthroughs](feature-demos.md) explain the actions and results. Prepared data,
+workflow drafts, and built-in replays are distinguished from live execution.
 
 [History guide](README.md) · [All documentation](../README.md)
