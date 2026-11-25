@@ -13,7 +13,7 @@ Click a thumbnail or title to watch. Dates below are publication dates.
 | [<img src="https://i.ytimg.com/vi/8oGfC37Gi5Y/maxresdefault.jpg" alt="PyTorch Metric Learning configuration and saved versions — video thumbnail" width="360" />](https://youtu.be/8oGfC37Gi5Y)<br>**[PyTorch Metric Learning Example](https://youtu.be/8oGfC37Gi5Y)**<br>2:41 · February 21, 2025<br>An embedding-training workspace with reusable configurations.               | [<img src="https://i.ytimg.com/vi/ezx8EgETdqM/maxresdefault.jpg" alt="Setta workspace construction — Under the hood video thumbnail" width="360" />](https://youtu.be/ezx8EgETdqM)<br>**[Setta: Under the hood.](https://youtu.be/ezx8EgETdqM)**<br>4:21 · March 1, 2025<br>A closer look at the 2025 application and its configurable workspace.               |
 
 The [original example gallery](examples.md) links the training and image projects
-to their preserved source. The [visual history](https://setta.dev/history/) follows
+to their preserved source. The [visual history](https://setta.dev/) follows
 the changing interfaces, while the [technology history](technology.md) explains
 the architecture before and after these videos.
 

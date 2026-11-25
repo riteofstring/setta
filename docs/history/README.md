@@ -9,9 +9,9 @@ ideas became reusable library features.
 
 ## Start here
 
-**[Read the illustrated history](https://setta.dev/history/)**
+**[Read the illustrated history](https://setta.dev/)**
 
-[Every feature](https://setta.dev/history/features/) · [How it worked](https://setta.dev/history/how-it-worked/)
+[Every feature](https://setta.dev/features/) · [How it worked](https://setta.dev/how-it-worked/)
 
 For a tour inside this repository, choose one of these:
 

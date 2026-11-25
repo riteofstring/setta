@@ -66,7 +66,7 @@ _Restored June 2022 interface. The undo/redo implementation dates to May 2023._
 **2023–2024.** Interactive Python connected controls to computed output,
 and terminals and charts brought the running program into the workspace. This
 original January 2025 recording shows actual training logs and loss curves.
-The [live Python examples](https://setta.dev/history/features/#f-interactive-python) show controls,
+The [live Python examples](https://setta.dev/features/#f-interactive-python) show controls,
 authored callbacks and generated images together.
 
 [Interactive execution](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102) ·
@@ -197,7 +197,7 @@ do not establish automatic cartography, completed Setta 3 workflow execution
 or live Setta 4 orchestration._
 
 [Explore the six summer captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) ·
-[Explore the interactive history](https://setta.dev/history/)
+[Explore the interactive history](https://setta.dev/)
 
 ## Give the same building blocks very different jobs
 

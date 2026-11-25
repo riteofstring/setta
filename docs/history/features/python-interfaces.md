@@ -35,7 +35,7 @@ its confirmation dialog still contained a placeholder list of affected reference
 
 ## Editing moves between the panes and the program
 
-[![Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/features/#f-early-details-and-sweep-prototype)
+[![Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/features/#f-early-details-and-sweep-prototype)
 
 _December 2020 frontend. The sweep fields are an interface prototype without execution logic._
 
@@ -49,7 +49,7 @@ In May 2025, the right Generated Python settings pane acquired an authored prefi
 July added a suffix. December removed that component and put both editable regions
 around the protected generated block in the canvas Code editor. October's file-binding
 inspector separately chose a canonical path and read/write direction. The
-[web examples](https://setta.dev/history/features/#f-authored-and-generated-code) show the generated block
+[web examples](https://setta.dev/features/#f-authored-and-generated-code) show the generated block
 and synchronized file, while the [chronology](../feature-history.md) records each move.
 
 ## Implementation landmarks

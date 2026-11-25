@@ -3,32 +3,32 @@
 [Documentation](../README.md) / [History](README.md)
 
 These demonstrations expand the [chronological feature history](feature-history.md).
-They appear on the [retrospective webpage](https://setta.dev/history/), with time
+They appear on the [retrospective webpage](https://setta.dev/), with time
 to follow an action through to its result. The [coverage index](coverage.md) maps the full feature inventory to
 recordings, real app images and explanations. The clips are silent; the steps
 below describe the visible actions and measured outcomes.
 
-| Walkthrough                                                           | Watch                                                                      | What the recording establishes                                                                    |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [Python Canvas](#python-canvas-change-the-model-then-execute-it)      | [Watch](https://setta.dev/history/features/#f-python-canvas)               | Change a model parameter, execute it and inspect measured results and generated Python.           |
-| [Realtime](#realtime-one-drawing-two-treatments-one-joined-result)    | [Watch](https://setta.dev/history/features/#f-realtime-computation)        | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                     |
-| [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/history/features/#f-callback-hot-reload)         | Replace linear decay with a cosine formula and see the running plot change.                       |
-| [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/history/features/#f-meta-controls)               | Move a warmup slider and see the schedule's peak move with it.                                    |
-| [Project assistant](#agents-review-a-configurable-training-program)   | [Watch](https://setta.dev/history/features/#f-assistant-operations)        | Review a real dry-run check and change a control beside the AI-written source.                    |
-| [AI Follow](#ai-follow-see-the-assistants-edits)                      | [Watch](https://setta.dev/history/features/#f-ai-follow)                   | Ask for a revised experiment and follow the canvas to four actual configuration changes.          |
-| [Image chat](#image-chat-read-an-attached-chart)                      | [Watch](https://setta.dev/history/features/#f-chat-image-attachments)      | Attach a loss chart and inspect the model's checkpoint choice and explanation.                    |
-| [Connected context](#connected-context-recommend-the-next-experiment) | [Watch](https://setta.dev/history/features/#f-assistant-access-edges)      | Supply a note through a connection, then inspect the recommendation grounded in its measurements. |
-| [Workflows](#workflows-wait-for-two-independent-reviews)              | [Watch](https://setta.dev/history/features/#f-state-machines)              | Run two reviews and follow the gate that waits for both to finish.                                |
-| [Window Spaces](#window-spaces-return-to-the-evidence)                | [Watch](https://setta.dev/history/features/#f-workbench-views-and-windows) | Restore a saved window arrangement around the same project evidence.                              |
-| [Git graph](#git-graph-inspect-the-change-behind-a-branch)            | [Watch](https://setta.dev/history/features/#f-remote-workspaces-and-git)   | Follow real branches and merges, then open a commit's changed file and diff.                      |
-| [Experiment Lens](#experiment-lens-keep-an-investigation-together)    | [Watch](https://setta.dev/history/features/#f-experiment-lens)             | Filter a cohort, compare cells, join thermal evidence and export the annotated selection.         |
-| [Review](#review-make-the-decision-traceable)                         | [Watch](https://setta.dev/history/features/#f-evidence-review)             | Save a qualified claim and an image-specific request for changes as human responses.              |
-| [Bench](#bench-compare-actual-candidate-outputs)                      | [Watch](https://setta.dev/history/features/#f-bench-comparisons)           | Execute two candidates against ten cases each and save a preference based on their images.        |
-| [RunPlan](#runplan-vary-a-snapshot-without-changing-the-project)      | [Watch](https://setta.dev/history/features/#f-detached-run-plans)          | Run a three-by-two parameter grid while the live parameters stay unchanged.                       |
+| Walkthrough                                                           | Watch                                                              | What the recording establishes                                                                    |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [Python Canvas](#python-canvas-change-the-model-then-execute-it)      | [Watch](https://setta.dev/features/#f-python-canvas)               | Change a model parameter, execute it and inspect measured results and generated Python.           |
+| [Realtime](#realtime-one-drawing-two-treatments-one-joined-result)    | [Watch](https://setta.dev/features/#f-realtime-computation)        | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                     |
+| [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/features/#f-callback-hot-reload)         | Replace linear decay with a cosine formula and see the running plot change.                       |
+| [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/features/#f-meta-controls)               | Move a warmup slider and see the schedule's peak move with it.                                    |
+| [Project assistant](#agents-review-a-configurable-training-program)   | [Watch](https://setta.dev/features/#f-assistant-operations)        | Review a real dry-run check and change a control beside the AI-written source.                    |
+| [AI Follow](#ai-follow-see-the-assistants-edits)                      | [Watch](https://setta.dev/features/#f-ai-follow)                   | Ask for a revised experiment and follow the canvas to four actual configuration changes.          |
+| [Image chat](#image-chat-read-an-attached-chart)                      | [Watch](https://setta.dev/features/#f-chat-image-attachments)      | Attach a loss chart and inspect the model's checkpoint choice and explanation.                    |
+| [Connected context](#connected-context-recommend-the-next-experiment) | [Watch](https://setta.dev/features/#f-assistant-access-edges)      | Supply a note through a connection, then inspect the recommendation grounded in its measurements. |
+| [Workflows](#workflows-wait-for-two-independent-reviews)              | [Watch](https://setta.dev/features/#f-state-machines)              | Run two reviews and follow the gate that waits for both to finish.                                |
+| [Window Spaces](#window-spaces-return-to-the-evidence)                | [Watch](https://setta.dev/features/#f-workbench-views-and-windows) | Restore a saved window arrangement around the same project evidence.                              |
+| [Git graph](#git-graph-inspect-the-change-behind-a-branch)            | [Watch](https://setta.dev/features/#f-remote-workspaces-and-git)   | Follow real branches and merges, then open a commit's changed file and diff.                      |
+| [Experiment Lens](#experiment-lens-keep-an-investigation-together)    | [Watch](https://setta.dev/features/#f-experiment-lens)             | Filter a cohort, compare cells, join thermal evidence and export the annotated selection.         |
+| [Review](#review-make-the-decision-traceable)                         | [Watch](https://setta.dev/features/#f-evidence-review)             | Save a qualified claim and an image-specific request for changes as human responses.              |
+| [Bench](#bench-compare-actual-candidate-outputs)                      | [Watch](https://setta.dev/features/#f-bench-comparisons)           | Execute two candidates against ten cases each and save a preference based on their images.        |
+| [RunPlan](#runplan-vary-a-snapshot-without-changing-the-project)      | [Watch](https://setta.dev/features/#f-detached-run-plans)          | Run a three-by-two parameter grid while the live parameters stay unchanged.                       |
 
 ## Python Canvas: change the model, then execute it
 
-[![Python controls beside generated code and the learned decision boundary.](https://setta.dev/history-media/feature-python-canvas.webp)](https://setta.dev/history/features/#f-python-canvas)
+[![Python controls beside generated code and the learned decision boundary.](https://setta.dev/history-media/feature-python-canvas.webp)](https://setta.dev/features/#f-python-canvas)
 
 Model Workshop composes Python callables into an executable program. The original
 example generates a two-moons classification problem, builds polynomial features,
@@ -44,7 +44,7 @@ application; the current React library does not include it.
 
 ## Realtime: one drawing, two treatments, one joined result
 
-[![One drawing feeds Aurora and Riso treatments in the same workspace.](https://setta.dev/history-media/feature-realtime-drawing.webp)](https://setta.dev/history/features/#f-realtime-computation)
+[![One drawing feeds Aurora and Riso treatments in the same workspace.](https://setta.dev/history-media/feature-realtime-drawing.webp)](https://setta.dev/features/#f-realtime-computation)
 
 Move a triangle in the original Signal Bloom drawing. A preparation handler feeds
 independent Aurora and Riso treatments, then a join produces the poster from the
@@ -59,7 +59,7 @@ explained from source; this clip does not pretend to exercise every race conditi
 
 ## Live Python: edit the running callback
 
-[![The edited Python callback beside its cosine learning-rate curve.](../../images/history/callback-hot-reload.png)](https://setta.dev/history/features/#f-callback-hot-reload)
+[![The edited Python callback beside its cosine learning-rate curve.](../../images/history/callback-hot-reload.png)](https://setta.dev/features/#f-callback-hot-reload)
 
 The learning-rate lab starts with a straight decay after a three-epoch warmup.
 Replace `decay = 1 - t` with `(1 + math.cos(math.pi * t)) / 2` and save the file.
@@ -74,7 +74,7 @@ recording.
 
 ## Front panel: change the warmup
 
-[![A nine-epoch warmup shown by the live schedule and its slider.](../../images/history/live-front-panel.png)](https://setta.dev/history/features/#f-meta-controls)
+[![A nine-epoch warmup shown by the live schedule and its slider.](../../images/history/live-front-panel.png)](https://setta.dev/features/#f-meta-controls)
 
 Move the same program's native meta-control slider from 3 to 9 warmup epochs.
 The ramp becomes longer and the peak moves from epoch 3 to epoch 9. Moving the
@@ -87,7 +87,7 @@ Other supported meta-control widgets and button actions are described in the
 
 ## Agents: review a configurable training program
 
-[![The AI-written PyTorch trainer beside its generated controls.](https://setta.dev/history-media/feature-ai-ask.webp)](https://setta.dev/history/features/#f-assistant-operations)
+[![The AI-written PyTorch trainer beside its generated controls.](https://setta.dev/history-media/feature-ai-ask.webp)](https://setta.dev/features/#f-assistant-operations)
 
 The clip reviews the result of a real OpenCode conversation in the March
 workbench. It first shows the saved dry-run check, then the AI-written PyTorch
@@ -110,7 +110,7 @@ this is a restored integration, not a claim about an original 2026 model respons
 
 ## AI Follow: see the assistant's edits
 
-[![The assistant's explanation beside the training settings it changed.](../../images/history/ai-follow.png)](https://setta.dev/history/features/#f-ai-follow)
+[![The assistant's explanation beside the training settings it changed.](../../images/history/ai-follow.png)](https://setta.dev/features/#f-ai-follow)
 
 The request describes a problem: validation loss starts rising halfway through
 training. It asks for a more conservative next experiment, without specifying
@@ -127,7 +127,7 @@ Qwen3-30B-A3B makes the decisions through the preserved March workbench's tools.
 
 ## Image chat: read an attached chart
 
-[![An uploaded chart thumbnail and the assistant's answer beside the full loss plot.](../../images/history/ai-image-chat.png)](https://setta.dev/history/features/#f-chat-image-attachments)
+[![An uploaded chart thumbnail and the assistant's answer beside the full loss plot.](../../images/history/ai-image-chat.png)](https://setta.dev/features/#f-chat-image-attachments)
 
 Attach `training-loss.png` and ask: “Which checkpoint would you keep from this
 run, and what should I change for the next experiment?” The actual response
@@ -143,7 +143,7 @@ changes are retained as its suggestions, not results of another experiment.
 
 ## Connected context: recommend the next experiment
 
-[Watch the note-to-chat connection](https://setta.dev/history/features/#f-assistant-access-edges).
+[Watch the note-to-chat connection](https://setta.dev/features/#f-assistant-access-edges).
 
 A high-level request asks which learning rate to investigate next and what evidence
 is missing. The prompt does not repeat the measurements: the March workbench
@@ -158,7 +158,7 @@ was supplied. No successful response was painted into the interface.
 
 ## Workflows: wait for two independent reviews
 
-[![Start, two review chats, an AND gate and End with clear connections.](https://setta.dev/history-media/feature-workflow.webp)](https://setta.dev/history/features/#f-state-machines)
+[![Start, two review chats, an AND gate and End with clear connections.](https://setta.dev/history-media/feature-workflow.webp)](https://setta.dev/features/#f-state-machines)
 
 The May workbench starts two genuine model reviews of measured training results.
 One suggests the next experiment; the other identifies missing validation evidence.
@@ -173,7 +173,7 @@ it does not establish that these chats read an independently connected note.
 
 ## Window Spaces: return to the evidence
 
-[Watch the saved arrangement return](https://setta.dev/history/features/#f-workbench-views-and-windows).
+[Watch the saved arrangement return](https://setta.dev/features/#f-workbench-views-and-windows).
 
 Open the saved Evidence review Window Space. The actual loss curves and
 prepared research note return in two separate floating windows, with their saved
@@ -183,7 +183,7 @@ summarizes measured training losses and explicitly calls for unseen validation d
 
 ## Git graph: inspect the change behind a branch
 
-[![Two merged experiments and an open branch beside a selected Python diff.](../../images/history/git-pane-history.png)](https://setta.dev/history/features/#f-remote-workspaces-and-git)
+[![Two merged experiments and an open branch beside a selected Python diff.](../../images/history/git-pane-history.png)](https://setta.dev/features/#f-remote-workspaces-and-git)
 
 The training-study repository contains two merged experiments: validation-based
 checkpoints and a warmup/cosine learning-rate schedule. An augmentation experiment
@@ -198,7 +198,7 @@ training experiment.
 
 ## Experiment Lens: keep an investigation together
 
-[![Annotated thermal evidence beside the selected battery observation.](https://setta.dev/history-media/experiment-lens-evidence.webp)](https://setta.dev/history/features/#f-experiment-lens)
+[![Annotated thermal evidence beside the selected battery observation.](https://setta.dev/history-media/experiment-lens-evidence.webp)](https://setta.dev/features/#f-experiment-lens)
 
 Two focused previews cover selecting observations and carrying their evidence
 forward. The original simulated battery study contains 864 observations across 24 cells.
@@ -218,7 +218,7 @@ launch the experiments that produced them.
 
 Separate previews show claim review and image feedback, each with its saved result.
 
-[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](https://setta.dev/history-media/review-artifact.webp)](https://setta.dev/history/features/#f-evidence-review)
+[![Aperture poster with an underlined subtitle and a submitted changes-requested response.](https://setta.dev/history-media/review-artifact.webp)](https://setta.dev/features/#f-evidence-review)
 
 The checkout example contains conflicting imported assessments of the claim
 “No database migration is required.” Inspect its Git evidence, then qualify the
@@ -233,7 +233,7 @@ assessments are original fictional fixtures. No new model inference is shown.
 
 ## Bench: compare actual candidate outputs
 
-[![Contain and Cover thumbnails with a saved preference for Cover and its rationale.](https://setta.dev/history-media/bench.webp)](https://setta.dev/history/features/#f-bench-comparisons)
+[![Contain and Cover thumbnails with a saved preference for Cover and its rationale.](https://setta.dev/history-media/bench.webp)](https://setta.dev/features/#f-bench-comparisons)
 
 Launch the original product-thumbnail comparison. Contain and Cover each run on
 the same ten generated catalog images, yielding twenty case results and twenty
@@ -246,7 +246,7 @@ measurements describe this small local example, not a general performance rankin
 
 ## RunPlan: vary a snapshot without changing the project
 
-[![RunPlan code, unchanged live parameters, six successful terminal results and their training losses.](https://setta.dev/history-media/runplan.webp)](https://setta.dev/history/features/#f-detached-run-plans)
+[![RunPlan code, unchanged live parameters, six successful terminal results and their training losses.](https://setta.dev/history-media/runplan.webp)](https://setta.dev/features/#f-detached-run-plans)
 
 The May 2026 workbench runs a prepared numerical experiment through the original
 Python `SettaRunner` and `RunPlan` APIs. `grid_params` combines three learning

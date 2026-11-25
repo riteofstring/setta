@@ -12,7 +12,7 @@ This is a guide to the dependencies that shaped the product, rather than every e
 in a lockfile. Links identify preserved manifests and implementations at fixed revisions.
 Versions in those files belong to that checkpoint; they are not installation advice.
 The [feature history](feature-history.md) covers user-facing capabilities, and the
-[tag guide](tags.md) explains how to locate the source. The [technical retrospective](https://setta.dev/history/how-it-worked/)
+[tag guide](tags.md) explains how to locate the source. The [technical retrospective](https://setta.dev/how-it-worked/)
 presents the architecture as a dedicated companion to the visual history.
 
 ## The stack at a glance
@@ -444,7 +444,7 @@ than inferred from arbitrary chat text. The visual history's two-reviewer exampl
 shows both responses completing before an AND gate proceeds. Setta 3's later workflow
 editor and durable Go/SQLite engine were a separate implementation.
 
-Sources: [Python workflow runner](https://github.com/riteofstring/setta/blob/1f435b942c7d2860b368f34d91cf6fe1cd7becea/backend/setta/agentic/state_machine_runner.py) · [Workflow contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/state-machine-workflows.md) · [Visual example](https://setta.dev/history/features/#line-ai).
+Sources: [Python workflow runner](https://github.com/riteofstring/setta/blob/1f435b942c7d2860b368f34d91cf6fe1cd7becea/backend/setta/agentic/state_machine_runner.py) · [Workflow contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/state-machine-workflows.md) · [Visual example](https://setta.dev/features/#line-ai).
 
 ### Experimental workspace renderers: WebGPU and CanvasFlow
 

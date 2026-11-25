@@ -36,9 +36,9 @@ The panes changed their responsibilities as Setta grew. Project chat arrived in 
 Custom Runs, with one-shot or continuous execution. January 2026 brought Files and
 Watch Code; February added Git inspection, plugin management and an App editor.
 
-[![Git branches and merges beside the selected checkpoint commit's Python diff.](../../../images/history/git-pane-history.png)](https://setta.dev/history/features/#f-remote-workspaces-and-git)
+[![Git branches and merges beside the selected checkpoint commit's Python diff.](../../../images/history/git-pane-history.png)](https://setta.dev/features/#f-remote-workspaces-and-git)
 
-The [project-tool examples](https://setta.dev/history/features/#f-files-and-watch-code) show file previews,
+The [project-tool examples](https://setta.dev/features/#f-files-and-watch-code) show file previews,
 a working-tree diff, commit history and a plugin installing its own pane. The February
 Files editor also supported editing CSV/Excel cells, adding rows and columns, and saving
 back to the source; that authoring surface was separate from a canvas Spreadsheet.
@@ -89,9 +89,9 @@ Context could be a reference, an excerpt or a cached summary.
 
 Conversation also gained new ways to work with the canvas. Image attachments let
 the assistant inspect visual evidence; Follow AI moved the viewport to its current
-edits. The [image-chat example](https://setta.dev/history/features/#f-chat-image-attachments) sends a
+edits. The [image-chat example](https://setta.dev/features/#f-chat-image-attachments) sends a
 loss plot and gets a checkpoint recommendation. The
-[Follow example](https://setta.dev/history/features/#f-ai-follow) starts with a high-level
+[Follow example](https://setta.dev/features/#f-ai-follow) starts with a high-level
 request and follows four real configuration changes, keeping the action visible.
 
 The [agentic-edge implementation](https://github.com/riteofstring/setta/commit/2468b2d36433e138d3e4c52b6abc790c4886d3a6)
@@ -141,7 +141,7 @@ Task boards and spreadsheets continued as dedicated sections.
 
 ## Run experiments without changing the live project
 
-[![RunPlan launches six detached runs while the live learning rate and seed stay unchanged.](../../../images/history/runplan.png)](https://setta.dev/history/features/#f-detached-run-plans)
+[![RunPlan launches six detached runs while the live learning rate and seed stay unchanged.](../../../images/history/runplan.png)](https://setta.dev/features/#f-detached-run-plans)
 
 The Python `RunPlan` API combined overrides into plans; `SettaRunner` launched
 separate snapshots and exposed each run's status and logs. In the restored May
@@ -155,7 +155,7 @@ a grid; random, zipped and repeated plans are documented in the
 
 ## May 30: a smaller canvas and a full Contents editor
 
-[![Compact Dataset and Training nodes beside the selected Training form.](../../../images/history/contents-editor.png)](https://setta.dev/history/features/#f-data-ports-and-contents)
+[![Compact Dataset and Training nodes beside the selected Training form.](../../../images/history/contents-editor.png)](https://setta.dev/features/#f-data-ports-and-contents)
 
 The late-May layout experiment replaced full Callable and Dict cards with compact
 nodes. Selecting one opened its actual editable form in a new right-hand Contents pane.
@@ -168,7 +168,7 @@ An edit changes epochs from 12 to 24 and updates the real generated Python. A
 single unobscured edge supplies Training’s sample count from `Dataset["size"]`.
 These are prepared configuration values, not a completed training run.
 
-[![Native data-port settings beside the Dataset-to-Training connection.](../../../images/history/data-port-inspector.png)](https://setta.dev/history/features/#f-data-ports-and-contents)
+[![Native data-port settings beside the Dataset-to-Training connection.](../../../images/history/data-port-inspector.png)](https://setta.dev/features/#f-data-ports-and-contents)
 
 Input/output port authoring had arrived in January. The inspector selects input
 parameters and exposes outputs with Python accessors; JSON-backed forms could

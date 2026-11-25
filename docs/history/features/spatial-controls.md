@@ -40,7 +40,7 @@ explains the persistence boundary.
 
 ## The inspector changes with the canvas
 
-[![The early right-hand UI Config pane beside a nested Python form.](../../../images/history/early-ui-config.png)](https://setta.dev/history/features/#f-control-authoring-panes)
+[![The early right-hand UI Config pane beside a nested Python form.](../../../images/history/early-ui-config.png)](https://setta.dev/features/#f-control-authoring-panes)
 
 _December 2021 layout. The visible preset Apply/Load/Save buttons were unfinished._
 
@@ -50,14 +50,14 @@ in December. January 2022 added reusable preset saving. Later that year Card and
 Parameters replaced the old YAML tab. February 2023 added authored parameter and section
 explanations, with contextual help shown on the left.
 
-[![The Parameters inspector beside its configured canvas sliders.](../../../images/history/parameter-inspector.png)](https://setta.dev/history/features/#f-variants-and-control-implementations)
+[![The Parameters inspector beside its configured canvas sliders.](../../../images/history/parameter-inspector.png)](https://setta.dev/features/#f-variants-and-control-implementations)
 
 _By November 2024 the inspector offered widget selectors, minimum, maximum and step
 fields. This restored still shows the configured state, not a newly applied edit._
 
 Versions followed a different path: a card-header selector in December 2023 became a
 right-hand Section Variants pane in August 2024. The original January 2025 recording
-on the [webpage](https://setta.dev/history/features/#f-variants-and-control-implementations) shows that later interface.
+on the [webpage](https://setta.dev/features/#f-variants-and-control-implementations) shows that later interface.
 The [chronology](../feature-history.md) distinguishes these implementations from the
 removed 2021 SavedVersions model and from whole-project configurations.
 

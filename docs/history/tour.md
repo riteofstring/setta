@@ -12,7 +12,7 @@ The repository combines 16 related source histories on one `main` branch;
 older applications are found in earlier
 commits, while the current checkout contains the library.
 
-[Explore the interactive retrospective](https://setta.dev/history/) or follow the chapters below.
+[Explore the interactive retrospective](https://setta.dev/) or follow the chapters below.
 Captions distinguish original previews from restored builds; [image provenance](images.md)
 records the source revisions and demonstration data.
 
@@ -68,7 +68,7 @@ them by hand.
 
 **Follow a computation as it runs.** Terminal logs and loss curves update together
 in the original January 2025 recording. Interactive Python also let changing
-controls recompute outputs; the later [Julia studio](https://setta.dev/history/features/#f-interactive-python)
+controls recompute outputs; the later [Julia studio](https://setta.dev/features/#f-interactive-python)
 shows that relationship through actual images.
 
 ![Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)

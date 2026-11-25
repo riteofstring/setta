@@ -33,7 +33,7 @@ services may no longer be available.
 
 ## Screenshots and demonstrations
 
-The [visual history](https://setta.dev/history/) combines original previews,
+The [visual history](https://setta.dev/) combines original previews,
 captures of restored historical builds, and current library examples. A capture's
 date identifies the build shown, not the first appearance of every visible feature.
 

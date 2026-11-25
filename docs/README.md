@@ -9,7 +9,7 @@ creative tools and AI workspaces. Documentation for the current React package fo
 
 | Start here                                                  | What you will find                                                                                    |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [Interactive retrospective](https://setta.dev/history/)     | The main tour, with automatic demonstrations and full-size images.                                    |
+| [Interactive retrospective](https://setta.dev/)             | The main tour, with automatic demonstrations and full-size images.                                    |
 | [History guide](history/README.md)                          | A reading map for the illustrated tour, feature chapters and source references.                       |
 | [Illustrated highlights](history/highlights.md)             | A selection of the most interesting ideas, with examples and implementation links.                    |
 | [Original videos](history/videos.md)                        | Six original walkthroughs with thumbnails: training, live images, view modes, chat and the workbench. |
