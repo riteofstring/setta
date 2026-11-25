@@ -14,13 +14,13 @@ results together in a space you could reshape.
 This repository preserves that history: the interfaces, the ideas, the detours and
 the source behind them. The current React package is one outcome of that work.
 
-[**Read the illustrated history**](https://setta.dev/history/overview/)
+[**Read the illustrated history**](https://setta.dev/history/)
 
 [Illustrated highlights](docs/history/highlights.md) ·
 [Original videos](docs/history/videos.md) ·
 [History guide](docs/history/README.md) · [All documentation](docs/README.md)
 
-[![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/#live-python)
+[![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/features/#f-live-python)
 
 _StreamDiffusion turns a drawing or image into generated variations, with inputs,
 controls and Python beside the results._

@@ -43,7 +43,7 @@ inside a prepared Food-101 project.
 
 Part of this workspace work became [Onirigiri](https://onirigiri.dev/), a reusable
 React window system with tiled columns, keyboard navigation, resizing, overview and
-serializable layouts. The [visual history](https://setta.dev/history/#agent-directions)
+serializable layouts. The [visual history](https://setta.dev/history/features/#line-detour)
 shows Onirigiri beside its Setta 3 predecessor. This continuation is separate from the
 Setta 2-derived workspace library; it does not mean the whole agent application moved
 into Onirigiri.

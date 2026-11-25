@@ -701,7 +701,7 @@ Terminals became managed sessions with profiles, lifecycle controls, and checks 
 
 Evidence: [mobile pane presentation](https://github.com/riteofstring/setta/commit/3a9be9484e), [preserved Setta 3/4 application snapshot](https://github.com/riteofstring/setta/tree/milestone/2026-07-setta-4-graph).
 
-Part of this pane and navigation work later became [Onirigiri](https://onirigiri.dev/), a reusable React window system with tiled columns, keyboard navigation, resizing, overview and serializable layouts. Applications supply the pane content. This continuation of Setta 3's spatial interface is separate from the Setta 2-derived `@riteofstring/setta` library; it does not carry over every agent or workflow service. See the [Onirigiri repository](https://github.com/riteofstring/onirigiri) and [visual comparison](https://setta.dev/history/#agent-directions).
+Part of this pane and navigation work later became [Onirigiri](https://onirigiri.dev/), a reusable React window system with tiled columns, keyboard navigation, resizing, overview and serializable layouts. Applications supply the pane content. This continuation of Setta 3's spatial interface is separate from the Setta 2-derived `@riteofstring/setta` library; it does not carry over every agent or workflow service. See the [Onirigiri repository](https://github.com/riteofstring/onirigiri) and [visual comparison](https://setta.dev/history/features/#line-detour).
 
 ### June: another workflow engine and a semantic context graph
 

@@ -66,7 +66,7 @@ _Restored June 2022 interface. The undo/redo implementation dates to May 2023._
 **2023–2024.** Interactive Python connected controls to computed output,
 and terminals and charts brought the running program into the workspace. This
 original January 2025 recording shows actual training logs and loss curves.
-The [live Python examples](https://setta.dev/history/#live-python) show controls,
+The [live Python examples](https://setta.dev/history/features/#f-live-python) show controls,
 authored callbacks and generated images together.
 
 [Interactive execution](https://github.com/riteofstring/setta/commit/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102) ·
