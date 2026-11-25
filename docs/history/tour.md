@@ -196,7 +196,7 @@ _Restored August 2, 2026 build · built-in report example._
 
 [Explore the captures and the experimental directions](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments).
 [Image provenance](images.md#summer-2026-restoration-captures) records exact
-source revisions, frame selections, prepared data and model substitutions.
+source revisions, prepared data and model substitutions.
 
 ## 2026 onward: reusable building blocks
 
