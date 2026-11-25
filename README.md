@@ -14,7 +14,7 @@ results together in a space you could reshape.
 This repository preserves that history: the interfaces, the ideas, the detours and
 the source behind them. The current React package is one outcome of that work.
 
-[**Explore the interactive retrospective →**](https://setta.dev/history/)
+[**Read the illustrated history**](https://setta.dev/history/overview/)
 
 [Illustrated highlights](docs/history/highlights.md) ·
 [Original videos](docs/history/videos.md) ·
