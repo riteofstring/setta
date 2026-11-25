@@ -25,6 +25,19 @@ Explanations could become part of the tool: editable Markdown lived beside the c
 mathematical notation rendered in notes, and a floating documentation tooltip could be
 turned into a persistent section.
 
+## Setta configures itself
+
+In September 2024, Setta opened its own settings as a project. A JSON-backed section
+edited `setta-settings.json` using the same controls and workspace as a user's program.
+October's save behavior wrote the configuration file and reloaded settings, instead of
+storing the settings workspace as an ordinary project in the database.
+
+This was a direct application of Setta's central idea to Setta itself.
+The [settings project](https://github.com/riteofstring/setta/commit/2a87c216017cfc5d65ef1369355fda7ce43f3fbe)
+and [configuration save path](https://github.com/riteofstring/setta/commit/819e8fb57437af273edfdfc280882c25176937ba)
+establish the two steps. The [technology history](../technology.md#setta-configures-itself)
+explains the persistence boundary.
+
 ## The inspector changes with the canvas
 
 [![The early right-hand UI Config pane beside a nested Python form.](../../../images/history/early-ui-config.png)](https://setta.dev/history/#form-authoring)
@@ -55,6 +68,12 @@ A stroke could therefore change a computation's input and its displayed result. 
 added editable layers, visibility and opacity controls, brush and eraser settings, and
 image resizing. This put a small image-composition environment inside the same workbench
 as the code and parameters.
+
+The [technical account](../technology.md#a-custom-draw-section-inside-the-workspace)
+covers its custom Canvas 2D layers, artifact transforms and image transfer to Python.
+The earlier [pan/zoom implementation](../technology.md#panning-before-react-flow) and
+later [drag-and-drop integration](../technology.md#drag-and-drop-inside-react-flow)
+explain how navigation and nested editing worked around the content.
 
 These are features of the historical application. The current library lets applications
 host custom content; it does not bundle that drawing editor or Python runtime.

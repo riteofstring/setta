@@ -11,6 +11,7 @@ surface to another person.
 
 - [2025–2026: project tools enter the left pane](#20252026-project-tools-enter-the-left-pane)
 - [From provider settings to an agent workspace](#from-provider-settings-to-an-agent-workspace)
+- [Control Setta from an external assistant](#control-setta-from-an-external-assistant)
 - [Give each conversation a role](#give-each-conversation-a-role)
 - [Turn conversations into a workflow](#turn-conversations-into-a-workflow)
 - [Keep the evidence beside the work](#keep-the-evidence-beside-the-work)
@@ -63,6 +64,22 @@ The [chronological history](../feature-history.md) records the introductions and
 The earlier control-design and variant inspectors are covered with their own periods in
 [controls and navigation](spatial-controls.md), rather than dated from a late workbench snapshot.
 
+## Control Setta from an external assistant
+
+December 2025's stdio MCP bridge exposed the running workbench's operations to outside
+assistants. The CLI also offered tool discovery and JSON calls through `setta tools`
+and `setta api`. An assistant could manipulate the workspace directly without living
+inside Setta's chat. See the [bridge](https://github.com/riteofstring/setta/commit/a1a25f079792a6faa9d9b38e347eaaf6e3e054ea)
+and [CLI interface](https://github.com/riteofstring/setta/blob/eabd8f56e9273148d3cd771860dc290ca191255d/backend/setta/start.py).
+
+February 2026 added tools for finding, reading, changing and revealing registered
+settings. A reveal opened the right pane and tab, scrolled to the control and highlighted
+it. Initial settings included Watch Code, App configuration and parameter display names,
+with plugin extensions. This went beyond Follow AI's navigation between canvas sections;
+it could show a person where a setting lived. The [settings implementation](https://github.com/riteofstring/setta/commit/eabd8f56e9273148d3cd771860dc290ca191255d)
+and [technology history](../technology.md#external-assistants-and-discoverable-settings)
+describe the supported scope.
+
 ## Give each conversation a role
 
 Chats could branch from edited messages and keep the alternatives visible. Canvas links
@@ -95,6 +112,9 @@ gate progress made execution inspectable on the same canvas.
 The [March 2026 runner](https://github.com/riteofstring/setta/blob/1f435b942c7d2860b368f34d91cf6fe1cd7becea/backend/setta/agentic/state_machine_runner.py)
 executed those graphs. Prompt sections later provided editable or saved-template-backed
 instructions, which workflow edges could resolve when dispatching a chat.
+
+The [state-machine explanation](../technology.md#state-machines-turn-connections-into-execution)
+covers machine groups, draft validation, structured signals and run lifecycle.
 
 _Restored May 2026 build with a new demonstration project. The two responses completed
 through the application using a substitute local Qwen model. The measured experiment was

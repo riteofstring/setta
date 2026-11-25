@@ -41,6 +41,13 @@ refers to the interaction model, not an integration with the Niri compositor.
 The chat and passing tests shown here come from actual local-model bug-fix work
 inside a prepared Food-101 project.
 
+Part of this workspace work became [Onirigiri](https://onirigiri.dev/), a reusable
+React window system with tiled columns, keyboard navigation, resizing, overview and
+serializable layouts. The [visual history](https://setta.dev/history/#agent-directions)
+shows Onirigiri beside its Setta 3 predecessor. This continuation is separate from the
+Setta 2-derived workspace library; it does not mean the whole agent application moved
+into Onirigiri.
+
 ![Setta 3 Easy Button working on a request to run tests and write a status note.](../../../images/history/setta3-easy-button.png)
 
 **One request starts the work.** Easy Button focused the request and active

@@ -62,6 +62,22 @@ desktop project also depended on **node-pty** and **electron-builder**. These we
 application integrations, distinct from the web frontend's form generation:
 [execution bridge][electron2021], [desktop manifest][desktop2021].
 
+### Panning before React Flow
+
+The 2021 interface already had pan and zoom, while its contents were still a structured
+form. Setta wrapped **react-map-interaction**, measured the form with **react-sizeme**,
+and kept scale and translation together. Its own horizontal and vertical scrollbars
+converted between scroll positions and that translation. Bounds depended on the scaled
+content, viewport and margins; zooming therefore changed more than a CSS transform.
+
+By March, navigation also accounted for the Overview pane's width and used **Framer
+Motion** for positioning. The challenge was keeping scrollbars, the visible form and
+navigation aligned as the viewport changed. Independently placed React Flow sections
+arrived in 2022; the earlier work was a custom navigation layer around an existing
+pan/zoom library.
+
+Sources: [February wrapper](https://github.com/riteofstring/setta/blob/63ee486f680f60e824b0edc3c7b97aefcc1ff2d4/abcde-frontend/src/components/AppContainer/Main/CustomMapInteraction/CustomMapInteractionCSS.js) · [March navigation](https://github.com/riteofstring/setta/blob/18bd0cd27042235f69f9210075b678b40e07388f/abcde-frontend/src/components/AppContainer/Main/CustomMapInteraction/CustomMapInteractionCSS.js).
+
 ## 2022–2023: the spatial frontend and Node backends
 
 **React Flow** provided the navigable canvas and independently positioned sections;
@@ -178,6 +194,18 @@ computations. It does not embed the historical application server or AI provider
 
 ## Engineering challenges
 
+Several changes cut across the chronology:
+
+- [Drag-and-drop inside a zoomed canvas](#drag-and-drop-inside-react-flow)
+- [Typed frontend/backend contracts](#typed-contracts-across-python-typescript-and-go)
+- [Settings as a Setta project](#setta-configures-itself)
+- [Templates, generated classes, metadata and defaults](#from-template-variables-to-generated-state-and-metadata)
+- [The custom Draw section](#a-custom-draw-section-inside-the-workspace)
+- [External assistants and settings navigation](#external-assistants-and-discoverable-settings)
+- [Backup and restoration](#backups-with-a-separate-recovery-path)
+- [State-machine execution](#state-machines-turn-connections-into-execution)
+- [Experimental workspace renderers](#experimental-workspace-renderers-webgpu-and-canvasflow)
+
 ### Coherent undo across several stores
 
 **zundo** entered in April 2023 as temporal middleware for Zustand stores, generally
@@ -213,6 +241,91 @@ make pointer input use the right coordinate system.
 
 Sources: [potpack adapter](https://github.com/riteofstring/setta/blob/2cf4f39dceaf2e9bf28c1f267c8b238fd404c102/frontend/src/components/UI/Section/ResponsiveControls.jsx) · [Python packing](https://github.com/riteofstring/setta/blob/e9c126b05e56b0dd6bfbf64a3e96414301521000/backend/setta/types/helpers_lvl2.py) · [Current planner](https://github.com/riteofstring/setta/blob/543735f1b833b0110377f9b1b48260932b7f2abb/packages/workspace/src/auto-layout/planner.ts) · [Scale-aware resize](https://github.com/riteofstring/setta/blob/543735f1b833b0110377f9b1b48260932b7f2abb/packages/workspace/src/section/resize/ResizableWithScale.tsx) · [Terminal coordinate correction](https://github.com/riteofstring/setta/commit/6881c2789c56cbfa263e95fff736dc2c098693d8).
 
+### Drag-and-drop inside React Flow
+
+Setta used a fork and adapters around **dnd-kit**, with substantial logic for the
+workspace's own nesting rules. A gesture might reorder a parameter, move it into a
+group, or detach it onto the canvas. Screen-space movement had to be divided by React
+Flow's zoom; collision thresholds also had to respect scale. The target under the
+pointer was not necessarily the parent or child that should receive the drop.
+
+Placeholders made collision handling harder by moving the geometry being measured.
+**Hysteresis** retained the earlier boundary-crossing decision instead of switching
+targets immediately when a placeholder changed the layout. January 2026 code applied
+that state to the resolved drop target. An August fix retained a rectangle and crossing
+state for each target: briefly encountering a parent could no longer discard the
+child's earlier threshold and make it jump when selected again.
+
+Sources: [Resolved-target collision handling](https://github.com/riteofstring/setta/commit/6e990541cf9c8d4c505c381e71bfb1c0b68d7feb) · [Per-target hysteresis and regression example](https://github.com/riteofstring/setta/commit/3b18778247b6196f6fea3e81b9da3acb415d4b50) · [Zoom adapter](https://github.com/riteofstring/setta/blob/543735f1b833b0110377f9b1b48260932b7f2abb/packages/workspace/src/dnd/adapter/zoom.ts).
+
+### Typed contracts across Python, TypeScript and Go
+
+TypeScript adoption began in the spatial frontend, but a second migration made the
+application's shared data typed. In May 2025, Python **Pydantic** models began defining
+project state and settings. Generators translated those definitions into frontend
+**Zod** schemas, TypeScript types and creation functions, replacing separately maintained
+default objects. Enums, unions, discriminator fields, optional inputs and defaults all
+had to survive that translation. Implementation layers and user defaults added generated
+Python helper types and factories as well.
+
+Endpoint generation inspected **FastAPI** routes, Python signatures and return annotations
+to emit typed frontend calls. Server-injected dependencies were excluded from client
+arguments. Later wrappers used Zod's input types, so fields filled by schema defaults
+did not become mandatory caller arguments. Listener clients were generated too. This
+was application-contract generation, separate from the Python programs users created
+on the canvas.
+
+The 2026 Go migration changed the source of those contracts again. Go-owned types and
+metadata fed a shared schema, semantic sidecar and **OpenAPI** projections; TypeScript
+bindings and Python models were derived downstream. Defaults and discriminated unions
+needed semantic information that a plain field-name translation would lose. Some
+surfaces still used explicit Go-owned inventories; this was not universal automatic
+discovery. Setta 3 later used its own HTTP endpoint registry and contract generator.
+
+Sources: [Typed project state](https://github.com/riteofstring/setta/commit/ec0431458aa5d39fe0afc7ba2b1e1b5dd662ced8) · [Pydantic to Zod](https://github.com/riteofstring/setta/commit/c0d7f17dfd481285b263f0dde6fbbaac9838b702) · [Generated factories replace defaults](https://github.com/riteofstring/setta/commit/23af84a4dac60097313ec30ca41f9b08ef0771db) · [Endpoint generator](https://github.com/riteofstring/setta/blob/e9c126b05e56b0dd6bfbf64a3e96414301521000/frontend/generation/convert_endpoints.py) · [Schema and factory generator](https://github.com/riteofstring/setta/blob/e9c126b05e56b0dd6bfbf64a3e96414301521000/frontend/generation/convert_pydantic_to_js.py) · [Go generation architecture](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/generation-contracts.md) · [Setta 3 registry](https://github.com/riteofstring/setta/commit/cd6a12b81bcb49d8d5336e0a9c54e9c2d8c098f2).
+
+### Setta configures itself
+
+September 2024 represented settings as a Setta project whose JSON section pointed at
+`setta-settings.json`. The same interface used to configure a user's program could
+edit the application's own configuration. October separated its save path from ordinary
+projects: save the JSON source and reload settings, rather than store another project
+in the database. Reusing the editor did not make the two persistence destinations
+interchangeable.
+
+Sources: [Settings project](https://github.com/riteofstring/setta/commit/2a87c216017cfc5d65ef1369355fda7ce43f3fbe) · [Save and reload settings](https://github.com/riteofstring/setta/commit/819e8fb57437af273edfdfc280882c25176937ba).
+
+### From template variables to generated state and metadata
+
+In late 2024 and early 2025, authored programs embedded `$SETTA_GENERATED_PYTHON` and
+an imports placeholder. Section references also exposed `$section_name$version`,
+`$section_name$import_path` and `$section_name$file_path`. Python could import another
+section's function; Bash could launch its generated file. The generator discovered
+these references and substituted runtime paths and selected-version information.
+
+May 2025 introduced a generated wrapper class, initially **S**. The later **SettaState**
+and `state` instance exposed configured values through ordinary Python attributes.
+The integration moved toward an importable generated module, `setta_gen.py`, with
+authored prefix/suffix code and a protected generated body in the editor. This changed
+how programs consumed visual configuration; it was more than renaming the placeholder.
+
+January 2026 added optional **meta-generated code** in `setta_gen_meta.py` and a dedicated
+generated-metadata section. Project identity, section paths, parent relationships and
+selected variant IDs/names became inspectable at runtime through `state.__state__`,
+including section lookup by path or ID. The value module answered “what is configured?”;
+the metadata module also answered “which project, section and variant produced it?”
+This metadata is separate from the Meta Control widget type.
+
+Generation defaults became configurable in Custom Runs. A policy selected eligible
+section/control types and per-section inclusion overrides. Type defaults and individual
+overrides also chose representations: expressions, strings, parsed JSON, file paths or
+file reads where supported. For example, a drawing could supply its saved image path
+instead of eagerly reading the image. Unsupported type/representation pairs were
+validated. These output policies are distinct from a callable argument's default and
+from the internal factories that generated application state.
+
+Sources: [Original illustrated template guide](https://setta.dev/old/docs/how_template_variables_work) · [Wrapper class](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504) · [Metadata section](https://github.com/riteofstring/setta/commit/a6339d695e28ffefb4e6c81e482a95e6cf6eabc2) · [Policy controls](https://github.com/riteofstring/setta/commit/fcb042edc5fabff913a8e2b1e03f6cd1044045a9) · [Later representation modes](https://github.com/riteofstring/setta/commit/3189679ae8439e45e9118bc83a237f45f0b518d2) · [Generated values, metadata and policy contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/codegen-section-policy-and-metadata.md).
+
 ### Generate Python with identities and scope
 
 The early `ClassInfo` metadata model described arguments, defaults and annotations
@@ -243,6 +356,23 @@ representations. It did not itself establish that a running callback had been re
 
 Sources: [Listener scheduling](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/api/listener.py) · [Hot-reload implementation](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/backend/setta/api/hot_reload.py) · [Resource contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/setta-listener-hot-reload.md) · [Callable discovery](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/watchcode/python_callables.go).
 
+### A custom Draw section inside the workspace
+
+The 2024–2025 Draw section used a custom **Canvas 2D** implementation. Each layer had
+a canvas, with separate draft and temporary surfaces for strokes and image artifacts.
+Stored paths, layer order, visibility, opacity and artifact transforms could be rendered
+again; the drawing was not just one flattened bitmap. Draw mode handled strokes and
+erasure, while edit mode selected, moved and resized artifacts.
+
+Pointer coordinates needed to agree with both workspace zoom and an artifact's own
+translation and scale. Inverse transforms supported that local editing. Compositing
+produced the combined drawing and individual layer images as PNG/base64 data for live
+Python inputs, with throttling and a transfer queue. This custom section predates the
+separate Realtime application's **Fabric.js** editor and the later library's smaller
+drawing primitives.
+
+Sources: [Draw surface](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx) · [Coordinate and layer rendering](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/canvasUtils.ts) · [Input handling](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts) · [Image export](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/base64Conversion.ts).
+
 ### A browser editor needs services behind it
 
 CodeMirror and xterm.js presented editors and terminals; they did not implement the
@@ -258,6 +388,33 @@ responsibilities to Go later retained Python as a user-computation and plugin en
 
 Sources: [Language-server management](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/lsp/managers.py) · [Terminal backend](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/terminals/terminals.py) · [Python packages](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/setup.cfg) · [Go packages](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/go.mod) · [Later Python boundary](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/pyproject.toml).
 
+### External assistants and discoverable settings
+
+The December 2025 stdio **MCP** bridge relayed an external client's tool calls to the
+running backend's SSE endpoint and retained project context between calls. The CLI
+also exposed tool schemas through `setta tools` and JSON invocation through `setta api`.
+The operation model could therefore serve assistants outside Setta's own chat.
+
+February 2026's settings registry added typed IDs, schemas, mutability and UI location.
+Tools could search, read, validate a write, or reveal a registered setting. The frontend
+opened the relevant pane/tab, waited for its setting anchor, scrolled to it and applied
+a temporary highlight. Initial coverage included Watch Code, App configuration and
+parameter display names, with plugin extensions. This was targeted side-pane navigation,
+distinct from Follow AI's movement between canvas sections.
+
+Sources: [stdio bridge](https://github.com/riteofstring/setta/commit/a1a25f079792a6faa9d9b38e347eaaf6e3e054ea) · [CLI operations](https://github.com/riteofstring/setta/blob/eabd8f56e9273148d3cd771860dc290ca191255d/backend/setta/start.py) · [Settings registry and reveal pipeline](https://github.com/riteofstring/setta/commit/eabd8f56e9273148d3cd771860dc290ca191255d).
+
+### Backups with a separate recovery path
+
+September 2024 added periodic project database backups with configurable frequency and
+retention. February 2026 enabled backups by default: every five minutes, retaining ten
+under the default settings. The CLI could list them and restore by latest, index or path.
+Before replacement, it stashed the existing project under a different filename prefix
+that ordinary backup pruning did not remove. Restoration also checked for a running
+workspace. Undo, autosave and recoverable database copies addressed different failures.
+
+Sources: [Initial backups](https://github.com/riteofstring/setta/commit/f38c819e23b9b057b6f4e73ecfc5a1dea4528f09) · [Configurable retention](https://github.com/riteofstring/setta/commit/6db9895468eeccdba220ba4016160dde3f93dbfe) · [Default enablement and restore CLI](https://github.com/riteofstring/setta/commit/4924b708e09d380a305605bc8b4d01535e01b03f).
+
 ### Distinguish values, access and workflow control
 
 Python edges described value dependencies; agent edges described readable or writable
@@ -270,6 +427,46 @@ prompt templates in the Go workbench. Tool discovery, prompt rendering and provi
 were separate pieces of the agent integration.
 
 Sources: [Agent access](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/agentic-edges.md) · [Workflow control](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/state-machine-workflows.md) · [Tool search](https://github.com/riteofstring/setta/blob/e9c126b05e56b0dd6bfbf64a3e96414301521000/backend/setta/mcp/tools/tool_search.py) · [Prompt rendering](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/promptrender/render.go).
+
+### State machines turn connections into execution
+
+The March 2026 workbench introduced a control-flow graph with **Start, Gate, End and
+Chat** sections. Machine groups identified workflows independently of their screen
+positions. An incomplete graph could remain editable, but execution required a valid
+start/end structure. Edges dispatched work after completion, failure or a structured
+signal; target actions could reset a thread or send a resolved prompt.
+
+AND/OR/XOR gates tracked progress, while activation conditions and runtime limits
+bounded execution. Runs exposed status, signal events and failure information, with
+start, stop and reset controls. A signal was reported from an active child run rather
+than inferred from arbitrary chat text. The visual history's two-reviewer example
+shows both responses completing before an AND gate proceeds. Setta 3's later workflow
+editor and durable Go/SQLite engine were a separate implementation.
+
+Sources: [Python workflow runner](https://github.com/riteofstring/setta/blob/1f435b942c7d2860b368f34d91cf6fe1cd7becea/backend/setta/agentic/state_machine_runner.py) · [Workflow contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/state-machine-workflows.md) · [Visual example](https://setta.dev/history/#agents).
+
+### Experimental workspace renderers: WebGPU and CanvasFlow
+
+Spring 2026 explored replacing the workspace's rendering path while retaining HTML
+content and editing. **WebGPU/GPUFlow** began with a device and canvas surface using
+experimental Chromium HTML-in-canvas APIs. Later architecture combined cached HTML
+textures, retained parameter-page textures and GPU-drawn visuals with browser-owned
+editors and DOM control islands. Camera changes could reuse textures; hit targets,
+clipping and overlays had to match the same presented content frame. Keeping interaction
+and pixels coherent was as important as submitting fewer paints.
+
+**CanvasFlow** was a separate WebGL/HTML-texture approach. It uploaded changed visible
+HTML nodes, reused textures during pan/zoom, evicted cached textures against a memory
+budget and drew edges on canvas. Capability checks selected WebGL texture nodes where
+supported, with a Canvas 2D path otherwise. A recorded check observed unchanged upload
+counts during viewport movement, but the accompanying report still listed incomplete
+box selection and a pointer-created-edge problem involving obscured handles.
+
+These were implemented experiments with browser-specific requirements and interaction
+gaps. They do not establish a general performance win or describe the current library's
+upstream xyflow renderer. They are also distinct from Setta 4's later WebGL2 Director graph.
+
+Sources: [WebGPU foundation](https://github.com/riteofstring/setta/commit/07b1e718a14a216e3cabd071ffa249bc3a073fff) · [Later GPUFlow architecture](https://github.com/riteofstring/setta/blob/964a673e38711afdece6e1a1ae05b241f31847d2/docs/reference/html-in-canvas-architecture.md) · [CanvasFlow implementation](https://github.com/riteofstring/setta/commit/70fedb48b442c91a6dc0d3100ca339522dc2fde7) · [CanvasFlow measurements and remaining gaps](https://github.com/riteofstring/setta/blob/70fedb48b442c91a6dc0d3100ca339522dc2fde7/perf/reports/frontend/2026-04-28_canvasflow-webgl-default-promotion.md).
 
 ### Retain evidence without confusing it with execution
 
@@ -303,6 +500,10 @@ every transitive package. A historical dependency is not necessarily in the curr
 
 | Role                             | Libraries and facilities                                                                                                                  | Use and period                                                                                                                                     | Sources                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Early navigation                 | react-map-interaction, react-sizeme, Framer Motion                                                                                        | 2021 measured pan/zoom, custom scrollbars and Overview-aware positioning before React Flow.                                                        | [Implementation](#panning-before-react-flow)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Shared typed contracts           | Pydantic, Zod, TypeScript, FastAPI, OpenAPI, Go                                                                                           | 2025–2026 schemas, defaults, endpoint clients and cross-language generation.                                                                       | [Implementations](#typed-contracts-across-python-typescript-and-go)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Custom Draw section              | Canvas 2D, PNG/base64, React                                                                                                              | 2024–2025 layered drawing and live Python image input; separate from Realtime’s Fabric.js editor.                                                  | [Implementation](#a-custom-draw-section-inside-the-workspace)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Experimental workspace renderers | WebGPU, WGSL, CanvasFlow, WebGL, HTML-in-canvas                                                                                           | Spring 2026 texture caches, GPU visuals and DOM editing, with browser-specific requirements.                                                       | [Implementations and limits](#experimental-workspace-renderers-webgpu-and-canvasflow)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Languages and browser facilities | Python, JavaScript, JSX, TypeScript, Go, GLSL, WebGL2, Web Workers, Web Audio                                                             | Python metadata and user programs; browser UI; Go services; Setta 4 shaders; current worker and audio consumers.                                   | [1](https://github.com/riteofstring/setta/blob/6ab75eb9bca555c3db6b04e7cfa232af9efadab4/ABCDE/src/abcde/registration/class_info.py), [2](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/go.mod), [3](https://github.com/riteofstring/setta/blob/bd5cd3d0898d5ced1961532034e3b9284fa3146b/desktop/src/renderer/src/features/director-graph/render/graph-shaders.ts), [4](https://github.com/riteofstring/setta/blob/543735f1b833b0110377f9b1b48260932b7f2abb/packages/workspace/src/browser/client.ts)                                                                                                                                                                                |
 | Early interface                  | React, Create React App / react-scripts, Chakra UI, Emotion, Easy Peasy, Framer Motion                                                    | 2020–2022 React forms, presentation and application state.                                                                                         | [1](https://github.com/riteofstring/setta/blob/c436b2cc7939d2c69feafa1419ae95cfa33c2c57/abcde-frontend/package.json), [2](https://github.com/riteofstring/setta/blob/8217da51fdfe52f8983122c9b8aa091adcbf2243/abcde-frontend/package.json)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Early form helpers               | Formik, Yup, chakra-ui-autocomplete, react-measure                                                                                        | Declared by the 2022 frontend for its form and measurement toolkit; not a current-package inventory.                                               | [1](https://github.com/riteofstring/setta/blob/8217da51fdfe52f8983122c9b8aa091adcbf2243/abcde-frontend/package.json)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |

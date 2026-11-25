@@ -17,6 +17,30 @@ They do not include the historical Python runner, training infrastructure or exp
 See the [original example gallery](../examples.md) for diffusion drawing, FLUX inpainting,
 TRL finetuning, text classification, metric learning and AutoML.
 
+## Compose scripts, then consume generated state
+
+Late 2024's `$SETTA_GENERATED_PYTHON` placeholder embedded generated configuration
+inside authored code. By February 2025, template variables could also refer to another
+section's selected version, Python import path or executable file path. Python could
+import a function from a different section, while Bash could launch that section's file.
+The [original illustrated guide](https://setta.dev/old/docs/how_template_variables_work)
+shows all three forms together.
+
+May introduced a generated class, initially `S`; later programs imported a `state`
+instance from `setta_gen.py`. January 2026 added a generated metadata module for project,
+section and selected-variant information. Generation settings also let users choose
+which sections participated and how supported values were represented, with type defaults
+and individual overrides. The [technology history](../technology.md#from-template-variables-to-generated-state-and-metadata)
+traces these changes and their source implementations.
+
+## Recover project data
+
+Automatic backups arrived in September 2024, separately from undo, autosave and saved
+section versions. February 2026 enabled them by default and added CLI listing and
+restoration. Restoring first preserved the existing project in a separate stash, outside
+ordinary backup retention. See the [backup and restore implementation](https://github.com/riteofstring/setta/commit/4924b708e09d380a305605bc8b4d01535e01b03f)
+and [technical explanation](../technology.md#backups-with-a-separate-recovery-path).
+
 ## Implementation landmarks
 
 These are preserved implementation landmarks, not a release calendar.

@@ -270,6 +270,20 @@ YAML returned as an editable representation that could be parsed into GUI state 
 
 Evidence: [interactive image manipulation](https://github.com/riteofstring/setta/commit/87275831fe509bd7a265a7fc1ed877bc9a5672dd), [drawing input](https://github.com/riteofstring/setta/commit/82e84e5ae3da61d2592124180bec62a03b357ffe), [YAML-to-GUI parsing](https://github.com/riteofstring/setta/commit/49014dbdf6f899e6b504a904ef8560d03e8ff9f8), [JSON-backed controls](https://github.com/riteofstring/setta/commit/ec9c5eeaa236334b48eb1306f8d7ad2bbabe67b1).
 
+### September: automatic backups protect the project
+
+Automatic database backups appeared on September 15, with configurable frequency, retention and an off switch. This protected saved project data independently of undo history or named section versions. The February 2026 work later enabled backups by default and added an explicit restoration command.
+
+Evidence: [initial backup implementation](https://github.com/riteofstring/setta/commit/f38c819e23b9b057b6f4e73ecfc5a1dea4528f09), [configurable backup policy](https://github.com/riteofstring/setta/commit/6db9895468eeccdba220ba4016160dde3f93dbfe).
+
+### September–October: Setta edits its own settings
+
+On September 21, the settings interface became a Setta project. Its settings section used the same JSON-backed controls as other projects, with `setta-settings.json` as the source. Setta's own preferences were an application of its central idea: turn structured data into an editable workspace.
+
+October 12 separated persistence from presentation. Saving this special project wrote the JSON source and reloaded application settings instead of saving it as an ordinary project in the database. The settings workspace and the configuration file were two views of the same preferences.
+
+Evidence: [settings as a project](https://github.com/riteofstring/setta/commit/2a87c216017cfc5d65ef1369355fda7ce43f3fbe), [file-backed settings save](https://github.com/riteofstring/setta/commit/819e8fb57437af273edfdfc280882c25176937ba), [settings project definition](https://github.com/riteofstring/setta/blob/819e8fb57437af273edfdfc280882c25176937ba/constants/settingsProject.json).
+
 ### August–December: versions and parameter help become dedicated inspector tools
 
 On August 17, the version list moved from individual cards into the right **Section Variants** pane. Selecting a section now chose which alternatives the inspector displayed. December completed Add Version, rename, deletion and default selection. This changed where users managed variants; variants themselves already existed in 2023.
@@ -299,6 +313,14 @@ Drawing grew into a layered artifact editor. Layers could be added, deleted, reo
 The right **Section Config** pane exposed the composition behind those outputs. December 21 connected its artifact list and layer groups to real section state, including dropping artifacts into a layer and removing them. Image and plot settings followed, with chart data, horizontal axis and category-column selection. Charts gained more explicit line and scatter configuration, axes, categories, and hover behavior. The generated-code placeholder also allowed generated Python to occupy a defined part of a larger authored program, with surrounding code contributing to completion context.
 
 Evidence: [reference updates](https://github.com/riteofstring/setta/commit/b8ec26789066d81eddf1c0ac4b203033eb5e8a2a), [replacement implementation](https://github.com/riteofstring/setta/blob/b8ec267890/frontend/src/state/actions/infoToEVReferrer.js), [drawing layers](https://github.com/riteofstring/setta/commit/30bdf9dda496eadf3388586b8f27e3e54577acd1), [artifact transforms](https://github.com/riteofstring/setta/commit/3a89e8ae537250c421e344d42824b8e3a1a802f5), [chart modes](https://github.com/riteofstring/setta/commit/587c6d3fd4), [real artifact/layer operations](https://github.com/riteofstring/setta/commit/3116c2ceaeb97e62f4baf430d21864d72afae641), [chart-data settings](https://github.com/riteofstring/setta/commit/440f33cf4a002448eec12d9423e89194195d78d8).
+
+### December–February: template variables compose scripts across sections
+
+Template variables connected authored code to generated programs and other sections. `$SETTA_GENERATED_PYTHON` placed generated code inside a larger Python program; a separate imports placeholder controlled where inferred imports appeared. January 2025 added explicit Bash handling and moved template-variable discovery into the backend.
+
+The February syntax exposed a section's selected version, Python import path and runtime file path as `$section_name$version`, `$section_name$import_path` and `$section_name$file_path`. A Python section could import a function from another section, while a Bash section could launch its generated file. These references were resolved during code generation, distinct from reusable section templates and later AI prompt templates.
+
+Evidence: [Bash composition](https://github.com/riteofstring/setta/commit/3d20845857cb1d2d333e341fd01780e81ad3f140), [backend discovery](https://github.com/riteofstring/setta/commit/22b1cda9d9d661b8d2d1cf50e9cc1d065609621d), [explicit metadata suffixes](https://github.com/riteofstring/setta/commit/cf5216d0388e49444b2a43cccb6a723438407da1), [original illustrated guide](https://setta.dev/old/docs/how_template_variables_work).
 
 ## 2025: reactive Python, chat, MCP, and the expanding workbench
 
@@ -364,6 +386,8 @@ Evidence: [FastMCP integration](https://github.com/riteofstring/setta/commit/5bd
 
 May introduced generated state access through a Python class, commonly represented as **S**. Programs could address configured values through generated state rather than only through expanded constructor calls. Code generation also narrowed to the relevant connected graph, so a program could depend on the sections it actually used instead of incorporating the whole canvas.
 
+This began a shift from inserting generated Python through template variables toward importing a generated state module. The later `SettaState` class and `state` instance put configured values behind ordinary Python attributes; authored code could live around a protected generated body. January 2026 would add a separate metadata module describing the project, sections and selected variants. The [technology history](technology.md#from-template-variables-to-generated-state-and-metadata) follows that progression.
+
 File tools allowed the assistant to view, create, replace, and insert text in project files. Generated-code prefixes and retrieval made those operations aware of the code produced by Setta, extending assistant work beyond the graphical model.
 
 A separate **setta-saas** project explored deploying projects through Fly.io. Deployment creation, deletion, startup, and status formed an early hosted-project flow, with repository-based input developing further in the summer. This was a companion hosting experiment, not evidence that all historical local features were available through a mature hosted service.
@@ -386,6 +410,8 @@ The parameter inspector reflected that redesign. By July it could select a reusa
 
 The backend increasingly became the authority for typed project state. That mattered for synchronized editing, persistence, and assistant operations: a graphical action and a tool action needed to agree on the same section, argument, and variant identities.
 
+This involved generated contracts as well as adding type annotations. May's Pydantic project/settings models supplied frontend schemas, TypeScript types and default-aware factories. Route signatures later generated endpoint calls; the Go migration changed the authoritative source again. The [typed-contract history](technology.md#typed-contracts-across-python-typescript-and-go) distinguishes this application infrastructure from user-facing Python generation.
+
 External artifacts became more reactive. JSON sources and image or chart files could be watched, and updates outside the browser could refresh the corresponding surface. This expanded the earlier file-backed sections into an interface for data that other tools were actively changing.
 
 Evidence: [working preset/implementation selection](https://github.com/riteofstring/setta/commit/6b452ca9f6d356c0effd222d8d8c241341009310), [artifact watching](https://github.com/riteofstring/setta/commit/75dc391356), [continued source-file watching](https://github.com/riteofstring/setta/commit/2e900b35d5), [later workbench source](https://github.com/riteofstring/setta/tree/source/setta-2025).
@@ -405,6 +431,8 @@ Evidence: [file synchronization](https://github.com/riteofstring/setta/commit/0f
 ### December: AI navigation, named views, and standalone controls
 
 MCP integration expanded toward multiple external servers, live configuration, environment placeholders, and a searchable tool catalog. Tool discovery could expose a smaller relevant set rather than filling every interaction with the entire catalog. Chat context included stable identities for the sections and objects being discussed.
+
+The direction also worked outward: a December 13 **stdio MCP bridge** let external assistants call Setta's workspace tools through its running backend. It relayed between stdio and the backend's SSE endpoint and retained the selected project configuration across tool calls. By February 2026, `setta tools` exposed tool schemas and `setta api` invoked named operations with JSON arguments. An assistant could operate Setta from outside its built-in chat, rather than merely edit files that Setta might later read. Sources: [stdio bridge](https://github.com/riteofstring/setta/commit/a1a25f079792a6faa9d9b38e347eaaf6e3e054ea), [CLI tool interface](https://github.com/riteofstring/setta/blob/eabd8f56e9273148d3cd771860dc290ca191255d/backend/setta/start.py).
 
 **Follow AI** connected assistant activity to the canvas. When a tool operated on identified sections, the interface could pan to and highlight the affected content. This made an assistant's actions easier to follow in a spatial project.
 
@@ -469,6 +497,14 @@ Custom Runs gained the code-generation target toggle, generation policy and snap
 
 Evidence: [move target toggle into Custom Runs](https://github.com/riteofstring/setta/commit/98ff6b6f24e18e6840edceb0743c1a2a205554f9), [generation policy](https://github.com/riteofstring/setta/commit/fcb042edc5fabff913a8e2b1e03f6cd1044045a9), [remove GUI/YAML mode](https://github.com/riteofstring/setta/commit/947b480d8ab49407b68fa03c7aaa9f68bda2522a).
 
+### January 17–25: generated metadata and customizable output defaults
+
+Generation policies let users choose eligible section and control types, override inclusion for individual sections and select supported value representations. Type defaults could be overridden for a particular section or parameter. The later January modes distinguished expressions, strings, parsed JSON, file paths and file reads; a drawing could provide an image path instead of immediately reading its contents. These were output-generation choices, separate from changing a slider's default value.
+
+Optional meta-generated code in `setta_gen_meta.py` exposed project identity and section metadata, including paths, parents and selected variants. A dedicated generated-metadata section appeared on January 18. Runtime code could inspect the metadata through `state.__state__` alongside generated values. This feature was distinct from the Meta Control section type.
+
+Evidence: [policy and metadata](https://github.com/riteofstring/setta/commit/b7a93c84a2258dd08c28e7deb68d1c6e919d80bd), [metadata section](https://github.com/riteofstring/setta/commit/a6339d695e28ffefb4e6c81e482a95e6cf6eabc2), [representation modes](https://github.com/riteofstring/setta/commit/3189679ae8439e45e9118bc83a237f45f0b518d2), [later generated-code contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/codegen-section-policy-and-metadata.md).
+
 ### External coding agents and richer chat execution
 
 The agentic runner integrated external coding-agent systems, including Claude, Codex, and OpenCode paths. A new **Project AI Settings** pane on January 18 managed API keys, named profiles, reusable prompt templates and external-agent adapters. Profile wiring connected system prompts, models, tool allowlists and memory scopes to actual chat execution. Adapter settings supplied commands or base URLs, working directories and sandbox/approval choices. This replaced the limited 2025 provider editor with a broader agent-configuration surface. Tool activity and reasoning-related status could stream into chat, and approval requests became part of the conversation lifecycle.
@@ -530,6 +566,20 @@ A Git surface exposed repository status, diffs, history, and a graph-oriented vi
 Plugin management made extension points explicit. Plugins could contribute frontend sections, navigation, settings, backend routes, code-generation behavior, listener behavior, and state-host integrations. A CLI and package/source management supported installation and discovery, with capability and trust boundaries. First-party features were later moved behind the same plugin model.
 
 Evidence: [SSH workspaces](https://github.com/riteofstring/setta/commit/ae708854b1fc5d9db79966ebdabbf9f0f43835c4), [Git inspection](https://github.com/riteofstring/setta/commit/d95c966bd0dbeedb0e4d421391434569db9f3ed9), [plugin management](https://github.com/riteofstring/setta/commit/7beab4e61d4fe3e6cc928faae0c7a369ac45d7d9), [plugin CLI](https://github.com/riteofstring/setta/commit/d768b4e425f441909dc99acf510fc359f4d10c22).
+
+### February 7: restore a backup without losing the previous project
+
+Automatic backups became enabled by default, with a five-minute interval and ten retained backups for default settings. The CLI could list backups and restore the latest, a numbered entry or an explicit path. Before replacing an existing project file, restoration preserved it under a separate `restore_stash_` filename that ordinary backup retention did not prune. It also refused an apparently running workspace unless explicitly overridden. This was a recovery path for project data, separate from autosave and undo.
+
+Evidence: [defaults, listing, restoration and stash preservation](https://github.com/riteofstring/setta/commit/4924b708e09d380a305605bc8b4d01535e01b03f).
+
+### February 15: assistants can find and reveal settings
+
+Settings tools added another kind of navigation. `search_ui_settings` found registered settings by natural-language query; `get_ui_setting_value` and `set_ui_setting_value` read and validated their values. `reveal_ui_setting` opened the appropriate side pane and tab, scrolled to the control and briefly highlighted it. A write could request the same reveal afterward.
+
+The initial registry covered Watch Code, App configuration and parameter display names, with plugin extension points. It did not promise access to every setting. Unlike Follow AI's navigation between canvas sections, this path could lead a person to a control inside a side pane.
+
+Evidence: [setting registry, tools and reveal pipeline](https://github.com/riteofstring/setta/commit/eabd8f56e9273148d3cd771860dc290ca191255d).
 
 ### Spreadsheets, task boards, date/time controls, and dictation
 
@@ -601,11 +651,19 @@ March introduced a Go backend and moved core workbench ownership toward it. Stat
 
 During the spring, first-party subsystems moved into plugins. Python language-server integration included basedpyright and ty-related work, App mode acquired a plugin runtime, and Watch Code became a first-party provider. Users could enable a capability through a more explicit extension boundary instead of assuming every subsystem was inseparable from the core application.
 
-Rendering experiments explored Pixi/GPUFlow, retained surfaces, DOM islands, snapshots, and levels of detail to make large canvases more responsive. They represent alternative implementation directions in the archive. Their presence does not establish a measured performance guarantee or make every renderer part of today's package.
-
 The [May 10 workbench checkpoint](https://github.com/riteofstring/setta/tree/eea7fb38c8fdb452766d06b08610248e2962c4fc) is a useful source for the combined feature set: Python composition, live listeners, detached runs, files, artifacts, agent chats, MCP, plugins, workflows, App mode, remote workspaces, and managed windows.
 
 Evidence: [Go backend transition](https://github.com/riteofstring/setta/commit/1db3317abf1d6fdcb288f67649c0f2744ea01018), [Go-first source transition](https://github.com/riteofstring/setta/commit/69a785fc79), [Python language-server plugin work](https://github.com/riteofstring/setta/commit/116d58f830), [App plugin runtime](https://github.com/riteofstring/setta/commit/028c2d3731).
+
+### April–May: experimental WebGPU and CanvasFlow renderers
+
+These were implemented rendering experiments aimed at making large, editable workspaces easier to move through. **GPUFlow** began with a WebGPU device and frame-scheduling foundation, then composed cached HTML textures, retained parameter surfaces and GPU-drawn visuals. By the May 24 architecture checkpoint, browser-owned editors and native controls used projected DOM controls or DOM islands, coordinated with the displayed frame.
+
+**CanvasFlow** explored a separate HTML-in-Canvas path. Its WebGL renderer uploaded changed visible nodes as textures, cached them within a memory budget and drew edges on the canvas. Pan and zoom could reuse those textures. Browser capability checks selected the WebGL texture path where supported, with a 2D renderer otherwise. The preserved validation report still identified gaps in pointer-created edges and box selection.
+
+Both paths relied on experimental Chromium HTML-in-Canvas APIs. Their presence does not establish cross-browser support, a general performance guarantee or inclusion in today's package. The [technology history](technology.md#experimental-workspace-renderers-webgpu-and-canvasflow) explains the architecture and interaction tradeoffs.
+
+Evidence: [WebGPU foundation](https://github.com/riteofstring/setta/commit/07b1e718a14a216e3cabd071ffa249bc3a073fff), [May WebGPU architecture](https://github.com/riteofstring/setta/blob/964a673e38711afdece6e1a1ae05b241f31847d2/docs/reference/html-in-canvas-architecture.md), [CanvasFlow WebGL selection](https://github.com/riteofstring/setta/commit/70fedb48b442c91a6dc0d3100ca339522dc2fde7), [CanvasFlow validation and remaining gaps](https://github.com/riteofstring/setta/blob/70fedb48b442c91a6dc0d3100ca339522dc2fde7/perf/reports/frontend/2026-04-28_canvasflow-webgl-default-promotion.md).
 
 ### May 30: compact nodes move whole forms into Contents
 
@@ -642,6 +700,8 @@ Mobile-oriented work added a full-screen active pane and compact bottom controls
 Terminals became managed sessions with profiles, lifecycle controls, and checks before closing busy work. Later changes supported background agent terminal activity, duplex streaming, snapshots, and controlled writes through the CLI.
 
 Evidence: [mobile pane presentation](https://github.com/riteofstring/setta/commit/3a9be9484e), [preserved Setta 3/4 application snapshot](https://github.com/riteofstring/setta/tree/milestone/2026-07-setta-4-graph).
+
+Part of this pane and navigation work later became [Onirigiri](https://onirigiri.dev/), a reusable React window system with tiled columns, keyboard navigation, resizing, overview and serializable layouts. Applications supply the pane content. This continuation of Setta 3's spatial interface is separate from the Setta 2-derived `@riteofstring/setta` library; it does not carry over every agent or workflow service. See the [Onirigiri repository](https://github.com/riteofstring/onirigiri) and [visual comparison](https://setta.dev/history/#agent-directions).
 
 ### June: another workflow engine and a semantic context graph
 
