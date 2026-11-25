@@ -59,7 +59,7 @@ behind the interfaces. Use the [tag guide](docs/history/tags.md) to choose a sou
 pipelines. Applications supply their own data, algorithms and persistence. Historical
 Python runtimes, AI integrations and workbench applications remain in the source history.
 
-[Try the audio demo](https://setta.dev) ·
+[Try the audio demo](https://setta.dev/demo/) ·
 [Workspace API](packages/workspace/README.md) · [Browser pipelines](packages/workspace/BROWSER.md)
 
 ### Get started

@@ -206,7 +206,7 @@ backend in November. The result is a TypeScript/React toolkit: the application s
 data, computations and persistence, and Setta supplies the workspace and optional worker
 coordination.
 
-[![The ambient instrument uses Setta controls and panels around an application-owned audio engine.](../../images/instrument.png)](https://setta.dev)
+[![The ambient instrument uses Setta controls and panels around an application-owned audio engine.](../../images/instrument.png)](https://setta.dev/demo/)
 
 _An independently maintained application built with the current library. Setta supplies
 workspace interactions and worker coordination; the instrument supplies its musical rules,
@@ -226,7 +226,7 @@ Original media also survives in source history:
 [historical Setta demonstration](https://github.com/riteofstring/setta/blob/9e717b00240916fa8156cdeb4758127ad95e5a04/images/hero.mp4) ·
 [compact Setta introduction](https://github.com/riteofstring/setta/blob/c728188acf354fe5cd8878109958cd60a43d2611/images/setta-intro-small.mp4).
 
-The current [ambient instrument](https://setta.dev) is another application built with the
+The current [ambient instrument](https://setta.dev/demo/) is another application built with the
 library. Its website, the older website and the old documentation website are maintained
 outside this source lineage.
 

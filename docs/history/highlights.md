@@ -217,7 +217,7 @@ _Original Print Studio screenshot. [The library-era gallery](features/libraries-
 contains the other original screenshots, implementation links and image credits. These
 examples are on the retained lineage, separate from the extracted v3/v4 projects._
 
-The current [ambient instrument](https://setta.dev) carries the idea forward: Setta supplies
+The current [ambient instrument](https://setta.dev/demo/) carries the idea forward: Setta supplies
 controls, composition, graphs, windows and worker coordination; the application supplies
 its musical rules, audio engine and scenery.
 

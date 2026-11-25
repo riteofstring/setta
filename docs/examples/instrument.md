@@ -2,7 +2,7 @@
 
 [Documentation](../README.md) / Package examples
 
-The [instrument at setta.dev](https://setta.dev) demonstrates one application of
+The [instrument at setta.dev/demo](https://setta.dev/demo/) demonstrates one application of
 Setta's workspace and browser pipelines. Its musical behavior is implemented by
 the consuming application.
 
@@ -24,4 +24,4 @@ operations as stages of a simulation, a data-processing tool or an editor.
 The instrument is maintained separately from this library and runs on static
 hosting. Setta's package takes no dependency on its audio engine or 3D renderer.
 
-[Try the instrument](https://setta.dev) · [Back to Setta](../../README.md)
+[Try the instrument](https://setta.dev/demo/) · [Back to Setta](../../README.md)

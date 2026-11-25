@@ -201,7 +201,7 @@ fixtures from newly computed outputs.
 
 ## The current library
 
-[![The ambient instrument uses Setta controls and panels around an application-owned audio engine.](../../../images/instrument.png)](https://setta.dev)
+[![The ambient instrument uses Setta controls and panels around an application-owned audio engine.](../../../images/instrument.png)](https://setta.dev/demo/)
 
 The current package keeps the reusable interactions: typed controls, nested sections,
 saved views, windows, graph presentation, navigation and optional structural history.
@@ -209,7 +209,7 @@ saved views, windows, graph presentation, navigation and optional structural his
 with progress, latest-input queuing, cancellation and recovery. A consuming application
 supplies its data, algorithms and persistence.
 
-The independently maintained instrument at [setta.dev](https://setta.dev) supplies its
+The independently maintained instrument at [setta.dev/demo](https://setta.dev/demo/) supplies its
 musical rules, audio engine and scenery. Its workspace and worker coordination use Setta.
 
 ## Implementation landmarks

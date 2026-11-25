@@ -23,11 +23,11 @@ checkpoints, capture provenance and demonstration notes.
 
 ## Use the current package
 
-| Guide                                                                           | Purpose                                                                   |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [React workspace](../packages/workspace/README.md)                              | Installation, component setup and the public workspace API.               |
-| [Browser pipelines](../packages/workspace/BROWSER.md)                           | Run application computations in Web Workers.                              |
-| [Audio demo](https://setta.dev) and [how it uses Setta](examples/instrument.md) | A live application and the boundary between its behavior and the library. |
+| Guide                                                                                 | Purpose                                                                   |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [React workspace](../packages/workspace/README.md)                                    | Installation, component setup and the public workspace API.               |
+| [Browser pipelines](../packages/workspace/BROWSER.md)                                 | Run application computations in Web Workers.                              |
+| [Audio demo](https://setta.dev/demo/) and [how it uses Setta](examples/instrument.md) | A live application and the boundary between its behavior and the library. |
 
 Historical application features are described under `history/`; these package guides
 describe what is available in the current checkout.

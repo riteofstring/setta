@@ -177,7 +177,7 @@ The source links identify exact preserved material, not a public release day.
 ## Current example
 
 [The ambient instrument](../../images/instrument.png) is a November 2026 capture of the
-independently maintained application at [setta.dev](https://setta.dev), after starting
+independently maintained application at [setta.dev/demo](https://setta.dev/demo/), after starting
 its default patch. Its musical logic, audio and scenery belong to that application.
 
 These are application captures, not illustrations or interface mockups.
