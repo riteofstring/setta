@@ -35,7 +35,7 @@ its confirmation dialog still contained a placeholder list of affected reference
 
 ## Editing moves between the panes and the program
 
-[![Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/features/#f-control-authoring-panes)
+[![Sections list and separate Details form with unfinished sweep fields.](../../../images/history/feature-early-details.png)](https://setta.dev/history/features/#f-early-details-and-sweep-prototype)
 
 _December 2020 frontend. The sweep fields are an interface prototype without execution logic._
 

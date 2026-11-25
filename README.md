@@ -20,7 +20,7 @@ the source behind them. The current React package is one outcome of that work.
 [Original videos](docs/history/videos.md) ·
 [History guide](docs/history/README.md) · [All documentation](docs/README.md)
 
-[![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/features/#f-live-python)
+[![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/features/#f-historical-python-integrations)
 
 _StreamDiffusion turns a drawing or image into generated variations, with inputs,
 controls and Python beside the results._

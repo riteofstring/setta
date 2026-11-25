@@ -68,7 +68,7 @@ them by hand.
 
 **Follow a computation as it runs.** Terminal logs and loss curves update together
 in the original January 2025 recording. Interactive Python also let changing
-controls recompute outputs; the later [Julia studio](https://setta.dev/history/features/#f-live-python)
+controls recompute outputs; the later [Julia studio](https://setta.dev/history/features/#f-drawing-and-image-artifacts)
 shows that relationship through actual images.
 
 ![Cluster lab: shared parameters, scikit-learn configuration, saved variants and a feature-count sweep.](../../images/history/runcoder-experiments.png)

@@ -38,7 +38,7 @@ Watch Code; February added Git inspection, plugin management and an App editor.
 
 [![Git branches and merges beside the selected checkpoint commit's Python diff.](../../../images/history/git-pane-history.png)](https://setta.dev/history/features/#f-remote-workspaces-and-git)
 
-The [project-tool examples](https://setta.dev/history/#chapter-5) show file previews,
+The [project-tool examples](https://setta.dev/history/features/#f-files-and-watch-code) show file previews,
 a working-tree diff, commit history and a plugin installing its own pane. The February
 Files editor also supported editing CSV/Excel cells, adding rows and columns, and saving
 back to the source; that authoring surface was separate from a canvas Spreadsheet.
