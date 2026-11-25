@@ -332,3 +332,18 @@ retains source time 11.5–35 seconds at 60 fps from
 `footage/gap/r18/ai/follow-take07.mp4`. Its fixture, conversation, native recording
 receipt and exact edit manifest are retained alongside the master. The app
 source is unchanged; model inference uses the restored local engine.
+
+## Settings, drawing, custom runs and workflow connections
+
+Four restored demonstrations accompany the corresponding entries in
+[Every feature](https://setta.dev/history/features/):
+
+- **Settings workspace:** the May 10, 2026 build (`eea7fb38c8`) separates GUI and backend preferences. Changing Grid Pattern to lines updates the canvas with autosave enabled. The feature itself dates to September 2024.
+- **Draw layers:** the January 2025 interface draws a path on a separate layer over a prepared landscape illustration, then hides and restores only that path. Importing the illustration and preparing the layer happen before the recording.
+- **Custom Runs:** the May build executes a named code block that reads a prepared 360-row CSV, counts its three classes and checks for missing values. The output is from the actual Python run; no training or image-file validation is demonstrated.
+- **Workflow connection:** the May build shows a focused view of one Start-to-Chat connection. Its inspector changes the thread strategy from continuing the current conversation to starting a new one before sending. The existing conversation is retained history; the clip shows configuration, not a new assistant run.
+
+The May frontend needed one restoration repair: a dropdown with no supplied
+background style now uses its existing default, as it already did for an empty
+string. This affects rendering only; the recorded settings, execution and
+workflow operations use the historical application logic.
