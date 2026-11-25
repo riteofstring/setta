@@ -12,8 +12,8 @@ below describe the visible actions and measured outcomes.
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [Python Canvas](#python-canvas-change-the-model-then-execute-it)      | [Watch](https://setta.dev/history/features/#f-python-canvas)               | Change a model parameter, execute it and inspect measured results and generated Python.           |
 | [Realtime](#realtime-one-drawing-two-treatments-one-joined-result)    | [Watch](https://setta.dev/history/features/#f-realtime-computation)        | Edit a drawing and its recipe, then inspect actual branch and joined outputs.                     |
-| [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/history/features/#f-live-python)                 | Replace linear decay with a cosine formula and see the running plot change.                       |
-| [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/history/features/#f-workbench-views-and-windows) | Move a warmup slider and see the schedule's peak move with it.                                    |
+| [Callback hot reload](#live-python-edit-the-running-callback)         | [Watch](https://setta.dev/history/features/#f-callback-hot-reload)         | Replace linear decay with a cosine formula and see the running plot change.                       |
+| [Live front panel](#front-panel-change-the-warmup)                    | [Watch](https://setta.dev/history/features/#f-meta-controls)               | Move a warmup slider and see the schedule's peak move with it.                                    |
 | [Project assistant](#agents-review-a-configurable-training-program)   | [Watch](https://setta.dev/history/features/#f-assistant-operations)        | Review a real dry-run check and change a control beside the AI-written source.                    |
 | [AI Follow](#ai-follow-see-the-assistants-edits)                      | [Watch](https://setta.dev/history/features/#f-ai-follow)                   | Ask for a revised experiment and follow the canvas to four actual configuration changes.          |
 | [Image chat](#image-chat-read-an-attached-chart)                      | [Watch](https://setta.dev/history/features/#f-chat-image-attachments)      | Attach a loss chart and inspect the model's checkpoint choice and explanation.                    |
@@ -59,7 +59,7 @@ explained from source; this clip does not pretend to exercise every race conditi
 
 ## Live Python: edit the running callback
 
-[![The edited Python callback beside its cosine learning-rate curve.](../../images/history/callback-hot-reload.png)](https://setta.dev/history/features/#f-live-python)
+[![The edited Python callback beside its cosine learning-rate curve.](../../images/history/callback-hot-reload.png)](https://setta.dev/history/features/#f-callback-hot-reload)
 
 The learning-rate lab starts with a straight decay after a three-epoch warmup.
 Replace `decay = 1 - t` with `(1 + math.cos(math.pi * t)) / 2` and save the file.
@@ -74,7 +74,7 @@ recording.
 
 ## Front panel: change the warmup
 
-[![A nine-epoch warmup shown by the live schedule and its slider.](../../images/history/live-front-panel.png)](https://setta.dev/history/features/#f-workbench-views-and-windows)
+[![A nine-epoch warmup shown by the live schedule and its slider.](../../images/history/live-front-panel.png)](https://setta.dev/history/features/#f-meta-controls)
 
 Move the same program's native meta-control slider from 3 to 9 warmup epochs.
 The ramp becomes longer and the peak moves from epoch 3 to epoch 9. Moving the
