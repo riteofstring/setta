@@ -17,6 +17,7 @@ the source behind them. The current React package is one outcome of that work.
 [**Explore the interactive retrospective →**](https://setta.dev/history/)
 
 [Illustrated highlights](docs/history/highlights.md) ·
+[Original videos](docs/history/videos.md) ·
 [History guide](docs/history/README.md) · [All documentation](docs/README.md)
 
 [![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/history/#live-python)

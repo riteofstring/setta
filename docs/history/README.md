@@ -18,6 +18,7 @@ For a tour inside this repository, choose one of these:
 | [Illustrated highlights](highlights.md) | A selection of ideas worth exploring: Python controls, live images, experiments and agents. |
 | [The illustrated timeline](tour.md)     | The product's evolution from 2020 to 2026, in order, through screenshots and examples.      |
 | [Original example gallery](examples.md) | Seven historical projects, including Stream Diffusion, FLUX inpainting and model training.  |
+| [Original videos](videos.md)            | Six YouTube walkthroughs from 2025, with thumbnails, runtimes and publication dates.        |
 
 ## Browse by feature or source
 

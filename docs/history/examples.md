@@ -10,7 +10,7 @@ The screenshots below are original previews recovered from the preserved example
 documentation. Each project links to its archived source in this repository. They use the historical
 Python application and its dependencies; they are not examples for the current npm API.
 
-[Illustrated timeline](tour.md) · [Image sources](images.md#original-example-screenshots)
+[Illustrated timeline](tour.md) · [Original videos](videos.md) · [Image sources](images.md#original-example-screenshots)
 
 **On this page**
 
@@ -40,6 +40,8 @@ Trying out different training configurations, using the Hugging Face Transformer
 
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/trl_language_model_finetuning)
 
+[Watch the original overview](https://youtu.be/hVH3IPoNngo).
+
 ## Flux Inpainting
 
 Use the FLUX.1-Fill-dev model by Black Forest Labs to inpaint and outpaint images.
@@ -67,6 +69,8 @@ and dataset and model configuration onto the same canvas.
 
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/transformers_trainer)
 
+[Watch the original demonstration](https://youtu.be/RdF-0C_Tzvw).
+
 ## PyTorch Metric Learning
 
 Finetune embedding models using different metric learning algorithms.
@@ -74,6 +78,8 @@ Finetune embedding models using different metric learning algorithms.
 [![PyTorch Metric Learning in the historical Setta workspace](../../images/history/metric-learning.png)](../../images/history/metric-learning.png)
 
 [Explore the preserved project](https://github.com/riteofstring/setta/tree/bb40a0d890c29a43039c52bfb3859a1e6e6ed287/setta-examples/pytorch_metric_learning_trainer)
+
+[Watch the original demonstration](https://youtu.be/8oGfC37Gi5Y).
 
 ## SapientML
 
