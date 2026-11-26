@@ -115,7 +115,7 @@ The old Git, SSH, AI, plugin and file services remained application integrations
 risograph and contour treatments, then composed the selected treatment into a poster.
 Ink controls changed the result; SVG and PNG exports took it out of the workspace.
 
-Its [worker](https://github.com/riteofstring/setta-site/blob/7051440aba168e8cc34a2572f5c6ebe7b8b38722/src/studio/print.worker.ts)
+Its worker
 used the public browser pipeline API: three treatment stages fed a dependent poster stage.
 The drawing, SVG artwork and export code belonged to the independent site.
 
@@ -129,7 +129,7 @@ Python-backed Signal Bloom Press example below._
 **Step into a photograph.** The photo playground combined a picture and depth map into
 colored particles. Depth, scatter, motion, size and slicing controls changed the scene
 without rerunning the model. The application supplied
-[depth estimation and particle construction](https://github.com/riteofstring/setta-site/blob/682754a1894b9f03989a441b30849999b66dc24f/src/studio/depth.worker.ts);
+depth estimation and particle construction;
 Setta coordinated the worker stages and presented the controls.
 
 _Original archived screenshot using the prepared fox example and its saved depth map.
@@ -140,7 +140,7 @@ The interface also supported estimating depth for a new photo._
 **Inspect a capture from the inside.** The Gaussian splat studio opened real captured
 objects, measured their contents, and let users orbit, inspect individual Gaussians,
 cut cross-sections and export the visible selection. Its
-[worker pipeline](https://github.com/riteofstring/setta-site/blob/f2802703613b0092037ab2e375e7d7d1e82f3439/src/studio/splat.worker.ts)
+worker pipeline
 read, decoded, measured and packed the data; Spark and Three.js supplied the rendering.
 
 _Original archived screenshot. Houseplant contains 113,648 Gaussians and is a multi-view
@@ -158,7 +158,7 @@ Users could scrub through the field, change the extraction threshold and adjust
 sampling without rerunning the reconstruction model. A pipeline panel exposed stage
 progress beside the intermediate results.
 
-The [application](https://github.com/riteofstring/setta-site/tree/c55310fa8befe0265cf8334d41a11a1c48bdbe17/src/studio)
+The application
 used SlimSAM for selection and TripoSR for reconstruction in the browser. TripoSR
 predicted a radiance field; application code placed Gaussians on its estimated surface.
 Unseen surfaces were guesses, so this was an approximate single-image reconstruction,

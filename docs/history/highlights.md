@@ -95,7 +95,7 @@ UI prototype without execution logic._
 
 **2024 · Setta.** A workspace could hold an image input, a live Python computation and
 its visual results. Drawing became another input: strokes were sent to dependent tasks.
-The drawing surface later gained layers, opacity, brushes, erasers and image resizing.
+The drawing surface later gained layers, per-layer opacity and image resizing.
 Markdown could render formulas, and a documentation tooltip could become a persistent
 panel beside the work.
 
@@ -196,7 +196,7 @@ _Restored July 2026 graph with authored, synthetic research data. The captures
 do not establish automatic cartography, completed Setta 3 workflow execution
 or live Setta 4 orchestration._
 
-[Explore the six summer captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) ·
+[Explore the summer captures](features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) ·
 [Explore the interactive history](https://setta.dev/)
 
 ## Give the same building blocks very different jobs

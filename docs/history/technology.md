@@ -618,9 +618,9 @@ uses **Astro**, and its documentation uses **Docusaurus**. Today's interactive a
 uses **React, Vite, Three.js and Web Audio**, with Setta providing workspace interactions.
 Its sound engine and 3D scenery belong to that application. The retrospective itself is
 a static Vite page; it does not execute the historical applications in the visitor's browser.
-See the [website source](https://github.com/riteofstring/setta-site), its
-[archive guide](https://github.com/riteofstring/setta-site/blob/main/docs/design/site.md#python-era-archive)
-and the [audio-demo boundary](../examples/instrument.md).
+See the preserved [Python-era website](https://setta.dev/old/) and
+[documentation](https://setta.dev/old/docs/), and the
+[audio-demo boundary](../examples/instrument.md).
 
 [History guide](README.md) · [Chronological feature history](feature-history.md) · [Tags and checkpoints](tags.md)
 
