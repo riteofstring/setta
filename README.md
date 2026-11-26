@@ -5,74 +5,64 @@
 
 **Six years of experiments in how we work with code, data and AI.**
 
-Setta began in 2020 by turning Python arguments into interfaces. Forms became a
-spatial workspace; saved configurations became executable experiments; live Python
-connected controls to images and charts. Files, tools and AI agents later joined
-that workspace. Along the way, the recurring idea was to keep controls, code and
-results together in a space you could reshape.
+Setta began in 2020 by turning Python arguments into forms. Over six years those
+forms spread onto a canvas, ran experiments, stayed connected to live Python and
+eventually shared a project with files, tools and AI agents.
 
-This repository preserves that history: the interfaces, the ideas, the detours and
-the source behind them. The current React package is one outcome of that work.
+This repository keeps that history: the interfaces, the ideas, the detours and the
+source behind them. Today it ships a React workspace library.
 
-[**Read the illustrated history**](https://setta.dev/)
-
-[Illustrated highlights](docs/history/highlights.md) ·
-[Original videos](docs/history/videos.md) ·
-[History guide](docs/history/README.md) · [All documentation](docs/README.md)
+**[Story](https://setta.dev/)** · **[Features](https://setta.dev/features/)** ·
+**[How it worked](https://setta.dev/how-it-worked/)** · **[Audio demo](https://setta.dev/demo/)**
 
 [![A StreamDiffusion workspace with an input image, generated variations, controls and Python code.](images/history/stream-diffusion.png)](https://setta.dev/features/#f-historical-python-integrations)
 
 _StreamDiffusion turns a drawing or image into generated variations, with inputs,
 controls and Python beside the results._
 
-## Ideas explored along the way
+## Timeline
 
-| Period                    | What changed                                                                                                                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2020–2021                 | [Python functions and classes became composable controls, then executable programs.](docs/history/features/python-interfaces.md)                                                                       |
-| 2022–2023                 | [The interface became a canvas of movable sections, groups and reusable configurations.](docs/history/features/spatial-controls.md)                                                                    |
-| 2023–2024                 | [Saved variants, parameter sweeps, terminals and charts brought experiments into the workspace.](docs/history/features/experiments.md)                                                                 |
-| 2024–2025                 | [Live Python, drawing and generated images connected controls to visible results.](docs/history/highlights.md#put-images-mathematics-and-code-on-the-same-canvas)                                      |
-| 2025–2026                 | [Files, Git, remote environments, agents and executable workflows shared one project.](docs/history/features/workbench.md)                                                                             |
-| Summer 2026 · Setta 3 & 4 | [Separate experiments explored scrolling agent workspaces, research graphs and a Director command center.](docs/history/features/libraries-and-detours.md#summer-2026-two-agent-workspace-experiments) |
-| August–November 2026      | [Workspace interactions became a library used by creative tools and focused research applications.](docs/history/features/libraries-and-detours.md)                                                    |
+| When          | Chapter                                                                              |
+| ------------- | ------------------------------------------------------------------------------------ |
+| 2020–2021     | [A Python function became a form.](https://setta.dev/#chapter-1)                     |
+| 2022–2023     | [The form spread out onto a canvas.](https://setta.dev/#chapter-2)                   |
+| 2023–2024     | [Configurations started running.](https://setta.dev/#chapter-3)                      |
+| 2024–2025     | [The program stayed alive.](https://setta.dev/#chapter-4)                            |
+| 2025–May 2026 | [The whole project moved in, including AI assistants.](https://setta.dev/#chapter-5) |
+| Summer 2026   | [Agent work took two detours.](https://setta.dev/#chapter-6)                         |
+| Aug–Nov 2026  | [The core got smaller and easier to reuse.](https://setta.dev/#chapter-7)            |
 
-The [illustrated tour](docs/history/tour.md) follows the changing interfaces. For individual
-features and their implementation dates, use the [source-linked chronology](docs/history/feature-history.md).
+The [history docs](docs/history/README.md) cover the same ground in depth, with sources:
+every feature by date, the technology behind each period, screenshots and the original videos.
 
 ## Explore the source history
 
 Sixteen related project histories are collected in this repository. Earlier applications
 live in earlier commits; the current checkout contains the extracted library. Setta 3
 and Setta 4 were separate experiments, while the library came from the Setta 2 workbench.
+The [reconstruction guide](docs/history/methodology.md) explains the lineage and how to
+browse each version's source through `source/*` and `milestone/*` tags without building it.
 
-The [repository timeline](docs/history/timeline.md) identifies the source trees and major
-boundaries. The [reconstruction guide](docs/history/methodology.md) explains the lineage,
-its limits, and how to browse `source/*` and `milestone/*` tags without building anything.
+## The library
 
-The [technology history](docs/history/technology.md) follows the languages and libraries
-behind the interfaces. Use the [tag guide](docs/history/tags.md) to choose a source checkpoint.
+`@riteofstring/setta` provides React workspaces: a canvas of movable sections, typed
+controls, panes and commands, plus optional browser worker pipelines. Applications supply
+their own data, algorithms and persistence. It requires React 19 and an ESM bundler, and
+its APIs are still alpha.
 
-## Current package
+```sh
+npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
+```
 
-`@riteofstring/setta` provides configurable React workspaces and optional browser worker
-pipelines. Applications supply their own data, algorithms and persistence. Historical
-Python runtimes, AI integrations and workbench applications remain in the source history.
+[![The audio demo: Setta panels and controls around an application-owned audio engine.](images/instrument.png)](https://setta.dev/demo/)
 
-[Try the audio demo](https://setta.dev/demo/) ·
+_The [audio demo](https://setta.dev/demo/) wraps an application-owned audio engine in
+Setta panels and controls._
+
+[Getting started](packages/workspace/README.md#getting-started) ·
 [Workspace API](packages/workspace/README.md) · [Browser pipelines](packages/workspace/BROWSER.md)
 
-### Get started
-
-Follow the [package installation and component setup](packages/workspace/README.md#getting-started).
-The package requires React 19 and an ESM bundler; its APIs are still alpha.
-
-### Run from source
-
-Use Node 26.10.0 and pnpm 10.23.0. Follow the [contributor setup](CONTRIBUTING.md#source-setup),
-then build the current package with `pnpm --filter @riteofstring/setta build`.
-Install the resulting `packages/workspace/setta.tgz` from your consuming application.
-
-[Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md)
+[Contributing and building from source](CONTRIBUTING.md) · [Support](SUPPORT.md) ·
+[Security](SECURITY.md)
 
 Licensed under [Apache 2.0](LICENSE), copyright Kevin Musgrave and Jeff Musgrave.

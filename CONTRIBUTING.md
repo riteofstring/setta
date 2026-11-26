@@ -39,6 +39,11 @@ pnpm install --frozen-lockfile --ignore-scripts
 On PowerShell use `.\code-polishyw.ps1` in place of `./code-polishyw`.
 Use the actual target branch in place of `origin/main` when contributing elsewhere. Resolve security or policy findings before proceeding.
 
+### Build the package
+
+Build the current package with `pnpm --filter @riteofstring/setta build`, then install the
+resulting `packages/workspace/setta.tgz` from your consuming application.
+
 Run `pnpm workspace:browser:test`
 for browser regressions and `pnpm consumer:check` for the packed artifact contract. The ambient
 instrument at [setta.dev/demo](https://setta.dev/demo/) is maintained separately.

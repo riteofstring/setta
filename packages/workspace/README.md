@@ -30,7 +30,7 @@ Install it in your React application:
 npm install --save-exact @riteofstring/setta@0.1.0 react@19.1.1 react-dom@19.1.1
 ```
 
-[Source and local-tarball instructions](https://github.com/riteofstring/setta#run-from-source)
+[Source and local-tarball instructions](https://github.com/riteofstring/setta/blob/main/CONTRIBUTING.md#build-the-package)
 are also available. The workspace and `/browser` pipelines ship in the same package.
 Import the compiled stylesheet once:
 
