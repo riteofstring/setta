@@ -15,9 +15,11 @@ source behind them. Today it ships a React workspace library.
 **[Story](https://setta.dev/)** · **[Features](https://setta.dev/features/)** ·
 **[How it worked](https://setta.dev/how-it-worked/)** · **[Audio demo](https://setta.dev/demo/)**
 
-[![StreamDiffusion: red paint drawn over a photo of a dog turns the guitars red in three generated images.](images/history/stream-diffusion.gif)](https://setta.dev/features/#f-historical-python-integrations)
+<p align="center">
+  <a href="https://setta.dev/features/#f-historical-python-integrations"><img src="images/history/stream-diffusion.gif" width="560" alt="StreamDiffusion: red paint drawn over a photo of a dog turns the guitars red in three generated images."></a>
+</p>
 
-_StreamDiffusion in 2025: paint on the input and every generated image follows._
+<p align="center"><em>StreamDiffusion in 2025: paint on the input and every generated image follows.</em></p>
 
 ## Timeline
 
