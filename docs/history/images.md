@@ -22,6 +22,7 @@ implementation tables identify feature history independently of these captures.
 - [Side-pane Git history](#side-pane-git-history)
 - [Parameter inspector](#parameter-inspector)
 - [Pane evolution additions](#pane-evolution-additions)
+- [Chart inspector, reusable skills and tabular files](#chart-inspector-reusable-skills-and-tabular-files)
 
 ## Expanded visual tour
 
@@ -301,3 +302,19 @@ The May frontend needed one restoration repair: a dropdown with no supplied
 background style now uses its existing default, as it already did for an empty
 string. This affects rendering only; the recorded settings, execution and
 workflow operations use the historical application logic.
+
+## Chart inspector, reusable skills and tabular files
+
+These three recordings use the unmodified March 1, 2026 application at
+[`84b5c7926c84e161de12ef485ea8a890a758e91c`](https://github.com/riteofstring/setta/tree/84b5c7926c84e161de12ef485ea8a890a758e91c),
+restored with its retained dependencies. They show prepared examples through
+native controls, with no retiming, interpolated frames or reconstructed UI.
+
+- **[Chart inspector](https://setta.dev/features/#f-artifact-and-chart-inspector):** switching Y1-Axis Log Scale redraws six loss curves immediately. The CSV comes from the separate regression calculation described above; the recording demonstrates chart configuration, not running training or editing drawing layers.
+- **[Skill authoring](https://setta.dev/features/#f-skills-and-mcp-authoring):** a custom training-review skill gains an overfitting check, is saved, then displayed as rendered Markdown. The saved instructions were verified. This clip does not run an assistant, configure an MCP server or invoke a slash command.
+- **[Files-pane spreadsheet](https://setta.dev/features/#f-tabular-file-editing):** a prepared experiment plan changes from 12 to 24 epochs and reports Saved. The underlying CSV was checked after saving. The clip does not demonstrate XLSX, adding rows or external-change recovery.
+
+The CSV fixture uses a whole-second modification timestamp to avoid this
+revision's precision mismatch when a nanosecond timestamp passes through
+JavaScript. The native conflict check and save implementation were unchanged.
+The accepted recording shows a real file write, not a simulated confirmation.
