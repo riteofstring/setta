@@ -297,10 +297,12 @@ Sources: [Settings project](https://github.com/riteofstring/setta/commit/2a87c21
 
 ### From template variables to generated state and metadata
 
-The Python generator was written three times: as template substitution until April
-2025, as a Python class generator during 2025, and as a Go renderer by May 2026.
+Python generation evolved from emitted scripts to template substitution, then a
+generated class in 2025 and a Go renderer by May 2026. The January 2021 implementation
+wrapped generated configuration in a runnable Python function and wrote it to a file.
 
-**Templates (2021 to April 2025).** Authored code blocks embedded
+**Templates (2024 to April 2025).** By March 2024, generated Python could be inserted
+into authored code through a placeholder. The later syntax used
 `$SETTA_GENERATED_PYTHON`; the generated code replaced it, indented to the variable's
 column. Section references substituted values too: `$X$version` became
 `"Section@Variant"`, `$X$file_path` the path of that section's file, and
@@ -309,6 +311,14 @@ Bash blocks handled only the non-generated variables. Code blocks were sorted
 topologically, and a circular reference raised `Circular reference detected`. When an
 imports placeholder was absent and inference was enabled, missing imports were added
 from dotted names, so `torch.nn.X` produced `import torch.nn`.
+
+This generator already retained links back to controls. It tracked generated
+variable positions and kept section and parameter IDs in its code metadata. By
+July 2024, language-server diagnostics for argument types could be mapped back to
+parameters; the later template implementation also handled missing arguments. The
+2025 class rewrite changed the generated structure, not the existence of these links.
+
+Sources: [Early executable scripts](https://github.com/riteofstring/setta/commit/e8df01c42cf6098d7b2675def33e7a1364766626) · [March 2024 template insertion](https://github.com/riteofstring/setta/commit/81c9ea687bc199acd8cba551d55da50e1e23c301).
 
 **The class generator (2025).** May 2025 replaced substitution with a generated class,
 initially **S** (renamed **SettaState** in December 2025), written to an importable
@@ -339,8 +349,12 @@ Sources: [Original illustrated template guide](https://setta.dev/old/docs/how_te
 ### Generate Python with identities and scope
 
 The early `ClassInfo` model described arguments, defaults, annotations and control
-types without constructing the represented object. In 2025 a callable section took
-its parameters from the language server's signature help instead.
+types without constructing the represented object. By June 22, 2024, callable
+sections requested language-server signature help to populate their parameters.
+Working basedpyright integration followed in July 2024. These capabilities predated
+the 2025 class generator.
+
+Sources: [Language-server parameter requests](https://github.com/riteofstring/setta/commit/9622a37e95d7ea283cc1fda8fbb484f0120f0b41) · [Working basedpyright integration](https://github.com/riteofstring/setta/commit/7fa3179419) · [July 2024 diagnostics](https://github.com/riteofstring/setta/blob/77cb88eca9/backend/runcoder/lsp/reader.py) · [Template-era variable positions](https://github.com/riteofstring/setta/blob/58e54023472c5de600e99180f3ab3fc69bcacc2c/backend/setta/gen_code/python/generate_code.py) · [Template-era diagnostic mapping](https://github.com/riteofstring/setta/blob/58e54023472c5de600e99180f3ab3fc69bcacc2c/backend/setta/lsp/reader_fns/diagnostics.py).
 
 **One node per value.** The 2025 generator keyed every section and parameter by its
 section and parameter IDs. Each became its own attribute named by its path, so the `x`

@@ -252,9 +252,9 @@ Evidence: [interactive line charts](https://github.com/riteofstring/setta/commit
 
 Autosave covered ordinary edits and undo/redo. Grid snapping became configurable, keyboard shortcuts could be customized, and reset-zoom and fit behavior accounted for the surrounding panes. Groups could arrange their contents in different orientations. Parameter editing gained keyboard movement and nesting operations.
 
-Autocomplete became a working feature in April. Parameter information, inferred imports, references to sections and global values, and missing-argument feedback brought Python-aware assistance into the structured editor. By June and July, a language-server path using basedpyright supplied completions, signatures, and diagnostics. This was a local Python development capability, not merely browser text completion.
+Autocomplete became a working feature in April. Parameter information, inferred imports, references to sections and global values, and missing-argument feedback brought Python-aware assistance into the structured editor. June 22 connected callable parameter requests to language-server signature help. Working basedpyright integration followed in July, supplying completions, signatures, and diagnostics. Generated-variable metadata linked argument-type errors back to section and parameter IDs. This was a local Python development capability, not merely browser text completion.
 
-Evidence: [autosave](https://github.com/riteofstring/setta/commit/416b00d69b), [working autocomplete](https://github.com/riteofstring/setta/commit/2c1ee8f26306eba3eb1fb7d78ebe7045138b647a).
+Evidence: [autosave](https://github.com/riteofstring/setta/commit/416b00d69b), [working autocomplete](https://github.com/riteofstring/setta/commit/2c1ee8f26306eba3eb1fb7d78ebe7045138b647a), [language-server parameter requests](https://github.com/riteofstring/setta/commit/9622a37e95d7ea283cc1fda8fbb484f0120f0b41), [working basedpyright integration](https://github.com/riteofstring/setta/commit/7fa3179419), [diagnostics linked to controls](https://github.com/riteofstring/setta/blob/77cb88eca9/backend/runcoder/lsp/reader.py).
 
 ### August–September: images, drawing, and external source files
 
