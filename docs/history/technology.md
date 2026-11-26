@@ -120,7 +120,8 @@ and local computation. The [package requirements][python2023] and
 The React frontend retained **Vite, Radix, Tailwind, Zustand, dnd-kit and React Flow**.
 **visx** supplied the earlier chart components. **CodeMirror 6** entered the code editor
 in January 2024 and later spread to parameter expressions and text editing.
-**Chart.js** entered in December 2024. **xterm.js** supplied terminal presentation.
+After an early 2023 experiment, **Chart.js** returned in December 2024 to replace
+the visx chart surface. **xterm.js** supplied terminal presentation.
 The project also preserved small forks of xterm.js and xyflow for changes needed by
 its zoomable workspace; these are selected fork histories, not complete upstream archives.
 See the [late-2023 frontend][frontlate2023], [CodeMirror change][codemirror2024],
@@ -398,7 +399,7 @@ for callbacks already running and pending work superseded by newer input.
 Hot reload separated resource construction from a named callback-builder function.
 **watchfiles** observed edits, callback rebuilding ran under a lock, the WebSocket
 session survived, and the latest project snapshot was replayed. A failed rebuild
-restored the old callbacks and scheduler state. Each reload re-ran the builder's module,
+restored the previous callbacks. Each reload re-ran the builder's module,
 so a model created at that module's top level was loaded again; a model survived an
 edit only when it lived in another module or a cache that the reload did not re-run.
 

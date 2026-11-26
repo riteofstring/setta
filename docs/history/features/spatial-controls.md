@@ -63,11 +63,11 @@ removed 2021 SavedVersions model and from whole-project configurations.
 
 ## Drawing as an input
 
-The September 2024 drawing surface sent its image to dependent interactive Python tasks.
-A stroke could therefore change a computation's input and its displayed result. December
-added editable layers, visibility and opacity controls, brush and eraser settings, and
-image resizing. This put a small image-composition environment inside the same workbench
-as the code and parameters.
+The September 2024 drawing surface let you sketch, erase and send its image to dependent
+interactive Python tasks. A stroke could change a computation's input and its displayed
+result. December added editable layers, layer visibility and opacity, and image resizing.
+This put a small image-composition environment inside the same workbench as the code and
+parameters.
 
 The [technical account](../technology.md#a-custom-draw-section-inside-the-workspace)
 covers its custom Canvas 2D layers, artifact transforms and image transfer to Python.

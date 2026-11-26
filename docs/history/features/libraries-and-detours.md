@@ -89,7 +89,7 @@ report example, not an agent-authored report from the restored session.
 The live Director did not dispatch work successfully with the substitute model.
 
 _August 2, 2026 source: [bd5cd3d089](https://github.com/riteofstring/setta/tree/bd5cd3d0898d5ced1961532034e3b9284fa3146b).
-Both demonstrations run in the restored Electron application._
+This demonstration runs in the restored Electron application._
 
 [Exact capture provenance](../images.md#summer-2026-restoration-captures) ·
 [Setta 3 source history](../feature-history.md#late-mayjuly-2026-the-setta-3-experiment) ·

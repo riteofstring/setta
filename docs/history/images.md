@@ -26,7 +26,7 @@ implementation tables identify feature history independently of these captures.
 
 ## Expanded visual tour
 
-These six captures use new demonstration projects, assembled in the restored applications
+These captures use new demonstration projects, assembled in the restored applications
 on November 19, 2026. The interfaces are application renders, not mockups; computed images,
 curves and model responses are real outputs.
 

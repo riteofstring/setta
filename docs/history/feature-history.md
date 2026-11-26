@@ -192,7 +192,7 @@ Evidence: [Group sections](https://github.com/riteofstring/setta/commit/19527db9
 
 ### January–March: bring program output back onto the canvas
 
-A new logging path associated program output with the correct project and run. A Python logger sent data over WebSockets, and a PyTorch Lightning integration made training metrics a concrete use case. Named output groups organized results from a run.
+A new logging path associated program output with the correct project and run. A Python logger sent data to the backend, which streamed updates to the workspace. A PyTorch Lightning integration made training metrics a concrete use case. Named output groups organized results from a run.
 
 Charts turned those results into live visual feedback. Early Chart.js experiments became responsive line charts with multiple series, colors, legends, shared hover information, and updates as data arrived. Resizable sections made the chart surface useful beside controls, and resizing was propagated through containing layouts. Double-click sizing shortcuts followed.
 
