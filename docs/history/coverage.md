@@ -2,7 +2,7 @@
 
 [Documentation](../README.md) / [History](README.md)
 
-Start with the [illustrated history](https://setta.dev/) for the major changes. [Every feature](https://setta.dev/features/) gives each capability a dated example or explanation, and [How it worked](https://setta.dev/how-it-worked/) describes the engineering behind it.
+Start with the [illustrated history](https://setta.dev/) for the major changes. [Features](https://setta.dev/features/) gives each capability a dated example or explanation, and [How it worked](https://setta.dev/how-it-worked/) describes the engineering behind it.
 
 This register follows meaningful feature families across versions. Each family has a stable ID, a historical period, source evidence and a public destination. Its threads match the [feature map](https://setta.dev/features/): **Python programs**, **Live computation**, **The workspace**, **From programs to applications**, **Runs and results**, **AI assistants** and the **Detours** of Setta 3 and 4. Several examples or periods can belong to one family.
 

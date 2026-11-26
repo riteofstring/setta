@@ -11,7 +11,7 @@ ideas became reusable library features.
 
 **[Read the illustrated history](https://setta.dev/)**
 
-[Every feature](https://setta.dev/features/) · [How it worked](https://setta.dev/how-it-worked/)
+[Features](https://setta.dev/features/) · [How it worked](https://setta.dev/how-it-worked/)
 
 For a tour inside this repository, choose one of these:
 

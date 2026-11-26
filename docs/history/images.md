@@ -296,7 +296,7 @@ The app source is unchanged; model inference uses the restored local engine.
 ## Settings, drawing, custom runs and workflow connections
 
 Four restored demonstrations accompany the corresponding entries in
-[Every feature](https://setta.dev/features/):
+[Features](https://setta.dev/features/):
 
 - **Settings workspace:** the May 10, 2026 build (`eea7fb38c8`) separates GUI and backend preferences. Changing Grid Pattern to lines updates the canvas with autosave enabled. The feature itself dates to September 2024.
 - **Draw layers:** the January 2025 interface draws a path on a separate layer over a prepared landscape illustration, then hides and restores only that path. Importing the illustration and preparing the layer happen before the recording.
