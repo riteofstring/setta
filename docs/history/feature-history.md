@@ -384,7 +384,7 @@ Evidence: [FastMCP integration](https://github.com/riteofstring/setta/commit/5bd
 
 ### May–June: generated state, file tools, hosted projects, and sweep removal
 
-May introduced generated state access through a Python class, commonly represented as **S**. Programs could address configured values through generated state rather than only through expanded constructor calls. Code generation also narrowed to the relevant connected graph, so a program could depend on the sections it actually used instead of incorporating the whole canvas.
+May introduced generated state access through a Python class, commonly represented as **S**. Programs could address configured values through generated state rather than only through expanded constructor calls. Generation walked each eligible top-level section and its dependencies, emitting shared dependencies once and placing them before the sections that used them.
 
 This began a shift from inserting generated Python through template variables toward importing a generated state module. The later `SettaState` class and `state` instance put configured values behind ordinary Python attributes; authored code could live around a protected generated body. January 2026 would add a separate metadata module describing the project, sections and selected variants. The [technology history](technology.md#from-template-variables-to-generated-state-and-metadata) follows that progression.
 
@@ -394,7 +394,7 @@ A separate **setta-saas** project explored deploying projects through Fly.io. De
 
 On June 1, the old **parameter sweeps and run groups were removed**. Their UI and behavior were deliberately taken out. The later Python RunPlan system was a new design introduced in January 2026, not an uninterrupted continuation of the old sweep cards.
 
-Evidence: [generated state](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504), [dependency-focused generation](https://github.com/riteofstring/setta/commit/fea01c019ebc43c0cd82cbec32c5582d3ca85f59), [hosted-project experiment](https://github.com/riteofstring/setta/commit/714290e028dcef6d83d5ac6649b8223b107e7b33), [sweep and run-group removal](https://github.com/riteofstring/setta/commit/e33715d454805045e7f1160c343a46e61181ad23).
+Evidence: [generated state](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504), [dependency-ordered generation](https://github.com/riteofstring/setta/commit/fea01c019ebc43c0cd82cbec32c5582d3ca85f59), [hosted-project experiment](https://github.com/riteofstring/setta/commit/714290e028dcef6d83d5ac6649b8223b107e7b33), [sweep and run-group removal](https://github.com/riteofstring/setta/commit/e33715d454805045e7f1160c343a46e61181ad23).
 
 ### May–July: write around generated Python in the right pane
 
