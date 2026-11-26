@@ -297,47 +297,83 @@ Sources: [Settings project](https://github.com/riteofstring/setta/commit/2a87c21
 
 ### From template variables to generated state and metadata
 
-In late 2024 and early 2025, authored programs embedded `$SETTA_GENERATED_PYTHON` and
-an imports placeholder. Section references also exposed `$section_name$version`,
-`$section_name$import_path` and `$section_name$file_path`. Python could import another
-section's function; Bash could launch its generated file. The generator discovered
-these references and substituted runtime paths and selected-version information.
+The Python generator was written three times: as template substitution until April
+2025, as a Python class generator during 2025, and as a Go renderer by May 2026.
 
-May 2025 introduced a generated wrapper class, initially **S**. The later **SettaState**
-and `state` instance exposed configured values through ordinary Python attributes.
-The integration moved toward an importable generated module, `setta_gen.py`, with
-authored prefix/suffix code and a protected generated body in the editor. This changed
-how programs consumed visual configuration; it was more than renaming the placeholder.
+**Templates (2021 to April 2025).** Authored code blocks embedded
+`$SETTA_GENERATED_PYTHON`; the generated code replaced it, indented to the variable's
+column. Section references substituted values too: `$X$version` became
+`"Section@Variant"`, `$X$file_path` the path of that section's file, and
+`$X$import_path` its module path, which also recorded a dependency between blocks.
+Bash blocks handled only the non-generated variables. Code blocks were sorted
+topologically, and a circular reference raised `Circular reference detected`. When an
+imports placeholder was absent and inference was enabled, missing imports were added
+from dotted names, so `torch.nn.X` produced `import torch.nn`.
 
-January 2026 added optional **meta-generated code** in `setta_gen_meta.py` and a dedicated
-generated-metadata section. Project identity, section paths, parent relationships and
-selected variant IDs/names became inspectable at runtime through `state.__state__`,
-including section lookup by path or ID. The value module answered “what is configured?”;
-the metadata module also answered “which project, section and variant produced it?”
-This metadata is separate from the Meta Control widget type.
+**The class generator (2025).** May 2025 replaced substitution with a generated class,
+initially **S** (renamed **SettaState** in December 2025), written to an importable
+`setta_gen.py`: the authored prefix, then the class, then the authored suffix. The
+default suffix, `s = S()` and later `state = SettaState()`, created the instance; it
+was not part of the generated body. The editor showed prefix and suffix around a
+read-only generated body. Imports were no longer inferred; authored code supplied
+them in the prefix.
 
-Generation defaults became configurable in Custom Runs. A policy selected eligible
-section/control types and per-section inclusion overrides. Type defaults and individual
-overrides also chose representations: expressions, strings, parsed JSON, file paths or
-file reads where supported. For example, a drawing could supply its saved image path
-instead of eagerly reading the image. Unsupported type/representation pairs were
-validated. These output policies are distinct from a callable argument's default and
-from the internal factories that generated application state.
+**Metadata (January 2026).** Optional **meta-generated code** in `setta_gen_meta.py`
+defined frozen project and section records (identity, path, type, parent and selected
+variant ID and name). A block after the suffix attached them as `state.__state__`, with
+lookup by path or ID: the value module answered “what is configured?”, the metadata
+module “which project, section and variant produced it?” This metadata is separate from
+the Meta Control widget type.
 
-Sources: [Original illustrated template guide](https://setta.dev/old/docs/how_template_variables_work) · [Wrapper class](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504) · [Metadata section](https://github.com/riteofstring/setta/commit/a6339d695e28ffefb4e6c81e482a95e6cf6eabc2) · [Policy controls](https://github.com/riteofstring/setta/commit/fcb042edc5fabff913a8e2b1e03f6cd1044045a9) · [Later representation modes](https://github.com/riteofstring/setta/commit/3189679ae8439e45e9118bc83a237f45f0b518d2) · [Generated values, metadata and policy contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/codegen-section-policy-and-metadata.md).
+**Representation policy (January to May 2026).** Values arrive as the text typed into a
+control, so generation needs to know what that text means. A policy in Custom Runs
+selected eligible section and control types, per-section overrides, and a
+representation: parameters as an expression, a quoted string or parsed JSON (falling
+back to a string); Draw, Image and Chat sections and dropzone parameters as a file path
+or a file read. A missing backing file fell back to an expression such as `None`.
+Unsupported type and representation pairs were rejected. These output policies are
+distinct from a callable argument's default.
+
+Sources: [Original illustrated template guide](https://setta.dev/old/docs/how_template_variables_work) · [Template substitution](https://github.com/riteofstring/setta/blob/58e54023472c5de600e99180f3ab3fc69bcacc2c/backend/setta/gen_code/create_runnable_scripts.py) · [Wrapper class](https://github.com/riteofstring/setta/commit/0c8758825ab766bd75227989915c5b889af38504) · [SettaState rename](https://github.com/riteofstring/setta/commit/64756421ad4da36921c9ef4bae6e0a9d87df55cb) · [Metadata section](https://github.com/riteofstring/setta/commit/a6339d695e28ffefb4e6c81e482a95e6cf6eabc2) · [Policy controls](https://github.com/riteofstring/setta/commit/fcb042edc5fabff913a8e2b1e03f6cd1044045a9) · [Later representation modes](https://github.com/riteofstring/setta/commit/3189679ae8439e45e9118bc83a237f45f0b518d2) · [Metadata renderer](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/codegen/python_meta_renderer.go) · [Policy validation](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/projectstate/python_codegen_policy.go) · [Generated values, metadata and policy contract](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/docs/reference/codegen-section-policy-and-metadata.md).
 
 ### Generate Python with identities and scope
 
-The early `ClassInfo` metadata model described arguments, defaults and annotations
-without requiring the represented object to be constructed. Later nested callables,
-references and parameter-passing styles required dependency traversal and source maps.
-The 2025 generator mapped generated source positions back to section and parameter
-identities. Its standard-library **ast** visitor distinguished workspace references
-from local names, including functions and comprehensions. This was more than replacing
-strings in a template. That checkpoint recorded cycles; it should not be described as
-the later browser executor's cycle-rejection implementation.
+The early `ClassInfo` model described arguments, defaults, annotations and control
+types without constructing the represented object. In 2025 a callable section took
+its parameters from the language server's signature help instead.
 
-Sources: [Early metadata](https://github.com/riteofstring/setta/blob/6ab75eb9bca555c3db6b04e7cfa232af9efadab4/ABCDE/src/abcde/registration/class_info.py) · [Dependency traversal](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/dependency_graph.py) · [Source mapping](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/python/generate_code.py) · [AST analysis](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/python/ast_utils.py).
+**One node per value.** The 2025 generator keyed every section and parameter by its
+section and parameter IDs. Each became its own attribute named by its path, so the `x`
+parameter of `result` became `s.result__x`, list items `parent__0`, and collisions got a
+numeric suffix. A callable was written as a call whose keyword arguments referred to
+those attributes. Empty and unnamed parameters were left out. Starting from each named
+top-level node, a depth-first walk wrote dependencies before the node, so the file read
+in dependency order regardless of canvas order.
+
+**References in expressions.** A value could be any Python expression. A visitor built
+on the standard-library **ast** module scanned parameter values for `s.<name>`, one
+level deep, while `s` was not bound locally (function arguments, loop targets,
+comprehensions and assignments). It did not handle lambdas or generator expressions.
+Matches became dependencies, and their stored positions let a section rename rewrite
+each reference in place. In 2026 the Go generator used tree-sitter with a full scope
+stack, including lambdas and assignment expressions, and looked for `state.<name>`.
+
+**Offsets back to controls.** While writing the class, the generator recorded where each
+value started in the file, which section and parameter it came from, and a lookup from
+each attribute name to its node. The language server's type checker reported problems
+by file position: `reportArgumentType` was matched by the attribute it named, and
+`reportCallIssue` by the call's value offset, which identified missing or
+positional-only arguments. The message was shown on the control. The same offsets
+positioned completion and signature help inside a control. This was a table of value
+offsets for diagnostics and completion, not a general source map.
+
+**Cycles.** Nothing prevented a cycle on the canvas. The 2025 generator detected cycles
+along the current path and printed them, but still wrote every line, so the class could
+read an attribute before assigning it. The 2026 Go renderer skipped a node already on
+the active path without reporting it. The library's browser executor, which rejects
+cycles, is a separate later implementation.
+
+Sources: [Early metadata](https://github.com/riteofstring/setta/blob/6ab75eb9bca555c3db6b04e7cfa232af9efadab4/ABCDE/src/abcde/registration/class_info.py) · [Dependency traversal](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/dependency_graph.py) · [Class generation and offsets](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/python/generate_code.py) · [AST analysis](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/code_gen/python/ast_utils.py) · [Diagnostics mapping](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/backend/setta/project_state/lsp_response_handlers/diagnostics.py) · [Go renderer](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/codegen/python_code_renderer.go) · [Tree-sitter references](https://github.com/riteofstring/setta/blob/eea7fb38c8fdb452766d06b08610248e2962c4fc/internal/codegen/python_expression_refs.go).
 
 ### Give resources, callbacks and files different lifetimes
 
