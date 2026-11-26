@@ -41,10 +41,11 @@ presents the architecture as a dedicated companion to the visual history.
 
 ## 2020–2021: Python, React forms and desktop execution
 
-The earliest Python work used `inspect` to describe functions and classes before
-constructing them. The initial environment included **PyTorch, torchvision and CUDA**:
-training configuration was the starting problem, while the metadata machinery became
-more general. See the [object-description code][python2020] and [Conda environment][conda2020].
+The earliest Python work used introspection through `inspect` to describe functions
+and classes before constructing them. The initial environment included **PyTorch,
+torchvision and CUDA**: training configuration was the starting problem, while the
+metadata machinery became more general. See the [object-description code][python2020]
+and [Conda environment][conda2020].
 
 The first frontend used **JavaScript and React**, scaffolded with **Create React App**.
 **Chakra UI** and **Emotion** supplied interface components and styling; **Easy Peasy**
@@ -65,10 +66,11 @@ application integrations, distinct from the web frontend's form generation:
 ### Panning before React Flow
 
 The 2021 interface already had pan and zoom, while its contents were still a structured
-form. Setta wrapped **react-map-interaction**, measured the form with **react-sizeme**,
-and kept scale and translation together. Its own horizontal and vertical scrollbars
-converted between scroll positions and that translation. Bounds depended on the scaled
-content, viewport and margins; zooming therefore changed more than a CSS transform.
+form. Coordinate transforms kept panning, zooming and scrolling aligned. Setta wrapped
+**react-map-interaction**, measured the form with **react-sizeme**, and kept scale and
+translation together. Its own horizontal and vertical scrollbars converted between
+scroll positions and that translation. Bounds depended on the scaled content, viewport
+and margins; zooming therefore changed more than a CSS transform.
 
 By March, navigation also accounted for the Overview pane's width and used **Framer
 Motion** for positioning. The challenge was keeping scrollbars, the visible form and
@@ -212,9 +214,9 @@ Several changes cut across the chronology:
 **zundo** entered in April 2023 as temporal middleware for Zustand stores, generally
 wrapped around Immer. A single user operation could change parameters, sections,
 code information, UI types and project configuration. Independently rewinding those
-stores would leave the project inconsistent. The implementation coordinated history
-with a shared version: resume recording around the change, record related store
-states, pause again, then undo or redo the stores belonging to that version.
+stores would leave the project inconsistent. Grouped undo tied related changes to
+one step through a shared version: resume recording around the change, record related
+store states, pause again, then undo or redo the stores belonging to that version.
 
 zundo was removed in August 2025 as state ownership changed. The current package's
 bounded structural history is a separate design, with local or host-delegated authority
@@ -224,18 +226,18 @@ Sources: [Introduction](https://github.com/riteofstring/setta/commit/6c713a75e8c
 
 ### Pack and resize in the right coordinate system
 
-**potpack** entered in February 2023. Setta collected measured React Flow rectangles,
-added a 50-pixel margin, packed them and applied the resulting positions relative to
-the canvas's existing minimum coordinates. Rectangle packing arranged panel sizes;
-it did not interpret dependency edges or determine an execution order.
+Setta used rectangle packing through **potpack** from February 2023. It collected measured
+React Flow rectangles, added a 50-pixel margin, packed them and applied the resulting
+positions relative to the canvas's existing minimum coordinates. Packing arranged panel
+sizes; it did not interpret dependency edges or determine an execution order.
 
 In December 2025, **rectangle-packer**, imported as **rpack**, moved this work into
 Python. Its adapter validated and rounded padded sizes, converted lower-left coordinates
 to the canvas's top-left coordinates and retained the arrangement's offset. The current
 library has its own planner, including locked sections as fixed obstacles.
 
-**re-resizable** supplied resizing for side panes and sections. Canvas zoom made that
-more than an ordinary browser resize: the current wrapper captures React Flow's zoom
+**re-resizable** supplied resizing for side panes and sections. Canvas zoom required
+a coordinate conversion: the current wrapper captures React Flow's zoom
 at gesture start and passes it as `scale`. The xterm.js fork addressed the same mismatch
 in terminal mouse coordinates in January 2024. Correctly scaled pixels alone do not
 make pointer input use the right coordinate system.
@@ -246,9 +248,10 @@ Sources: [potpack adapter](https://github.com/riteofstring/setta/blob/2cf4f39dce
 
 Setta used a fork and adapters around **dnd-kit**, with substantial logic for the
 workspace's own nesting rules. A gesture might reorder a parameter, move it into a
-group, or detach it onto the canvas. Screen-space movement had to be divided by React
-Flow's zoom; collision thresholds also had to respect scale. The target under the
-pointer was not necessarily the parent or child that should receive the drop.
+group, or detach it onto the canvas. Coordinate transforms converted screen-space
+movement to canvas units by dividing by React Flow's zoom; collision thresholds also
+had to respect scale. The target under the pointer was not necessarily the parent or
+child that should receive the drop.
 
 Placeholders made collision handling harder by moving the geometry being measured.
 **Hysteresis** retained the earlier boundary-crossing decision instead of switching
@@ -261,9 +264,10 @@ Sources: [Resolved-target collision handling](https://github.com/riteofstring/se
 
 ### Typed contracts across Python, TypeScript and Go
 
-TypeScript adoption began in the spatial frontend, but a second migration made the
-application's shared data typed. In May 2025, Python **Pydantic** models began defining
-project state and settings. Generators translated those definitions into frontend
+TypeScript adoption began in the spatial frontend, but a second migration used
+schema-driven code generation to share typed data across languages. In May 2025,
+Python **Pydantic** models began defining project state and settings. Generators
+translated those definitions into frontend
 **Zod** schemas, TypeScript types and creation functions, replacing separately maintained
 default objects. Enums, unions, discriminator fields, optional inputs and defaults all
 had to survive that translation. Implementation layers and user defaults added generated
@@ -362,10 +366,10 @@ section and parameter IDs. Each became its own attribute named by its path, so t
 parameter of `result` became `s.result__x`, list items `parent__0`, and collisions got a
 numeric suffix. A callable was written as a call whose keyword arguments referred to
 those attributes. Empty and unnamed parameters were left out. Starting from each named
-top-level node, a depth-first walk wrote dependencies before the node, so the file read
-in dependency order regardless of canvas order.
+top-level node, a depth-first walk wrote dependencies before the node: a topological
+order for acyclic graphs, regardless of canvas order.
 
-**References in expressions.** A value could be any Python expression. A visitor built
+**References and lexical scope.** A value could be any Python expression. A visitor built
 on the standard-library **ast** module scanned parameter values for `s.<name>`, one
 level deep, while `s` was not bound locally (function arguments, loop targets,
 comprehensions and assignments). It did not handle lambdas or generator expressions.
@@ -392,9 +396,10 @@ Sources: [Early metadata](https://github.com/riteofstring/setta/blob/6ab75eb9bca
 
 ### Give resources, callbacks and files different lifetimes
 
-SettaListener used **asyncio** and **websockets** to map relevant changes to callbacks,
-with debounce/throttle scheduling and leading/trailing-edge behavior. It accounted
-for callbacks already running and pending work superseded by newer input.
+SettaListener used subscriptions: callbacks listened for changes to their inputs over
+**websockets**, coordinated with **asyncio**. Debounce/throttle scheduling supported
+leading/trailing-edge behavior and accounted for callbacks already running and pending
+work superseded by newer input.
 
 Hot reload separated resource construction from a named callback-builder function.
 **watchfiles** observed edits, callback rebuilding ran under a lock, the WebSocket
@@ -417,11 +422,11 @@ again; the drawing was not just one flattened bitmap. Draw mode handled strokes 
 erasure, while edit mode selected, moved and resized artifacts.
 
 Pointer coordinates needed to agree with both workspace zoom and an artifact's own
-translation and scale. Inverse transforms supported that local editing. Compositing
-produced the combined drawing and individual layer images as PNG/base64 data for live
-Python inputs, with throttling and a transfer queue. This custom section predates the
-separate Realtime application's **Fabric.js** editor and the later library's smaller
-drawing primitives.
+translation and scale. Inverse transforms supported that local editing. Layer compositing
+combined the canvases into one image; that image and individual layers became PNG/base64
+data for live Python inputs, with throttling and a transfer queue. This custom section
+predates the separate Realtime application's **Fabric.js** editor and the later library's
+smaller drawing primitives.
 
 Sources: [Draw surface](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx) · [Coordinate and layer rendering](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/canvasUtils.ts) · [Input handling](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts) · [Image export](https://github.com/riteofstring/setta/blob/b1df92a823e70f6a3fdef91b052609123e021473/frontend/src/components/Section/Layouts/DrawArea/base64Conversion.ts).
 
@@ -442,9 +447,10 @@ Sources: [Language-server management](https://github.com/riteofstring/setta/blob
 
 ### External assistants and discoverable settings
 
-The December 2025 stdio **MCP** bridge relayed an external client's tool calls to the
-running backend's SSE endpoint and retained project context between calls. The CLI
-also exposed tool schemas through `setta tools` and JSON invocation through `setta api`.
+The December 2025 **MCP** bridge was a transport adapter: it relayed an external client's
+stdio tool calls to the running backend's SSE endpoint and retained project context
+between calls. The CLI also exposed tool schemas through `setta tools` and JSON invocation
+through `setta api`.
 The operation model could therefore serve assistants outside Setta's own chat.
 
 February 2026's settings registry added typed IDs, schemas, mutability and UI location.
@@ -469,7 +475,8 @@ Sources: [Initial backups](https://github.com/riteofstring/setta/commit/f38c819e
 
 ### Distinguish values, access and workflow control
 
-Python edges described value dependencies; agent edges described readable or writable
+The three kinds of edge represented data dependencies, access permissions and control
+flow. Python edges described value dependencies; agent edges described readable or writable
 context; workflow edges described dispatch after completion, failure or signals. AND/OR/XOR
 gates, activation counts, limits and draft-versus-runnable validation belonged to the
 workflow model. Similar-looking connections did not give the three systems identical semantics.
@@ -501,9 +508,9 @@ Sources: [Python workflow runner](https://github.com/riteofstring/setta/blob/1f4
 
 Spring 2026 explored replacing the workspace's rendering path while retaining HTML
 content and editing. **WebGPU/GPUFlow** began with a device and canvas surface using
-experimental Chromium HTML-in-canvas APIs. Later architecture combined cached HTML
-textures, retained parameter-page textures and GPU-drawn visuals with browser-owned
-editors and DOM control islands. Camera changes could reuse textures; hit targets,
+experimental Chromium HTML-in-canvas APIs. Later architecture used texture caching:
+HTML and parameter pages stayed in GPU textures, alongside GPU-drawn visuals and
+browser-owned editors and DOM control islands. Camera changes could reuse textures; hit targets,
 clipping and overlays had to match the same presented content frame. Keeping interaction
 and pixels coherent was as important as submitting fewer paints.
 
@@ -533,10 +540,11 @@ Sources: [Workflow persistence](https://github.com/riteofstring/setta/blob/62580
 ### Keep stale work from overwriting the latest input
 
 Realtime's application-owned Go scheduler coordinated Python workers, bounded concurrency,
-latest-input work and lineage-matched joins. The later generic browser client was a
-separate implementation: one active request, only the latest pending input, monotonic
-revisions and retention of the last successful output. Obsolete progress and results
-could not overwrite newer input; cancellation and timeout terminated the worker.
+latest-input work and lineage-matched joins. The later generic browser client used
+request coalescing: start immediately, keep one request active and replace any pending
+input with the newest one. It did not wait for a quiet period as a trailing debounce
+would. Revision checks protected against stale progress and results, while the last
+successful output stayed visible. Cancellation and timeout terminated the worker.
 
 The browser executor validates dependencies, rejects cycles and memoizes stage promises
 so a shared stage runs once per request. Independent asynchronous branches can progress
