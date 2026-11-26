@@ -204,6 +204,11 @@ were preserved; it does not establish the date each screenshot was taken.
 | [PyTorch Metric Learning](../../images/history/metric-learning.png)                             | [Source](https://github.com/user-attachments/assets/45ae2047-9dbd-4057-9191-9a3460357ccc) |
 | [SapientML](../../images/history/sapientml.png)                                                 | [Source](https://github.com/user-attachments/assets/d58e648a-47e2-4eda-b9e5-9062494518a4) |
 
+The [animated StreamDiffusion clip](../../images/history/stream-diffusion.gif) on the README is
+cut from 3:26–3:36 of the original
+[Stream Diffusion video](https://youtu.be/KE6FZxbGVkw) (February 21, 2025), cropped to the input
+and generated image sections. That passage was already sped up in the original edit.
+
 ## November 24 feature captures
 
 | Image                                                           | Source and evidence                                                                                                                                                                                                                                                             |
