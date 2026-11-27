@@ -184,7 +184,7 @@ The execution handoff became more explicit in November. The server generated cod
 
 Spatial editing also began maintaining program structure automatically. Detaching a nested parameter onto the canvas could replace the original nested input with a reference to the new independent section. The visual move therefore preserved a relationship in the generated program rather than simply deleting it.
 
-Not every earlier interface survived. The old YAML entry route was removed in September, and the old JSON/YAML export menu was removed in November. Later import and export features were new iterations; there was no uninterrupted single YAML editor spanning the entire history.
+Some earlier interfaces were retired. The old YAML entry route was removed in September, and the old JSON/YAML export menu was removed in November. Later import and export features were new iterations; there was no uninterrupted single YAML editor spanning the entire history.
 
 Evidence: [Group sections](https://github.com/riteofstring/setta/commit/19527db913b842d4e9195c0c6450257fe52203ae), [generated-code identifier](https://github.com/riteofstring/setta/commit/1a6b25c90386b79d3fe0bb1399397e05dba15b65), [CLI download and execution](https://github.com/riteofstring/setta/commit/86b1385c8fff3db435472b199cb08069956cfcc0), [detach-to-reference behavior](https://github.com/riteofstring/setta/commit/087c911436), [old export menu removal](https://github.com/riteofstring/setta/commit/b5aa5c7c02).
 
