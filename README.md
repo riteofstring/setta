@@ -27,7 +27,7 @@ source behind them. Today it ships a React workspace library.
 | ------------- | ------------------------------------------------------------------------------------ |
 | 2020–2021     | [A Python function became a form.](https://setta.dev/#chapter-1)                     |
 | 2022–2023     | [The form spread out onto a canvas.](https://setta.dev/#chapter-2)                   |
-| 2023–2024     | [Configurations started running.](https://setta.dev/#chapter-3)                      |
+| 2023–2024     | [Runs gained logs, charts and sweeps.](https://setta.dev/#chapter-3)                 |
 | 2024–2025     | [The program stayed alive.](https://setta.dev/#chapter-4)                            |
 | 2025–May 2026 | [The whole project moved in, including AI assistants.](https://setta.dev/#chapter-5) |
 | Summer 2026   | [Agent work took two detours.](https://setta.dev/#chapter-6)                         |
